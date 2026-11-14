@@ -364,6 +364,7 @@
       this.isActive = false;
 
       this.scene = null;
+      this.atlasScene = null;
       this.camera = null;
       this.renderer = null;
 
@@ -408,6 +409,8 @@
       this.scene = scene;
       this.camera = camera;
       this.renderer = renderer;
+      this.atlasScene = new THREE.Scene();
+      this.atlasScene.background = new THREE.Color(0x02040a);
       this.initialized = true;
 
       this._build();
@@ -438,16 +441,79 @@
       this.group = new THREE.Group();
       this.group.name = "SolarSystemAtlasGroup";
       this.group.visible = false;
-      this.scene.add(this.group);
+      this.atlasScene.add(this.group);
 
       this._buildLights();
       this._buildSun();
       this._buildOrbitRings();
       this._buildBodies();
+      this._buildSpecialistFlight();
       this._buildAsteroidBelt();
       this._buildGalaxy();
 
       this._layoutBodies(0);
+    }
+
+    _buildSpecialistFlight() {
+      const ship = new THREE.Group();
+      const hull = new THREE.Mesh(new THREE.ConeGeometry(0.32, 1.05, 8), new THREE.MeshBasicMaterial({ color: 0xe9ffff }));
+      hull.rotation.x = Math.PI / 2;
+      ship.add(hull);
+      const wing = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.08, 0.28), new THREE.MeshBasicMaterial({ color: 0x65d4ee }));
+      ship.add(wing);
+      ship.visible = false;
+      this.group.add(ship);
+      this.specialistShip = ship;
+      const geometry = new THREE.BufferGeometry().setFromPoints(Array.from({ length: 41 }, () => new THREE.Vector3()));
+      this.specialistRoute = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: 0x7be8d9, transparent: true, opacity: 0.8 }));
+      this.specialistRoute.visible = false;
+      this.group.add(this.specialistRoute);
+    }
+
+    _updateSpecialistFlight() {
+      const api = window.specialistPlanetMission;
+      const flight = api && api.getFlight();
+      const forecast = flight && flight.preview;
+      const points = forecast && forecast.points;
+      const active = !!(flight && points && points.length > 1);
+      if (!this.specialistShip || !this.specialistRoute) return;
+      this.specialistShip.visible = active;
+      this.specialistRoute.visible = active;
+      if (!active) return;
+      // Plot GMAT's heliocentric samples with logarithmic radial scaling so
+      // inner and outer planets remain visible in the same interactive atlas.
+      const toScene = (x, y, z) => {
+        const r = Math.max(1, Math.hypot(x, y, z));
+        const visualRadius = 4 + 6 * Math.log1p(r / 149597870.7);
+        return new THREE.Vector3(x / r * visualRadius, z / r * visualRadius, y / r * visualRadius);
+      };
+      const positions = this.specialistRoute.geometry.attributes.position;
+      for (let i = 0; i <= 40; i++) {
+        const epoch = forecast.epochMs + (forecast.endEpochMs - forecast.epochMs) * (i / 40);
+        const row = api.stateAt(points, epoch);
+        const point = toScene(row[1], row[2], row[3]);
+        positions.setXYZ(i, point.x, point.y, point.z);
+      }
+      positions.needsUpdate = true;
+      this.specialistRoute.geometry.computeBoundingSphere();
+      const p = flight.playback ? api.progress(flight) : 0;
+      const nowEpoch = forecast.epochMs + (forecast.endEpochMs - forecast.epochMs) * p;
+      const row = api.stateAt(points, nowEpoch);
+      this.specialistShip.position.copy(toScene(row[1], row[2], row[3]));
+      const next = api.stateAt(points, Math.min(forecast.endEpochMs, nowEpoch + (forecast.endEpochMs - forecast.epochMs) * 0.01));
+      const ahead = toScene(next[1], next[2], next[3]);
+      if (ahead.distanceToSquared(this.specialistShip.position) > 0.00001) this.specialistShip.lookAt(ahead);
+      const target = this.bodyNodes.get(flight.planet);
+      const targetRow = flight.playback ? row : points[points.length - 1];
+      if (target && targetRow.length >= 10) {
+        target.position.copy(toScene(targetRow[7], targetRow[8], targetRow[9]));
+        this.bodyPositions.set(flight.planet, target.position.clone());
+      }
+      const earth = this.bodyNodes.get("earth");
+      if (earth && flight.earthPositionKm) {
+        earth.position.copy(toScene(...flight.earthPositionKm));
+        this.bodyPositions.set("earth", earth.position.clone());
+      }
     }
 
     _buildLights() {
@@ -757,7 +823,7 @@
         ".ss-btn:hover{background:rgba(103,232,249,0.24);}",
         "#ss-exit{border-color:rgba(248,113,113,0.55);background:rgba(239,68,68,0.16);color:#fecaca;}",
         "#ss-exit:hover{background:rgba(239,68,68,0.28);}",
-        "#ss-dossier{pointer-events:auto;position:absolute;top:78px;left:12px;width:302px;max-width:calc(100vw - 24px);max-height:calc(100vh - 200px);overflow-y:auto;padding:14px;}",
+        "#ss-dossier{pointer-events:auto;position:absolute;top:78px;left:12px;width:366px;box-sizing:border-box;max-width:calc(100vw - 24px);max-height:calc(100vh - 155px);overflow-y:auto;padding:14px;}",
         ".ss-kicker{font-size:9px;font-weight:700;letter-spacing:1.4px;color:#d0a15c;margin-bottom:6px;}",
         ".ss-name{font-size:19px;font-weight:700;letter-spacing:0.4px;color:#f1f6ff;}",
         ".ss-kind{font-size:9.5px;text-transform:uppercase;letter-spacing:1.2px;color:#8aa0bb;margin-top:2px;margin-bottom:10px;}",
@@ -876,6 +942,7 @@
         '<div class="ss-kicker">SYSTEM OVERVIEW</div>' +
         '<div class="ss-name">Solar System</div>' +
         '<div class="ss-kind">12 destinations - select a body</div>' +
+        '<div class="ss-note">ISS expedition: select a planet to plan a shared GMAT training flight.</div>' +
         '<div class="ss-section">' + rows + "</div>" +
         '<div class="ss-note">Distances and travel times are approximate educational values. Fuel push is the extra speed needed once already in orbit around Earth.</div>';
     }
@@ -896,13 +963,14 @@
         '<div class="ss-kicker">DESTINATION DOSSIER</div>' +
         '<div class="ss-name">' + entry.label + "</div>" +
         '<div class="ss-kind">' + kindLabel + "</div>" +
+        '<div id="ss-specialist-task"></div>' +
 
         '<div class="ss-section">' +
-        '<div class="ss-section-title">REACH</div>' +
-        '<div class="ss-row"><span>Distance from Earth</span><b>' + entry.facts.distanceFromEarth + "</b></div>" +
+        '<div class="ss-section-title">ATLAS ESTIMATES</div>' +
+        '<div class="ss-row"><span>Example Earth distance</span><b>' + entry.facts.distanceFromEarth + "</b></div>" +
         '<div class="ss-row"><span>Distance</span><b>' + entry.facts.distanceAu + "</b></div>" +
         '<div class="ss-row"><span>One-way light time</span><b>' + entry.facts.lightDelay + "</b></div>" +
-        '<div class="ss-row"><span>Travel time</span><b>' + formatMonths(entry.transit.months) + "</b></div>" +
+        '<div class="ss-row"><span>Typical travel time</span><b>' + formatMonths(entry.transit.months) + "</b></div>" +
         '<div class="ss-row"><span>Launch window</span><b>' + entry.transit.window + "</b></div>" +
         "</div>" +
 
@@ -946,6 +1014,7 @@
         '<div class="ss-section">' +
         '<div class="ss-note">Approximate educational values. Propellant assumes an 800 kg reference wet mass. Budget includes a reference bus and propulsion package.</div>' +
         "</div>";
+      if (window.specialistPlanetMission) window.specialistPlanetMission.render(host.querySelector("#ss-specialist-task"), id);
     }
 
     _selectDestination(id) {
@@ -1090,31 +1159,16 @@
       if (window.missionViz && window.missionViz.isActive) window.missionViz.close();
       if (window.issShowcase && window.issShowcase.isActive) window.issShowcase.close();
       if (window.glbManager && window.glbManager.hangarActive) window.glbManager.closeHangar();
-      if (window.shipInterior && window.shipInterior.isMoonLandingActive && typeof window.shipInterior.toggleMoonLandingScene === "function") {
+      const moonLandingWasActive = !!(window.shipInterior && window.shipInterior.isMoonLandingActive);
+      if (moonLandingWasActive && typeof window.shipInterior.toggleMoonLandingScene === "function") {
         window.shipInterior.toggleMoonLandingScene(false);
       }
 
       this.savedState = {
-        issVisible: window.issGroup ? window.issGroup.visible : true,
-        earthVisible: window.photorealisticEarth && window.photorealisticEarth.group ? window.photorealisticEarth.group.visible : true,
-        localVisible: window.localCrew && window.localCrew.group ? window.localCrew.group.visible : true,
-        interiorVisible: window.shipInterior && window.shipInterior.group ? window.shipInterior.group.visible : false,
-        groundGroupVisible: window.spaceCenter && window.spaceCenter.group ? window.spaceCenter.group.visible : false,
-        moonLandingActive: window.shipInterior ? window.shipInterior.isMoonLandingActive : false,
-        background: this.scene.background ? this.scene.background.clone() : null,
-        fog: this.scene.fog,
+        moonLandingActive: moonLandingWasActive,
         cameraPosition: this.camera.position.clone(),
         cameraQuaternion: this.camera.quaternion.clone()
       };
-
-      if (window.issGroup) window.issGroup.visible = false;
-      if (window.photorealisticEarth && window.photorealisticEarth.group) window.photorealisticEarth.group.visible = false;
-      if (window.localCrew && window.localCrew.group) window.localCrew.group.visible = false;
-      if (window.shipInterior && window.shipInterior.group) window.shipInterior.group.visible = false;
-      if (window.spaceCenter && window.spaceCenter.group) window.spaceCenter.group.visible = false;
-
-      this.scene.background = new THREE.Color(0x02040a);
-      this.scene.fog = null;
 
       this._ensureUI();
       this._buildStrip();
@@ -1150,24 +1204,9 @@
       document.body.classList.remove("solar-system-active");
 
       if (this.savedState) {
-        if (window.issGroup) window.issGroup.visible = this.savedState.issVisible;
-        if (window.photorealisticEarth && window.photorealisticEarth.group) {
-          window.photorealisticEarth.group.visible = this.savedState.earthVisible;
-        }
-        if (window.localCrew && window.localCrew.group) {
-          window.localCrew.group.visible = this.savedState.localVisible;
-        }
-        if (window.shipInterior && window.shipInterior.group) {
-          window.shipInterior.group.visible = this.savedState.interiorVisible;
-        }
-        if (window.spaceCenter && window.spaceCenter.group) {
-          window.spaceCenter.group.visible = this.savedState.groundGroupVisible;
-        }
         if (this.savedState.moonLandingActive && window.shipInterior && typeof window.shipInterior.toggleMoonLandingScene === "function") {
           window.shipInterior.toggleMoonLandingScene(true);
         }
-        if (this.savedState.background) this.scene.background = this.savedState.background;
-        this.scene.fog = this.savedState.fog;
         if (this.savedState.cameraPosition) this.camera.position.copy(this.savedState.cameraPosition);
         if (this.savedState.cameraQuaternion) this.camera.quaternion.copy(this.savedState.cameraQuaternion);
         this.savedState = null;
@@ -1210,6 +1249,7 @@
       const time = this.time;
 
       this._layoutBodies(time);
+      this._updateSpecialistFlight();
 
       this.bodyNodes.forEach((node) => {
         const sphere = node.userData.sphere;

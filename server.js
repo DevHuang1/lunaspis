@@ -9,6 +9,8 @@ const storage = require("./server/storage");
 const { MISSION_DESIGN_KEYS, sanitizeDesignPatch } = require("./server/design_sanitizer");
 const { validateFinalReport } = require("./server/mission_validation");
 const { ShuttleMission, CREW: SHUTTLE_CREW } = require("./public/js/game/shuttle_mission.js");
+const gmatForecast = require("./server/gmat_forecast");
+const planetSeeds = require("./public/data/gmat-planet-seeds.json");
 
 const SHUTTLE_SNAPSHOT_HZ = 15;
 const SHUTTLE_TEST_HOOKS = process.env.SHUTTLE_TEST === "1";
@@ -103,6 +105,7 @@ app.use("/api/auth", (req, res, next) => {
 app.use("/api/auth", createRateLimiter({ windowMs: 60_000, max: 20 }));
 app.use("/api", createRateLimiter({ windowMs: 60_000, max: 120 }));
 app.use(express.json({ limit: "100kb" }));
+app.get("/api/gmat/status", (req, res) => res.json(gmatForecast.status()));
 
 function getBearerToken(req) {
   const header = req.headers.authorization || "";
@@ -880,6 +883,7 @@ function createMissionState(scenarioId = "lunar_south_pole", difficultyId = "eng
     launchPollAt: 0,
     launchPollBy: null,
     groundSupport: createGroundSupportState(),
+    specialistFlight: null,
     phaseStartedAt: now,
     updatedAt: now,
     scenarioId: scenario,
@@ -926,6 +930,7 @@ function serializeMission(mission) {
     launchPollAt: m.launchPollAt || 0,
     launchPollBy: m.launchPollBy || null,
     groundSupport: m.groundSupport || createGroundSupportState(),
+    specialistFlight: m.specialistFlight || null,
     phaseStartedAt: m.phaseStartedAt || null,
     updatedAt: m.updatedAt || null,
     scenarioId: scenario.id,
@@ -2724,6 +2729,121 @@ io.on("connection", (socket) => {
       playerId: socket.id,
       playerName: p.name
     });
+  });
+
+  // A flight crewmember can take the unstaffed specialist role at the station.
+  // This changes their actual room role, including in solo/small crews.
+  socket.on("claim_specialist_role", (_data = {}, ack) => {
+    const reply = typeof ack === "function" ? ack : () => {};
+    if (!currentRoomId || !rooms[currentRoomId]) return reply({ ok: false, error: "Join a mission first." });
+    const room = rooms[currentRoomId];
+    const player = room.players[socket.id];
+    if (!player) return reply({ ok: false, error: "Join a mission first." });
+    if (!room.mission || room.mission.phase !== "station" || room.status !== "playing") return reply({ ok: false, error: "Reach the ISS before changing to Space Specialist." });
+    if (normalizeRoleId(player.role) === "specialist") return reply({ ok: true });
+    if (getTeamForRole(normalizeRoleId(player.role)) === "ground") return reply({ ok: false, error: "A flight crewmember at the ISS must take this role." });
+    if (Object.values(room.players).some(p => normalizeRoleId(p.role) === "specialist")) return reply({ ok: false, error: "Space Specialist is already assigned. Ask that crewmember to swap roles." });
+    player.role = "specialist";
+    player.team = "crew";
+    broadcastRoomUpdate(room);
+    reply({ ok: true });
+  });
+
+  // Server-authoritative educational planet flights. GMAT previews are tied
+  // to a spacecraft revision and only the exact preview can be committed.
+  socket.on("specialist_flight_action", async (data, ack) => {
+    const reply = typeof ack === "function" ? ack : () => {};
+    if (!currentRoomId || !rooms[currentRoomId]) return reply({ ok: false, error: "Join a mission first." });
+    const room = rooms[currentRoomId];
+    const player = room.players[socket.id];
+    if (!player) return reply({ ok: false, error: "Join a mission first." });
+    if (normalizeRoleId(player.role) !== "specialist") return reply({ ok: false, error: "Only the assigned Space Specialist can operate this expedition." });
+    data = asObject(data);
+    room.mission = room.mission || createMissionState();
+    const mission = room.mission;
+    let flight = mission.specialistFlight;
+    const fail = (error) => reply({ ok: false, error });
+    const notify = () => {
+      mission.updatedAt = Date.now();
+      broadcastMissionUpdate(room, { action: "specialist_flight", playerId: socket.id, playerName: player.name });
+    };
+    if (data.action === "plan") {
+      if (mission.phase !== "station") return fail("Dock with the ISS before starting a planet expedition.");
+      const seed = typeof data.planet === "string" && Object.prototype.hasOwnProperty.call(planetSeeds.planets, data.planet) ? planetSeeds.planets[data.planet] : null;
+      if (!seed) return fail("Choose a supported planet.");
+      if (flight && !["complete", "missed"].includes(flight.stage)) return fail("End the current expedition before selecting another planet.");
+      flight = mission.specialistFlight = {
+        planet: data.planet, stage: "planning", revision: 0, plannedBy: player.name,
+        current: { epochMs: seed.epochMs, state: seed.state.slice(), fuelKg: seed.fuelKg, dryMassKg: seed.dryMassKg, ispSec: seed.ispSec },
+        suggestedBurnMps: seed.suggestedBurnMps.slice(), horizonDays: seed.horizonDays,
+        earthPositionKm: seed.earthPositionKm.slice(), preview: null, playback: null
+      };
+    } else if (data.action === "reset") {
+      if (!flight) return fail("No expedition is active.");
+      mission.specialistFlight = null;
+    } else if (!flight) {
+      return fail("Choose a destination first.");
+    } else if (data.action === "forecast") {
+      if (!["planning", "encounter"].includes(flight.stage)) return fail("A forecast is not available during this flight stage.");
+      if (flight.forecastPending) return fail("A forecast is already running.");
+      const burn = asObject(data.burn);
+      const version = flight.revision;
+      flight.forecastPending = true;
+      try {
+        const result = await gmatForecast.forecast({ planet: flight.planet, mode: flight.stage === "planning" ? "transfer" : "insertion", current: flight.current,
+          horizonDays: flight.horizonDays, delayDays: burn.delayDays, v: burn.v, n: burn.n, b: burn.b });
+        if (rooms[room.id] !== room || room.mission !== mission || mission.specialistFlight !== flight || flight.revision !== version) return fail("The flight changed while GMAT was running. Forecast again.");
+        if (!room.players[socket.id] || normalizeRoleId(room.players[socket.id].role) !== "specialist") return fail("Your Space Specialist role changed while GMAT was running.");
+        flight.preview = { ...result, id: crypto.randomUUID(), revision: version, requestedBy: player.name };
+        flight.forecastPending = false;
+        notify();
+        return reply({ ok: true, forecastId: flight.preview.id });
+      } catch (error) {
+        return fail(error.message || "GMAT forecast failed.");
+      } finally {
+        flight.forecastPending = false;
+      }
+    } else if (data.action === "execute") {
+      const preview = flight.preview;
+      if (!["planning", "encounter"].includes(flight.stage) || !preview || preview.id !== data.forecastId || preview.revision !== flight.revision) return fail("Forecast the current burn before executing it.");
+      const originalFlight = flight, insertion = flight.stage === "encounter";
+      flight.stage = "coast";
+      flight.playback = { startAt: Date.now(), durationMs: insertion ? 10000 : 35000, from: 0, to: 1 };
+      flight.executedBy = player.name;
+      const timer = setTimeout(() => {
+        if (rooms[room.id] !== room || room.mission !== mission || mission.specialistFlight !== originalFlight || flight.stage !== "coast") return;
+        flight.current = { ...flight.current, epochMs: preview.endEpochMs, state: preview.endState.slice(), targetRelativeState: preview.endRelativeState.slice(), fuelKg: preview.fuelAfterKg };
+        flight.revision++;
+        flight.lastResult = { planet: flight.planet, mode: preview.mode, closestKm: preview.closestKm, closestSamplingHours: preview.closestSamplingHours, orbit: preview.orbit, fuelUsedKg: preview.fuelUsedKg };
+        flight.preview = null;
+        flight.playback = null;
+        if (insertion) {
+          flight.stage = preview.orbit && preview.orbit.safeCapture ? "complete" : "missed";
+        } else {
+          // A broad educational approach gate, not a guaranteed orbital capture.
+          flight.stage = preview.earthDeparture && preview.earthDeparture.escaped && preview.closestKm <= preview.targetRadiusKm * 100 && preview.closestKm > preview.targetRadiusKm ? "encounter" : "missed";
+          if (flight.stage === "encounter") {
+            const relative = preview.closestRelativeState;
+            const r = relative.slice(0, 3), v = relative.slice(3, 6);
+            const norm = vector => Math.hypot(...vector);
+            const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+            const unit = vector => { const length = norm(vector); return vector.map(n => n / length); };
+            const vhat = unit(v), nhat = unit(cross(r, v)), bhat = cross(vhat, nhat);
+            const tangent = unit(cross(nhat, unit(r)));
+            const circular = Math.sqrt(gmatForecast.PLANETS[flight.planet].mu / preview.closestKm);
+            const delta = tangent.map((n, i) => n * circular - v[i]);
+            const dot = (a, b) => a.reduce((sum, n, i) => sum + n * b[i], 0) * 1000;
+            flight.suggestedBurnMps = [dot(delta, vhat), dot(delta, nhat), dot(delta, bhat)];
+          }
+        }
+        notify();
+      }, flight.playback.durationMs);
+      if (timer.unref) timer.unref();
+    } else {
+      return fail("That action is not available at this stage.");
+    }
+    notify();
+    reply({ ok: true, flight });
   });
 
   // 6. Complete Task (single shared co-op objective track)

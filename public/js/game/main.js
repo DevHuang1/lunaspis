@@ -2120,9 +2120,16 @@
       setTimeout(startStationOperations, 0);
     });
 
+    let specialistFlightLastStage = null;
     window.netManager.on("mission_update", (payload) => {
       if (!payload || !payload.mission) return;
       if (!window.isGameStarted) return;
+      if (payload.action === "specialist_flight" && payload.mission.specialistFlight) {
+        const stage = payload.mission.specialistFlight.stage;
+        const messages = { planning: "PLANET FLIGHT: PLAN YOUR BURN", coast: "PLANET FLIGHT: TRAJECTORY UNDERWAY", encounter: "PLANET FLIGHT: PLAN ORBIT INSERTION", complete: "PLANET FLIGHT: ORBIT ESTIMATE ACHIEVED", missed: "PLANET FLIGHT: REVIEW THE RESULT" };
+        if (stage !== specialistFlightLastStage && messages[stage] && window.gameplay && typeof window.gameplay.showToast === "function") window.gameplay.showToast(messages[stage] + " · OPEN SOLAR [O]");
+        specialistFlightLastStage = stage;
+      }
       // Apply the shared design first: launch/docking scenes read the current
       // payload bus and orbit while advancing their phase.
       if (window.gameplay) {
@@ -2923,6 +2930,13 @@
 
     window.addEventListener("keydown", (e) => {
       if (window.shuttleGame && window.shuttleGame.isActive) return;
+      if (window.shipInterior && window.shipInterior.isLargeMapOpen) {
+        if (e.code === "Escape" || e.key === "Escape") {
+          e.preventDefault();
+          window.shipInterior.closeLargeMap();
+        }
+        return;
+      }
       if (e.code === "Escape" || e.key === "Escape") {
         if (emoteWheelOpen) {
           setEmoteWheelOpen(false);
@@ -4075,13 +4089,16 @@
       );
     }
 
+    // Keep the atlas independent of world visibility changes from mission updates.
+    const renderScene = window.solarSystem && window.solarSystem.isActive && window.solarSystem.atlasScene
+      ? window.solarSystem.atlasScene : scene;
     // Render (routes through WebXR / Stereo VR manager when active, bypassing postprocessing)
     if (window.vrManager && typeof window.vrManager.render === "function") {
-      window.vrManager.render(scene, camera, cinematicPass, elapsed, perfSettings);
+      window.vrManager.render(renderScene, camera, cinematicPass, elapsed, perfSettings);
     } else if (cinematicPass && perfSettings.cinematicPreset !== "off") {
-      cinematicPass.render(scene, camera, elapsed);
+      cinematicPass.render(renderScene, camera, elapsed);
     } else {
-      renderer.render(scene, camera);
+      renderer.render(renderScene, camera);
     }
   }
 

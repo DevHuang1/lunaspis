@@ -184,7 +184,7 @@ async function revokeSessionToken(token) {
 }
 
 // Local persistent file fallback (used if no PostgreSQL connection is provided)
-const LOCAL_DB_DIR = path.join(__dirname, ".data");
+const LOCAL_DB_DIR = process.env.LUNASPIS_DATA_DIR || path.join(__dirname, ".data");
 const LOCAL_DB_FILE = path.join(LOCAL_DB_DIR, "interfellas_db.json");
 
 const memoryStore = {

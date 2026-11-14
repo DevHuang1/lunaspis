@@ -1910,6 +1910,8 @@
       // UI Overlays
       this.hudPill = null;
       this.minimapEl = null;
+      this.largeMapEl = null;
+      this.isLargeMapOpen = false;
     }
 
     init(scene) {
@@ -3006,26 +3008,73 @@
     _buildMinimapDOM() {
       const existing = document.getElementById("lunaspis-ship-minimap");
       if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+      const existingLargeMap = document.getElementById("station-map-overlay");
+      if (existingLargeMap && existingLargeMap.parentNode) existingLargeMap.parentNode.removeChild(existingLargeMap);
 
-      this.minimapCollapsed = Boolean(window.innerWidth <= 900);
       this.minimapEl = document.createElement("div");
       this.minimapEl.id = "lunaspis-ship-minimap";
+      this.minimapEl.setAttribute("role", "button");
+      this.minimapEl.setAttribute("tabindex", "0");
+      this.minimapEl.setAttribute("aria-label", "Open larger station map");
+      this.minimapEl.setAttribute("aria-haspopup", "dialog");
+      this.largeMapEl = document.createElement("div");
+      this.largeMapEl.id = "station-map-overlay";
+      this.largeMapEl.hidden = true;
+      this.largeMapEl.innerHTML = `
+        <section class="station-map-dialog" role="dialog" aria-modal="true" aria-labelledby="station-map-title">
+          <header class="station-map-header">
+            <div><h2 id="station-map-title">Station map</h2><span id="station-map-room"></span></div>
+            <button type="button" id="station-map-close" aria-label="Close station map">Close</button>
+          </header>
+          <div id="station-map-content"></div>
+          <div id="station-map-status" class="station-map-status"></div>
+        </section>`;
+      this.largeMapEl.querySelector("#station-map-close").addEventListener("click", () => this.closeLargeMap());
+      this.largeMapEl.addEventListener("keydown", (event) => {
+        if (event.key === "Tab") {
+          event.preventDefault();
+          this.largeMapEl.querySelector("#station-map-close").focus();
+        }
+      });
+      document.body.appendChild(this.largeMapEl);
       const applyMinimapLayout = () => {
         if (!this.minimapEl) return;
         const canShowMap = Boolean(window.isGameStarted && this.isInteriorActive);
         this.minimapEl.style.display = canShowMap ? "block" : "none";
       };
       applyMinimapLayout();
-      this.minimapEl.addEventListener("click", () => {
-        this.minimapCollapsed = !this.minimapCollapsed;
-        this._updateMinimapDOM(this._lastMinimapX || 0, this._lastMinimapZ || 2.0, this._lastMinimapYaw || 0);
+      this.minimapEl.addEventListener("click", (event) => {
+        event.stopPropagation();
+        this.openLargeMap();
+      });
+      this.minimapEl.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          event.stopPropagation();
+          this.openLargeMap();
+        }
       });
       window.addEventListener("resize", () => {
         applyMinimapLayout();
-        this._updateMinimapDOM(this._lastMinimapX || 0, this._lastMinimapZ || 2.0, this._lastMinimapYaw || 0);
+        this._updateMinimapDOM(this._lastMinimapX ?? 0, this._lastMinimapZ ?? 2, this._lastMinimapYaw ?? 0);
       });
       document.body.appendChild(this.minimapEl);
       this._updateMinimapDOM(0, 2.0, 0);
+    }
+
+    openLargeMap() {
+      if (!this.largeMapEl || !this.isInteriorActive || !window.isGameStarted) return;
+      this.isLargeMapOpen = true;
+      this.largeMapEl.hidden = false;
+      this._updateMinimapDOM(this._lastMinimapX ?? 0, this._lastMinimapZ ?? 2, this._lastMinimapYaw ?? 0);
+      this.largeMapEl.querySelector("#station-map-close").focus();
+    }
+
+    closeLargeMap() {
+      if (!this.isLargeMapOpen) return;
+      this.isLargeMapOpen = false;
+      if (this.largeMapEl) this.largeMapEl.hidden = true;
+      if (this.isInteriorActive && this.minimapEl) this.minimapEl.focus();
     }
 
     _escapeMapText(value) {
@@ -3053,12 +3102,19 @@
         if (e.hasFault) faultCount++;
       });
 
-      const linesSvg = "";
-      const roomsSvg = ISS_WALK_ZONES.map((zone) =>
-        `<rect x="${zone.xMin}" y="${zone.zMin}" width="${zone.xMax - zone.xMin}" height="${zone.zMax - zone.zMin}" fill="rgba(103,232,249,0.08)" stroke="rgba(148,163,184,0.3)" stroke-width="0.2" />`
-      ).join("") + ISS_MODULES.map((module) =>
-        `<text x="${module.x}" y="${module.z}" text-anchor="middle" fill="#f8fafc" font-size="0.8">${module.name}</text>`
+      const linesSvg = ISS_HATCHES.map((hatch) => hatch.axis === "z"
+        ? `<line x1="${hatch.center - 0.65}" y1="${hatch.at}" x2="${hatch.center + 0.65}" y2="${hatch.at}" stroke="#b9d6df" stroke-width="0.12" />`
+        : `<line x1="${hatch.at}" y1="${hatch.center - 0.65}" x2="${hatch.at}" y2="${hatch.center + 0.65}" stroke="#b9d6df" stroke-width="0.12" />`
       ).join("");
+      const roomsSvg = ISS_WALK_ZONES.map((zone) =>
+        `<rect x="${zone.xMin}" y="${zone.zMin}" width="${zone.xMax - zone.xMin}" height="${zone.zMax - zone.zMin}" rx="0.3" fill="rgba(103,232,249,0.08)" stroke="rgba(148,163,184,0.45)" stroke-width="0.2" />`
+      ).join("") + ISS_MODULES.map((module) => {
+        const expandedLabels = options.large || options.tracking;
+        const labelZ = expandedLabels && module.name === "HARMONY" ? module.z - 1.7
+          : expandedLabels && module.name === "CUPOLA" ? module.z + 1.7 : module.z;
+        const fontSize = options.large ? 1.15 : options.tracking ? 1.0 : 0.8;
+        return `<text x="${module.x}" y="${labelZ}" text-anchor="middle" fill="#f8fafc" font-size="${fontSize}">${module.name}</text>`;
+      }).join("");
 
       const stationsSvg = Object.values(STATIONS)
         .map((st) => {
@@ -3100,17 +3156,18 @@
 
       const localMarkerSvg = includeLocal
         ? `
-          <g transform="translate(${px.toFixed(2)} ${pz.toFixed(2)}) rotate(${(((heading * 180) / Math.PI) + 180).toFixed(1)})">
+          <g data-local-marker transform="translate(${px.toFixed(2)} ${pz.toFixed(2)}) rotate(${(((heading * 180) / Math.PI) + 180).toFixed(1)})${options.tracking ? " scale(0.45)" : ""}">
             <path d="M 0 -2.3 L 1.7 1.9 L 0 1.1 L -1.7 1.9 Z" fill="#f8fafc" stroke="#050810" stroke-width="0.2" />
           </g>
         `
         : "";
 
       const isCompact = window.innerWidth <= 900 || window.isMobileDevice;
-      const svgHeight = options.svgHeight || (isCompact ? 132 : 190);
-      const legendHtml = (friendLegend.length || includeLocal)
+      const svgHeight = options.tracking ? "100%" : options.large ? "min(65vh, 680px)" : `${options.svgHeight || (isCompact ? 132 : 190)}px`;
+      const viewBox = options.tracking ? `${(px - 11).toFixed(2)} ${(pz - 11).toFixed(2)} 22 22` : "-10.5 -6.5 24.5 57";
+      const legendHtml = !options.tracking && (friendLegend.length || includeLocal)
         ? `
-          <div style="display:flex;flex-wrap:wrap;gap:4px 7px;border-top:1px solid rgba(148,163,184,0.18);padding:4px 8px;font-size:7px;letter-spacing:0.3px;color:rgba(148,163,184,0.88);">
+          <div style="display:flex;flex-wrap:wrap;gap:4px 7px;border-top:1px solid rgba(148,163,184,0.18);padding:8px;font-size:${options.large ? 12 : 7}px;letter-spacing:0.3px;color:rgba(148,163,184,0.88);">
             ${includeLocal ? `<span style="display:inline-flex;align-items:center;gap:3px;"><span style="width:5px;height:5px;border-radius:1px;background:#f8fafc;flex:0 0 auto;"></span>YOU</span>` : ""}
             ${friendLegend.join("") || (!includeLocal ? `<span style="color:rgba(148,163,184,0.7);">WAITING FOR LIVE LOCATION</span>` : "")}
           </div>
@@ -3122,9 +3179,9 @@
         faultCount,
         pingRoomCode,
         svgHtml: `
-          <svg viewBox="-10.5 -6.5 24.5 57" style="height:${svgHeight}px;width:100%;display:block;">
-            ${linesSvg}
+          <svg role="img" aria-label="Station floorplan and crew locations" viewBox="${viewBox}" style="height:${svgHeight};width:100%;display:block;">
             ${roomsSvg}
+            ${linesSvg}
             ${stationsSvg}
             ${friendMarkers.join("")}
             ${localMarkerSvg}
@@ -3145,21 +3202,17 @@
       this._lastMinimapZ = pz;
       this._lastMinimapYaw = heading;
 
-      const markup = this._buildFloorplanMarkup(px, pz, heading, { includeLocal: true });
-
-      this.minimapEl.innerHTML = `
-        <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:${this.minimapCollapsed ? "none" : "1px solid rgba(148,163,184,0.18)"};padding:5px 8px;" title="Tap to collapse/expand ship map">
-          <span style="font-size:8px;text-transform:uppercase;letter-spacing:1.6px;color:rgba(148,163,184,0.85);">MAP ${this.minimapCollapsed ? "&#9656;" : "&#9662;"}</span>
-          <span style="font-size:8px;text-transform:uppercase;letter-spacing:1.4px;color:#f8fafc;font-weight:700;">${markup.curRoomLabel}</span>
-        </div>
-        ${this.minimapCollapsed ? "" : `
-          ${markup.svgHtml}
-          <div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid rgba(148,163,184,0.18);padding:4px 8px;font-size:7px;text-transform:uppercase;letter-spacing:1.4px;color:rgba(148,163,184,0.72);">
-            <span>MAIN DECK</span>
-            <span>${markup.pingRoomCode ? `GROUND ALERT: ${markup.pingRoomCode}` : `${markup.faultCount} TO FIX`}</span>
-          </div>
-        `}
-      `;
+      const markup = this._buildFloorplanMarkup(px, pz, heading, { includeLocal: true, tracking: true });
+      this.minimapEl.innerHTML = markup.svgHtml;
+      this.minimapEl.setAttribute("aria-label", `Open station map. Current location: ${markup.curRoomLabel}`);
+      if (this.isLargeMapOpen && this.largeMapEl) {
+        const largeMarkup = this._buildFloorplanMarkup(px, pz, heading, { includeLocal: true, large: true });
+        this.largeMapEl.querySelector("#station-map-room").textContent = largeMarkup.curRoomLabel;
+        this.largeMapEl.querySelector("#station-map-content").innerHTML = largeMarkup.svgHtml;
+        this.largeMapEl.querySelector("#station-map-status").textContent = largeMarkup.pingRoomCode
+          ? `Ground alert: ${largeMarkup.pingRoomCode}`
+          : `${largeMarkup.faultCount} to fix`;
+      }
     }
 
     // ============================================================================
@@ -3368,6 +3421,7 @@
 
     hide() {
       this.isInteriorActive = false;
+      this.closeLargeMap();
       this._suppressExteriorLights(false);
       document.body.classList.remove("interior-active");
       if (this.group) this.group.visible = false;

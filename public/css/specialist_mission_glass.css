@@ -1,0 +1,355 @@
+/* The destination dossier and expedition controls share one glass surface. */
+#solar-system-ui #ss-dossier {
+  --mission-text: #f5f6f8;
+  --mission-muted: #c5cbd2;
+  --mission-line: rgba(255, 255, 255, 0.14);
+  color: var(--mission-text);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: linear-gradient(145deg, rgba(72, 78, 86, 0.94), rgba(29, 34, 42, 0.96));
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 14px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 18px 48px rgba(0, 0, 0, 0.32);
+  scrollbar-color: rgba(220, 225, 232, 0.4) transparent;
+  scrollbar-width: thin;
+}
+
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  #solar-system-ui #ss-dossier {
+    background: linear-gradient(145deg, rgba(72, 78, 86, 0.77), rgba(29, 34, 42, 0.86));
+    -webkit-backdrop-filter: blur(24px) saturate(145%);
+    backdrop-filter: blur(24px) saturate(145%);
+  }
+}
+
+#ss-dossier .ss-kicker,
+#ss-dossier .ss-section-title {
+  color: #f3c992;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+
+#ss-dossier .ss-name {
+  color: var(--mission-text);
+  font-size: 21px;
+  letter-spacing: -0.02em;
+}
+
+#ss-dossier .ss-kind,
+#ss-dossier .ss-note {
+  color: var(--mission-muted);
+  line-height: 1.5;
+}
+
+#ss-dossier .ss-section {
+  border-color: var(--mission-line);
+}
+
+#ss-dossier .ss-row {
+  color: var(--mission-muted);
+  font-size: 11px;
+}
+
+#ss-dossier .ss-row b {
+  color: var(--mission-text);
+}
+
+#ss-dossier .ss-overview-row {
+  border-color: var(--mission-line);
+  color: var(--mission-text);
+  font-size: 11px;
+}
+
+#ss-dossier .ss-overview-meta {
+  color: var(--mission-muted);
+}
+
+#ss-dossier .sp-task {
+  box-sizing: border-box;
+  margin: 12px 0;
+  padding: 16px;
+  color: var(--mission-text);
+  font-family: inherit;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.085), rgba(7, 12, 20, 0.16));
+  border: 1px solid rgba(255, 255, 255, 0.17);
+  border-radius: 12px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+#ss-dossier .sp-task h3 {
+  margin: 6px 0;
+  color: var(--mission-text);
+  font-size: 18px;
+  letter-spacing: -0.02em;
+}
+
+#ss-dossier .sp-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #f3c992;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+
+#ss-dossier .sp-eyebrow::before {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  content: "";
+  background: #e8b86f;
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(232, 184, 111, 0.45);
+}
+
+#ss-dossier .sp-badge {
+  padding: 5px 8px;
+  color: #c8f5d8;
+  background: rgba(83, 177, 124, 0.16);
+  border: 1px solid rgba(123, 218, 163, 0.34);
+  border-radius: 6px;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+}
+
+#ss-dossier .sp-badge.attention {
+  color: #ffe0ac;
+  background: rgba(216, 161, 80, 0.15);
+  border-color: rgba(236, 189, 117, 0.34);
+}
+
+#ss-dossier .sp-route {
+  margin: 2px 0 10px;
+  color: #d5d9df;
+  font-size: 11px;
+}
+
+#ss-dossier .sp-route span {
+  color: #f3c992;
+}
+
+#ss-dossier .sp-copy,
+#ss-dossier .sp-footnote {
+  color: var(--mission-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+#ss-dossier .sp-footnote {
+  font-size: 11px;
+}
+
+#ss-dossier .sp-notice,
+#ss-dossier .sp-result {
+  margin: 10px 0;
+  padding: 12px;
+  color: #e7ebef;
+  background: rgba(9, 14, 21, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9px;
+}
+
+#ss-dossier .sp-result-top {
+  gap: 8px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--mission-line);
+}
+
+#ss-dossier .sp-primary,
+#ss-dossier .sp-secondary {
+  min-height: 42px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  color: #f7f8fa;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.3;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.17), rgba(255, 255, 255, 0.08));
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 7px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+#ss-dossier .sp-primary {
+  color: #ffe1b4;
+  background: linear-gradient(180deg, rgba(225, 178, 111, 0.19), rgba(225, 178, 111, 0.09));
+  border-color: rgba(239, 192, 124, 0.4);
+}
+
+#ss-dossier .sp-primary:hover:not(:disabled),
+#ss-dossier .sp-secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+#ss-dossier .sp-primary:disabled,
+#ss-dossier .sp-secondary:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+#ss-dossier .sp-quiet {
+  color: #d9dde2;
+  font-family: inherit;
+  font-size: 11px;
+}
+
+#ss-dossier .sp-quiet:hover {
+  color: #fff;
+}
+
+#ss-dossier .sp-primary:focus-visible,
+#ss-dossier .sp-secondary:focus-visible,
+#ss-dossier .sp-quiet:focus-visible,
+#ss-dossier .sp-fields input:focus-visible,
+#ss-dossier summary:focus-visible {
+  outline: 2px solid #f4d2a0;
+  outline-offset: 2px;
+}
+
+#ss-dossier .sp-status {
+  color: #ffe0ac;
+}
+
+#ss-dossier .sp-fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin: 12px 0;
+}
+
+#ss-dossier .sp-fields label {
+  min-width: 0;
+  color: #e1e4e8;
+  font-size: 11px;
+}
+
+#ss-dossier .sp-fields small {
+  color: #c2c8cf;
+}
+
+#ss-dossier .sp-fields input {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  margin-top: 6px;
+  padding: 9px;
+  color: #fff;
+  color-scheme: dark;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+  background: rgba(5, 10, 17, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 7px;
+}
+
+#ss-dossier .sp-advanced summary,
+#ss-dossier .sp-details summary,
+#ss-dossier .sp-help summary {
+  color: #edf0f3;
+  font-size: 11px;
+}
+
+#ss-dossier .sp-row {
+  gap: 12px;
+  margin: 9px 0;
+  color: var(--mission-muted);
+  line-height: 1.4;
+}
+
+#ss-dossier .sp-row strong {
+  color: var(--mission-text);
+  overflow-wrap: anywhere;
+}
+
+#ss-dossier .sp-live-clock {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 14px;
+  padding: 10px 11px;
+  background: rgba(255, 255, 255, 0.065);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+
+#ss-dossier .sp-live-clock span {
+  color: #c3c9d0;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+#ss-dossier .sp-live-clock strong {
+  color: #f7f8fa;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+#ss-dossier .sp-metrics {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+#ss-dossier .sp-metrics > div {
+  min-width: 0;
+  padding: 11px;
+  background: rgba(255, 255, 255, 0.065);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+
+#ss-dossier .sp-metrics span {
+  color: #c3c9d0;
+  font-size: 9px;
+  line-height: 1.3;
+  letter-spacing: 0.04em;
+}
+
+#ss-dossier .sp-metrics strong {
+  color: #f7f8fa;
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+#ss-dossier .sp-progress-head {
+  color: #d5dbe1;
+}
+
+#ss-dossier .sp-bar {
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+#ss-dossier .sp-bar div {
+  background: #e8be83;
+}
+
+#ss-dossier .sp-details {
+  border-color: var(--mission-line);
+}
+
+#ss-dossier .sp-path {
+  background: rgba(5, 10, 17, 0.44);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-sizing: border-box;
+}
+
+#ss-dossier .sp-legend {
+  color: #ffe0aa;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #ss-dossier .sp-primary,
+  #ss-dossier .sp-secondary {
+    transition: none;
+  }
+}

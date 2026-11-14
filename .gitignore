@@ -3,4 +3,5 @@ node_modules/
 *.log
 .env
 .data/
+.gmat-runtime/
 *.blend1
