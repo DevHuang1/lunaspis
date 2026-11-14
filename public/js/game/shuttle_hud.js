@@ -254,7 +254,7 @@
     // ------------------------------------------------------------------ the DATA page (F3)
     _dataPage(sn, extra) {
       const t = sn.telemetry, g = sn.guidance, ph = sn.phase, v = sn.vehicle, roles = extra.roles || [];
-      const tel = [["Height", t.altitudeM > 20000 ? f1(t.altitudeM / 1000) + " km" : f0(t.altitudeM) + " m"], ["Air speed", f0(t.airspeedMps) + " m/s"], ["Mach", f2(t.mach)]];
+      const tel = [["Height", t.altitudeM > 20000 ? f1(t.altitudeM / 1000) + " km" : f0(t.altitudeM) + " m"], ["Air speed", f0(t.airspeedMps) + " m/s"], ["Sound speed (Mach)", f2(t.mach)]];
       if (v.regime !== "ground") tel.push(["Space speed", f0(t.inertialSpeedMps) + " m/s"]);
       if (["prelaunch", "ascent", "insertion", "payload", "deorbit"].includes(ph)) {
         tel.push(["Climb / fall speed", f0(t.verticalSpeedMps) + " m/s"]);

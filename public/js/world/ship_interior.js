@@ -104,7 +104,7 @@
       workPosition: [0, 0, -9.5],
       interactRadius: 2.6,
       color: "#38bdf8",
-      description: "Mission clock, transit telemetry, and the lunar approach plan."
+      description: "Mission timer, live position, and the Moon landing plan."
     },
     power: {
       id: "power",
