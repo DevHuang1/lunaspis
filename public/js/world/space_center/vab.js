@@ -305,9 +305,11 @@
     site.box(g, 8, 4.2, 7, cx + 48, 2.28, cz - 72, m("steel_white"), "RestroomModule");
 
     // Subtle warm interior fill light inside High Bay so rocket stack stands out from outside
-    const bayLight = new window.THREE.PointLight(0xfff1d6, 1.6, 180, 1.4);
-    bayLight.position.set(cx, 72, cz - 35);
-    g.add(bayLight);
+    if (!window.isMobileDevice) {
+      const bayLight = new window.THREE.PointLight(0xfff1d6, 1.6, 180, 1.4);
+      bayLight.position.set(cx, 72, cz - 35);
+      g.add(bayLight);
+    }
 
     // Wall colliders (preserving exact player bounds)
     site.addBoxCollider(cx, northFaceZ - wallT * 0.5, hx * 2, wallT, "VAB north wall");

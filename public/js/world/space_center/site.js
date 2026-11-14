@@ -44,8 +44,172 @@
         if (typeof builder === "function") builder(this);
       }
       this._mergeStaticBoxes();
+      this._mergePalmGeometry();
+      this._mergeRepeatedMeshes();
+      for (const child of this.group.children.slice()) {
+        if (child.isGroup && /^SC2_/.test(child.name)) this._mergeModuleGeometry(child);
+      }
       this.sc.group.add(this.group);
       return this;
+    }
+
+    _mergeGeometryList(geometries) {
+      const THREE = window.THREE;
+      const attributes = ["position", "normal", "uv"];
+      let vertexCount = 0;
+      let indexCount = 0;
+      for (const geometry of geometries) {
+        vertexCount += geometry.getAttribute("position").count;
+        indexCount += geometry.index ? geometry.index.count : geometry.getAttribute("position").count;
+      }
+      if (!vertexCount) return null;
+      const merged = new THREE.BufferGeometry();
+      for (const name of attributes) {
+        const first = geometries.find((geometry) => geometry.getAttribute(name));
+        if (!first) continue;
+        const itemSize = first.getAttribute(name).itemSize;
+        const array = new Float32Array(vertexCount * itemSize);
+        let offset = 0;
+        for (const geometry of geometries) {
+          const attribute = geometry.getAttribute(name);
+          if (attribute) { array.set(attribute.array, offset); offset += attribute.array.length; }
+          else { offset += geometry.getAttribute("position").count * itemSize; }
+        }
+        merged.setAttribute(name, new THREE.BufferAttribute(array, itemSize));
+      }
+      const indices = new Uint32Array(indexCount);
+      let indexOffset = 0, vertexOffset = 0;
+      for (const geometry of geometries) {
+        const count = geometry.getAttribute("position").count;
+        if (geometry.index) {
+          const source = geometry.index.array;
+          for (let i = 0; i < source.length; i++) indices[indexOffset++] = source[i] + vertexOffset;
+        } else {
+          for (let i = 0; i < count; i++) indices[indexOffset++] = i + vertexOffset;
+        }
+        vertexOffset += count;
+      }
+      merged.setIndex(new THREE.BufferAttribute(indices, 1));
+      merged.computeBoundingSphere();
+      merged.computeBoundingBox();
+      return merged;
+    }
+
+    _mergeModuleGeometry(root) {
+      const THREE = window.THREE;
+      if (!root) return;
+      root.updateWorldMatrix(true, true);
+      const invRoot = new THREE.Matrix4().copy(root.matrixWorld).invert();
+      const buckets = new Map();
+      root.traverse((obj) => {
+        if (!obj.isMesh || obj.isInstancedMesh || obj.isSkinnedMesh) return;
+        if (!obj.material || Array.isArray(obj.material) || obj.material.transparent) return;
+        const key = obj.material.uuid;
+        if (!buckets.has(key)) buckets.set(key, { material: obj.material, items: [] });
+        buckets.get(key).items.push(obj);
+      });
+      for (const bucket of buckets.values()) {
+        if (bucket.items.length < 2) continue;
+        const geometries = bucket.items.map((mesh) => {
+          const geometry = mesh.geometry.clone();
+          const local = new THREE.Matrix4().multiplyMatrices(invRoot, mesh.matrixWorld);
+          geometry.applyMatrix4(local);
+          return geometry;
+        });
+        const merged = this._mergeGeometryList(geometries);
+        if (!merged) continue;
+        const mesh = new THREE.Mesh(merged, bucket.material);
+        mesh.castShadow = !window.isMobileDevice;
+        mesh.receiveShadow = true;
+        mesh.name = `MergedModule_${bucket.material.name || "material"}`;
+        root.add(mesh);
+        bucket.items.forEach((item) => { if (item.parent) item.parent.remove(item); });
+        geometries.forEach((geometry) => geometry.dispose());
+      }
+    }
+
+    _mergePalmGeometry() {
+      const THREE = window.THREE;
+      if (!THREE.InstancedMesh) return;
+      this.group.updateMatrixWorld(true);
+      const invGroup = new THREE.Matrix4().copy(this.group.matrixWorld).invert();
+      const collect = (name) => {
+        const items = [];
+        this.group.traverse((obj) => {
+          if (obj.isMesh && obj.name === name && obj.geometry && obj.material && !obj.material.transparent) items.push(obj);
+        });
+        return items;
+      };
+      const batch = (items, unitGeometry, material, radiusOf, heightOf) => {
+        if (items.length < 3) return;
+        const instanced = new THREE.InstancedMesh(unitGeometry, material, items.length);
+        items.forEach((mesh, index) => {
+          const params = mesh.geometry.parameters || {};
+          const radius = radiusOf(params);
+          const height = heightOf(params);
+          const local = new THREE.Matrix4().multiplyMatrices(invGroup, mesh.matrixWorld);
+          local.multiply(new THREE.Matrix4().makeScale(radius, height, radius));
+          instanced.setMatrixAt(index, local);
+        });
+        instanced.instanceMatrix.needsUpdate = true;
+        instanced.frustumCulled = false;
+        const matName = (material && material.name) || "";
+        instanced.castShadow = !NO_SHADOW_CAST.has(matName) && !window.isMobileDevice;
+        instanced.receiveShadow = !NO_SHADOW_RECEIVE.has(matName);
+        instanced.name = `MergedPalms_${matName || "material"}`;
+        this.group.add(instanced);
+        items.forEach((mesh) => { if (mesh.parent) mesh.parent.remove(mesh); });
+      };
+      const trunks = collect("PalmTrunk");
+      if (trunks.length) {
+        batch(trunks, new THREE.CylinderGeometry(0.86, 1, 1, 7), trunks[0].material,
+          (p) => p.radiusBottom || p.radiusTop || 0.2, (p) => p.height || 1);
+      }
+      const crowns = collect("PalmCrown");
+      if (crowns.length) {
+        batch(crowns, new THREE.SphereGeometry(1, 8, 4), crowns[0].material,
+          (p) => p.radius || 0.34, () => 1);
+      }
+    }
+
+    _mergeRepeatedMeshes() {
+      const THREE = window.THREE;
+      if (!THREE.InstancedMesh) return;
+      const BATCHABLE = new Set([
+        "PalmTrunk", "PalmCrown", "Wheel", "Pad39B_CrawlerBogie",
+        "DriveSprocket", "SprocketHub", "LightPlinth", "LightMast",
+        "SignPost", "SubFencePost", "Insulator", "Pad39BMastSegment",
+        "Pad39BMastWarnBand", "Bollard", "FencePost"
+      ]);
+      this.group.updateMatrixWorld(true);
+      const invGroup = new THREE.Matrix4().copy(this.group.matrixWorld).invert();
+      const buckets = new Map();
+      this.group.traverse((obj) => {
+        if (!obj.isMesh || obj.isInstancedMesh || obj.isSkinnedMesh) return;
+        if (!BATCHABLE.has(obj.name)) return;
+        if (!obj.material || Array.isArray(obj.material) || obj.material.transparent) return;
+        if (obj.geometry === this.sc.unitBoxGeo) return;
+        const params = obj.geometry && obj.geometry.parameters ? JSON.stringify(obj.geometry.parameters) : `${obj.geometry ? obj.geometry.id : "none"}`;
+        const key = `${obj.geometry ? obj.geometry.type : "mesh"}:${params}:${obj.material.uuid}`;
+        if (!buckets.has(key)) buckets.set(key, { geometry: obj.geometry, material: obj.material, items: [] });
+        buckets.get(key).items.push(obj);
+      });
+      for (const bucket of buckets.values()) {
+        if (bucket.items.length < 3) continue;
+        const instanced = new THREE.InstancedMesh(bucket.geometry, bucket.material, bucket.items.length);
+        bucket.items.forEach((mesh, index) => {
+          const local = new THREE.Matrix4().multiplyMatrices(invGroup, mesh.matrixWorld);
+          instanced.setMatrixAt(index, local);
+        });
+        instanced.instanceMatrix.needsUpdate = true;
+        instanced.frustumCulled = false;
+        const matName = (bucket.material && bucket.material.name) || "";
+        instanced.castShadow = !NO_SHADOW_CAST.has(matName) && !window.isMobileDevice;
+        instanced.receiveShadow = !NO_SHADOW_RECEIVE.has(matName);
+        instanced.name = `MergedRepeated_${bucket.items[0].name}`;
+        this.group.add(instanced);
+        bucket.items.forEach((mesh) => { if (mesh.parent) mesh.parent.remove(mesh); });
+      }
     }
 
     _mergeStaticBoxes() {

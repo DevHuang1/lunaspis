@@ -127,6 +127,16 @@
         metalness: 0.28
       });
 
+      // Build the huge ground complex only when a mission actually enters
+      // ground mode; the title/orbit scene no longer holds it in memory.
+      this._groundBuilt = false;
+      this._setupGroundUI();
+      console.log("[SpaceCenter] LC-39A ground systems armed (site builds on entry).");
+    }
+
+    _ensureGroundBuilt() {
+      if (this._groundBuilt) return;
+      this._groundBuilt = true;
       this._buildCoastalTerrain();
       this._buildLaunchPad39A();
       this._buildLaunchTowerAndBoardingDock();
@@ -134,22 +144,97 @@
       this._buildLaunchStack();
       this._buildBoardingGuidance();
       this._buildPerimeterLighting();
-
       if (window.SpaceCenterSite) {
         this.site = new window.SpaceCenterSite(this);
         this.site.build();
       }
-
-      // Drivable open-top NASA car parked beside the Pad 39A ground spawn.
       if (window.SpaceCenterOpenCar) {
         this.openCar = new window.SpaceCenterOpenCar(this);
         this.openCar.build();
         window.spaceCenterCar = this.openCar;
       }
-
-      this._setupGroundUI();
-
+      this._mergeStaticPadBeams();
+      this._mergePadGeometry();
       console.log("[SpaceCenter] Kennedy Space Center LC-39A & Player Boarding Dock ready.");
+    }
+
+    _mergeStaticPadBeams() {
+      const THREE = window.THREE;
+      if (!THREE.InstancedMesh || !this.padGroup) return;
+      this.padGroup.updateMatrixWorld(true);
+      const invPad = new THREE.Matrix4().copy(this.padGroup.matrixWorld).invert();
+      const excluded = new Set([this.elevatorCab, this.armPivotGroup, this.stackGroup]);
+      const isExcluded = (object) => {
+        let node = object;
+        while (node) { if (excluded.has(node)) return true; node = node.parent; }
+        return false;
+      };
+      const buckets = new Map();
+      this.padGroup.traverse((obj) => {
+        if (!obj.isMesh || obj.isInstancedMesh) return;
+        if (obj.geometry !== this.unitBoxGeo) return;
+        if (!obj.material || obj.material.transparent) return;
+        if (isExcluded(obj)) return;
+        const key = obj.material.uuid || obj.material.id || "shared";
+        if (!buckets.has(key)) buckets.set(key, { material: obj.material, items: [] });
+        buckets.get(key).items.push(obj);
+      });
+      for (const bucket of buckets.values()) {
+        if (bucket.items.length < 2) continue;
+        const instanced = new THREE.InstancedMesh(this.unitBoxGeo, bucket.material, bucket.items.length);
+        bucket.items.forEach((mesh, index) => {
+          const local = new THREE.Matrix4().multiplyMatrices(invPad, mesh.matrixWorld);
+          instanced.setMatrixAt(index, local);
+        });
+        instanced.instanceMatrix.needsUpdate = true;
+        instanced.frustumCulled = false;
+        instanced.castShadow = !window.isMobileDevice;
+        instanced.receiveShadow = true;
+        const matName = (bucket.material && bucket.material.name) || "";
+        instanced.name = matName ? `MergedPadBeams_${matName}` : "MergedPadBeams";
+        this.padGroup.add(instanced);
+        bucket.items.forEach((mesh) => { if (mesh.parent) mesh.parent.remove(mesh); });
+      }
+    }
+
+    _mergePadGeometry() {
+      const THREE = window.THREE;
+      if (!this.padGroup || !this.site || typeof this.site._mergeGeometryList !== "function") return;
+      this.padGroup.updateWorldMatrix(true, true);
+      const invPad = new THREE.Matrix4().copy(this.padGroup.matrixWorld).invert();
+      const excluded = new Set([this.elevatorCab, this.armPivotGroup, this.stackGroup]);
+      const isExcluded = (object) => {
+        let node = object;
+        while (node) { if (excluded.has(node)) return true; node = node.parent; }
+        return false;
+      };
+      const buckets = new Map();
+      this.padGroup.traverse((obj) => {
+        if (!obj.isMesh || obj.isInstancedMesh || obj.isSkinnedMesh) return;
+        if (!obj.material || Array.isArray(obj.material) || obj.material.transparent) return;
+        if (isExcluded(obj)) return;
+        const key = obj.material.uuid;
+        if (!buckets.has(key)) buckets.set(key, { material: obj.material, items: [] });
+        buckets.get(key).items.push(obj);
+      });
+      for (const bucket of buckets.values()) {
+        if (bucket.items.length < 2) continue;
+        const geometries = bucket.items.map((mesh) => {
+          const geometry = mesh.geometry.clone();
+          const local = new THREE.Matrix4().multiplyMatrices(invPad, mesh.matrixWorld);
+          geometry.applyMatrix4(local);
+          return geometry;
+        });
+        const merged = this.site._mergeGeometryList(geometries);
+        if (!merged) continue;
+        const mesh = new THREE.Mesh(merged, bucket.material);
+        mesh.castShadow = !window.isMobileDevice;
+        mesh.receiveShadow = true;
+        mesh.name = `MergedPad_${bucket.material.name || "material"}`;
+        this.padGroup.add(mesh);
+        bucket.items.forEach((item) => { if (item.parent) item.parent.remove(item); });
+        geometries.forEach((geometry) => geometry.dispose());
+      }
     }
 
     // ============================================================================
@@ -157,10 +242,11 @@
     // ============================================================================
     _makeCanvasTexture(size, draw, repeatX = 1, repeatY = 1) {
       const THREE = window.THREE;
+      const actualSize = window.isMobileDevice ? Math.min(size, 256) : size;
       const canvas = document.createElement("canvas");
-      canvas.width = canvas.height = size;
+      canvas.width = canvas.height = actualSize;
       const ctx = canvas.getContext("2d");
-      draw(ctx, size);
+      draw(ctx, actualSize);
 
       const texture = new THREE.CanvasTexture(canvas);
       texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
@@ -172,8 +258,9 @@
       texture.generateMipmaps = true;
       texture.minFilter = THREE.LinearMipmapLinearFilter;
       texture.magFilter = THREE.LinearFilter;
+      const maxAniso = window.isMobileDevice ? 2 : 16;
       texture.anisotropy = this.renderer && this.renderer.capabilities
-        ? Math.min(16, this.renderer.capabilities.getMaxAnisotropy())
+        ? Math.min(maxAniso, this.renderer.capabilities.getMaxAnisotropy())
         : 1;
       if (THREE.sRGBEncoding !== undefined) texture.encoding = THREE.sRGBEncoding;
       texture.needsUpdate = true;
@@ -563,9 +650,10 @@
         depthWrite: false,
         fog: true
       });
-      for (let i = 0; i < 10; i++) {
+      const cloudCount = window.isMobileDevice ? 4 : 10;
+      for (let i = 0; i < cloudCount; i++) {
         const cloud = new THREE.Group();
-        const puffs = 3 + Math.floor(Math.random() * 4);
+        const puffs = (window.isMobileDevice ? 2 : 3) + Math.floor(Math.random() * (window.isMobileDevice ? 2 : 4));
         for (let p = 0; p < puffs; p++) {
           const puff = new THREE.Mesh(new THREE.SphereGeometry(18 + Math.random() * 22, 8, 6), cloudMat);
           puff.scale.y = 0.42;
@@ -661,20 +749,36 @@
       const duneGeo = new THREE.CylinderGeometry(7, 13, 2.2, 8);
       const duneMat = new THREE.MeshStandardMaterial({ color: 0xdcc79c, roughness: 0.96, metalness: 0.01 });
       const duneScrubMat = new THREE.MeshStandardMaterial({ color: 0x5c7742, roughness: 0.94 });
+      const duneItems = [], bushItems = [];
       for (let z = -960; z <= 960; z += 42) {
         const jx = 472 + Math.sin(z * 0.17) * 5;
-        const dune = new THREE.Mesh(duneGeo, duneMat);
-        dune.scale.set(1.25, 0.55 + (Math.cos(z * 0.23) + 1) * 0.35, 2.8);
-        dune.position.set(jx, -0.08, z);
-        dune.receiveShadow = true;
-        terrainGroup.add(dune);
-
-        const bush = new THREE.Mesh(new THREE.DodecahedronGeometry(1.7, 0), duneScrubMat);
-        bush.scale.set(1.5, 0.55, 1.4);
-        bush.position.set(jx - 3.2, 0.52, z + 6);
-        bush.castShadow = true;
-        terrainGroup.add(bush);
+        duneItems.push({ x: jx, z, sy: 0.55 + (Math.cos(z * 0.23) + 1) * 0.35 });
+        bushItems.push({ x: jx - 3.2, z: z + 6 });
       }
+      const duneTransform = new THREE.Object3D();
+      const dunes = new THREE.InstancedMesh(duneGeo, duneMat, duneItems.length);
+      duneItems.forEach((item, index) => {
+        duneTransform.position.set(item.x, -0.08, item.z);
+        duneTransform.scale.set(1.25, item.sy, 2.8);
+        duneTransform.updateMatrix();
+        dunes.setMatrixAt(index, duneTransform.matrix);
+      });
+      dunes.instanceMatrix.needsUpdate = true;
+      dunes.frustumCulled = false;
+      dunes.receiveShadow = true;
+      terrainGroup.add(dunes);
+
+      const bushes = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1.7, 0), duneScrubMat, bushItems.length);
+      bushItems.forEach((item, index) => {
+        duneTransform.position.set(item.x, 0.52, item.z);
+        duneTransform.scale.set(1.5, 0.55, 1.4);
+        duneTransform.updateMatrix();
+        bushes.setMatrixAt(index, duneTransform.matrix);
+      });
+      bushes.instanceMatrix.needsUpdate = true;
+      bushes.frustumCulled = false;
+      bushes.castShadow = !window.isMobileDevice;
+      terrainGroup.add(bushes);
 
       // Atlantic Ocean with rippled wave texture & animated shoreline surf.
       this.oceanTex = this._makeOceanTexture(512);
@@ -1199,10 +1303,12 @@
         cp.position.set(px, 1.25, pz);
         this.elevatorCab.add(cp);
       });
-      // Interior ambient light inside cab
-      const cabLight = new THREE.PointLight(0xfff5e0, 0.9, 6);
-      cabLight.position.set(0, 2.2, 0);
-      this.elevatorCab.add(cabLight);
+      // Interior ambient light inside cab (emissive strip covers mobile).
+      if (!window.isMobileDevice) {
+        const cabLight = new THREE.PointLight(0xfff5e0, 0.9, 6);
+        cabLight.position.set(0, 2.2, 0);
+        this.elevatorCab.add(cabLight);
+      }
       // Cabin status strip (green = at gantry, amber = moving, red = at ground)
       this._elevatorLightMat = new THREE.MeshStandardMaterial({
         color: 0x34d399, emissive: 0x34d399, emissiveIntensity: 2.0
@@ -2108,12 +2214,14 @@
         });
         this.padGroup.add(headGrp);
 
-        const light = new THREE.SpotLight(0xfffbeb, 0.55, 165, Math.PI / 4, 0.55);
-        light.position.set(lx, topY, lz);
-        light.target.position.set(0, 48, 0);
-        this.padGroup.add(light);
-        this.padGroup.add(light.target);
-        this.floodlights.push(light);
+        if (!window.isMobileDevice) {
+          const light = new THREE.SpotLight(0xfffbeb, 0.55, 165, Math.PI / 4, 0.55);
+          light.position.set(lx, topY, lz);
+          light.target.position.set(0, 48, 0);
+          this.padGroup.add(light);
+          this.padGroup.add(light.target);
+          this.floodlights.push(light);
+        }
       });
     }
 
@@ -2135,6 +2243,7 @@
       }
       if (!this.site) return false;
       this.siteTourActive = true;
+      this._syncSpaceGamesLock();
       this.teleportSiteTour(index);
       if (window.spaceAudio) window.spaceAudio.playAirlockCycle();
       this._renderGroundHUD();
@@ -2144,6 +2253,7 @@
     exitSiteTour() {
       if (this.openCar) this.openCar.forceExit();
       this.siteTourActive = false;
+      this._syncSpaceGamesLock();
       const isGround = this._isLocalGroundCrew();
       const spawn = isGround
         ? this._groundLccSpawnForIndex(this._localGroundIndex())
@@ -2173,6 +2283,7 @@
     }
 
     teleportSiteTour(index) {
+      this._ensureGroundBuilt();
       // Fast travel must not leave the astronaut logically driver-seated far
       // away while the body teleports to another sector.
       if (this.openCar) this.openCar.forceExit();
@@ -2229,6 +2340,16 @@
       let nz = Math.max(bounds.minZ, Math.min(bounds.maxZ, proposedPos.z));
       const blocked = (x, z) => {
         for (const box of boxes) {
+          if (box.rotated) {
+            const dx = x - box.cx;
+            const dz = z - box.cz;
+            const lx = dx * box.cos - dz * box.sin;
+            const lz = dx * box.sin + dz * box.cos;
+            if (Math.abs(lx) < box.halfW + radius && Math.abs(lz) < box.halfD + radius) {
+              return true;
+            }
+            continue;
+          }
           if (
             x > box.minX - radius &&
             x < box.maxX + radius &&
@@ -3109,12 +3230,12 @@
       this.lccConsoleOverlay.innerHTML = `
         <div class="ground-lcc-header">
           <div>
-            <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:1.6px;color:#93c5fd;">EARTH CONTROL CENTER · ROOM 4</div>
-            <div id="lcc-live-telemetry-readout" style="font-size:12px;font-weight:700;color:#f8fafc;margin-top:2px;">
+            <div style="font-family:var(--font-mono);font-size:11px;letter-spacing:1.2px;color:#93c5fd;">EARTH CONTROL CENTER · ROOM 4</div>
+            <div id="lcc-live-telemetry-readout" style="font-size:13.5px;font-weight:700;color:#f8fafc;margin-top:3px;">
               STAGE: ${phaseUpper} · TASKS ${sum.completed}/${sum.total} · READY ${sum.readiness}%
             </div>
           </div>
-          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
             <button type="button" class="ground-action-btn" id="btn-lcc-open-viz">3D PATH VIEW [U]</button>
             <button type="button" class="ground-action-btn" id="btn-lcc-open-planner">MISSION PLAN [M]</button>
             <button type="button" class="ground-action-btn" id="btn-lcc-cml-review" style="border-color:rgba(251,191,36,0.55);color:#fde68a;">FRESH-EYES REVIEW</button>
@@ -3131,41 +3252,41 @@
 
         <div class="ground-lcc-grid">
           <div class="ground-lcc-card">
-            <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:1.4px;color:#94a3b8;">LAUNCH & DOCKING OK</div>
-            <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.goNoGoLaunch, pollActive)}" data-lcc-op="go_nogo_launch" style="text-align:left;padding:7px 10px;">
+            <div style="font-family:var(--font-mono);font-size:11.5px;letter-spacing:1px;color:#94a3b8;">LAUNCH & DOCKING OK</div>
+            <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.goNoGoLaunch, pollActive)}" data-lcc-op="go_nogo_launch" style="text-align:left;padding:9px 12px;font-size:11.5px;">
               ${gs.goNoGoLaunch ? `LIFTOFF APPROVED (${gs.goNoGoBy || "GROUND"})` : (pollActive ? "CHECK ACTIVE: GIVE LIFTOFF OK" : "PRE-APPROVE LIFTOFF")}
             </button>
-            <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.dockingClearance, this.missionPhase === "docking" && !gs.dockingClearance)}" data-lcc-op="docking_clearance" style="text-align:left;padding:7px 10px;">
+            <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.dockingClearance, this.missionPhase === "docking" && !gs.dockingClearance)}" data-lcc-op="docking_clearance" style="text-align:left;padding:9px 12px;font-size:11.5px;">
               ${gs.dockingClearance ? `DOCKING PATH CLEARED (${gs.dockingClearanceBy || "GROUND"})` : "APPROVE SAFE DOCKING PATH"}
             </button>
-            <div style="font-family:var(--font-mono);font-size:10px;color:#94a3b8;margin-top:4px;">FLIGHT TEAM (${crewState.aboardCount}/${crewState.crewTotal} ABOARD)</div>
-            <div style="display:flex;flex-direction:column;gap:4px;">
+            <div style="font-family:var(--font-mono);font-size:11px;color:#94a3b8;margin-top:6px;">FLIGHT TEAM (${crewState.aboardCount}/${crewState.crewTotal} ABOARD)</div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
               ${crewState.flightRoster.map((p) => `
-                <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:4px 7px;background:rgba(15,23,42,0.65);border:1px solid rgba(148,163,184,0.16);border-radius:3px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:7px 10px;background:rgba(15,23,42,0.65);border:1px solid rgba(148,163,184,0.16);border-radius:4px;">
                   <span style="color:#f8fafc;"><strong>${p.roleShort}</strong> · ${p.name}</span>
-                  <span style="font-family:var(--font-mono);font-size:9px;color:${this.missionPhase === "station" ? "#86efac" : (p.isAboard ? "#93c5fd" : "#94a3b8")};">
+                  <span style="font-family:var(--font-mono);font-size:10.5px;color:${this.missionPhase === "station" ? "#86efac" : (p.isAboard ? "#93c5fd" : "#94a3b8")};">
                     ${this.missionPhase === "station" ? "STATION" : (p.isAboard ? "ABOARD" : "LAUNCH PAD")}
                   </span>
                 </div>
-              `).join("") || `<div style="font-size:11px;color:#94a3b8;">No Space Crew assigned.</div>`}
+              `).join("") || `<div style="font-size:12px;color:#94a3b8;">No Space Crew assigned.</div>`}
             </div>
           </div>
 
           <div class="ground-lcc-card">
-            <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:1.4px;color:#94a3b8;">GROUND TEAM HELP & BOOSTS</div>
-            <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.dsnLocked)}" data-lcc-op="dsn_lock" style="text-align:left;padding:7px 10px;">
+            <div style="font-family:var(--font-mono);font-size:11.5px;letter-spacing:1px;color:#94a3b8;">GROUND TEAM HELP & BOOSTS</div>
+            <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.dsnLocked)}" data-lcc-op="dsn_lock" style="text-align:left;padding:9px 12px;font-size:11.5px;">
               ${gs.dsnLocked ? `EARTH RADIO LOCKED (${gs.dsnLockedBy || "GROUND"})` : "TURN ON BIG EARTH RADIO DISH (+SIGNAL)"}
             </button>
-            <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.powerRouted)}" data-lcc-op="power_route" style="text-align:left;padding:7px 10px;">
+            <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.powerRouted)}" data-lcc-op="power_route" style="text-align:left;padding:9px 12px;font-size:11.5px;">
               ${gs.powerRouted ? `SOLAR POWER BOOST ON (${gs.powerRoutedBy || "GROUND"})` : "SEND EXTRA SOLAR POWER TRACKING (+POWER)"}
             </button>
-            <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.scienceCleared)}" data-lcc-op="science_downlink" style="text-align:left;padding:7px 10px;">
+            <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.scienceCleared)}" data-lcc-op="science_downlink" style="text-align:left;padding:9px 12px;font-size:11.5px;">
               ${gs.scienceCleared ? `LAB DATA LINK CLEARED (${gs.scienceClearedBy || "GROUND"})` : "APPROVE LIVE SCIENCE DATA FEED (+SCIENCE)"}
             </button>
-            <div style="font-family:var(--font-mono);font-size:10px;color:#94a3b8;margin-top:4px;">ALERT A STATION ROOM</div>
-            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;">
+            <div style="font-family:var(--font-mono);font-size:11px;color:#94a3b8;margin-top:6px;">ALERT A STATION ROOM</div>
+            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;">
               ${roomButtons.map((rm) => `
-                <button type="button" class="ground-action-btn ${pingValid && activePing.roomId === rm.id ? "is-approved" : ""}" data-lcc-ping="${rm.id}">
+                <button type="button" class="ground-action-btn ${pingValid && activePing.roomId === rm.id ? "is-approved" : ""}" data-lcc-ping="${rm.id}" style="padding:7px 9px;font-size:11px;">
                   ALERT ${rm.label}
                 </button>
               `).join("")}
@@ -3173,11 +3294,11 @@
           </div>
 
           <div class="ground-lcc-card">
-            <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:1.4px;color:#94a3b8;">LIVE STATION ROOM MAP</div>
-            <div id="lcc-live-floorplan" style="background:rgba(5,8,16,0.8);border:1px solid rgba(148,163,184,0.16);border-radius:4px;padding:6px;">
+            <div style="font-family:var(--font-mono);font-size:11.5px;letter-spacing:1px;color:#94a3b8;">LIVE STATION ROOM MAP</div>
+            <div id="lcc-live-floorplan" style="background:rgba(5,8,16,0.8);border:1px solid rgba(148,163,184,0.16);border-radius:5px;padding:10px;">
               ${mapHtml}
             </div>
-            <div style="font-size:10px;color:#94a3b8;line-height:1.4;">
+            <div style="font-size:11.5px;color:#94a3b8;line-height:1.5;">
               Team helper: Ground approvals boost &amp; guide Space Crew numbers without blocking progress. Hold [R] or click VOICE RADIO to talk directly to space.
             </div>
           </div>
@@ -3221,6 +3342,12 @@
       });
     }
 
+    _syncSpaceGamesLock() {
+      if (window.csaNasaLab && typeof window.csaNasaLab.syncGroundLockState === "function") {
+        window.csaNasaLab.syncGroundLockState();
+      }
+    }
+
     syncLocalRoleChange() {
       const isGround = this._isLocalGroundCrew();
       if (!isGround && this.lccConsoleOpen) {
@@ -3240,6 +3367,7 @@
       }
       this._renderGroundHUD();
       if (this.lccConsoleOpen) this._renderLccConsole();
+      this._syncSpaceGamesLock();
     }
 
 
@@ -3564,11 +3692,13 @@
         return;
       }
 
+      this._ensureGroundBuilt();
       this.isGroundMode = true;
       this.isLaunching = false;
       this.launchTime = 0.0;
       document.body.classList.add("ground-mode-active");
       document.body.classList.remove("interior-active", "launch-active", "docking-active", "iss-showcase-active", "solar-system-active");
+      this._syncSpaceGamesLock();
       this.autoLaunchRemaining = null;
       if (this.stackGroup) {
         this.stackGroup.visible = phase === "gantry" || phase === "launch";
@@ -3714,6 +3844,7 @@
         this._groundObserverLaunch = true;
         this.isGroundMode = true;
         document.body.classList.add("ground-mode-active");
+        this._syncSpaceGamesLock();
         this._applyGroundAtmosphere();
         if (this.group) this.group.visible = true;
         if (this.stackGroup) {
@@ -3780,6 +3911,7 @@
         this._groundObserverLaunch = false;
         this.isGroundMode = true;
         document.body.classList.add("ground-mode-active");
+        this._syncSpaceGamesLock();
         if (this.group) this.group.visible = true;
         if (this.stackGroup) this.stackGroup.visible = false;
         if (this.flamePlumes) this.flamePlumes.forEach((p) => { p.visible = false; });
@@ -3807,6 +3939,7 @@
       this.isLaunching = false;
       this.isGroundMode = false;
       document.body.classList.remove("ground-mode-active");
+      this._syncSpaceGamesLock();
       if (this.group) this.group.visible = false;
       if (this.hudOverlay) this.hudOverlay.style.display = "none";
       this._restoreSpaceAtmosphere();
@@ -3857,6 +3990,7 @@
         this._groundObserverLaunch = false;
         this.isGroundMode = true;
         document.body.classList.add("ground-mode-active");
+        this._syncSpaceGamesLock();
         if (this.group) this.group.visible = true;
         if (this.stackGroup) this.stackGroup.visible = false;
         if (this.flamePlumes) this.flamePlumes.forEach((p) => { p.visible = false; });

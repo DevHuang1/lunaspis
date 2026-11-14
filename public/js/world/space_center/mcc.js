@@ -325,10 +325,12 @@
     for (const lx of [cx - 12, cx, cx + 12]) {
       site.box(g, 1.4, 0.1, 12, lx, 12.1, cz - 4, m("lamp"), "MCC_CeilingLight");
     }
-    for (const [lx, lz] of [[cx - 10, cz - 6], [cx + 10, cz - 6], [cx, cz + 10]]) {
-      const fill = new THREE.PointLight(0xfff1d6, 0.9, 34, 1.6);
-      fill.position.set(lx, 10.5, lz);
-      g.add(fill);
+    if (!window.isMobileDevice) {
+      for (const [lx, lz] of [[cx - 10, cz - 6], [cx + 10, cz - 6], [cx, cz + 10]]) {
+        const fill = new THREE.PointLight(0xfff1d6, 0.9, 34, 1.6);
+        fill.position.set(lx, 10.5, lz);
+        g.add(fill);
+      }
     }
 
     // -------------------------------------------------------------------------

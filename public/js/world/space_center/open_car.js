@@ -31,6 +31,7 @@
       this.driver = null;
       this.driverSuitMat = null;
       this.steerWheel = null;
+      this.steerWheelPivot = null;
       this.beaconMat = null;
       this.brakeLightMats = [];
       this.wheels = [];
@@ -82,12 +83,96 @@
       this._buildRollBar();
       this._buildWheels();
       this._buildDriver();
+      for (const wheel of this.wheels) this._mergeContainerMeshes(wheel.spin, new Set());
+      this._mergeContainerMeshes(this.body, new Set([this.steerWheelPivot, this.steerWheel, this.driver]));
+      if (this.driver) this._mergeContainerMeshes(this.driver, new Set());
       this._buildLabel();
 
       this._netPos = new T.Vector3(this.spawn.x, this.spawn.y, this.spawn.z);
       this._buildHud();
       this._bindInput();
       return this;
+    }
+
+    _mergeGeometrySet(geometries) {
+      const T = window.THREE;
+      const attributes = ["position", "normal", "uv"];
+      let vertexCount = 0, indexCount = 0;
+      for (const geometry of geometries) {
+        vertexCount += geometry.getAttribute("position").count;
+        indexCount += geometry.index ? geometry.index.count : geometry.getAttribute("position").count;
+      }
+      if (!vertexCount) return null;
+      const merged = new T.BufferGeometry();
+      for (const name of attributes) {
+        const first = geometries.find((geometry) => geometry.getAttribute(name));
+        if (!first) continue;
+        const itemSize = first.getAttribute(name).itemSize;
+        const array = new Float32Array(vertexCount * itemSize);
+        let offset = 0;
+        for (const geometry of geometries) {
+          const attribute = geometry.getAttribute(name);
+          if (attribute) { array.set(attribute.array, offset); offset += attribute.array.length; }
+          else { offset += geometry.getAttribute("position").count * itemSize; }
+        }
+        merged.setAttribute(name, new T.BufferAttribute(array, itemSize));
+      }
+      const indices = new Uint32Array(indexCount);
+      let indexOffset = 0, vertexOffset = 0;
+      for (const geometry of geometries) {
+        const count = geometry.getAttribute("position").count;
+        if (geometry.index) {
+          const source = geometry.index.array;
+          for (let i = 0; i < source.length; i++) indices[indexOffset++] = source[i] + vertexOffset;
+        } else {
+          for (let i = 0; i < count; i++) indices[indexOffset++] = i + vertexOffset;
+        }
+        vertexOffset += count;
+      }
+      merged.setIndex(new T.BufferAttribute(indices, 1));
+      merged.computeBoundingSphere();
+      merged.computeBoundingBox();
+      return merged;
+    }
+
+    _mergeContainerMeshes(container, excludeRoots) {
+      const T = window.THREE;
+      if (!T || !container) return;
+      container.updateWorldMatrix(true, true);
+      const invContainer = new T.Matrix4().copy(container.matrixWorld).invert();
+      const excluded = excludeRoots || new Set();
+      const isExcluded = (object) => {
+        let node = object;
+        while (node) { if (excluded.has(node)) return true; node = node.parent; }
+        return false;
+      };
+      const buckets = new Map();
+      container.traverse((obj) => {
+        if (!obj.isMesh || obj.isInstancedMesh || obj.isSkinnedMesh) return;
+        if (!obj.material || Array.isArray(obj.material) || obj.material.transparent) return;
+        if (isExcluded(obj)) return;
+        const key = obj.material.uuid;
+        if (!buckets.has(key)) buckets.set(key, { material: obj.material, items: [] });
+        buckets.get(key).items.push(obj);
+      });
+      for (const bucket of buckets.values()) {
+        if (bucket.items.length < 2) continue;
+        const geometries = bucket.items.map((mesh) => {
+          const geometry = mesh.geometry.clone();
+          const local = new T.Matrix4().multiplyMatrices(invContainer, mesh.matrixWorld);
+          geometry.applyMatrix4(local);
+          return geometry;
+        });
+        const merged = this._mergeGeometrySet(geometries);
+        if (!merged) continue;
+        const mesh = new T.Mesh(merged, bucket.material);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.name = `OpenCar_Merged_${bucket.material.name || "material"}`;
+        container.add(mesh);
+        bucket.items.forEach((item) => { if (item.parent) item.parent.remove(item); });
+        geometries.forEach((geometry) => geometry.dispose());
+      }
     }
 
     _buildMaterials() {
@@ -301,6 +386,7 @@
       wheelPivot.position.set(-0.44, 1.31, 0.62);
       wheelPivot.rotation.x = -0.42;
       body.add(wheelPivot);
+      this.steerWheelPivot = wheelPivot;
       const wheel = new T.Mesh(new T.TorusGeometry(0.19, 0.035, 8, 18), m.dark);
       wheel.name = "CarSteeringWheel";
       wheel.castShadow = true;
