@@ -53,6 +53,7 @@
       this._bodyPitch = 0;
       this._bodyRoll = 0;
       this._netPos = null;
+      this._lastGroundHudMeasure = 0;
     }
 
     // =========================================================================
@@ -1293,6 +1294,32 @@
           ? "LAUNCH CENTER · NASA ROAMING CAR · DRIVING"
           : "LAUNCH CENTER · NASA ROAMING CAR";
       }
+      this._stackAboveGroundHud();
+    }
+
+    /**
+     * The Site Tour panel is also bottom-centered. Measure it (throttled) and
+     * lift the car prompt just above it instead of letting the two overlap.
+     */
+    _stackAboveGroundHud() {
+      if (!this.hud) return;
+      const groundHud = document.getElementById("space-center-ground-hud");
+      const groundVisible = !!(groundHud && groundHud.style.display !== "none");
+      if (!groundVisible || !this.hud.classList.contains("is-visible")) {
+        if (this.hud.style.bottom !== "") this.hud.style.bottom = "";
+        return;
+      }
+      const now = performance.now();
+      if (now - this._lastGroundHudMeasure < 200) return;
+      this._lastGroundHudMeasure = now;
+      const rect = groundHud.getBoundingClientRect();
+      if (!rect || rect.height < 8) {
+        if (this.hud.style.bottom !== "") this.hud.style.bottom = "";
+        return;
+      }
+      const lift = Math.max(18, window.innerHeight - rect.top + 10);
+      const maxLift = Math.max(18, window.innerHeight - 190);
+      this.hud.style.bottom = `${Math.min(lift, maxLift).toFixed(0)}px`;
     }
   }
 
