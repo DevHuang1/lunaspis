@@ -100,22 +100,22 @@
   #shuttle-hud .scope i{position:absolute;width:min(62vh,62vw);height:min(62vh,62vw);border:1px solid var(--line);border-radius:50%}
   #shuttle-hud .scope em{position:absolute;bottom:20%;font-style:normal;color:var(--dim)}
   /* windows: DATA page and mission cards */
-  #shuttle-hud .win{position:absolute;inset:14px;display:none;flex-direction:column;border:1px solid var(--line);background:rgba(0,0,0,.66);pointer-events:auto}
-  #shuttle-hud .win.card{inset:auto;left:50%;top:50%;transform:translate(-50%,-50%);width:min(820px,94vw);max-height:90vh;background:rgba(0,0,0,.88)}
+  #shuttle-hud .win{position:absolute;inset:16px;display:none;flex-direction:column;border:1px solid var(--line);background:rgba(0,0,0,.74);pointer-events:auto}
+  #shuttle-hud .win.card{inset:auto;left:50%;top:50%;transform:translate(-50%,-50%);width:min(880px,95vw);max-height:92vh;background:rgba(0,0,0,.9)}
   #shuttle-hud .wh{display:flex;justify-content:space-between;border-bottom:1px solid var(--line)}
-  #shuttle-hud .wh b{background:var(--ink);color:#000;font-weight:400;padding:4px 14px;min-width:30%}
-  #shuttle-hud .wh span{padding:4px 14px;font-size:15px}
-  #shuttle-hud .crumb{display:flex;justify-content:space-between;border-bottom:1px solid var(--line);padding:3px 14px;font-size:11px;color:var(--ink)}
-  #shuttle-hud .wb{flex:1;overflow:auto;padding:16px 18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:18px 28px;align-content:start}
+  #shuttle-hud .wh b{background:var(--ink);color:#000;font-weight:400;padding:6px 16px;min-width:30%}
+  #shuttle-hud .wh span{padding:6px 16px;font-size:15px}
+  #shuttle-hud .crumb{display:flex;justify-content:space-between;border-bottom:1px solid var(--line);padding:6px 16px;font-size:12px;color:var(--ink)}
+  #shuttle-hud .wb{flex:1;overflow:auto;padding:18px 22px;display:grid;grid-template-columns:repeat(auto-fit,minmax(265px,1fr));gap:20px 30px;align-content:start;line-height:1.5}
   #shuttle-hud .card .wb{display:block}
-  #shuttle-hud .sec{border-left:3px solid var(--ink);padding-left:12px}
-  #shuttle-hud .sec h3{margin:0 0 8px;font-weight:400;font-size:14px}
-  #shuttle-hud .rows{display:grid;grid-template-columns:auto 1fr;gap:1px 14px;font-size:12px}
+  #shuttle-hud .sec{border-left:3px solid var(--ink);padding-left:14px}
+  #shuttle-hud .sec h3{margin:0 0 10px;font-weight:400;font-size:15px}
+  #shuttle-hud .rows{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;font-size:13px}
   #shuttle-hud .rows .v{text-align:right;color:var(--ink)} #shuttle-hud .rows .n{color:var(--dim)}
-  #shuttle-hud .sec ul{list-style:none;margin:0;padding:0;font-size:12px} #shuttle-hud .sec li{margin:1px 0}
+  #shuttle-hud .sec ul{list-style:none;margin:0;padding:0;font-size:13px} #shuttle-hud .sec li{margin:4px 0;line-height:1.45}
   #shuttle-hud .done{color:var(--dim)} #shuttle-hud .now{color:var(--blue)} #shuttle-hud .me{color:var(--blue)} #shuttle-hud .bad{color:var(--rose)}
-  #shuttle-hud .txt{text-transform:none;letter-spacing:0;font-size:13px;max-width:72ch} #shuttle-hud .txt p{margin:0 0 10px}
-  #shuttle-hud .wf{display:flex;align-items:center;gap:0;padding:0 14px 8px;margin-top:auto}
+  #shuttle-hud .txt{text-transform:none;letter-spacing:0;font-size:14px;line-height:1.55;max-width:74ch} #shuttle-hud .txt p{margin:0 0 12px}
+  #shuttle-hud .wf{display:flex;align-items:center;gap:8px;padding:4px 16px 12px;margin-top:auto}
   #shuttle-hud .wf .bar{margin-left:auto;display:flex;height:4px;width:min(260px,40vw)}
   #shuttle-hud .wf .bar i{flex:1;background:var(--rose);margin-left:1px} #shuttle-hud .wf .bar i.d{background:var(--blue)}
   #shuttle-hud button{font:inherit;text-transform:uppercase;color:var(--ink);background:transparent;border:1px solid var(--line);padding:4px 10px;margin:0 6px 6px 0;cursor:pointer;letter-spacing:.04em}

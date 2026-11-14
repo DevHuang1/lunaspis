@@ -164,6 +164,9 @@
       this._bindCameraControls();
       document.body.classList.add("docking-active");
       document.body.classList.remove("ground-mode-active", "launch-active", "interior-active");
+      if (window.csaNasaLab && typeof window.csaNasaLab.syncGroundLockState === "function") {
+        window.csaNasaLab.syncGroundLockState();
+      }
 
       if (window.spaceAudio) {
         window.spaceAudio.playRadioBeep(true);

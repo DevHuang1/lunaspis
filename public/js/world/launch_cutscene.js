@@ -492,6 +492,9 @@
       if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
       document.body.classList.add("launch-active");
       document.body.classList.remove("ground-mode-active");
+      if (window.csaNasaLab && typeof window.csaNasaLab.syncGroundLockState === "function") {
+        window.csaNasaLab.syncGroundLockState();
+      }
 
       this.overlayEl = document.createElement("div");
       this.overlayEl.id = "launch-cutscene-overlay";

@@ -353,6 +353,7 @@
 
     init() {
       this._bindButtons();
+      this.syncGroundLockState();
     }
 
     _bindButtons() {
@@ -365,6 +366,79 @@
       };
       bind("btn-open-nasa-csa-menu", "csa");
       bind("btn-hud-nasa-csa", "csa");
+    }
+
+    _isGroundCrewMember() {
+      const sc = window.spaceCenter;
+      if (sc && typeof sc._isLocalGroundCrew === "function" && sc._isLocalGroundCrew()) {
+        return true;
+      }
+      const nm = window.netManager;
+      if (!nm) return false;
+      const local = nm.localPlayer || null;
+      const roomPlayers = nm.roomState && nm.roomState.players ? nm.roomState.players : null;
+      const playerEntry = local || (roomPlayers && nm.localPlayerId ? roomPlayers[nm.localPlayerId] : null);
+      if (!playerEntry) return false;
+      if (playerEntry.team === "ground") return true;
+      const roleId = playerEntry.role;
+      if (window.InterfellasRoles && typeof window.InterfellasRoles.isGroundRole === "function") {
+        return !!window.InterfellasRoles.isGroundRole(roleId);
+      }
+      return roleId === "flight_director" || roleId === "ground_capcom";
+    }
+
+    isGroundLocked() {
+      const body = document.body;
+      if (!body || !body.classList.contains("game-active")) {
+        return false;
+      }
+      if (this._isGroundCrewMember()) {
+        return true;
+      }
+      const inFlightMode =
+        body.classList.contains("launch-active") ||
+        body.classList.contains("docking-active") ||
+        body.classList.contains("interior-active");
+      if (inFlightMode) {
+        return false;
+      }
+      const sc = window.spaceCenter;
+      const nm = window.netManager;
+      const mission =
+        (nm && typeof nm.getMission === "function" && nm.getMission()) ||
+        (nm && nm.roomState && nm.roomState.mission) ||
+        null;
+      return Boolean(
+        body.classList.contains("ground-mode-active") ||
+        (sc && (sc.isGroundMode || sc.siteTourActive)) ||
+        (mission && mission.phase === "gantry")
+      );
+    }
+
+    getGroundLockReason() {
+      if (this._isGroundCrewMember()) {
+        return "Space Games & Tools are orbital-only and locked for Ground Control crew (Flight Director / Ground CAPCOM).";
+      }
+      return "Space Games & Tools are locked on the ground. Launch into orbit to unlock them!";
+    }
+
+    syncGroundLockState() {
+      const locked = this.isGroundLocked();
+      if (document.body) {
+        document.body.classList.toggle("space-games-ground-locked", locked);
+      }
+      const hudBtn = document.getElementById("btn-hud-nasa-csa");
+      if (hudBtn) {
+        hudBtn.setAttribute("aria-hidden", locked ? "true" : "false");
+        hudBtn.disabled = locked;
+      }
+      if (locked && this.modalEl && this.modalEl.style.display !== "none") {
+        this.closeModal(true);
+        if (window.gameplay && typeof window.gameplay.showToast === "function") {
+          window.gameplay.showToast(this.getGroundLockReason());
+        }
+      }
+      return locked;
     }
 
     getState() {
@@ -511,41 +585,44 @@
     // Renders a plain-language, jargon-free interactive activity widget inside Console 4 (Science Tools)
     renderContextualConsoleWidget(scenarioId) {
       const st = this.state;
+      if (this.isGroundLocked()) {
+        return "";
+      }
       if (scenarioId === "earth_climate") {
         const sec = RCM_SECTORS[st.rcmSectorId] || RCM_SECTORS.maritime_arctic;
         const beamMatch = st.rcmBeamId === sec.recommendedBeam;
         return `
-          <div style="margin-bottom:12px;padding:10px 12px;border-radius:8px;background:rgba(16,185,129,0.07);border:1px solid rgba(52,211,153,0.35);">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
-              <span style="font-family:monospace;font-size:10px;font-weight:700;color:#6ee7b7;letter-spacing:0.8px;">
+          <div style="margin-bottom:14px;padding:14px 16px;border-radius:8px;background:rgba(16,185,129,0.07);border:1px solid rgba(52,211,153,0.35);">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+              <span style="font-family:monospace;font-size:11.5px;font-weight:700;color:#6ee7b7;letter-spacing:0.6px;">
                 🇨🇦 MINI-GAME · USE CANADA'S EARTH RADAR SATELLITES TO HELP PEOPLE ON EARTH
               </span>
-              <button type="button" class="btn-open-csa-lab-inline" data-tab="csa" style="padding:3px 8px;border-radius:4px;border:1px solid rgba(103,232,249,0.45);background:rgba(103,232,249,0.14);color:#67e8f9;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">
+              <button type="button" class="btn-open-csa-lab-inline" data-tab="csa" style="padding:5px 10px;border-radius:5px;border:1px solid rgba(103,232,249,0.45);background:rgba(103,232,249,0.14);color:#67e8f9;font-family:monospace;font-size:10.5px;font-weight:700;cursor:pointer;">
                 OPEN FULL MINI-GAME
               </button>
             </div>
-            <div style="font-size:10.5px;color:#cbd5e1;margin-bottom:6px;">
+            <div style="font-size:12px;color:#cbd5e1;line-height:1.5;margin-bottom:8px;">
               Step 1: Who needs satellite help today? Pick a team below, then match the right camera zoom:
             </div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
               ${Object.values(RCM_SECTORS).map((s) => `
-                <button type="button" class="csa-rcm-sec-btn" data-id="${s.id}" style="padding:4px 8px;border-radius:4px;border:1px solid ${st.rcmSectorId === s.id ? "#34d399" : "rgba(255,255,255,0.15)"};background:${st.rcmSectorId === s.id ? "rgba(52,211,153,0.2)" : "rgba(0,0,0,0.35)"};color:#ece7dc;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">
+                <button type="button" class="csa-rcm-sec-btn" data-id="${s.id}" style="padding:6px 10px;border-radius:5px;border:1px solid ${st.rcmSectorId === s.id ? "#34d399" : "rgba(255,255,255,0.15)"};background:${st.rcmSectorId === s.id ? "rgba(52,211,153,0.2)" : "rgba(0,0,0,0.35)"};color:#ece7dc;font-family:monospace;font-size:10.5px;font-weight:700;cursor:pointer;">
                   ${s.role}
                 </button>
               `).join("")}
             </div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
               ${[
                 { id: "scansar_500", label: "Wide Ocean & Ice View (For Ships)" },
                 { id: "spotlight_3m", label: "Close-Up Flood Zoom (For Rescuers)" },
                 { id: "polarimetric_30m", label: "Soil & Crop Scanner (For Farmers)" }
               ].map((b) => `
-                <button type="button" class="csa-rcm-beam-btn" data-id="${b.id}" style="padding:3px 7px;border-radius:4px;border:1px solid ${st.rcmBeamId === b.id ? "#67e8f9" : "rgba(255,255,255,0.14)"};background:${st.rcmBeamId === b.id ? "rgba(103,232,249,0.18)" : "rgba(0,0,0,0.3)"};color:#cbd5e1;font-family:monospace;font-size:8.5px;cursor:pointer;">
+                <button type="button" class="csa-rcm-beam-btn" data-id="${b.id}" style="padding:5px 9px;border-radius:5px;border:1px solid ${st.rcmBeamId === b.id ? "#67e8f9" : "rgba(255,255,255,0.14)"};background:${st.rcmBeamId === b.id ? "rgba(103,232,249,0.18)" : "rgba(0,0,0,0.3)"};color:#cbd5e1;font-family:monospace;font-size:10.5px;cursor:pointer;">
                   ${b.label}
                 </button>
               `).join("")}
             </div>
-            <div style="font-size:10.5px;color:${beamMatch ? "#a7f3d0" : "#fde68a"};">
+            <div style="font-size:12px;line-height:1.5;color:${beamMatch ? "#a7f3d0" : "#fde68a"};">
               ${beamMatch ? `✓ GREAT MATCH! ${sec.sarSignature}` : `Tip: Pick the camera view that matches "${sec.role}" (${sec.beamMode}).`}
             </div>
           </div>
@@ -555,24 +632,24 @@
       if (scenarioId === "asteroid_rendezvous") {
         const site = BENNU_CANDIDATE_SITES[st.bennuSiteId] || BENNU_CANDIDATE_SITES.nightingale;
         return `
-          <div style="margin-bottom:12px;padding:10px 12px;border-radius:8px;background:rgba(251,191,36,0.07);border:1px solid rgba(251,191,36,0.35);">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
-              <span style="font-family:monospace;font-size:10px;font-weight:700;color:#fde047;letter-spacing:0.8px;">
+          <div style="margin-bottom:14px;padding:14px 16px;border-radius:8px;background:rgba(251,191,36,0.07);border:1px solid rgba(251,191,36,0.35);">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+              <span style="font-family:monospace;font-size:11.5px;font-weight:700;color:#fde047;letter-spacing:0.6px;">
                 🇨🇦 MINI-GAME · PICK A SAFE SPOT ON ASTEROID BENNU TO SCOOP UP ROCKS
               </span>
-              <button type="button" class="btn-open-csa-lab-inline" data-tab="csa" style="padding:3px 8px;border-radius:4px;border:1px solid rgba(103,232,249,0.45);background:rgba(103,232,249,0.14);color:#67e8f9;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">
+              <button type="button" class="btn-open-csa-lab-inline" data-tab="csa" style="padding:5px 10px;border-radius:5px;border:1px solid rgba(103,232,249,0.45);background:rgba(103,232,249,0.14);color:#67e8f9;font-family:monospace;font-size:10.5px;font-weight:700;cursor:pointer;">
                 OPEN 3D LASER MAP
               </button>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:6px;margin-bottom:6px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;margin-bottom:8px;">
               ${Object.values(BENNU_CANDIDATE_SITES).map((s) => `
-                <div class="csa-bennu-site-card" data-id="${s.id}" style="padding:6px 8px;border-radius:5px;border:1px solid ${st.bennuSiteId === s.id ? "#fbbf24" : "rgba(255,255,255,0.12)"};background:${st.bennuSiteId === s.id ? "rgba(251,191,36,0.16)" : "rgba(0,0,0,0.35)"};cursor:pointer;">
-                  <div style="font-family:monospace;font-size:9.5px;font-weight:700;color:#ece7dc;">${s.name}</div>
-                  <div style="font-family:monospace;font-size:8.5px;color:${s.tagSafe ? "#86efac" : "#fca5a5"};">Ground Tilt: ${s.slopeDeg}° · Water Clays: ${s.hydrationPct}%</div>
+                <div class="csa-bennu-site-card" data-id="${s.id}" style="padding:9px 11px;border-radius:6px;border:1px solid ${st.bennuSiteId === s.id ? "#fbbf24" : "rgba(255,255,255,0.12)"};background:${st.bennuSiteId === s.id ? "rgba(251,191,36,0.16)" : "rgba(0,0,0,0.35)"};cursor:pointer;">
+                  <div style="font-family:monospace;font-size:11.5px;font-weight:700;color:#ece7dc;margin-bottom:2px;">${s.name}</div>
+                  <div style="font-family:monospace;font-size:10.5px;color:${s.tagSafe ? "#86efac" : "#fca5a5"};">Ground Tilt: ${s.slopeDeg}° · Water Clays: ${s.hydrationPct}%</div>
                 </div>
               `).join("")}
             </div>
-            <div style="font-size:10.5px;color:${site.tagSafe ? "#a7f3d0" : "#fecaca"};">
+            <div style="font-size:12px;line-height:1.5;color:${site.tagSafe ? "#a7f3d0" : "#fecaca"};">
               <strong>${site.name}:</strong> ${site.summary}
             </div>
           </div>
@@ -583,28 +660,28 @@
         const lvl = TELESCOPE_LEVELS[st.telescopeLevel] || TELESCOPE_LEVELS[3];
         const opt = OPTICAL_SYSTEMS[st.opticalSystemId] || OPTICAL_SYSTEMS.segmented_6_5m_hex;
         return `
-          <div style="margin-bottom:12px;padding:10px 12px;border-radius:8px;background:rgba(192,132,252,0.08);border:1px solid rgba(192,132,252,0.35);">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
-              <span style="font-family:monospace;font-size:10px;font-weight:700;color:#e9d5ff;letter-spacing:0.8px;">
+          <div style="margin-bottom:14px;padding:14px 16px;border-radius:8px;background:rgba(192,132,252,0.08);border:1px solid rgba(192,132,252,0.35);">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+              <span style="font-family:monospace;font-size:11.5px;font-weight:700;color:#e9d5ff;letter-spacing:0.6px;">
                 🔭 BUILD-IT-YOURSELF SPACE TELESCOPE: PICK YOUR MIRROR SIZE
               </span>
-              <div style="display:flex;gap:5px;flex-wrap:wrap;">
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
                 ${[1, 2, 3].map((n) => `
-                  <button type="button" class="nasa-tel-lvl-btn" data-lvl="${n}" style="padding:3px 7px;border-radius:4px;border:1px solid ${st.telescopeLevel === n ? "#c084fc" : "rgba(255,255,255,0.16)"};background:${st.telescopeLevel === n ? "rgba(192,132,252,0.24)" : "rgba(0,0,0,0.3)"};color:#ece7dc;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">
+                  <button type="button" class="nasa-tel-lvl-btn" data-lvl="${n}" style="padding:5px 9px;border-radius:5px;border:1px solid ${st.telescopeLevel === n ? "#c084fc" : "rgba(255,255,255,0.16)"};background:${st.telescopeLevel === n ? "rgba(192,132,252,0.24)" : "rgba(0,0,0,0.3)"};color:#ece7dc;font-family:monospace;font-size:10.5px;font-weight:700;cursor:pointer;">
                     LEVEL ${n}
                   </button>
                 `).join("")}
               </div>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:6px;margin-bottom:6px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin-bottom:8px;">
               ${Object.values(OPTICAL_SYSTEMS).map((o) => `
-                <div class="nasa-opt-sys-card" data-id="${o.id}" style="padding:6px 8px;border-radius:5px;border:1px solid ${st.opticalSystemId === o.id ? "#67e8f9" : "rgba(255,255,255,0.12)"};background:${st.opticalSystemId === o.id ? "rgba(103,232,249,0.14)" : "rgba(0,0,0,0.3)"};cursor:pointer;">
-                  <div style="font-size:9.5px;font-weight:700;color:#ece7dc;">${o.name}</div>
-                  <div style="font-family:monospace;font-size:8.5px;color:#7dd3fc;">Mirror Width: ${o.apertureM} meters</div>
+                <div class="nasa-opt-sys-card" data-id="${o.id}" style="padding:9px 11px;border-radius:6px;border:1px solid ${st.opticalSystemId === o.id ? "#67e8f9" : "rgba(255,255,255,0.12)"};background:${st.opticalSystemId === o.id ? "rgba(103,232,249,0.14)" : "rgba(0,0,0,0.3)"};cursor:pointer;">
+                  <div style="font-size:11.5px;font-weight:700;color:#ece7dc;margin-bottom:2px;">${o.name}</div>
+                  <div style="font-family:monospace;font-size:10.5px;color:#7dd3fc;">Mirror Width: ${o.apertureM} meters</div>
                 </div>
               `).join("")}
             </div>
-            <div style="font-size:10px;color:#cbd5e1;">
+            <div style="font-size:12px;line-height:1.5;color:#cbd5e1;">
               <strong>${lvl.name}:</strong> ${opt.explain} · <strong style="color:#fde047;">${lvl.heritage}</strong>
             </div>
           </div>
@@ -614,20 +691,20 @@
       if (scenarioId === "cubesat_101") {
         const doneCount = Object.values(st.cubesatPhasesDone).filter(Boolean).length;
         return `
-          <div style="margin-bottom:12px;padding:10px 12px;border-radius:8px;background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.35);">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
-              <span style="font-family:monospace;font-size:10px;font-weight:700;color:#7dd3fc;letter-spacing:0.8px;">
+          <div style="margin-bottom:14px;padding:14px 16px;border-radius:8px;background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.35);">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+              <span style="font-family:monospace;font-size:11.5px;font-weight:700;color:#7dd3fc;letter-spacing:0.6px;">
                 🛰️ STUDENT SHOEBOX SATELLITE 5-STEP CHECKLIST (${doneCount}/5)
               </span>
-              <button type="button" class="btn-open-csa-lab-inline" data-tab="gmat" style="padding:3px 8px;border-radius:4px;border:1px solid rgba(103,232,249,0.45);background:rgba(103,232,249,0.14);color:#67e8f9;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">
+              <button type="button" class="btn-open-csa-lab-inline" data-tab="gmat" style="padding:5px 10px;border-radius:5px;border:1px solid rgba(103,232,249,0.45);background:rgba(103,232,249,0.14);color:#67e8f9;font-family:monospace;font-size:10.5px;font-weight:700;cursor:pointer;">
                 VIEW FULL GUIDE
               </button>
             </div>
-            <div style="display:flex;gap:5px;flex-wrap:wrap;">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
               ${CUBESAT_101_PHASES.map((p) => {
                 const on = !!st.cubesatPhasesDone[p.id];
                 return `
-                  <button type="button" class="cs101-phase-btn" data-id="${p.id}" title="${p.detail}" style="padding:4px 8px;border-radius:4px;border:1px solid ${on ? "rgba(74,222,128,0.5)" : "rgba(255,255,255,0.16)"};background:${on ? "rgba(22,163,74,0.18)" : "rgba(0,0,0,0.35)"};color:${on ? "#86efac" : "#94a3b8"};font-family:monospace;font-size:8.5px;font-weight:700;cursor:pointer;">
+                  <button type="button" class="cs101-phase-btn" data-id="${p.id}" title="${p.detail}" style="padding:6px 10px;border-radius:5px;border:1px solid ${on ? "rgba(74,222,128,0.5)" : "rgba(255,255,255,0.16)"};background:${on ? "rgba(22,163,74,0.18)" : "rgba(0,0,0,0.35)"};color:${on ? "#86efac" : "#94a3b8"};font-family:monospace;font-size:10.5px;font-weight:700;cursor:pointer;">
                     ${on ? "☑" : "☐"} ${p.phase}
                   </button>
                 `;
@@ -691,18 +768,26 @@
     }
 
     openModal(initialTab = "csa") {
+      this.syncGroundLockState();
+      if (this.isGroundLocked()) {
+        if (window.gameplay && typeof window.gameplay.showToast === "function") {
+          window.gameplay.showToast(this.getGroundLockReason());
+        }
+        return false;
+      }
       this.state.activeTab = initialTab || "csa";
       this._ensureModalDom();
       this.modalEl.style.display = "flex";
       if (window.spaceAudio) window.spaceAudio.playClick();
       this._renderModalContent();
+      return true;
     }
 
-    closeModal() {
+    closeModal(silent = false) {
       if (this.modalEl) {
         this.modalEl.style.display = "none";
       }
-      if (window.spaceAudio) window.spaceAudio.playClick();
+      if (!silent && window.spaceAudio) window.spaceAudio.playClick();
     }
 
     _ensureModalDom() {
@@ -718,29 +803,29 @@
         backdrop-filter:blur(10px);
         align-items:center;
         justify-content:center;
-        padding:14px;
+        padding:18px;
       `;
 
       overlay.innerHTML = `
-        <div style="width:min(1040px,96vw);max-height:90dvh;display:flex;flex-direction:column;border-radius:10px;background:#070c18;border:1px solid rgba(103,232,249,0.35);box-shadow:0 24px 64px rgba(0,0,0,0.75);color:#ece7dc;overflow:hidden;">
-          <div style="padding:12px 16px;background:rgba(15,23,42,0.92);border-bottom:1px solid rgba(148,163,184,0.2);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-            <div style="display:flex;align-items:center;gap:10px;">
-              <span style="width:8px;height:8px;border-radius:50%;background:#67e8f9;box-shadow:0 0 8px #67e8f9;"></span>
+        <div style="width:min(1120px,96vw);max-height:92dvh;display:flex;flex-direction:column;border-radius:12px;background:#070c18;border:1px solid rgba(103,232,249,0.35);box-shadow:0 24px 64px rgba(0,0,0,0.75);color:#ece7dc;overflow:hidden;">
+          <div style="padding:16px 22px;background:rgba(15,23,42,0.92);border-bottom:1px solid rgba(148,163,184,0.2);display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <span style="width:9px;height:9px;border-radius:50%;background:#67e8f9;box-shadow:0 0 8px #67e8f9;flex-shrink:0;"></span>
               <div>
-                <div style="font-family:var(--font-mono,monospace);font-size:12px;font-weight:800;letter-spacing:1px;color:#f8fafc;">
+                <div style="font-family:var(--font-mono,monospace);font-size:14px;font-weight:800;letter-spacing:0.8px;color:#f8fafc;">
                   SPACE GAMES, ACTIVITIES &amp; BEGINNER MISSION GUIDES
                 </div>
-                <div style="font-size:11px;color:#94a3b8;">
+                <div style="font-size:12.5px;color:#94a3b8;line-height:1.45;margin-top:3px;">
                   No space background needed! Play interactive mini-games and explore how real NASA &amp; Canadian Space Agency missions work.
                 </div>
               </div>
             </div>
-            <button type="button" id="btn-close-csa-nasa-lab" style="padding:5px 11px;border-radius:5px;border:1px solid rgba(239,68,68,0.5);background:rgba(239,68,68,0.14);color:#fecaca;font-family:monospace;font-size:11px;font-weight:700;cursor:pointer;">
+            <button type="button" id="btn-close-csa-nasa-lab" style="padding:7px 14px;border-radius:6px;border:1px solid rgba(239,68,68,0.5);background:rgba(239,68,68,0.14);color:#fecaca;font-family:monospace;font-size:12px;font-weight:700;cursor:pointer;">
               CLOSE &times;
             </button>
           </div>
-          <div id="csa-nasa-lab-tabs" style="padding:8px 16px;background:rgba(8,13,24,0.95);border-bottom:1px solid rgba(148,163,184,0.16);display:flex;gap:6px;flex-wrap:wrap;"></div>
-          <div id="csa-nasa-lab-body" style="padding:14px 16px;overflow-y:auto;flex:1;"></div>
+          <div id="csa-nasa-lab-tabs" style="padding:10px 22px;background:rgba(8,13,24,0.95);border-bottom:1px solid rgba(148,163,184,0.16);display:flex;gap:8px;flex-wrap:wrap;"></div>
+          <div id="csa-nasa-lab-body" style="padding:18px 22px;overflow-y:auto;flex:1;line-height:1.5;"></div>
         </div>
       `;
 
@@ -769,7 +854,7 @@
       tabsBar.innerHTML = tabs.map((tab) => {
         const active = this.state.activeTab === tab.id;
         return `
-          <button type="button" class="csa-lab-tab-btn" data-tab="${tab.id}" style="padding:7px 12px;border-radius:5px;border:1px solid ${active ? "#67e8f9" : "rgba(148,163,184,0.22)"};background:${active ? "rgba(103,232,249,0.16)" : "rgba(255,255,255,0.03)"};color:${active ? "#f8fafc" : "#94a3b8"};font-family:var(--font-mono,monospace);font-size:10px;font-weight:700;cursor:pointer;">
+          <button type="button" class="csa-lab-tab-btn" data-tab="${tab.id}" style="padding:9px 14px;border-radius:6px;border:1px solid ${active ? "#67e8f9" : "rgba(148,163,184,0.22)"};background:${active ? "rgba(103,232,249,0.16)" : "rgba(255,255,255,0.03)"};color:${active ? "#f8fafc" : "#94a3b8"};font-family:var(--font-mono,monospace);font-size:11.5px;font-weight:700;cursor:pointer;">
             ${tab.label}
           </button>
         `;
@@ -804,68 +889,68 @@
       const site = BENNU_CANDIDATE_SITES[st.bennuSiteId] || BENNU_CANDIDATE_SITES.nightingale;
 
       body.innerHTML = `
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(440px,1fr));gap:12px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;">
           <!-- CARD 1: EARTH RADAR SATELLITE GAME -->
-          <div style="padding:12px;border-radius:8px;background:rgba(15,23,42,0.75);border:1px solid rgba(52,211,153,0.35);">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-              <span style="font-family:monospace;font-size:10.5px;font-weight:700;color:#6ee7b7;">
+          <div style="padding:16px 18px;border-radius:10px;background:rgba(15,23,42,0.75);border:1px solid rgba(52,211,153,0.35);">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+              <span style="font-family:monospace;font-size:12px;font-weight:700;color:#6ee7b7;">
                 🇨🇦 GAME 1 · HELP PEOPLE ON EARTH WITH SATELLITE RADAR
               </span>
-              <span style="font-family:monospace;font-size:9px;padding:2px 6px;border-radius:4px;background:rgba(52,211,153,0.16);color:#6ee7b7;">
+              <span style="font-family:monospace;font-size:10.5px;padding:3px 8px;border-radius:4px;background:rgba(52,211,153,0.16);color:#6ee7b7;">
                 SEES THROUGH CLOUDS &amp; NIGHT
               </span>
             </div>
-            <p style="font-size:11px;color:#cbd5e1;margin:0 0 8px 0;line-height:1.45;">
+            <p style="font-size:12.5px;color:#cbd5e1;margin:0 0 10px 0;line-height:1.55;">
               Normal cameras can't see through thick storm clouds or in the dark. Canada's <strong>RADARSAT</strong> satellites bounce harmless radio waves off the ground to see day or night! Pick who you want to help, then choose the best camera zoom:
             </p>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
               ${Object.values(RCM_SECTORS).map((s) => `
-                <button type="button" class="lab-rcm-sec" data-id="${s.id}" style="padding:5px 8px;border-radius:5px;border:1px solid ${st.rcmSectorId === s.id ? "#34d399" : "rgba(255,255,255,0.14)"};background:${st.rcmSectorId === s.id ? "rgba(52,211,153,0.2)" : "rgba(0,0,0,0.35)"};color:#ece7dc;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">
+                <button type="button" class="lab-rcm-sec" data-id="${s.id}" style="padding:7px 11px;border-radius:5px;border:1px solid ${st.rcmSectorId === s.id ? "#34d399" : "rgba(255,255,255,0.14)"};background:${st.rcmSectorId === s.id ? "rgba(52,211,153,0.2)" : "rgba(0,0,0,0.35)"};color:#ece7dc;font-family:monospace;font-size:11px;font-weight:700;cursor:pointer;">
                   ${st.rcmVerifiedSectors[s.id] ? "✓ " : ""}${s.role}
                 </button>
               `).join("")}
             </div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
               ${[
                 { id: "scansar_500", label: "Wide Ocean & Ice View (For Ships)" },
                 { id: "spotlight_3m", label: "Close-Up Flood Zoom (For Rescuers)" },
                 { id: "polarimetric_30m", label: "Soil & Crop Scanner (For Farmers)" }
               ].map((b) => `
-                <button type="button" class="lab-rcm-beam" data-id="${b.id}" style="padding:4px 8px;border-radius:4px;border:1px solid ${st.rcmBeamId === b.id ? "#67e8f9" : "rgba(255,255,255,0.14)"};background:${st.rcmBeamId === b.id ? "rgba(103,232,249,0.2)" : "rgba(0,0,0,0.3)"};color:#e2e8f0;font-family:monospace;font-size:9px;cursor:pointer;">
+                <button type="button" class="lab-rcm-beam" data-id="${b.id}" style="padding:6px 10px;border-radius:5px;border:1px solid ${st.rcmBeamId === b.id ? "#67e8f9" : "rgba(255,255,255,0.14)"};background:${st.rcmBeamId === b.id ? "rgba(103,232,249,0.2)" : "rgba(0,0,0,0.3)"};color:#e2e8f0;font-family:monospace;font-size:11px;cursor:pointer;">
                   ${b.label}
                 </button>
               `).join("")}
             </div>
-            <canvas id="csa-rcm-canvas" width="440" height="125" style="width:100%;height:125px;border-radius:6px;border:1px solid rgba(52,211,153,0.3);display:block;margin-bottom:6px;"></canvas>
-            <div style="font-size:10.5px;color:${beamMatch ? "#86efac" : "#fde68a"};line-height:1.4;">
+            <canvas id="csa-rcm-canvas" width="440" height="125" style="width:100%;height:130px;border-radius:6px;border:1px solid rgba(52,211,153,0.3);display:block;margin-bottom:10px;"></canvas>
+            <div style="font-size:12px;color:${beamMatch ? "#86efac" : "#fde68a"};line-height:1.5;">
               <strong>${sec.role}:</strong> ${sec.targetDesc}<br/>
               <span style="color:#94a3b8;">${sec.sarSignature}</span>
             </div>
           </div>
 
           <!-- CARD 2: ASTEROID SAMPLE SITE PICKER -->
-          <div style="padding:12px;border-radius:8px;background:rgba(15,23,42,0.75);border:1px solid rgba(251,191,36,0.35);">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-              <span style="font-family:monospace;font-size:10.5px;font-weight:700;color:#fde047;">
+          <div style="padding:16px 18px;border-radius:10px;background:rgba(15,23,42,0.75);border:1px solid rgba(251,191,36,0.35);">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+              <span style="font-family:monospace;font-size:12px;font-weight:700;color:#fde047;">
                 🇨🇦 GAME 2 · PICK A SAFE LANDING SPOT ON AN ASTEROID
               </span>
-              <span style="font-family:monospace;font-size:9px;padding:2px 6px;border-radius:4px;background:rgba(251,191,36,0.16);color:#fde047;">
+              <span style="font-family:monospace;font-size:10.5px;padding:3px 8px;border-radius:4px;background:rgba(251,191,36,0.16);color:#fde047;">
                 3D LASER SCANNER
               </span>
             </div>
-            <p style="font-size:11px;color:#cbd5e1;margin:0 0 8px 0;line-height:1.45;">
+            <p style="font-size:12.5px;color:#cbd5e1;margin:0 0 10px 0;line-height:1.55;">
               Asteroid Bennu is covered in giant boulders! Before NASA's spacecraft could touch down to vacuum up a cup of dirt, a Canadian 3D laser scanner mapped every rock. Click all 4 craters below to find the safest, most interesting spot:
             </p>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
               ${Object.values(BENNU_CANDIDATE_SITES).map((s) => `
-                <button type="button" class="lab-bennu-site" data-id="${s.id}" style="padding:6px 8px;border-radius:5px;border:1px solid ${st.bennuSiteId === s.id ? "#fbbf24" : "rgba(255,255,255,0.14)"};background:${st.bennuSiteId === s.id ? "rgba(251,191,36,0.18)" : "rgba(0,0,0,0.35)"};color:#ece7dc;text-align:left;cursor:pointer;">
-                  <div style="font-family:monospace;font-size:9.5px;font-weight:700;color:${s.recommended ? "#fde047" : "#ece7dc"};">${s.name}</div>
-                  <div style="font-family:monospace;font-size:8.5px;color:${s.tagSafe ? "#86efac" : "#fca5a5"};">Ground Tilt: ${s.slopeDeg}° · Water Clays: ${s.hydrationPct}%</div>
+                <button type="button" class="lab-bennu-site" data-id="${s.id}" style="padding:9px 11px;border-radius:6px;border:1px solid ${st.bennuSiteId === s.id ? "#fbbf24" : "rgba(255,255,255,0.14)"};background:${st.bennuSiteId === s.id ? "rgba(251,191,36,0.18)" : "rgba(0,0,0,0.35)"};color:#ece7dc;text-align:left;cursor:pointer;">
+                  <div style="font-family:monospace;font-size:11.5px;font-weight:700;color:${s.recommended ? "#fde047" : "#ece7dc"};margin-bottom:2px;">${s.name}</div>
+                  <div style="font-family:monospace;font-size:10.5px;color:${s.tagSafe ? "#86efac" : "#fca5a5"};">Ground Tilt: ${s.slopeDeg}° · Water Clays: ${s.hydrationPct}%</div>
                 </button>
               `).join("")}
             </div>
-            <canvas id="csa-ola-canvas" width="440" height="125" style="width:100%;height:125px;border-radius:6px;border:1px solid rgba(251,191,36,0.3);display:block;margin-bottom:6px;"></canvas>
-            <div style="font-size:10.5px;color:${site.tagSafe ? "#a7f3d0" : "#fecaca"};line-height:1.4;">
+            <canvas id="csa-ola-canvas" width="440" height="125" style="width:100%;height:130px;border-radius:6px;border:1px solid rgba(251,191,36,0.3);display:block;margin-bottom:10px;"></canvas>
+            <div style="font-size:12px;color:${site.tagSafe ? "#a7f3d0" : "#fecaca"};line-height:1.5;">
               <strong>${site.name}:</strong> ${site.summary}<br/>
               <span style="color:#94a3b8;">${site.boulderHazard}</span>
             </div>
@@ -873,32 +958,32 @@
         </div>
 
         <!-- CARD 3: ROBOT ARMS & GROWING TOMATOES IN SPACE -->
-        <div style="margin-top:12px;padding:12px;border-radius:8px;background:rgba(15,23,42,0.75);border:1px solid rgba(103,232,249,0.3);">
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
-            <span style="font-family:monospace;font-size:10.5px;font-weight:700;color:#67e8f9;">
+        <div style="margin-top:16px;padding:16px 18px;border-radius:10px;background:rgba(15,23,42,0.75);border:1px solid rgba(103,232,249,0.3);">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+            <span style="font-family:monospace;font-size:12px;font-weight:700;color:#67e8f9;">
               🇨🇦 ACTIVITY 3 · ROBOT ARMS IN SPACE &amp; GROWING SPACE TOMATOES
             </span>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              <button type="button" id="btn-lab-open-iss-canadarm" style="padding:4px 9px;border-radius:4px;border:1px solid rgba(103,232,249,0.5);background:rgba(103,232,249,0.14);color:#67e8f9;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button type="button" id="btn-lab-open-iss-canadarm" style="padding:7px 12px;border-radius:5px;border:1px solid rgba(103,232,249,0.5);background:rgba(103,232,249,0.14);color:#67e8f9;font-family:monospace;font-size:11px;font-weight:700;cursor:pointer;">
                 SEE CANADARM2 ON THE 3D SPACE STATION [J]
               </button>
-              <button type="button" id="btn-lab-apply-csa-preset" style="padding:4px 9px;border-radius:4px;border:1px solid rgba(52,211,153,0.5);background:rgba(52,211,153,0.16);color:#86efac;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">
+              <button type="button" id="btn-lab-apply-csa-preset" style="padding:7px 12px;border-radius:5px;border:1px solid rgba(52,211,153,0.5);background:rgba(52,211,153,0.16);color:#86efac;font-family:monospace;font-size:11px;font-weight:700;cursor:pointer;">
                 ADD THESE TOOLS TO MY SPACECRAFT
               </button>
             </div>
           </div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;font-size:11px;color:#cbd5e1;">
-            <div style="padding:9px;border-radius:6px;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.08);">
-              <div style="font-family:monospace;font-size:9.5px;font-weight:700;color:#93c5fd;margin-bottom:4px;">CANADARM2 &amp; DEXTRE (THE SPACE STATION'S ROBOT HELPER)</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;font-size:12.5px;line-height:1.55;color:#cbd5e1;">
+            <div style="padding:12px 14px;border-radius:8px;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.08);">
+              <div style="font-family:monospace;font-size:11.5px;font-weight:700;color:#93c5fd;margin-bottom:6px;">CANADARM2 &amp; DEXTRE (THE SPACE STATION'S ROBOT HELPER)</div>
               <div>Imagine a 17-meter robotic arm that can crawl like an inchworm along the outside of the Space Station! It catches visiting cargo ships, repairs equipment outside, and helps astronauts during spacewalks.</div>
-              <div style="margin-top:6px;font-family:monospace;font-size:9.5px;color:#86efac;">STATUS: Robot Hand Ready &amp; Locked On</div>
+              <div style="margin-top:8px;font-family:monospace;font-size:11px;color:#86efac;">STATUS: Robot Hand Ready &amp; Locked On</div>
             </div>
-            <div style="padding:9px;border-radius:6px;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.08);">
-              <div style="font-family:monospace;font-size:9.5px;font-weight:700;color:#86efac;margin-bottom:4px;">TOMATOSPHERE™ (GROWING FRESH FOOD IN SPACE)</div>
+            <div style="padding:12px 14px;border-radius:8px;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.08);">
+              <div style="font-family:monospace;font-size:11.5px;font-weight:700;color:#86efac;margin-bottom:6px;">TOMATOSPHERE™ (GROWING FRESH FOOD IN SPACE)</div>
               <div>On long trips to the Moon or Mars, astronauts need fresh food and oxygen! Millions of students have helped test how tomato seeds sprout after flying in space. Plants also clean the air and boost crew mood.</div>
-              <div style="margin-top:6px;display:flex;justify-content:space-between;align-items:center;">
-                <span style="font-family:monospace;font-size:9.5px;color:#fde047;">Seeds Sprouted: ${st.tomatosphereGerminationPct}% (Makes Fresh Air &amp; Food)</span>
-                <button type="button" id="btn-toggle-tomatosphere" style="padding:3px 8px;border-radius:4px;border:1px solid rgba(74,222,128,0.45);background:rgba(22,163,74,0.2);color:#86efac;font-family:monospace;font-size:9px;cursor:pointer;">
+              <div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+                <span style="font-family:monospace;font-size:11px;color:#fde047;">Seeds Sprouted: ${st.tomatosphereGerminationPct}% (Makes Fresh Air &amp; Food)</span>
+                <button type="button" id="btn-toggle-tomatosphere" style="padding:6px 11px;border-radius:5px;border:1px solid rgba(74,222,128,0.45);background:rgba(22,163,74,0.2);color:#86efac;font-family:monospace;font-size:11px;font-weight:700;cursor:pointer;">
                   ${st.tomatosphereActive ? "GREENHOUSE ON" : "TURN ON GREENHOUSE"}
                 </button>
               </div>
@@ -1083,13 +1168,13 @@
       ctx.font = "bold 9.5px monospace";
       ctx.fillText(`3D LASER MAP: ${site.name.split("(")[0].toUpperCase()}`, w * 0.54, 24);
       ctx.fillStyle = "#cbd5e1";
-      ctx.font = "9.5px monospace";
+      ctx.font = "10.5px monospace";
       ctx.fillText(`Crater Width     : ${site.craterDiamM} meters`, w * 0.54, 44);
       ctx.fillText(`Safe Landing Spot: ${site.safeZoneRadiusM} meters wide`, w * 0.54, 60);
       ctx.fillText(`Ground Tilt      : ${site.slopeDeg}° (Keep under 10°)`, w * 0.54, 76);
       ctx.fillText(`Water-Rich Clays : ${site.hydrationPct}%`, w * 0.54, 92);
       ctx.fillStyle = site.tagSafe ? "#4ade80" : "#f87171";
-      ctx.font = "bold 10px monospace";
+      ctx.font = "bold 11px monospace";
       ctx.fillText(site.tagSafe ? "SAFE TO TOUCH DOWN & COLLECT!" : "DANGER: TOO STEEP / BOULDERS!", w * 0.54, 112);
     }
 
@@ -1099,49 +1184,49 @@
       const opt = OPTICAL_SYSTEMS[st.opticalSystemId] || OPTICAL_SYSTEMS.segmented_6_5m_hex;
 
       body.innerHTML = `
-        <div style="padding:12px;border-radius:8px;background:rgba(15,23,42,0.8);border:1px solid rgba(192,132,252,0.35);margin-bottom:12px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+        <div style="padding:16px 18px;border-radius:10px;background:rgba(15,23,42,0.8);border:1px solid rgba(192,132,252,0.35);margin-bottom:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
             <div>
-              <div style="font-family:monospace;font-size:11px;font-weight:700;color:#e9d5ff;">
+              <div style="font-family:monospace;font-size:13px;font-weight:700;color:#e9d5ff;">
                 🔭 BUILD-IT-YOURSELF SPACE TELESCOPE GAME
               </div>
-              <div style="font-size:10.5px;color:#94a3b8;">
+              <div style="font-size:12px;color:#94a3b8;line-height:1.5;margin-top:3px;">
                 Pick a complexity level and mirror type below to see how astronomers design telescopes like Hubble and Webb (<a href="https://science.nasa.gov/mission/webb/game-build-it-yourself/" target="_blank" rel="noopener" style="color:#67e8f9;text-decoration:underline;">Play NASA's Webb Game</a>).
               </div>
             </div>
-            <button type="button" id="btn-tel-apply-to-mission" style="padding:6px 12px;border-radius:5px;border:1px solid #c084fc;background:rgba(192,132,252,0.2);color:#f3e8ff;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
+            <button type="button" id="btn-tel-apply-to-mission" style="padding:8px 14px;border-radius:6px;border:1px solid #c084fc;background:rgba(192,132,252,0.2);color:#f3e8ff;font-family:monospace;font-size:11.5px;font-weight:700;cursor:pointer;">
               USE THIS TELESCOPE IN MY MISSION
             </button>
           </div>
 
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px;margin-bottom:10px;">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;margin-bottom:14px;">
             ${Object.values(TELESCOPE_LEVELS).map((l) => `
-              <div class="lab-tel-lvl" data-lvl="${l.level}" style="padding:9px;border-radius:6px;border:1px solid ${st.telescopeLevel === l.level ? "#c084fc" : "rgba(255,255,255,0.12)"};background:${st.telescopeLevel === l.level ? "rgba(192,132,252,0.16)" : "rgba(0,0,0,0.35)"};cursor:pointer;">
-                <div style="font-family:monospace;font-size:10px;font-weight:700;color:#f3e8ff;">${l.name}</div>
-                <div style="font-size:10px;color:#cbd5e1;margin:4px 0;">${l.desc}</div>
-                <div style="font-family:monospace;font-size:9px;color:#fde047;">${l.heritage}</div>
+              <div class="lab-tel-lvl" data-lvl="${l.level}" style="padding:12px 14px;border-radius:8px;border:1px solid ${st.telescopeLevel === l.level ? "#c084fc" : "rgba(255,255,255,0.12)"};background:${st.telescopeLevel === l.level ? "rgba(192,132,252,0.16)" : "rgba(0,0,0,0.35)"};cursor:pointer;">
+                <div style="font-family:monospace;font-size:11.5px;font-weight:700;color:#f3e8ff;">${l.name}</div>
+                <div style="font-size:12px;color:#cbd5e1;margin:6px 0;line-height:1.5;">${l.desc}</div>
+                <div style="font-family:monospace;font-size:11px;color:#fde047;">${l.heritage}</div>
               </div>
             `).join("")}
           </div>
 
-          <div style="font-family:monospace;font-size:10px;font-weight:700;color:#67e8f9;margin-bottom:6px;">
+          <div style="font-family:monospace;font-size:11.5px;font-weight:700;color:#67e8f9;margin-bottom:8px;">
             STEP 2 · PICK YOUR TELESCOPE MIRROR (BIGGER MIRRORS COLLECT MORE FAINT STARLIGHT):
           </div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;margin-bottom:10px;">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));gap:10px;margin-bottom:14px;">
             ${Object.values(OPTICAL_SYSTEMS).map((o) => `
-              <div class="lab-opt-card" data-id="${o.id}" style="padding:9px;border-radius:6px;border:1px solid ${st.opticalSystemId === o.id ? "#67e8f9" : "rgba(255,255,255,0.12)"};background:${st.opticalSystemId === o.id ? "rgba(103,232,249,0.15)" : "rgba(0,0,0,0.35)"};cursor:pointer;">
-                <div style="font-size:10.5px;font-weight:700;color:#ece7dc;">${o.name}</div>
-                <div style="font-family:monospace;font-size:9px;color:#7dd3fc;margin:3px 0;">Mirror Width: ${o.apertureM} meters</div>
-                <div style="font-size:9.5px;color:#94a3b8;">${o.explain}</div>
+              <div class="lab-opt-card" data-id="${o.id}" style="padding:12px 14px;border-radius:8px;border:1px solid ${st.opticalSystemId === o.id ? "#67e8f9" : "rgba(255,255,255,0.12)"};background:${st.opticalSystemId === o.id ? "rgba(103,232,249,0.15)" : "rgba(0,0,0,0.35)"};cursor:pointer;">
+                <div style="font-size:12.5px;font-weight:700;color:#ece7dc;">${o.name}</div>
+                <div style="font-family:monospace;font-size:11px;color:#7dd3fc;margin:5px 0;">Mirror Width: ${o.apertureM} meters</div>
+                <div style="font-size:11.5px;color:#94a3b8;line-height:1.48;">${o.explain}</div>
               </div>
             `).join("")}
           </div>
 
-          <div style="padding:9px 11px;border-radius:6px;background:rgba(0,0,0,0.4);border:1px solid rgba(103,232,249,0.25);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-            <div style="font-size:10.5px;color:#cbd5e1;">
+          <div style="padding:12px 14px;border-radius:8px;background:rgba(0,0,0,0.4);border:1px solid rgba(103,232,249,0.25);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+            <div style="font-size:12px;color:#cbd5e1;line-height:1.55;">
               <strong>🇨🇦 Fun Fact — Canada's Eyes on the Webb Telescope:</strong> Canada built the <strong>Steady-Aim Camera (Fine Guidance Sensor)</strong> that keeps the Webb Telescope pointed steadily at distant stars—like holding a laser pointer steady on a dime from 1,000 kilometers away!—plus a special sensor that sniffs out water and air around alien planets.
             </div>
-            <span style="font-family:monospace;font-size:9.5px;font-weight:700;color:#86efac;">
+            <span style="font-family:monospace;font-size:11px;font-weight:700;color:#86efac;">
               SELECTED MIRROR: ${opt.apertureM}m · ${lvl.heritage}
             </span>
           </div>
@@ -1188,57 +1273,57 @@
 
       body.innerHTML = `
         <!-- 4 MISSION PLANNING STAGES -->
-        <div style="margin-bottom:12px;">
-          <div style="font-family:monospace;font-size:10px;font-weight:700;color:#93c5fd;margin-bottom:6px;letter-spacing:0.8px;">
+        <div style="margin-bottom:16px;">
+          <div style="font-family:monospace;font-size:11.5px;font-weight:700;color:#93c5fd;margin-bottom:8px;letter-spacing:0.6px;">
             HOW A SPACE MISSION GROWS: 4 SIMPLE STAGES FROM FIRST IDEA TO READY-TO-FLY
           </div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(225px,1fr));gap:10px;">
             ${MDL_STUDY_STAGES.map((s) => `
-              <div class="lab-mdl-stage" data-id="${s.id}" style="padding:8px 10px;border-radius:6px;border:1px solid ${st.mdlStageId === s.id ? "#67e8f9" : "rgba(255,255,255,0.12)"};background:${st.mdlStageId === s.id ? "rgba(103,232,249,0.14)" : "rgba(15,23,42,0.65)"};cursor:pointer;">
-                <div style="display:flex;justify-content:space-between;font-family:monospace;font-size:9.5px;font-weight:700;color:#ece7dc;">
+              <div class="lab-mdl-stage" data-id="${s.id}" style="padding:11px 13px;border-radius:8px;border:1px solid ${st.mdlStageId === s.id ? "#67e8f9" : "rgba(255,255,255,0.12)"};background:${st.mdlStageId === s.id ? "rgba(103,232,249,0.14)" : "rgba(15,23,42,0.65)"};cursor:pointer;">
+                <div style="display:flex;justify-content:space-between;gap:8px;font-family:monospace;font-size:11.5px;font-weight:700;color:#ece7dc;">
                   <span>${s.name}</span>
                   <span style="color:#67e8f9;">${s.cml}</span>
                 </div>
-                <div style="font-size:9.5px;color:#94a3b8;margin-top:3px;line-height:1.35;">${s.focus}</div>
+                <div style="font-size:11.5px;color:#94a3b8;margin-top:5px;line-height:1.45;">${s.focus}</div>
               </div>
             `).join("")}
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:12px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;">
           <!-- 11 SPACECRAFT PARTS CHECKLIST -->
-          <div style="padding:10px 12px;border-radius:8px;background:rgba(15,23,42,0.78);border:1px solid rgba(148,163,184,0.22);">
-            <div style="font-family:monospace;font-size:10px;font-weight:700;color:#67e8f9;margin-bottom:6px;">
+          <div style="padding:14px 16px;border-radius:10px;background:rgba(15,23,42,0.78);border:1px solid rgba(148,163,184,0.22);">
+            <div style="font-family:monospace;font-size:11.5px;font-weight:700;color:#67e8f9;margin-bottom:10px;">
               YOUR SPACECRAFT'S 11 PARTS AT A GLANCE
             </div>
-            <div style="display:flex;flex-direction:column;gap:4px;font-size:10px;">
+            <div style="display:flex;flex-direction:column;gap:6px;font-size:11.5px;">
               ${disciplines.map((d) => `
-                <div style="display:grid;grid-template-columns:1.1fr 1.2fr 0.9fr auto;gap:6px;align-items:center;padding:4px 6px;border-radius:4px;background:rgba(0,0,0,0.3);">
+                <div style="display:grid;grid-template-columns:1.1fr 1.2fr 0.9fr auto;gap:8px;align-items:center;padding:7px 10px;border-radius:5px;background:rgba(0,0,0,0.3);">
                   <strong style="color:#e2e8f0;">${d.discipline}</strong>
                   <span style="color:#cbd5e1;">${d.Choice}</span>
-                  <span style="font-family:monospace;font-size:9px;color:#93c5fd;">${d.metric}</span>
-                  <span style="font-family:monospace;font-size:8.5px;font-weight:700;color:${d.status === "GOOD" ? "#86efac" : "#fca5a5"};">${d.status}</span>
+                  <span style="font-family:monospace;font-size:11px;color:#93c5fd;">${d.metric}</span>
+                  <span style="font-family:monospace;font-size:10.5px;font-weight:700;color:${d.status === "GOOD" ? "#86efac" : "#fca5a5"};">${d.status}</span>
                 </div>
               `).join("")}
             </div>
           </div>
 
           <!-- FLIGHT PLAN & ORBIT FILE -->
-          <div style="padding:10px 12px;border-radius:8px;background:rgba(15,23,42,0.78);border:1px solid rgba(59,130,246,0.35);display:flex;flex-direction:column;">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;">
-              <span style="font-family:monospace;font-size:10px;font-weight:700;color:#93c5fd;">
+          <div style="padding:14px 16px;border-radius:10px;background:rgba(15,23,42,0.78);border:1px solid rgba(59,130,246,0.35);display:flex;flex-direction:column;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+              <span style="font-family:monospace;font-size:11.5px;font-weight:700;color:#93c5fd;">
                 YOUR AUTO-GENERATED FLIGHT PATH PLAN
               </span>
-              <div style="display:flex;gap:6px;">
-                <button type="button" id="btn-lab-download-gmat" style="padding:4px 9px;border-radius:4px;border:1px solid #67e8f9;background:rgba(103,232,249,0.18);color:#ecfeff;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button type="button" id="btn-lab-download-gmat" style="padding:6px 11px;border-radius:5px;border:1px solid #67e8f9;background:rgba(103,232,249,0.18);color:#ecfeff;font-family:monospace;font-size:11px;font-weight:700;cursor:pointer;">
                   DOWNLOAD FLIGHT PLAN
                 </button>
-                <button type="button" id="btn-lab-download-mdl-json" style="padding:4px 9px;border-radius:4px;border:1px solid rgba(167,139,250,0.5);background:rgba(167,139,250,0.16);color:#ddd6fe;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">
+                <button type="button" id="btn-lab-download-mdl-json" style="padding:6px 11px;border-radius:5px;border:1px solid rgba(167,139,250,0.5);background:rgba(167,139,250,0.16);color:#ddd6fe;font-family:monospace;font-size:11px;font-weight:700;cursor:pointer;">
                   SAVE SUMMARY (.JSON)
                 </button>
               </div>
             </div>
-            <pre style="margin:0;padding:8px;border-radius:6px;background:#030712;border:1px solid rgba(255,255,255,0.1);color:#a7f3d0;font-family:monospace;font-size:9px;line-height:1.35;max-height:260px;overflow:auto;white-space:pre;">${this._escapeHtml(gmatScript)}</pre>
+            <pre style="margin:0;padding:12px;border-radius:6px;background:#030712;border:1px solid rgba(255,255,255,0.1);color:#a7f3d0;font-family:monospace;font-size:11px;line-height:1.5;max-height:300px;overflow:auto;white-space:pre;">${this._escapeHtml(gmatScript)}</pre>
           </div>
         </div>
       `;
@@ -1263,24 +1348,24 @@
 
     _renderOfficialResourcesTab(body) {
       body.innerHTML = `
-        <div style="margin-bottom:8px;font-size:11px;color:#cbd5e1;">
+        <div style="margin-bottom:12px;font-size:12.5px;line-height:1.5;color:#cbd5e1;">
           All 9 official NASA &amp; Canadian Space Agency learning guides are built right into Lunaspis in plain, everyday language. Click any card to try it in the simulator or open the website:
         </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(295px,1fr));gap:10px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:14px;">
           ${OFFICIAL_RESOURCES.map((res) => `
-            <div style="padding:11px;border-radius:8px;background:rgba(15,23,42,0.8);border:1px solid rgba(148,163,184,0.22);display:flex;flex-direction:column;justify-content:space-between;gap:8px;">
+            <div style="padding:14px 16px;border-radius:10px;background:rgba(15,23,42,0.8);border:1px solid rgba(148,163,184,0.22);display:flex;flex-direction:column;justify-content:space-between;gap:10px;">
               <div>
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                  <span style="font-family:monospace;font-size:8.5px;font-weight:700;padding:2px 6px;border-radius:3px;background:rgba(103,232,249,0.14);color:#67e8f9;">${res.agency} · ${res.badge}</span>
-                  <a href="${res.url}" target="_blank" rel="noopener" style="font-family:monospace;font-size:9px;color:#93c5fd;text-decoration:underline;">READ MORE &nearr;</a>
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;">
+                  <span style="font-family:monospace;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:4px;background:rgba(103,232,249,0.14);color:#67e8f9;">${res.agency} · ${res.badge}</span>
+                  <a href="${res.url}" target="_blank" rel="noopener" style="font-family:monospace;font-size:11px;color:#93c5fd;text-decoration:underline;">READ MORE &nearr;</a>
                 </div>
-                <div style="font-size:12px;font-weight:700;color:#f8fafc;margin-bottom:4px;">${res.title}</div>
-                <div style="font-size:10px;color:#94a3b8;line-height:1.42;margin-bottom:6px;">${res.summary}</div>
-                <div style="font-family:monospace;font-size:9px;color:#86efac;background:rgba(22,163,74,0.1);padding:5px 7px;border-radius:4px;border:1px solid rgba(34,197,94,0.25);">
+                <div style="font-size:13.5px;font-weight:700;color:#f8fafc;margin-bottom:6px;">${res.title}</div>
+                <div style="font-size:12px;color:#94a3b8;line-height:1.52;margin-bottom:8px;">${res.summary}</div>
+                <div style="font-family:monospace;font-size:11px;line-height:1.45;color:#86efac;background:rgba(22,163,74,0.1);padding:8px 10px;border-radius:5px;border:1px solid rgba(34,197,94,0.25);">
                   HOW TO TRY IT HERE: ${res.inSimFeature}
                 </div>
               </div>
-              <button type="button" class="lab-res-action-btn" data-action="${res.actionType}" style="width:100%;padding:6px 10px;border-radius:5px;border:1px solid rgba(103,232,249,0.45);background:rgba(37,99,235,0.2);color:#e0f2fe;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">
+              <button type="button" class="lab-res-action-btn" data-action="${res.actionType}" style="width:100%;padding:8px 12px;border-radius:6px;border:1px solid rgba(103,232,249,0.45);background:rgba(37,99,235,0.2);color:#e0f2fe;font-family:monospace;font-size:11.5px;font-weight:700;cursor:pointer;">
                 ${res.actionLabel}
               </button>
             </div>

@@ -2019,7 +2019,7 @@
           gs.scienceCleared ? "SCIENCE READY" : null
         ].filter(Boolean);
         roleStrip = `
-          <div style="margin-bottom:8px;padding:7px 10px;border-radius:4px;border:1px solid ${stripBorder};background:${stripBg};color:${stripColor};font-family:var(--font-mono,monospace);font-size:10px;font-weight:700;letter-spacing:0.6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+          <div style="margin-bottom:10px;padding:9px 12px;border-radius:4px;border:1px solid ${stripBorder};background:${stripBg};color:${stripColor};font-family:var(--font-mono,monospace);font-size:11.5px;font-weight:700;letter-spacing:0.6px;line-height:1.45;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
             <span>${stripMsg}${gsTags.length ? ` · EARTH HELP: ${gsTags.join(" / ")}` : ""}</span>
             <span>TEAM ROLE: ${assign.short}</span>
           </div>
@@ -2027,18 +2027,18 @@
       }
 
       const pill = (label, value, sub, ok) => `
-        <div style="padding:7px 9px;border-radius:4px;background:rgba(5,8,16,0.72);border:1px solid ${ok ? "rgba(34,197,94,0.35)" : "rgba(239,68,68,0.55)"};">
-          <div style="display:flex;justify-content:space-between;align-items:center;font-family:var(--font-mono,monospace);font-size:9px;color:#94a3b8;letter-spacing:0.8px;">
+        <div style="padding:10px 12px;border-radius:4px;background:rgba(5,8,16,0.72);border:1px solid ${ok ? "rgba(34,197,94,0.35)" : "rgba(239,68,68,0.55)"};">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;font-family:var(--font-mono,monospace);font-size:10.5px;color:#94a3b8;letter-spacing:0.7px;">
             <span>${label}</span>
             <span style="color:${ok ? "#86efac" : "#fca5a5"};font-weight:700;">${ok ? "PASS" : "NEEDS FIX"}</span>
           </div>
-          <div style="font-family:var(--font-mono,monospace);font-size:12px;font-weight:700;color:#f8fafc;margin-top:2px;">${value}</div>
-          <div style="font-family:var(--font-mono,monospace);font-size:9px;color:#94a3b8;margin-top:1px;">${sub}</div>
+          <div style="font-family:var(--font-mono,monospace);font-size:14px;font-weight:700;color:#f8fafc;margin-top:4px;">${value}</div>
+          <div style="font-family:var(--font-mono,monospace);font-size:10.5px;color:#94a3b8;margin-top:3px;line-height:1.4;">${sub}</div>
         </div>
       `;
 
       const segBadge = (seg) => `
-        <span style="padding:2px 6px;border-radius:3px;font-family:var(--font-mono,monospace);font-size:9px;font-weight:700;border:1px solid ${seg.ok ? "rgba(34,197,94,0.45)" : "rgba(239,68,68,0.45)"};background:${seg.ok ? "rgba(22,163,74,0.14)" : "rgba(239,68,68,0.12)"};color:${seg.ok ? "#86efac" : "#fca5a5"};">
+        <span style="padding:4px 8px;border-radius:3px;font-family:var(--font-mono,monospace);font-size:10.5px;font-weight:700;border:1px solid ${seg.ok ? "rgba(34,197,94,0.45)" : "rgba(239,68,68,0.45)"};background:${seg.ok ? "rgba(22,163,74,0.14)" : "rgba(239,68,68,0.12)"};color:${seg.ok ? "#86efac" : "#fca5a5"};">
           ${seg.ok ? "OK" : "!"} ${seg.label}
         </span>
       `;
@@ -2054,7 +2054,7 @@
         const bg = active ? "rgba(37,99,235,0.24)" : "rgba(255,255,255,0.04)";
         const fg = active ? "#93c5fd" : isTarget ? "#fde68a" : "#64748b";
         const bd = isTarget ? "rgba(251,191,36,0.75)" : (active ? "rgba(59,130,246,0.55)" : "rgba(148,163,184,0.18)");
-        return `<button type="button" class="btn-cml-pill-jump" data-cml-jump="${lvl}" title="Open Stage ${lvl} in the Readiness Guide" style="padding:2px 5px;border-radius:3px;font-family:var(--font-mono,monospace);font-size:8.5px;font-weight:700;background:${bg};color:${fg};border:1px solid ${bd};cursor:pointer;">STAGE ${lvl}${isTarget ? "*" : ""}</button>`;
+        return `<button type="button" class="btn-cml-pill-jump" data-cml-jump="${lvl}" title="Open Stage ${lvl} in the Readiness Guide" style="padding:4px 8px;border-radius:3px;font-family:var(--font-mono,monospace);font-size:10.5px;font-weight:700;background:${bg};color:${fg};border:1px solid ${bd};cursor:pointer;">STAGE ${lvl}${isTarget ? "*" : ""}</button>`;
       }).join("");
 
       let tradeDeltaHtml = "";
@@ -2073,12 +2073,12 @@
         const dSci = Number((t.scienceScore - a.scienceScore).toFixed(0));
         const dScore = Number((t.overallScore - a.overallScore).toFixed(0));
         tradeDeltaHtml = `
-          <div style="margin-top:8px;padding:6px 9px;border-radius:4px;background:rgba(37,99,235,0.1);border:1px solid rgba(59,130,246,0.35);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-family:var(--font-mono,monospace);font-size:9.5px;">
+          <div style="margin-top:10px;padding:8px 12px;border-radius:4px;background:rgba(37,99,235,0.1);border:1px solid rgba(59,130,246,0.35);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-family:var(--font-mono,monospace);font-size:11px;line-height:1.45;">
             <span style="color:#bfdbfe;font-weight:700;">CHANGES (vs Saved Plan A: ${this._escapeHtml(a.scenario.code)})</span>
             <span style="color:#cbd5e1;">
               Cost ${fmtDelta(dCost, "M", true)} · Weight ${fmtDelta(dMass, "kg", true)} · Power ${fmtDelta(dPwr, "W")} · Fuel ${fmtDelta(dDv, "m/s")} · Science ${fmtDelta(dSci, "pt")} · Score ${fmtDelta(dScore, "pt")}
             </span>
-            <button type="button" id="btn-mdl-clear-a" style="padding:2px 6px;border-radius:3px;border:1px solid rgba(148,163,184,0.28);background:rgba(5,8,16,0.6);color:#cbd5e1;font-family:inherit;font-size:8.5px;cursor:pointer;">CLEAR PLAN A</button>
+            <button type="button" id="btn-mdl-clear-a" style="padding:4px 9px;border-radius:3px;border:1px solid rgba(148,163,184,0.28);background:rgba(5,8,16,0.6);color:#cbd5e1;font-family:inherit;font-size:10px;cursor:pointer;">CLEAR PLAN A</button>
           </div>
         `;
       }
@@ -2090,37 +2090,38 @@
       const cadetCoachHtml = (window.missionAcademy && typeof window.missionAcademy.getConsoleTipHtml === "function")
         ? window.missionAcademy.getConsoleTipHtml(this.activeTask, this._activeMdlTab)
         : "";
+      const spaceGamesLocked = !!(window.csaNasaLab && typeof window.csaNasaLab.isGroundLocked === "function" && window.csaNasaLab.isGroundLocked());
 
       return `
         ${roleStrip}
         ${cadetCoachHtml}
-        <div style="margin-bottom:14px;padding:10px 12px;border-radius:4px;background:rgba(8,13,24,0.82);border:1px solid rgba(148,163,184,0.22);">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px;">
-            <span style="font-family:var(--font-mono,monospace);font-size:10px;font-weight:700;letter-spacing:1.2px;color:#93c5fd;">
+        <div style="margin-bottom:16px;padding:12px 14px;border-radius:4px;background:rgba(8,13,24,0.82);border:1px solid rgba(148,163,184,0.22);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
+            <span style="font-family:var(--font-mono,monospace);font-size:11.5px;font-weight:700;letter-spacing:1.1px;color:#93c5fd;">
               ${t.cmlLabel.toUpperCase()} · ${t.scenario.name.toUpperCase()}
             </span>
-            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-              <button type="button" id="btn-mdl-snapshot-a" style="padding:3px 8px;border-radius:4px;border:1px solid rgba(148,163,184,0.28);background:rgba(15,23,42,0.85);color:#e2e8f0;font-family:var(--font-mono,monospace);font-size:9px;font-weight:700;cursor:pointer;">${this.tradeBaselineA ? "UPDATE PLAN A" : "SAVE PLAN A"}</button>
-              <button type="button" id="btn-open-cml-workbench" style="padding:3px 8px;border-radius:4px;border:1px solid rgba(251,191,36,0.55);background:rgba(245,158,11,0.16);color:#fde68a;font-family:var(--font-mono,monospace);font-size:9px;font-weight:700;cursor:pointer;" title="Open step-by-step Readiness Guide (Stages 1-9)">READY ${targetPct}% @ S${targetLvl}${critCount ? ` · ${critCount} KEY` : ""}</button>
-              <button type="button" id="btn-mdl-open-csa-lab" style="padding:3px 8px;border-radius:4px;border:1px solid rgba(52,211,153,0.5);background:rgba(16,185,129,0.16);color:#a7f3d0;font-family:var(--font-mono,monospace);font-size:9px;font-weight:700;cursor:pointer;" title="Open Space Games &amp; Activities, 3D Path Builder &amp; Telescope Tool">GAMES &amp; TOOLS</button>
-              <button type="button" id="btn-mdl-open-viz" style="padding:3px 8px;border-radius:4px;border:1px solid rgba(59,130,246,0.5);background:rgba(37,99,235,0.2);color:#dbeafe;font-family:var(--font-mono,monospace);font-size:9px;font-weight:700;cursor:pointer;">3D EARTH MAP [U]</button>
-              <span style="font-family:var(--font-mono,monospace);font-size:10px;font-weight:700;color:${t.overallScore >= 75 ? "#86efac" : "#fde68a"};">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <button type="button" id="btn-mdl-snapshot-a" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(148,163,184,0.28);background:rgba(15,23,42,0.85);color:#e2e8f0;font-family:var(--font-mono,monospace);font-size:10.5px;font-weight:700;cursor:pointer;">${this.tradeBaselineA ? "UPDATE PLAN A" : "SAVE PLAN A"}</button>
+              <button type="button" id="btn-open-cml-workbench" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(251,191,36,0.55);background:rgba(245,158,11,0.16);color:#fde68a;font-family:var(--font-mono,monospace);font-size:10.5px;font-weight:700;cursor:pointer;" title="Open step-by-step Readiness Guide (Stages 1-9)">READY ${targetPct}% @ S${targetLvl}${critCount ? ` · ${critCount} KEY` : ""}</button>
+              ${spaceGamesLocked ? "" : `<button type="button" id="btn-mdl-open-csa-lab" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(52,211,153,0.5);background:rgba(16,185,129,0.16);color:#a7f3d0;font-family:var(--font-mono,monospace);font-size:10.5px;font-weight:700;cursor:pointer;" title="Open Space Games &amp; Activities, 3D Path Builder &amp; Telescope Tool">GAMES &amp; TOOLS</button>`}
+              <button type="button" id="btn-mdl-open-viz" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(59,130,246,0.5);background:rgba(37,99,235,0.2);color:#dbeafe;font-family:var(--font-mono,monospace);font-size:10.5px;font-weight:700;cursor:pointer;">3D EARTH MAP [U]</button>
+              <span style="font-family:var(--font-mono,monospace);font-size:11.5px;font-weight:700;color:${t.overallScore >= 75 ? "#86efac" : "#fde68a"};">
                 SCORE ${t.overallScore}/100 (SCI ${t.scienceScore} · ENG ${t.engineeringScore})
               </span>
             </div>
           </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
-            <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
               ${cmlPills}
             </div>
-            <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
               ${segBadge(t.segments.launch)}
               ${segBadge(t.segments.space)}
               ${segBadge(t.segments.ground)}
               ${segBadge(t.segments.user)}
             </div>
           </div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:7px;">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;">
             ${pill("BUDGET", `$${t.totalCostM}M / $${t.budgetCapM}M`, `${t.budgetRemainingM >= 0 ? `+$${t.budgetRemainingM}M spare` : `$${Math.abs(t.budgetRemainingM)}M OVER LIMIT`}`, t.budgetOk)}
             ${
               t.scenario.isBioPayload
@@ -2843,7 +2844,7 @@
         const md = this.missionDesign;
         const t = this.evaluateMissionDesign();
         const mkTab = (id, label) => `
-          <button type="button" class="mdl-desk-tab" data-tab="${id}" style="padding:6px 10px;border-radius:5px;border:1px solid ${activeTab === id ? "#67e8f9" : "rgba(255,255,255,0.14)"};background:${activeTab === id ? "rgba(103,232,249,0.16)" : "rgba(255,255,255,0.03)"};color:${activeTab === id ? "#ecfeff" : "#94a3b8"};font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
+          <button type="button" class="mdl-desk-tab" data-tab="${id}" style="padding:8px 14px;border-radius:5px;border:1px solid ${activeTab === id ? "#67e8f9" : "rgba(255,255,255,0.14)"};background:${activeTab === id ? "rgba(103,232,249,0.16)" : "rgba(255,255,255,0.03)"};color:${activeTab === id ? "#ecfeff" : "#94a3b8"};font-family:monospace;font-size:11.5px;font-weight:700;cursor:pointer;">
             ${label}
           </button>
         `;
@@ -2851,56 +2852,56 @@
         let tabContent = "";
         if (activeTab === "arch") {
           tabContent = `
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px;margin-bottom:10px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px;margin-bottom:14px;">
               ${Object.values(MISSION_SCENARIOS).map((sc) => `
-                <div class="mdl-q-sc" data-id="${sc.id}" style="padding:9px;border-radius:7px;border:1px solid ${md.scenarioId === sc.id ? "#67e8f9" : "rgba(255,255,255,0.12)"};background:${md.scenarioId === sc.id ? "rgba(103,232,249,0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                  <div style="font-family:monospace;font-size:9px;color:#67e8f9;font-weight:700;">${sc.badge} · $${sc.baseBudgetM}M</div>
-                  <div style="font-size:12px;font-weight:700;color:#ece7dc;margin:2px 0;">${sc.name}</div>
-                  <div style="font-size:10px;color:#94a3b8;">${sc.summary}</div>
+                <div class="mdl-q-sc" data-id="${sc.id}" style="padding:12px 14px;border-radius:7px;border:1px solid ${md.scenarioId === sc.id ? "#67e8f9" : "rgba(255,255,255,0.12)"};background:${md.scenarioId === sc.id ? "rgba(103,232,249,0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                  <div style="font-family:monospace;font-size:10.5px;color:#67e8f9;font-weight:700;">${sc.badge} · $${sc.baseBudgetM}M</div>
+                  <div style="font-size:14px;font-weight:700;color:#ece7dc;margin:4px 0;">${sc.name}</div>
+                  <div style="font-size:12px;color:#cbd5e1;line-height:1.5;">${sc.summary}</div>
                 </div>
               `).join("")}
             </div>
-            <button type="button" id="btn-mdl-auto-baseline" style="padding:6px 12px;border-radius:5px;border:1px solid rgba(74,222,128,0.5);background:rgba(74,222,128,0.14);color:#86efac;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
+            <button type="button" id="btn-mdl-auto-baseline" style="padding:8px 14px;border-radius:5px;border:1px solid rgba(74,222,128,0.5);background:rgba(74,222,128,0.14);color:#86efac;font-family:monospace;font-size:11.5px;font-weight:700;cursor:pointer;">
               AUTO-FILL RECOMMENDED SETUP FOR ${t.scenario.code}
             </button>
           `;
         } else if (activeTab === "orbit") {
           tabContent = `
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:8px;margin-bottom:10px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px;margin-bottom:14px;">
               ${Object.values(ORBIT_OPTIONS).map((o) => `
-                <div class="mdl-q-orb" data-id="${o.id}" style="padding:9px;border-radius:7px;border:1px solid ${md.orbitId === o.id ? "#67e8f9" : "rgba(255,255,255,0.12)"};background:${md.orbitId === o.id ? "rgba(103,232,249,0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                  <div style="font-size:11.5px;font-weight:700;color:#ece7dc;">${o.name}</div>
-                  <div style="font-family:monospace;font-size:9.5px;color:#67e8f9;">Fuel Needed: ${o.reqInsertionDv} m/s · Shield Level: ${o.radiationEnvKrad}</div>
+                <div class="mdl-q-orb" data-id="${o.id}" style="padding:12px 14px;border-radius:7px;border:1px solid ${md.orbitId === o.id ? "#67e8f9" : "rgba(255,255,255,0.12)"};background:${md.orbitId === o.id ? "rgba(103,232,249,0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                  <div style="font-size:13.5px;font-weight:700;color:#ece7dc;">${o.name}</div>
+                  <div style="font-family:monospace;font-size:11px;color:#67e8f9;margin-top:4px;line-height:1.45;">Fuel Needed: ${o.reqInsertionDv} m/s · Shield Level: ${o.radiationEnvKrad}</div>
                 </div>
               `).join("")}
             </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;">
               ${Object.values(LAUNCH_VEHICLES).map((v) => `
-                <div class="mdl-q-lv" data-id="${v.id}" style="padding:9px;border-radius:7px;border:1px solid ${md.launchVehicleId === v.id ? "#d0a15c" : "rgba(255,255,255,0.12)"};background:${md.launchVehicleId === v.id ? "rgba(208,161,92,0.12)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                  <div style="font-size:11px;font-weight:700;color:#ece7dc;">${v.name}</div>
-                  <div style="font-family:monospace;font-size:9.5px;color:#d0a15c;">$${v.costM}M · Can Lift: ${v.capacityKg[md.orbitId] || 0} kg</div>
+                <div class="mdl-q-lv" data-id="${v.id}" style="padding:12px 14px;border-radius:7px;border:1px solid ${md.launchVehicleId === v.id ? "#d0a15c" : "rgba(255,255,255,0.12)"};background:${md.launchVehicleId === v.id ? "rgba(208,161,92,0.12)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                  <div style="font-size:13px;font-weight:700;color:#ece7dc;">${v.name}</div>
+                  <div style="font-family:monospace;font-size:11px;color:#d0a15c;margin-top:4px;line-height:1.45;">$${v.costM}M · Can Lift: ${v.capacityKg[md.orbitId] || 0} kg</div>
                 </div>
               `).join("")}
             </div>
           `;
         } else if (activeTab === "bus") {
           tabContent = `
-            <div style="display:grid;grid-template-columns:260px 1fr;gap:12px;align-items:start;">
+            <div style="display:grid;grid-template-columns:260px 1fr;gap:14px;align-items:start;">
               <div>
                 <div id="mdl-point-design-3d" style="width:100%;height:156px;border-radius:6px;background:#050914;"></div>
-                <div style="font-family:monospace;font-size:9px;color:#94a3b8;text-align:center;margin-top:4px;">LIVE 3D SPACECRAFT PREVIEW</div>
+                <div style="font-family:monospace;font-size:10.5px;color:#94a3b8;text-align:center;margin-top:6px;">LIVE 3D SPACECRAFT PREVIEW</div>
               </div>
-              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:7px;">
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;">
                 ${Object.values(SPACECRAFT_BUSES).map((b) => `
-                  <div class="mdl-q-bus" data-id="${b.id}" style="padding:8px;border-radius:6px;border:1px solid ${md.busId === b.id ? "#67e8f9" : "rgba(255,255,255,0.12)"};background:${md.busId === b.id ? "rgba(103,232,249,0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                    <div style="font-size:11px;font-weight:700;color:#ece7dc;">${b.name}</div>
-                    <div style="font-family:monospace;font-size:9px;color:#67e8f9;">$${b.costM}M · ${b.dryMassKg} kg · Holds ${b.maxInstruments} tools</div>
+                  <div class="mdl-q-bus" data-id="${b.id}" style="padding:11px 13px;border-radius:6px;border:1px solid ${md.busId === b.id ? "#67e8f9" : "rgba(255,255,255,0.12)"};background:${md.busId === b.id ? "rgba(103,232,249,0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                    <div style="font-size:13px;font-weight:700;color:#ece7dc;">${b.name}</div>
+                    <div style="font-family:monospace;font-size:11px;color:#67e8f9;margin-top:3px;line-height:1.4;">$${b.costM}M · ${b.dryMassKg} kg · Holds ${b.maxInstruments} tools</div>
                   </div>
                 `).join("")}
                 ${Object.values(POWER_SYSTEMS).map((p) => `
-                  <div class="mdl-q-pwr" data-id="${p.id}" style="padding:8px;border-radius:6px;border:1px solid ${md.powerId === p.id ? "#d0a15c" : "rgba(255,255,255,0.12)"};background:${md.powerId === p.id ? "rgba(208,161,92,0.12)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                    <div style="font-size:11px;font-weight:700;color:#ece7dc;">${p.name}</div>
-                    <div style="font-family:monospace;font-size:9px;color:#7fb8a6;">+$${p.costM}M · +${p.genW} W Power</div>
+                  <div class="mdl-q-pwr" data-id="${p.id}" style="padding:11px 13px;border-radius:6px;border:1px solid ${md.powerId === p.id ? "#d0a15c" : "rgba(255,255,255,0.12)"};background:${md.powerId === p.id ? "rgba(208,161,92,0.12)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                    <div style="font-size:13px;font-weight:700;color:#ece7dc;">${p.name}</div>
+                    <div style="font-family:monospace;font-size:11px;color:#7fb8a6;margin-top:3px;line-height:1.4;">+$${p.costM}M · +${p.genW} W Power</div>
                   </div>
                 `).join("")}
               </div>
@@ -2908,15 +2909,15 @@
           `;
         } else {
           tabContent = `
-            <canvas id="sim-science-canvas" width="680" height="150" style="width:100%;height:150px;border-radius:6px;border:1px solid rgba(103,232,249,0.3);margin-bottom:8px;display:block;"></canvas>
-            <div style="font-family:monospace;font-size:10px;color:#c4b5fd;margin-bottom:6px;">
+            <canvas id="sim-science-canvas" width="680" height="150" style="width:100%;height:150px;border-radius:6px;border:1px solid rgba(103,232,249,0.3);margin-bottom:10px;display:block;"></canvas>
+            <div style="font-family:monospace;font-size:11.5px;color:#c4b5fd;margin-bottom:10px;line-height:1.45;">
               SIMILAR REAL-LIFE SPACE MISSION: <strong style="color:#ece7dc;">${t.analogue.missions}</strong>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:6px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;">
               ${t.riskMatrix.map((r) => `
-                <div style="padding:6px;border-radius:5px;background:rgba(0,0,0,0.35);border-left:3px solid ${r.level === "GREEN" ? "#4ade80" : r.level === "AMBER" ? "#fbbf24" : "#ef4444"};">
-                  <div style="font-family:monospace;font-size:9px;font-weight:700;color:#e2e8f0;">${r.subsystem} (${r.level === "GREEN" ? "GOOD" : r.level === "AMBER" ? "TIGHT" : "NEEDS FIX"})</div>
-                  <div style="font-family:monospace;font-size:8.5px;color:#94a3b8;">${r.detail}</div>
+                <div style="padding:9px 11px;border-radius:5px;background:rgba(0,0,0,0.35);border-left:3px solid ${r.level === "GREEN" ? "#4ade80" : r.level === "AMBER" ? "#fbbf24" : "#ef4444"};">
+                  <div style="font-family:monospace;font-size:10.5px;font-weight:700;color:#e2e8f0;">${r.subsystem} (${r.level === "GREEN" ? "GOOD" : r.level === "AMBER" ? "TIGHT" : "NEEDS FIX"})</div>
+                  <div style="font-family:monospace;font-size:10.5px;color:#94a3b8;margin-top:3px;line-height:1.4;">${r.detail}</div>
                 </div>
               `).join("")}
             </div>
@@ -2926,19 +2927,19 @@
         this._activeMdlTab = activeTab;
         body.innerHTML = `
           ${this._renderLiveTradeoffStrip({ onRerender: renderDesk })}
-          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
             ${mkTab("arch", "1. MISSION GOAL")}
             ${mkTab("orbit", "2. ORBIT & ROCKET")}
             ${mkTab("bus", "3. 3D BODY & POWER")}
             ${mkTab("viz", "4. SAFETY & SCIENCE PREVIEW")}
-            <button type="button" id="btn-mdl-open-cml" style="padding:6px 10px;border-radius:5px;border:1px solid rgba(251,191,36,0.55);background:rgba(245,158,11,0.14);color:#fde68a;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">5. READINESS STAGES (${t.cml ? `${t.cml.activeSummary.percentGreen}% @ Stage ${t.cml.targetCml}` : `Stage ${t.cmlLevel}`})</button>
+            <button type="button" id="btn-mdl-open-cml" style="padding:8px 14px;border-radius:5px;border:1px solid rgba(251,191,36,0.55);background:rgba(245,158,11,0.14);color:#fde68a;font-family:monospace;font-size:11.5px;font-weight:700;cursor:pointer;">5. READINESS STAGES (${t.cml ? `${t.cml.activeSummary.percentGreen}% @ Stage ${t.cml.targetCml}` : `Stage ${t.cmlLevel}`})</button>
           </div>
           ${tabContent}
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.1);">
-            <button type="button" id="btn-mdl-export-json" style="padding:8px 12px;border-radius:5px;border:1px solid rgba(167,139,250,0.5);background:rgba(167,139,250,0.12);color:#ddd6fe;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1);">
+            <button type="button" id="btn-mdl-export-json" style="padding:9px 14px;border-radius:5px;border:1px solid rgba(167,139,250,0.5);background:rgba(167,139,250,0.12);color:#ddd6fe;font-family:monospace;font-size:11.5px;font-weight:700;cursor:pointer;">
               SAVE BLUEPRINT FILE (.JSON)
             </button>
-            <button type="button" id="btn-mdl-sync-crew" style="padding:9px 18px;border-radius:6px;border:1px solid #67e8f9;background:#ece7dc;color:#05060a;font-family:monospace;font-size:10.5px;font-weight:800;letter-spacing:1.2px;cursor:pointer;">
+            <button type="button" id="btn-mdl-sync-crew" style="padding:10px 20px;border-radius:6px;border:1px solid #67e8f9;background:#ece7dc;color:#05060a;font-family:monospace;font-size:12px;font-weight:800;letter-spacing:1.1px;cursor:pointer;">
               SHARE DESIGN WITH TEAM &amp; CLOSE
             </button>
           </div>
@@ -3059,12 +3060,12 @@
         const bd = m.status === "G" ? "rgba(74,222,128,0.4)" : m.status === "Y" ? "rgba(251,191,36,0.45)" : "rgba(239,68,68,0.55)";
         return `
           <div style="padding:6px 8px;border-radius:4px;background:rgba(5,8,16,0.72);border:1px solid ${bd};">
-            <div style="display:flex;justify-content:space-between;font-family:monospace;font-size:8.5px;color:#94a3b8;gap:4px;">
+            <div style="display:flex;justify-content:space-between;font-family:monospace;font-size:10.5px;color:#94a3b8;gap:6px;">
               <span>${this._escapeHtml(m.label)}</span>
               <strong style="color:${c};white-space:nowrap;">${statusWord} (${this._escapeHtml(m.required)})</strong>
             </div>
-            <div style="font-family:monospace;font-size:11px;font-weight:700;color:#f8fafc;margin-top:2px;">${this._escapeHtml(m.actual)}</div>
-            <div style="font-family:monospace;font-size:8.5px;color:#94a3b8;margin-top:1px;">${this._escapeHtml(m.note)}</div>
+            <div style="font-family:monospace;font-size:13px;font-weight:700;color:#f8fafc;margin-top:4px;">${this._escapeHtml(m.actual)}</div>
+            <div style="font-family:monospace;font-size:10.5px;color:#94a3b8;margin-top:3px;line-height:1.4;">${this._escapeHtml(m.note)}</div>
           </div>
         `;
       }).join("");
@@ -3082,27 +3083,27 @@
       const rowsHtml = filtered.map((item) => {
         const mkPill = (code, label, active, color, bg) => item.na
           ? ""
-          : `<button type="button" class="cml-toggle-status" data-item-id="${item.id}" data-status="${code}" style="padding:2px 6px;border-radius:3px;border:1px solid ${active ? color : "rgba(148,163,184,0.22)"};background:${active ? bg : "rgba(15,23,42,0.7)"};color:${active ? "#f8fafc" : "#64748b"};font-family:monospace;font-size:9px;font-weight:800;cursor:pointer;">${label}</button>`;
+          : `<button type="button" class="cml-toggle-status" data-item-id="${item.id}" data-status="${code}" style="padding:4px 9px;border-radius:3px;border:1px solid ${active ? color : "rgba(148,163,184,0.22)"};background:${active ? bg : "rgba(15,23,42,0.7)"};color:${active ? "#f8fafc" : "#64748b"};font-family:monospace;font-size:10.5px;font-weight:800;cursor:pointer;">${label}</button>`;
         const statusColor = item.status === "G" ? "#4ade80" : item.status === "Y" ? "#fbbf24" : item.status === "R" ? "#f87171" : "#64748b";
         const catTitle = catLabelMap[item.category] || item.category.toUpperCase();
         return `
-          <div style="padding:7px 9px;border-radius:5px;background:${item.na ? "rgba(15,23,42,0.35)" : "rgba(15,23,42,0.72)"};border:1px solid rgba(148,163,184,0.16);border-left:3px solid ${statusColor};opacity:${item.na ? "0.62" : "1"};display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+          <div style="padding:10px 12px;border-radius:5px;background:${item.na ? "rgba(15,23,42,0.35)" : "rgba(15,23,42,0.72)"};border:1px solid rgba(148,163,184,0.16);border-left:3px solid ${statusColor};opacity:${item.na ? "0.62" : "1"};display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
             <div style="flex:1 1 320px;min-width:220px;">
-              <div style="font-size:11px;color:#f1f5f9;font-weight:600;line-height:1.3;">
-                <span style="font-family:monospace;font-size:8.5px;color:#93c5fd;margin-right:4px;">[${this._escapeHtml(catTitle)}]</span>
+              <div style="font-size:13px;color:#f1f5f9;font-weight:600;line-height:1.48;">
+                <span style="font-family:monospace;font-size:10.5px;color:#93c5fd;margin-right:6px;">[${this._escapeHtml(catTitle)}]</span>
                 ${this._escapeHtml(item.text)}
-                ${item.critical ? '<span style="margin-left:5px;padding:1px 4px;border-radius:3px;background:rgba(245,158,11,0.2);color:#fde68a;font-family:monospace;font-size:8px;font-weight:800;">MUST-HAVE</span>' : ""}
-                ${item.overrideStatus ? '<span style="margin-left:4px;padding:1px 4px;border-radius:3px;background:rgba(56,189,248,0.2);color:#7dd3fc;font-family:monospace;font-size:8px;">EDITED</span>' : ""}
+                ${item.critical ? '<span style="margin-left:6px;padding:2px 6px;border-radius:3px;background:rgba(245,158,11,0.2);color:#fde68a;font-family:monospace;font-size:10px;font-weight:800;">MUST-HAVE</span>' : ""}
+                ${item.overrideStatus ? '<span style="margin-left:6px;padding:2px 6px;border-radius:3px;background:rgba(56,189,248,0.2);color:#7dd3fc;font-family:monospace;font-size:10px;">EDITED</span>' : ""}
               </div>
-              <div style="font-family:monospace;font-size:9px;color:#94a3b8;margin-top:2px;">${this._escapeHtml(item.autoReason)}</div>
+              <div style="font-family:monospace;font-size:11px;color:#94a3b8;margin-top:4px;line-height:1.4;">${this._escapeHtml(item.autoReason)}</div>
             </div>
-            <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
-              ${item.consoleKey && !item.na ? `<button type="button" class="cml-jump-console" data-console="${item.consoleKey}" style="padding:2px 6px;border-radius:3px;border:1px solid rgba(103,232,249,0.35);background:rgba(103,232,249,0.1);color:#a5f3fc;font-family:monospace;font-size:8.5px;cursor:pointer;" title="Jump straight to this workstation console">${taskShort[item.consoleKey] || "OPEN"}</button>` : ""}
-              ${item.na ? '<span style="padding:2px 8px;border-radius:3px;background:rgba(100,116,139,0.2);color:#94a3b8;font-family:monospace;font-size:9px;font-weight:700;">LATER</span>' : `
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+              ${item.consoleKey && !item.na ? `<button type="button" class="cml-jump-console" data-console="${item.consoleKey}" style="padding:4px 9px;border-radius:3px;border:1px solid rgba(103,232,249,0.35);background:rgba(103,232,249,0.1);color:#a5f3fc;font-family:monospace;font-size:10.5px;cursor:pointer;" title="Jump straight to this workstation console">${taskShort[item.consoleKey] || "OPEN"}</button>` : ""}
+              ${item.na ? '<span style="padding:4px 10px;border-radius:3px;background:rgba(100,116,139,0.2);color:#94a3b8;font-family:monospace;font-size:10.5px;font-weight:700;">LATER</span>' : `
                 ${mkPill("G", "DONE", item.status === "G", "#4ade80", "rgba(22,163,74,0.45)")}
                 ${mkPill("Y", "WIP", item.status === "Y", "#fbbf24", "rgba(217,119,6,0.45)")}
                 ${mkPill("R", "TODO", item.status === "R", "#f87171", "rgba(220,38,38,0.45)")}
-                ${item.overrideStatus ? `<button type="button" class="cml-reset-item" data-item-id="${item.id}" style="padding:2px 5px;border-radius:3px;border:1px solid rgba(148,163,184,0.3);background:transparent;color:#94a3b8;font-family:monospace;font-size:8px;cursor:pointer;" title="Switch back to automatic live spacecraft check">AUTO</button>` : ""}
+                ${item.overrideStatus ? `<button type="button" class="cml-reset-item" data-item-id="${item.id}" style="padding:4px 8px;border-radius:3px;border:1px solid rgba(148,163,184,0.3);background:transparent;color:#94a3b8;font-family:monospace;font-size:10px;cursor:pointer;" title="Switch back to automatic live spacecraft check">AUTO</button>` : ""}
               `}
             </div>
           </div>
@@ -3113,23 +3114,23 @@
       const assessorNotes = this._escapeHtml((cmlEval.notes && cmlEval.notes.assessorNotes) || "");
 
       return `
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
-          <div style="display:flex;gap:4px;flex-wrap:wrap;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
             ${[2, 3, 4, 5, 6].map((lvl) => {
               const s = cmlEval.levelsSummary[lvl];
               const active = lvl === cmlEval.targetCml;
-              return `<button type="button" class="cml-target-lvl" data-lvl="${lvl}" style="padding:5px 8px;border-radius:4px;border:1px solid ${active ? "#fbbf24" : "rgba(148,163,184,0.22)"};background:${active ? "rgba(245,158,11,0.18)" : "rgba(15,23,42,0.75)"};color:${active ? "#fde68a" : "#cbd5e1"};font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">Stage ${lvl} (${s.percentGreen}%)</button>`;
+              return `<button type="button" class="cml-target-lvl" data-lvl="${lvl}" style="padding:6px 11px;border-radius:4px;border:1px solid ${active ? "#fbbf24" : "rgba(148,163,184,0.22)"};background:${active ? "rgba(245,158,11,0.18)" : "rgba(15,23,42,0.75)"};color:${active ? "#fde68a" : "#cbd5e1"};font-family:monospace;font-size:11px;font-weight:700;cursor:pointer;">Stage ${lvl} (${s.percentGreen}%)</button>`;
             }).join("")}
           </div>
-          <div style="display:flex;gap:4px;flex-wrap:wrap;">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
             ${cats.map((c) => `
-              <button type="button" class="cml-cat-filter" data-cat="${c.id}" style="padding:4px 7px;border-radius:4px;border:1px solid ${filterCat === c.id ? "#38bdf8" : "rgba(148,163,184,0.2)"};background:${filterCat === c.id ? "rgba(56,189,248,0.16)" : "transparent"};color:${filterCat === c.id ? "#e0f2fe" : "#94a3b8"};font-family:monospace;font-size:8.5px;font-weight:700;cursor:pointer;">${c.label}</button>
+              <button type="button" class="cml-cat-filter" data-cat="${c.id}" style="padding:5px 10px;border-radius:4px;border:1px solid ${filterCat === c.id ? "#38bdf8" : "rgba(148,163,184,0.2)"};background:${filterCat === c.id ? "rgba(56,189,248,0.16)" : "transparent"};color:${filterCat === c.id ? "#e0f2fe" : "#94a3b8"};font-family:monospace;font-size:10.5px;font-weight:700;cursor:pointer;">${c.label}</button>
             `).join("")}
           </div>
         </div>
 
-        <div style="padding:8px 10px;border-radius:5px;background:rgba(8,13,24,0.85);border:1px solid rgba(148,163,184,0.2);margin-bottom:8px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;font-family:monospace;font-size:10px;color:#e2e8f0;margin-bottom:5px;flex-wrap:wrap;gap:6px;">
+        <div style="padding:10px 12px;border-radius:5px;background:rgba(8,13,24,0.85);border:1px solid rgba(148,163,184,0.2);margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;font-family:monospace;font-size:11.5px;color:#e2e8f0;margin-bottom:7px;flex-wrap:wrap;gap:8px;line-height:1.45;">
             <span><strong>${this._escapeHtml(target.meta.shortTitle)}</strong> · Checkpoint: ${this._escapeHtml(target.meta.competedGate)}</span>
             <span style="color:${barColor};font-weight:800;">${pct}% DONE (${target.greenCount}/${target.applicableCount} Done · ${target.yellowCount} WIP · ${target.redCount} To-Do · ${target.naCount} Later) · PASS LINE: ${target.thresholdMet ? (target.criticalGaps.length ? "80% MET (MUST-HAVES LEFT!)" : "PASSED >=80%") : "NEED 80%"}</span>
           </div>
@@ -3139,23 +3140,23 @@
           </div>
         </div>
 
-        <div style="font-family:monospace;font-size:9px;color:#93c5fd;font-weight:700;margin-bottom:4px;">SAFETY BUFFERS — Extra room so surprises don't break your build (${this._escapeHtml(cmlEval.margins.footnote)})</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:6px;margin-bottom:10px;">
+        <div style="font-family:monospace;font-size:10.5px;color:#93c5fd;font-weight:700;margin-bottom:6px;line-height:1.4;">SAFETY BUFFERS — Extra room so surprises don't break your build (${this._escapeHtml(cmlEval.margins.footnote)})</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:8px;margin-bottom:12px;">
           ${marginStrip}
         </div>
 
-        <div style="display:flex;flex-direction:column;gap:5px;max-height:255px;overflow-y:auto;padding-right:4px;margin-bottom:10px;">
+        <div style="display:flex;flex-direction:column;gap:8px;max-height:280px;overflow-y:auto;padding-right:6px;margin-bottom:12px;">
           ${rowsHtml}
         </div>
 
-        <div style="padding:8px 10px;border-radius:5px;background:rgba(30,41,59,0.65);border:1px solid ${cmlEval.assessorSignedOff ? "rgba(74,222,128,0.45)" : "rgba(251,191,36,0.4)"};display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-          <div style="flex:1 1 260px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-            <input id="cml-input-assessor-name" type="text" maxlength="80" placeholder="Fresh-Eyes Reviewer name (teammate or Ground Control)" value="${assessorName}" style="padding:5px 7px;border-radius:4px;border:1px solid rgba(148,163,184,0.3);background:rgba(5,8,16,0.85);color:#f8fafc;font-family:monospace;font-size:10px;width:210px;" />
-            <input id="cml-input-assessor-notes" type="text" maxlength="320" placeholder="~30-min outside feedback & sanity-check notes..." value="${assessorNotes}" style="padding:5px 7px;border-radius:4px;border:1px solid rgba(148,163,184,0.3);background:rgba(5,8,16,0.85);color:#f8fafc;font-family:monospace;font-size:10px;flex:1 1 180px;" />
+        <div style="padding:10px 12px;border-radius:5px;background:rgba(30,41,59,0.65);border:1px solid ${cmlEval.assessorSignedOff ? "rgba(74,222,128,0.45)" : "rgba(251,191,36,0.4)"};display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+          <div style="flex:1 1 260px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <input id="cml-input-assessor-name" type="text" maxlength="80" placeholder="Fresh-Eyes Reviewer name (teammate or Ground Control)" value="${assessorName}" style="padding:7px 10px;border-radius:4px;border:1px solid rgba(148,163,184,0.3);background:rgba(5,8,16,0.85);color:#f8fafc;font-family:monospace;font-size:11.5px;width:230px;" />
+            <input id="cml-input-assessor-notes" type="text" maxlength="320" placeholder="~30-min outside feedback & sanity-check notes..." value="${assessorNotes}" style="padding:7px 10px;border-radius:4px;border:1px solid rgba(148,163,184,0.3);background:rgba(5,8,16,0.85);color:#f8fafc;font-family:monospace;font-size:11.5px;flex:1 1 200px;" />
           </div>
-          <div style="display:flex;gap:6px;align-items:center;">
-            <button type="button" id="btn-cml-reset-overrides" style="padding:5px 8px;border-radius:4px;border:1px solid rgba(148,163,184,0.3);background:rgba(15,23,42,0.8);color:#cbd5e1;font-family:monospace;font-size:9px;cursor:pointer;">RESET EDITS (${cmlEval.overrideCount})</button>
-            <button type="button" id="btn-cml-toggle-assessor" style="padding:6px 10px;border-radius:4px;border:1px solid ${cmlEval.assessorSignedOff ? "#4ade80" : "#fbbf24"};background:${cmlEval.assessorSignedOff ? "rgba(22,163,74,0.28)" : "rgba(245,158,11,0.2)"};color:${cmlEval.assessorSignedOff ? "#bbf7d0" : "#fde68a"};font-family:monospace;font-size:9.5px;font-weight:800;cursor:pointer;">
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button type="button" id="btn-cml-reset-overrides" style="padding:7px 11px;border-radius:4px;border:1px solid rgba(148,163,184,0.3);background:rgba(15,23,42,0.8);color:#cbd5e1;font-family:monospace;font-size:10.5px;cursor:pointer;">RESET EDITS (${cmlEval.overrideCount})</button>
+            <button type="button" id="btn-cml-toggle-assessor" style="padding:7px 12px;border-radius:4px;border:1px solid ${cmlEval.assessorSignedOff ? "#4ade80" : "#fbbf24"};background:${cmlEval.assessorSignedOff ? "rgba(22,163,74,0.28)" : "rgba(245,158,11,0.2)"};color:${cmlEval.assessorSignedOff ? "#bbf7d0" : "#fde68a"};font-family:monospace;font-size:11px;font-weight:800;cursor:pointer;">
               ${cmlEval.assessorSignedOff ? "FRESH-EYES REVIEW PASSED" : "SIGN OFF FRESH-EYES REVIEW"}
             </button>
           </div>
@@ -3169,31 +3170,31 @@
         const headerCols = [1, 2, 3, 4, 5, 6, 7].map((c) => {
           const isReached = c === cmlEval.reachedCml;
           const isTarget = c === cmlEval.targetCml;
-          return `<th style="padding:6px;border:1px solid rgba(148,163,184,0.2);background:${isTarget ? "rgba(245,158,11,0.18)" : isReached ? "rgba(56,189,248,0.16)" : "rgba(15,23,42,0.92)"};color:${isTarget ? "#fde68a" : "#93c5fd"};font-family:monospace;font-size:9px;min-width:165px;">STAGE ${c}${isTarget ? " (ACTIVE)" : isReached ? " (DONE)" : ""}</th>`;
+          return `<th style="padding:9px 10px;border:1px solid rgba(148,163,184,0.2);background:${isTarget ? "rgba(245,158,11,0.18)" : isReached ? "rgba(56,189,248,0.16)" : "rgba(15,23,42,0.92)"};color:${isTarget ? "#fde68a" : "#93c5fd"};font-family:monospace;font-size:10.5px;min-width:190px;">STAGE ${c}${isTarget ? " (ACTIVE)" : isReached ? " (DONE)" : ""}</th>`;
         }).join("");
 
         const bodyRows = cmlEval.matrixRows.map((row) => `
           <tr>
-            <td style="position:sticky;left:0;z-index:2;padding:6px 8px;border:1px solid rgba(148,163,184,0.22);background:#0b1120;color:#f1f5f9;font-size:10px;font-weight:700;min-width:170px;">
-              <span style="color:${catColor[row.category] || "#93c5fd"};font-family:monospace;font-size:8.5px;display:block;">${(cmlEval.categories.find((c) => c.id === row.category)?.label || row.category).toUpperCase()}</span>
+            <td style="position:sticky;left:0;z-index:2;padding:9px 10px;border:1px solid rgba(148,163,184,0.22);background:#0b1120;color:#f1f5f9;font-size:12px;font-weight:700;min-width:190px;line-height:1.4;">
+              <span style="color:${catColor[row.category] || "#93c5fd"};font-family:monospace;font-size:10px;display:block;margin-bottom:2px;">${(cmlEval.categories.find((c) => c.id === row.category)?.label || row.category).toUpperCase()}</span>
               ${this._escapeHtml(row.name)}
             </td>
             ${[1, 2, 3, 4, 5, 6, 7].map((c) => {
               const cellText = row.cells[c] || "—";
               const hl = c === cmlEval.targetCml ? "background:rgba(245,158,11,0.06);" : "";
-              return `<td style="padding:6px;border:1px solid rgba(148,163,184,0.16);color:${cellText === "—" ? "#475569" : "#cbd5e1"};font-size:9.5px;vertical-align:top;${hl}">${this._escapeHtml(cellText)}</td>`;
+              return `<td style="padding:9px 10px;border:1px solid rgba(148,163,184,0.16);color:${cellText === "—" ? "#475569" : "#cbd5e1"};font-size:11.5px;line-height:1.45;vertical-align:top;${hl}">${this._escapeHtml(cellText)}</td>`;
             }).join("")}
           </tr>
         `).join("");
 
         return `
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
-            <span style="font-family:monospace;font-size:10px;color:#cbd5e1;">7-STAGE MISSION ROADMAP — Every team area from Quick Idea (Stage 1) to Early Build Blueprint (Stage 7)</span>
-            <button type="button" class="cml-matrix-mode" data-mode="column" style="padding:4px 9px;border-radius:4px;border:1px solid #38bdf8;background:rgba(56,189,248,0.14);color:#e0f2fe;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">VIEW ONE STAGE AT A TIME</button>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+            <span style="font-family:monospace;font-size:11.5px;color:#cbd5e1;line-height:1.4;">7-STAGE MISSION ROADMAP — Every team area from Quick Idea (Stage 1) to Early Build Blueprint (Stage 7)</span>
+            <button type="button" class="cml-matrix-mode" data-mode="column" style="padding:6px 12px;border-radius:4px;border:1px solid #38bdf8;background:rgba(56,189,248,0.14);color:#e0f2fe;font-family:monospace;font-size:10.5px;font-weight:700;cursor:pointer;">VIEW ONE STAGE AT A TIME</button>
           </div>
-          <div style="overflow:auto;max-height:360px;border:1px solid rgba(148,163,184,0.22);border-radius:5px;">
+          <div style="overflow:auto;max-height:380px;border:1px solid rgba(148,163,184,0.22);border-radius:5px;">
             <table style="border-collapse:collapse;width:100%;text-align:left;">
-              <thead><tr><th style="position:sticky;left:0;z-index:3;padding:6px 8px;border:1px solid rgba(148,163,184,0.22);background:#0f172a;color:#e2e8f0;font-family:monospace;font-size:9px;">MISSION TOPIC (24 AREAS)</th>${headerCols}</tr></thead>
+              <thead><tr><th style="position:sticky;left:0;z-index:3;padding:9px 10px;border:1px solid rgba(148,163,184,0.22);background:#0f172a;color:#e2e8f0;font-family:monospace;font-size:10.5px;">MISSION TOPIC (24 AREAS)</th>${headerCols}</tr></thead>
               <tbody>${bodyRows}</tbody>
             </table>
           </div>
@@ -3204,13 +3205,13 @@
       const rowsByCat = cmlEval.categories.map((cat) => {
         const rows = cmlEval.matrixRows.filter((r) => r.category === cat.id);
         return `
-          <div style="margin-bottom:8px;">
-            <div style="font-family:monospace;font-size:9.5px;font-weight:800;color:${cat.color};letter-spacing:0.8px;margin-bottom:4px;">${cat.label.toUpperCase()} (${rows.length})</div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:6px;">
+          <div style="margin-bottom:12px;">
+            <div style="font-family:monospace;font-size:11px;font-weight:800;color:${cat.color};letter-spacing:0.8px;margin-bottom:6px;">${cat.label.toUpperCase()} (${rows.length})</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;">
               ${rows.map((r) => `
-                <div style="padding:6px 8px;border-radius:4px;background:rgba(15,23,42,0.72);border:1px solid rgba(148,163,184,0.18);">
-                  <div style="font-family:monospace;font-size:9.5px;font-weight:700;color:#e2e8f0;">${this._escapeHtml(r.name)}</div>
-                  <div style="font-size:10px;color:${r.cells[focusColumn] === "—" ? "#64748b" : "#cbd5e1"};margin-top:2px;">${this._escapeHtml(r.cells[focusColumn] || "—")}</div>
+                <div style="padding:9px 12px;border-radius:4px;background:rgba(15,23,42,0.72);border:1px solid rgba(148,163,184,0.18);">
+                  <div style="font-family:monospace;font-size:11.5px;font-weight:700;color:#e2e8f0;">${this._escapeHtml(r.name)}</div>
+                  <div style="font-size:12px;color:${r.cells[focusColumn] === "—" ? "#64748b" : "#cbd5e1"};margin-top:4px;line-height:1.45;">${this._escapeHtml(r.cells[focusColumn] || "—")}</div>
                 </div>
               `).join("")}
             </div>
@@ -3219,18 +3220,18 @@
       }).join("");
 
       return `
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
-          <div style="display:flex;gap:4px;flex-wrap:wrap;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
             ${[1, 2, 3, 4, 5, 6, 7].map((c) => `
-              <button type="button" class="cml-matrix-col" data-col="${c}" style="padding:4px 8px;border-radius:4px;border:1px solid ${focusColumn === c ? "#fbbf24" : "rgba(148,163,184,0.22)"};background:${focusColumn === c ? "rgba(245,158,11,0.18)" : "rgba(15,23,42,0.75)"};color:${focusColumn === c ? "#fde68a" : "#cbd5e1"};font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">Stage ${c}</button>
+              <button type="button" class="cml-matrix-col" data-col="${c}" style="padding:6px 11px;border-radius:4px;border:1px solid ${focusColumn === c ? "#fbbf24" : "rgba(148,163,184,0.22)"};background:${focusColumn === c ? "rgba(245,158,11,0.18)" : "rgba(15,23,42,0.75)"};color:${focusColumn === c ? "#fde68a" : "#cbd5e1"};font-family:monospace;font-size:10.5px;font-weight:700;cursor:pointer;">Stage ${c}</button>
             `).join("")}
           </div>
-          <button type="button" class="cml-matrix-mode" data-mode="grid" style="padding:4px 9px;border-radius:4px;border:1px solid #38bdf8;background:rgba(56,189,248,0.14);color:#e0f2fe;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">VIEW FULL 7-STAGE TABLE</button>
+          <button type="button" class="cml-matrix-mode" data-mode="grid" style="padding:6px 12px;border-radius:4px;border:1px solid #38bdf8;background:rgba(56,189,248,0.14);color:#e0f2fe;font-family:monospace;font-size:10.5px;font-weight:700;cursor:pointer;">VIEW FULL 7-STAGE TABLE</button>
         </div>
-        <div style="padding:7px 9px;border-radius:4px;background:rgba(37,99,235,0.12);border:1px solid rgba(59,130,246,0.35);margin-bottom:8px;font-size:10.5px;color:#dbeafe;">
+        <div style="padding:9px 12px;border-radius:4px;background:rgba(37,99,235,0.12);border:1px solid rgba(59,130,246,0.35);margin-bottom:10px;font-size:12px;line-height:1.45;color:#dbeafe;">
           <strong>${this._escapeHtml(colMeta.shortTitle)}</strong> (${this._escapeHtml(colMeta.phase)}) — Checkpoint: ${this._escapeHtml(colMeta.competedGate)} | Review: ${this._escapeHtml(colMeta.assignedGate)}
         </div>
-        <div style="max-height:330px;overflow-y:auto;padding-right:4px;">
+        <div style="max-height:350px;overflow-y:auto;padding-right:6px;">
           ${rowsByCat}
         </div>
       `;
@@ -3240,45 +3241,45 @@
       const notes = cmlEval.notes || {};
       const spineCards = cmlEval.levels.map((lvl) => {
         const reached = lvl.level <= cmlEval.reachedCml;
-        const loopTag = lvl.feedbackLoopGroup === "trade-loop" ? '<span style="color:#fbbf24;font-family:monospace;font-size:8px;font-weight:700;">COMPARE &amp; LOOP (2-4)</span>' : "";
+        const loopTag = lvl.feedbackLoopGroup === "trade-loop" ? '<span style="color:#fbbf24;font-family:monospace;font-size:10px;font-weight:700;">COMPARE &amp; LOOP (2-4)</span>' : "";
         return `
-          <div style="padding:7px 9px;border-radius:5px;background:${reached ? "rgba(37,99,235,0.16)" : "rgba(15,23,42,0.7)"};border:1px solid ${reached ? "rgba(59,130,246,0.55)" : "rgba(148,163,184,0.18)"};">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
-              <span style="font-family:monospace;font-size:10px;font-weight:800;color:${reached ? "#93c5fd" : "#e2e8f0"};">${this._escapeHtml(lvl.shortTitle)}</span>
+          <div style="padding:10px 12px;border-radius:5px;background:${reached ? "rgba(37,99,235,0.16)" : "rgba(15,23,42,0.7)"};border:1px solid ${reached ? "rgba(59,130,246,0.55)" : "rgba(148,163,184,0.18)"};">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
+              <span style="font-family:monospace;font-size:11.5px;font-weight:800;color:${reached ? "#93c5fd" : "#e2e8f0"};">${this._escapeHtml(lvl.shortTitle)}</span>
               ${loopTag}
             </div>
-            <div style="font-family:monospace;font-size:8.5px;color:#94a3b8;margin-top:2px;">${this._escapeHtml(lvl.phase)} · ${this._escapeHtml(lvl.teamContext)}</div>
-            <div style="font-size:9.5px;color:#cbd5e1;margin-top:3px;">${this._escapeHtml(lvl.summary)}</div>
-            <div style="font-family:monospace;font-size:8.5px;color:#a5f3fc;margin-top:3px;">Pitch Milestone: ${this._escapeHtml(lvl.competedGate)} | Review: ${this._escapeHtml(lvl.assignedGate)}</div>
+            <div style="font-family:monospace;font-size:10.5px;color:#94a3b8;margin-top:4px;line-height:1.4;">${this._escapeHtml(lvl.phase)} · ${this._escapeHtml(lvl.teamContext)}</div>
+            <div style="font-size:11.5px;color:#cbd5e1;margin-top:5px;line-height:1.45;">${this._escapeHtml(lvl.summary)}</div>
+            <div style="font-family:monospace;font-size:10.5px;color:#a5f3fc;margin-top:5px;line-height:1.4;">Pitch Milestone: ${this._escapeHtml(lvl.competedGate)} | Review: ${this._escapeHtml(lvl.assignedGate)}</div>
           </div>
         `;
       }).join("");
 
       const field = (key, label, placeholder) => `
-        <label style="display:flex;flex-direction:column;gap:2px;font-family:monospace;font-size:8.5px;color:#93c5fd;">
+        <label style="display:flex;flex-direction:column;gap:4px;font-family:monospace;font-size:10.5px;color:#93c5fd;">
           <span>${this._escapeHtml(label)}</span>
-          <input type="text" class="cml-note-field" data-note-key="${key}" value="${this._escapeHtml(notes[key] || "")}" placeholder="${this._escapeHtml(placeholder)}" style="padding:5px 7px;border-radius:4px;border:1px solid rgba(148,163,184,0.28);background:rgba(5,8,16,0.85);color:#f8fafc;font-family:monospace;font-size:10px;" />
+          <input type="text" class="cml-note-field" data-note-key="${key}" value="${this._escapeHtml(notes[key] || "")}" placeholder="${this._escapeHtml(placeholder)}" style="padding:7px 10px;border-radius:4px;border:1px solid rgba(148,163,184,0.28);background:rgba(5,8,16,0.85);color:#f8fafc;font-family:monospace;font-size:11.5px;" />
         </label>
       `;
 
       const caveatsHtml = cmlEval.caveatsStatus.map((cav) => `
-        <div style="padding:6px 8px;border-radius:4px;background:rgba(15,23,42,0.75);border-left:3px solid ${cav.flagged ? "#fbbf24" : "#4ade80"};">
-          <div style="display:flex;justify-content:space-between;font-family:monospace;font-size:9.5px;font-weight:700;color:#f1f5f9;">
+        <div style="padding:9px 11px;border-radius:4px;background:rgba(15,23,42,0.75);border-left:3px solid ${cav.flagged ? "#fbbf24" : "#4ade80"};">
+          <div style="display:flex;justify-content:space-between;font-family:monospace;font-size:11px;font-weight:700;color:#f1f5f9;">
             <span>${this._escapeHtml(cav.title)}</span>
             <span style="color:${cav.flagged ? "#fde68a" : "#86efac"};">${cav.flagged ? "WATCH" : "GOOD"}</span>
           </div>
-          <div style="font-size:9.5px;color:#cbd5e1;margin-top:2px;">${this._escapeHtml(cav.liveNote)}</div>
+          <div style="font-size:11.5px;color:#cbd5e1;margin-top:4px;line-height:1.45;">${this._escapeHtml(cav.liveNote)}</div>
         </div>
       `).join("");
 
       return `
-        <div style="max-height:385px;overflow-y:auto;padding-right:4px;">
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:6px;margin-bottom:10px;">
+        <div style="max-height:400px;overflow-y:auto;padding-right:6px;">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin-bottom:12px;">
             ${spineCards}
           </div>
-          <div style="padding:9px 10px;border-radius:5px;background:rgba(8,13,24,0.85);border:1px solid rgba(103,232,249,0.25);margin-bottom:10px;">
-            <div style="font-family:monospace;font-size:9.5px;font-weight:800;color:#67e8f9;margin-bottom:6px;">MISSION IDEA &amp; TEAM NOTES (Helps finish planning items in Stages 1-6)</div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:7px;">
+          <div style="padding:12px 14px;border-radius:5px;background:rgba(8,13,24,0.85);border:1px solid rgba(103,232,249,0.25);margin-bottom:12px;">
+            <div style="font-family:monospace;font-size:11px;font-weight:800;color:#67e8f9;margin-bottom:8px;">MISSION IDEA &amp; TEAM NOTES (Helps finish planning items in Stages 1-6)</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;">
               ${field("stmSummary", "Main Science Goal & Target Metrics (Q #1)", "e.g. Map water ice in Moon craters -> crisp 50m photos")}
               ${field("heritageSource", "Similar Past Mission / Reused Parts (Q #2)", "e.g. Based on Lunar Reconnaissance Orbiter flight parts")}
               ${field("launchWindow", "Target Launch Dates (Q #3)", "e.g. Nov 2027 (21-day launch window)")}
@@ -3296,10 +3297,10 @@
               ${field("swMarginPct", "Flight Computer Spare Capacity % (>=100%)", "110")}
             </div>
           </div>
-          <div style="padding:8px 10px;border-radius:5px;background:rgba(15,23,42,0.7);border:1px solid rgba(251,191,36,0.28);">
-            <div style="font-family:monospace;font-size:9.5px;font-weight:800;color:#fde68a;margin-bottom:5px;">HOW COMPLEX IS THIS MISSION? ${this._escapeHtml(cmlEval.complexity.tier)} (${cmlEval.complexity.score}/5) &amp; 3 GOLDEN RULES</div>
-            <div style="font-size:9.5px;color:#cbd5e1;margin-bottom:6px;">${this._escapeHtml(cmlEval.complexity.advisory)}</div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:6px;">
+          <div style="padding:11px 13px;border-radius:5px;background:rgba(15,23,42,0.7);border:1px solid rgba(251,191,36,0.28);">
+            <div style="font-family:monospace;font-size:11px;font-weight:800;color:#fde68a;margin-bottom:6px;">HOW COMPLEX IS THIS MISSION? ${this._escapeHtml(cmlEval.complexity.tier)} (${cmlEval.complexity.score}/5) &amp; 3 GOLDEN RULES</div>
+            <div style="font-size:11.5px;color:#cbd5e1;margin-bottom:8px;line-height:1.45;">${this._escapeHtml(cmlEval.complexity.advisory)}</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px;">
               ${caveatsHtml}
             </div>
           </div>
@@ -3320,11 +3321,11 @@
 
       const gridRows = [5, 4, 3, 2, 1].map((l) => `
         <tr>
-          <td style="padding:4px 6px;border:1px solid rgba(148,163,184,0.2);font-family:monospace;font-size:9px;color:#94a3b8;font-weight:700;" title="Likelihood ${l} out of 5">L${l}</td>
+          <td style="padding:6px 8px;border:1px solid rgba(148,163,184,0.2);font-family:monospace;font-size:10.5px;color:#94a3b8;font-weight:700;" title="Likelihood ${l} out of 5">L${l}</td>
           ${[1, 2, 3, 4, 5].map((c) => {
             const list = r5.cells[`${l}x${c}`] || [];
-            const chips = list.map((r) => `<span title="${this._escapeHtml(r.title)}" style="display:inline-block;padding:1px 4px;margin:1px;border-radius:3px;background:#0f172a;border:1px solid rgba(255,255,255,0.45);color:#f8fafc;font-family:monospace;font-size:8.5px;font-weight:800;">#${idxMap.get(r.id)}</span>`).join("");
-            return `<td style="width:52px;height:36px;text-align:center;vertical-align:middle;border:1px solid rgba(148,163,184,0.22);background:${cellBg(l, c)};">${chips}</td>`;
+            const chips = list.map((r) => `<span title="${this._escapeHtml(r.title)}" style="display:inline-block;padding:2px 6px;margin:2px;border-radius:3px;background:#0f172a;border:1px solid rgba(255,255,255,0.45);color:#f8fafc;font-family:monospace;font-size:10px;font-weight:800;">#${idxMap.get(r.id)}</span>`).join("");
+            return `<td style="width:56px;height:40px;text-align:center;vertical-align:middle;border:1px solid rgba(148,163,184,0.22);background:${cellBg(l, c)};">${chips}</td>`;
           }).join("")}
         </tr>
       `).join("");
@@ -3332,39 +3333,39 @@
       const registerRows = r5.risks.map((r, idx) => {
         const col = r.severity === "HIGH" ? "#fca5a5" : r.severity === "MED" ? "#fde68a" : "#86efac";
         return `
-          <div style="padding:6px 8px;border-radius:4px;background:rgba(15,23,42,0.75);border-left:3px solid ${col};">
-            <div style="display:flex;justify-content:space-between;font-family:monospace;font-size:9.5px;color:#f1f5f9;font-weight:700;">
+          <div style="padding:9px 11px;border-radius:4px;background:rgba(15,23,42,0.75);border-left:3px solid ${col};">
+            <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-family:monospace;font-size:11.5px;color:#f1f5f9;font-weight:700;">
               <span>#${idx + 1} ${this._escapeHtml(r.title)}</span>
               <span style="color:${col};">Likely ${r.likelihood}/5 · Impact ${r.consequence}/5 (${r.severity})</span>
             </div>
-            <div style="font-size:9.5px;color:#cbd5e1;margin-top:2px;">How to fix (${this._escapeHtml(r.owner)}): ${this._escapeHtml(r.mitigation)}</div>
+            <div style="font-size:11.5px;color:#cbd5e1;margin-top:4px;line-height:1.45;">How to fix (${this._escapeHtml(r.owner)}): ${this._escapeHtml(r.mitigation)}</div>
           </div>
         `;
       }).join("");
 
       return `
-        <div style="display:grid;grid-template-columns:minmax(270px,auto) 1fr;gap:12px;align-items:start;">
+        <div style="display:grid;grid-template-columns:minmax(290px,auto) 1fr;gap:14px;align-items:start;">
           <div>
-            <div style="font-family:monospace;font-size:9.5px;font-weight:700;color:#93c5fd;margin-bottom:2px;">5x5 RISK MAP (${r5.highCount} High · ${r5.medCount} Med · ${r5.lowCount} Low)</div>
-            <div style="font-family:monospace;font-size:8.5px;color:#94a3b8;margin-bottom:5px;">Rows = How Likely (L1 Rare to L5 Likely) · Cols = How Serious (I1 Tiny to I5 Loss)</div>
+            <div style="font-family:monospace;font-size:11px;font-weight:700;color:#93c5fd;margin-bottom:4px;">5x5 RISK MAP (${r5.highCount} High · ${r5.medCount} Med · ${r5.lowCount} Low)</div>
+            <div style="font-family:monospace;font-size:10.5px;color:#94a3b8;margin-bottom:7px;line-height:1.4;">Rows = How Likely (L1 Rare to L5 Likely) · Cols = How Serious (I1 Tiny to I5 Loss)</div>
             <table style="border-collapse:collapse;">
               <tbody>
                 ${gridRows}
                 <tr>
                   <td></td>
-                  ${[1, 2, 3, 4, 5].map((c) => `<td style="text-align:center;padding:3px;font-family:monospace;font-size:9px;color:#94a3b8;font-weight:700;" title="Impact ${c} out of 5">I${c}</td>`).join("")}
+                  ${[1, 2, 3, 4, 5].map((c) => `<td style="text-align:center;padding:5px;font-family:monospace;font-size:10.5px;color:#94a3b8;font-weight:700;" title="Impact ${c} out of 5">I${c}</td>`).join("")}
                 </tr>
               </tbody>
             </table>
           </div>
-          <div style="display:flex;flex-direction:column;gap:5px;max-height:260px;overflow-y:auto;padding-right:4px;">
+          <div style="display:flex;flex-direction:column;gap:8px;max-height:280px;overflow-y:auto;padding-right:6px;">
             ${registerRows}
           </div>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.1);">
-          <button type="button" id="btn-cml-export-json" style="padding:7px 11px;border-radius:4px;border:1px solid rgba(56,189,248,0.5);background:rgba(56,189,248,0.14);color:#e0f2fe;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">DOWNLOAD SUMMARY (.JSON)</button>
-          <button type="button" id="btn-cml-export-md" style="padding:7px 11px;border-radius:4px;border:1px solid rgba(167,139,250,0.5);background:rgba(167,139,250,0.14);color:#ddd6fe;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">DOWNLOAD READABLE REPORT (.MD)</button>
-          <button type="button" id="btn-cml-export-full-mdl" style="padding:7px 11px;border-radius:4px;border:1px solid rgba(74,222,128,0.5);background:rgba(74,222,128,0.14);color:#bbf7d0;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">DOWNLOAD FULL BLUEPRINT (.JSON)</button>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1);">
+          <button type="button" id="btn-cml-export-json" style="padding:8px 13px;border-radius:4px;border:1px solid rgba(56,189,248,0.5);background:rgba(56,189,248,0.14);color:#e0f2fe;font-family:monospace;font-size:11px;font-weight:700;cursor:pointer;">DOWNLOAD SUMMARY (.JSON)</button>
+          <button type="button" id="btn-cml-export-md" style="padding:8px 13px;border-radius:4px;border:1px solid rgba(167,139,250,0.5);background:rgba(167,139,250,0.14);color:#ddd6fe;font-family:monospace;font-size:11px;font-weight:700;cursor:pointer;">DOWNLOAD READABLE REPORT (.MD)</button>
+          <button type="button" id="btn-cml-export-full-mdl" style="padding:8px 13px;border-radius:4px;border:1px solid rgba(74,222,128,0.5);background:rgba(74,222,128,0.14);color:#bbf7d0;font-family:monospace;font-size:11px;font-weight:700;cursor:pointer;">DOWNLOAD FULL BLUEPRINT (.JSON)</button>
         </div>
       `;
     }
@@ -3413,13 +3414,13 @@
         const t = this.evaluateMissionDesign();
         const cmlEval = t.cml;
         const mkTab = (id, label) => `
-          <button type="button" class="cml-wb-tab" data-tab="${id}" style="padding:6px 10px;border-radius:5px;border:1px solid ${activeTab === id ? "#fbbf24" : "rgba(255,255,255,0.14)"};background:${activeTab === id ? "rgba(245,158,11,0.18)" : "rgba(255,255,255,0.03)"};color:${activeTab === id ? "#fde68a" : "#94a3b8"};font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">${label}</button>
+          <button type="button" class="cml-wb-tab" data-tab="${id}" style="padding:8px 14px;border-radius:5px;border:1px solid ${activeTab === id ? "#fbbf24" : "rgba(255,255,255,0.14)"};background:${activeTab === id ? "rgba(245,158,11,0.18)" : "rgba(255,255,255,0.03)"};color:${activeTab === id ? "#fde68a" : "#94a3b8"};font-family:monospace;font-size:11.5px;font-weight:700;cursor:pointer;">${label}</button>
         `;
 
         const alertsHtml = cmlEval.feedbackAlerts.map((a) => {
           const bd = a.severity === "ALERT" ? "rgba(239,68,68,0.5)" : "rgba(251,191,36,0.45)";
           const bg = a.severity === "ALERT" ? "rgba(239,68,68,0.12)" : "rgba(245,158,11,0.1)";
-          return `<div style="padding:5px 8px;border-radius:4px;border:1px solid ${bd};background:${bg};font-size:10px;color:#f8fafc;"><strong>${this._escapeHtml(a.title)}:</strong> ${this._escapeHtml(a.detail)}</div>`;
+          return `<div style="padding:7px 10px;border-radius:4px;border:1px solid ${bd};background:${bg};font-size:11.5px;line-height:1.45;color:#f8fafc;"><strong>${this._escapeHtml(a.title)}:</strong> ${this._escapeHtml(a.detail)}</div>`;
         }).join("");
 
         let tabBody = "";
@@ -3429,23 +3430,23 @@
         else tabBody = this._renderCmlRiskTab(cmlEval);
 
         body.innerHTML = `
-          <div style="padding:9px 11px;border-radius:5px;background:rgba(8,13,24,0.88);border:1px solid rgba(56,189,248,0.3);margin-bottom:9px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+          <div style="padding:12px 14px;border-radius:5px;background:rgba(8,13,24,0.88);border:1px solid rgba(56,189,248,0.3);margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
               <div>
-                <div style="font-family:monospace;font-size:10.5px;font-weight:800;color:#7dd3fc;">NOW AT: ${this._escapeHtml(cmlEval.reachedTitle.toUpperCase())} · VERIFIED: STAGE ${cmlEval.certifiedCml} · SCORE ${t.overallScore}/100</div>
-                <div style="font-family:monospace;font-size:9px;color:#94a3b8;margin-top:2px;">${this._escapeHtml(cmlEval.reachedPhase)} · Complexity: ${this._escapeHtml(cmlEval.complexity.tier)} (${cmlEval.complexity.score}/5) · Mission: ${this._escapeHtml(t.scenario.name)}</div>
-                <div style="font-size:10px;color:#cbd5e1;margin-top:4px;">How it works: NASA grows missions from <strong>Stage 1</strong> (quick idea sketch) to <strong>Stage 9</strong> (ready to build hardware). Reach <strong>80% Done</strong> plus all <strong>Must-Have</strong> items to advance!</div>
+                <div style="font-family:monospace;font-size:12px;font-weight:800;color:#7dd3fc;line-height:1.4;">NOW AT: ${this._escapeHtml(cmlEval.reachedTitle.toUpperCase())} · VERIFIED: STAGE ${cmlEval.certifiedCml} · SCORE ${t.overallScore}/100</div>
+                <div style="font-family:monospace;font-size:10.5px;color:#94a3b8;margin-top:4px;">${this._escapeHtml(cmlEval.reachedPhase)} · Complexity: ${this._escapeHtml(cmlEval.complexity.tier)} (${cmlEval.complexity.score}/5) · Mission: ${this._escapeHtml(t.scenario.name)}</div>
+                <div style="font-size:12px;color:#cbd5e1;margin-top:6px;line-height:1.5;">How it works: NASA grows missions from <strong>Stage 1</strong> (quick idea sketch) to <strong>Stage 9</strong> (ready to build hardware). Reach <strong>80% Done</strong> plus all <strong>Must-Have</strong> items to advance!</div>
               </div>
-              <div style="display:flex;gap:5px;flex-wrap:wrap;">
-                ${returnTask ? `<button type="button" id="btn-cml-return" style="padding:4px 8px;border-radius:4px;border:1px solid rgba(148,163,184,0.35);background:rgba(15,23,42,0.85);color:#e2e8f0;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">← BACK</button>` : ""}
-                <button type="button" id="btn-cml-mdl-desk" style="padding:4px 8px;border-radius:4px;border:1px solid rgba(103,232,249,0.45);background:rgba(103,232,249,0.12);color:#a5f3fc;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">DESIGN DESK</button>
-                <button type="button" id="btn-cml-sync-all" style="padding:4px 9px;border-radius:4px;border:1px solid #4ade80;background:rgba(22,163,74,0.25);color:#bbf7d0;font-family:monospace;font-size:9px;font-weight:800;cursor:pointer;">SAVE TO CREW</button>
+              <div style="display:flex;gap:7px;flex-wrap:wrap;">
+                ${returnTask ? `<button type="button" id="btn-cml-return" style="padding:6px 11px;border-radius:4px;border:1px solid rgba(148,163,184,0.35);background:rgba(15,23,42,0.85);color:#e2e8f0;font-family:monospace;font-size:10.5px;font-weight:700;cursor:pointer;">← BACK</button>` : ""}
+                <button type="button" id="btn-cml-mdl-desk" style="padding:6px 11px;border-radius:4px;border:1px solid rgba(103,232,249,0.45);background:rgba(103,232,249,0.12);color:#a5f3fc;font-family:monospace;font-size:10.5px;font-weight:700;cursor:pointer;">DESIGN DESK</button>
+                <button type="button" id="btn-cml-sync-all" style="padding:6px 11px;border-radius:4px;border:1px solid #4ade80;background:rgba(22,163,74,0.25);color:#bbf7d0;font-family:monospace;font-size:10.5px;font-weight:800;cursor:pointer;">SAVE TO CREW</button>
               </div>
             </div>
-            ${alertsHtml ? `<div style="display:flex;flex-direction:column;gap:4px;margin-top:7px;">${alertsHtml}</div>` : ""}
+            ${alertsHtml ? `<div style="display:flex;flex-direction:column;gap:6px;margin-top:9px;">${alertsHtml}</div>` : ""}
           </div>
 
-          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:9px;">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
             ${mkTab("checklist", `1. STAGE ${cmlEval.targetCml} CHECKLIST (${cmlEval.activeSummary.percentGreen}%)`)}
             ${mkTab("matrix", "2. 7-STAGE ROADMAP (24 TOPICS)")}
             ${mkTab("spine", "3. 9-STAGE JOURNEY & NOTES")}
@@ -3771,6 +3772,9 @@
 
       this._runCleanup();
       this.activeTask = task;
+      if (window.csaNasaLab && typeof window.csaNasaLab.syncGroundLockState === "function") {
+        window.csaNasaLab.syncGroundLockState();
+      }
       const modal = document.getElementById("task-modal-overlay");
       const title = document.getElementById("task-modal-title");
       const body = document.getElementById("task-modal-content");
@@ -3934,14 +3938,14 @@
           .map((sc) => {
             const active = md.scenarioId === sc.id;
             return `
-              <div class="md-scenario-card" data-id="${sc.id}" style="padding:12px;border-radius:8px;border:1px solid ${active ? "#67e8f9" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(103,232,249,0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;transition:all 0.15s;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                  <span style="font-family:monospace;font-size:9px;font-weight:700;color:#67e8f9;letter-spacing:1px;">${sc.badge}</span>
-                  <span style="font-family:monospace;font-size:10px;font-weight:700;color:#d0a15c;">Budget: $${Math.round(sc.baseBudgetM * t.difficulty.budgetMultiplier)}M · Goal: ${sc.targetLifetimeMonths} mo</span>
+              <div class="md-scenario-card" data-id="${sc.id}" style="padding:14px 16px;border-radius:8px;border:1px solid ${active ? "#67e8f9" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(103,232,249,0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;transition:all 0.15s;">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;">
+                  <span style="font-family:monospace;font-size:10.5px;font-weight:700;color:#67e8f9;letter-spacing:0.9px;">${sc.badge}</span>
+                  <span style="font-family:monospace;font-size:11px;font-weight:700;color:#d0a15c;">Budget: $${Math.round(sc.baseBudgetM * t.difficulty.budgetMultiplier)}M · Goal: ${sc.targetLifetimeMonths} mo</span>
                 </div>
-                <div style="font-size:13px;font-weight:700;color:#ece7dc;margin-bottom:4px;">${sc.name}</div>
-                <div style="font-size:11px;color:#94a3b8;line-height:1.45;margin-bottom:6px;">${sc.summary}</div>
-                <div style="font-family:monospace;font-size:9.5px;color:#7fb8a6;">
+                <div style="font-size:14.5px;font-weight:700;color:#ece7dc;margin-bottom:6px;">${sc.name}</div>
+                <div style="font-size:12.5px;color:#cbd5e1;line-height:1.5;margin-bottom:8px;">${sc.summary}</div>
+                <div style="font-family:monospace;font-size:11px;color:#7fb8a6;line-height:1.4;">
                   ${
                     sc.isBioPayload
                       ? "Goals: Make Vitamin A ≥3 mg/L · 12+ Pouches · <250g · <300mL · -80°C Freezer"
@@ -3957,9 +3961,9 @@
           .map((d) => {
             const active = md.difficultyId === d.id;
             return `
-              <button type="button" class="md-diff-btn" data-id="${d.id}" style="flex:1;min-width:160px;padding:9px 10px;border-radius:6px;border:1px solid ${active ? "#d0a15c" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(208,161,92,0.14)" : "rgba(255,255,255,0.03)"};color:#ece7dc;text-align:left;cursor:pointer;">
-                <div style="font-family:monospace;font-size:10px;font-weight:700;color:${active ? "#fde047" : "#ece7dc"};">${d.name}</div>
-                <div style="font-size:10px;color:#94a3b8;margin-top:2px;line-height:1.35;">${d.desc}</div>
+              <button type="button" class="md-diff-btn" data-id="${d.id}" style="flex:1;min-width:180px;padding:11px 14px;border-radius:6px;border:1px solid ${active ? "#d0a15c" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(208,161,92,0.14)" : "rgba(255,255,255,0.03)"};color:#ece7dc;text-align:left;cursor:pointer;">
+                <div style="font-family:monospace;font-size:11.5px;font-weight:700;color:${active ? "#fde047" : "#ece7dc"};">${d.name}</div>
+                <div style="font-size:11.5px;color:#cbd5e1;margin-top:4px;line-height:1.45;">${d.desc}</div>
               </button>
             `;
           })
@@ -3968,17 +3972,17 @@
         let specializationHtml = "";
         if (t.scenario.requiresWavelength) {
           specializationHtml = `
-            <div style="margin-bottom:12px;">
-              <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#c4b5fd;margin-bottom:6px;">
+            <div style="margin-bottom:14px;">
+              <div style="font-family:monospace;font-size:11.5px;font-weight:700;letter-spacing:1.2px;color:#c4b5fd;margin-bottom:8px;">
                 STEP 1C · WHAT KIND OF LIGHT WILL YOUR TELESCOPE SEE?
               </div>
-              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;">
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;">
                 ${Object.values(WAVELENGTH_BANDS).map((wb) => {
                   const active = md.wavelengthId === wb.id;
                   return `
-                    <div class="md-wave-card" data-id="${wb.id}" style="padding:10px;border-radius:7px;border:1px solid ${active ? "#c084fc" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(192,132,252,0.14)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                      <div style="font-size:11.5px;font-weight:700;color:#ece7dc;">${wb.name}</div>
-                      <div style="font-size:10px;color:#94a3b8;margin-top:3px;line-height:1.35;">${wb.explain}</div>
+                    <div class="md-wave-card" data-id="${wb.id}" style="padding:12px 14px;border-radius:7px;border:1px solid ${active ? "#c084fc" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(192,132,252,0.14)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                      <div style="font-size:13px;font-weight:700;color:#ece7dc;">${wb.name}</div>
+                      <div style="font-size:11.5px;color:#cbd5e1;margin-top:4px;line-height:1.45;">${wb.explain}</div>
                     </div>
                   `;
                 }).join("")}
@@ -3987,18 +3991,18 @@
           `;
         } else if (t.scenario.isCubesat) {
           specializationHtml = `
-            <div style="margin-bottom:12px;">
-              <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#67e8f9;margin-bottom:6px;">
+            <div style="margin-bottom:14px;">
+              <div style="font-family:monospace;font-size:11.5px;font-weight:700;letter-spacing:1.2px;color:#67e8f9;margin-bottom:8px;">
                 STEP 1C · PICK YOUR MINI-SATELLITE BOX SIZE
               </div>
-              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;">
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;">
                 ${Object.values(CUBESAT_FORMS).map((cf) => {
                   const active = md.cubesatFormId === cf.id;
                   return `
-                    <div class="md-csform-card" data-id="${cf.id}" style="padding:10px;border-radius:7px;border:1px solid ${active ? "#67e8f9" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(103,232,249,0.14)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                      <div style="font-size:11.5px;font-weight:700;color:#ece7dc;">${cf.name}</div>
-                      <div style="font-family:monospace;font-size:9.5px;color:#7fb8a6;margin:3px 0;">Weight Limit: ${cf.maxMassKg} kg · Holds up to ${cf.maxInst} tools</div>
-                      <div style="font-size:10px;color:#94a3b8;line-height:1.35;">${cf.explain}</div>
+                    <div class="md-csform-card" data-id="${cf.id}" style="padding:12px 14px;border-radius:7px;border:1px solid ${active ? "#67e8f9" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(103,232,249,0.14)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                      <div style="font-size:13px;font-weight:700;color:#ece7dc;">${cf.name}</div>
+                      <div style="font-family:monospace;font-size:11px;color:#7fb8a6;margin:5px 0;">Weight Limit: ${cf.maxMassKg} kg · Holds up to ${cf.maxInst} tools</div>
+                      <div style="font-size:11.5px;color:#cbd5e1;line-height:1.45;">${cf.explain}</div>
                     </div>
                   `;
                 }).join("")}
@@ -4007,31 +4011,31 @@
           `;
         } else if (t.scenario.isBioPayload) {
           specializationHtml = `
-            <div style="margin-bottom:12px;">
-              <div style="padding:10px 12px;border-radius:7px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.32);margin-bottom:9px;font-size:10.5px;color:#e2e8f0;line-height:1.45;">
-                <div style="font-family:monospace;font-size:9.5px;font-weight:700;color:#fbbf24;margin-bottom:4px;">
+            <div style="margin-bottom:14px;">
+              <div style="padding:12px 14px;border-radius:7px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.32);margin-bottom:12px;font-size:12px;color:#e2e8f0;line-height:1.5;">
+                <div style="font-family:monospace;font-size:11px;font-weight:700;color:#fbbf24;margin-bottom:6px;">
                   HOW SPACE STATION VITAMIN MAKER (BIONUTRIENTS-2) WORKS
                 </div>
                 <div><strong>Why It Matters:</strong> Astronauts on long trips need a fast, safe way to grow fresh vitamins on demand without carrying heavy jars from Earth.</div>
-                <div style="margin-top:3px;"><strong>3 Simple Goals:</strong> (1) Wake up sleeping yeast · (2) Grow fresh Vitamin A nutrient on the Space Station · (3) Keep each pouch super light (&lt;250g) and compact (&lt;300mL).</div>
-                <div style="margin-top:4px;font-family:monospace;font-size:9px;color:#93c5fd;">
+                <div style="margin-top:5px;"><strong>3 Simple Goals:</strong> (1) Wake up sleeping yeast · (2) Grow fresh Vitamin A nutrient on the Space Station · (3) Keep each pouch super light (&lt;250g) and compact (&lt;300mL).</div>
+                <div style="margin-top:6px;font-family:monospace;font-size:10.5px;color:#93c5fd;line-height:1.45;">
                   1. LAUNCH (Supply Ship) -> 2. SPACE (Add clean filtered water -> Warm at 30°C -> Shake at 6h -> Freeze at -80°C) -> 3. EARTH TEAM (Watch live) -> 4. LAB CHECK (Thaw &amp; measure Vitamin A)
                 </div>
               </div>
-              <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#fbbf24;margin-bottom:6px;">
+              <div style="font-family:monospace;font-size:11.5px;font-weight:700;letter-spacing:1.2px;color:#fbbf24;margin-bottom:8px;">
                 STEP 1C · PICK WHICH HELPFUL MICROBE TO GROW
               </div>
-              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;">
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;">
                 ${Object.values(BIO_ORGANISM_OPTIONS).map((org) => {
                   const active = md.bioOrganismId === org.id;
                   return `
-                    <div class="md-bioorg-card" data-id="${org.id}" style="padding:10px;border-radius:7px;border:1px solid ${active ? "#fbbf24" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(245,158,11,0.14)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                      <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
-                        <span style="font-size:11.5px;font-weight:700;color:#ece7dc;">${org.name}</span>
-                        ${org.goalAligned ? `<span style="font-family:monospace;font-size:8px;padding:2px 5px;border-radius:3px;background:rgba(74,222,128,0.18);color:#86efac;font-weight:700;">BEST MATCH</span>` : ""}
+                    <div class="md-bioorg-card" data-id="${org.id}" style="padding:12px 14px;border-radius:7px;border:1px solid ${active ? "#fbbf24" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(245,158,11,0.14)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                      <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
+                        <span style="font-size:13px;font-weight:700;color:#ece7dc;">${org.name}</span>
+                        ${org.goalAligned ? `<span style="font-family:monospace;font-size:10px;padding:2px 6px;border-radius:3px;background:rgba(74,222,128,0.18);color:#86efac;font-weight:700;">BEST MATCH</span>` : ""}
                       </div>
-                      <div style="font-family:monospace;font-size:9.5px;color:#fcd34d;margin:3px 0;">Warmth: ${org.targetTempC}°C · 6h Shake: ${org.requiresSixHourShake ? "NEEDED" : "No"} · Vitamin Output: ${org.baseBetaCaroteneUgMl} mg/L</div>
-                      <div style="font-size:10px;color:#94a3b8;line-height:1.35;">${org.explain}</div>
+                      <div style="font-family:monospace;font-size:11px;color:#fcd34d;margin:5px 0;">Warmth: ${org.targetTempC}°C · 6h Shake: ${org.requiresSixHourShake ? "NEEDED" : "No"} · Vitamin Output: ${org.baseBetaCaroteneUgMl} mg/L</div>
+                      <div style="font-size:11.5px;color:#cbd5e1;line-height:1.45;">${org.explain}</div>
                     </div>
                   `;
                 }).join("")}
@@ -4042,37 +4046,37 @@
 
         container.innerHTML = `
           ${this._renderLiveTradeoffStrip({ onRerender: render })}
-          <div style="margin-bottom:12px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
-              <span style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#9aa4ae;">
+          <div style="margin-bottom:14px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+              <span style="font-family:monospace;font-size:11.5px;font-weight:700;letter-spacing:1.2px;color:#9aa4ae;">
                 STEP 1A · PICK YOUR MISSION GOAL
               </span>
-              <button type="button" id="btn-arch-apply-rec" style="padding:4px 9px;border-radius:5px;border:1px solid rgba(74,222,128,0.45);background:rgba(74,222,128,0.12);color:#86efac;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">
+              <button type="button" id="btn-arch-apply-rec" style="padding:6px 12px;border-radius:5px;border:1px solid rgba(74,222,128,0.45);background:rgba(74,222,128,0.12);color:#86efac;font-family:monospace;font-size:11px;font-weight:700;cursor:pointer;">
                 AUTO-FILL RECOMMENDED SETUP FOR ${t.scenario.code}
               </button>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;">
               ${scenarioCards}
             </div>
           </div>
 
           ${specializationHtml}
 
-          <div style="margin-bottom:12px;">
-            <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#9aa4ae;margin-bottom:6px;">
+          <div style="margin-bottom:14px;">
+            <div style="font-family:monospace;font-size:11.5px;font-weight:700;letter-spacing:1.2px;color:#9aa4ae;margin-bottom:8px;">
               STEP 1B · PICK DIFFICULTY &amp; BUDGET SIZE
             </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
               ${diffBtns}
             </div>
           </div>
 
-          <div style="padding:10px 12px;border-radius:4px;background:rgba(8,13,24,0.78);border:1px solid rgba(148,163,184,0.22);margin-bottom:14px;">
-            <div style="font-family:var(--font-mono,monospace);font-size:10px;font-weight:700;letter-spacing:1.3px;color:#93c5fd;margin-bottom:6px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+          <div style="padding:12px 14px;border-radius:4px;background:rgba(8,13,24,0.78);border:1px solid rgba(148,163,184,0.22);margin-bottom:16px;">
+            <div style="font-family:var(--font-mono,monospace);font-size:11.5px;font-weight:700;letter-spacing:1.1px;color:#93c5fd;margin-bottom:8px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;">
               <span>WHO DOES WHAT ON THE TEAM (EARTH TEAM &amp; SPACE TEAM)</span>
               <span style="color:#94a3b8;font-weight:500;">Roles are picked automatically · Click [SWAP] on the left panel to trade</span>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;font-size:10.5px;color:#cbd5e1;margin-top:6px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;font-size:12px;color:#cbd5e1;margin-top:8px;">
               ${(["flight_director", "ground_capcom", "commander", "engineer", "scientist", "specialist"]).map((rId) => {
                 const a = this._getRoleAssignment(rId);
                 const dutiesMap = {
@@ -4084,26 +4088,26 @@
                   specialist: "Space Team · Helps teammates at any workstation and runs spacewalk checks"
                 };
                 return `
-                  <div style="padding:8px 10px;border-radius:4px;border:1px solid ${a.isMine ? "#2563eb" : "rgba(148,163,184,0.2)"};background:${a.isMine ? "rgba(37,99,235,0.14)" : "rgba(5,8,16,0.55)"};display:flex;flex-direction:column;gap:4px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
+                  <div style="padding:10px 12px;border-radius:4px;border:1px solid ${a.isMine ? "#2563eb" : "rgba(148,163,184,0.2)"};background:${a.isMine ? "rgba(37,99,235,0.14)" : "rgba(5,8,16,0.55)"};display:flex;flex-direction:column;gap:5px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
                       <strong style="color:${a.color};">[${a.short}] ${this._escapeHtml(a.label)}</strong>
-                      <span style="font-family:var(--font-mono,monospace);font-size:9px;color:${a.isUnstaffed ? "#94a3b8" : "#86efac"};">${this._escapeHtml(a.namesText)}${a.isMine ? " (YOU)" : ""}</span>
+                      <span style="font-family:var(--font-mono,monospace);font-size:10.5px;color:${a.isUnstaffed ? "#94a3b8" : "#86efac"};">${this._escapeHtml(a.namesText)}${a.isMine ? " (YOU)" : ""}</span>
                     </div>
-                    <div style="font-size:10px;color:#94a3b8;line-height:1.35;">${dutiesMap[rId] || "Helps across all stations"}</div>
+                    <div style="font-size:11.5px;color:#cbd5e1;line-height:1.45;">${dutiesMap[rId] || "Helps across all stations"}</div>
                   </div>
                 `;
               }).join("")}
             </div>
-            <div style="font-size:11px;color:#cbd5e1;margin-top:8px;padding-top:6px;border-top:1px solid rgba(148,163,184,0.16);">
+            <div style="font-size:12px;color:#cbd5e1;margin-top:10px;padding-top:8px;border-top:1px solid rgba(148,163,184,0.16);line-height:1.48;">
               <strong style="color:#93c5fd;">Helpful Tip:</strong> ${t.scenario.tradeoffTip}
             </div>
           </div>
 
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
-            <span style="font-family:var(--font-mono,monospace);font-size:10px;color:#94a3b8;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+            <span style="font-family:var(--font-mono,monospace);font-size:11.5px;color:#94a3b8;">
               Chosen Mission: <strong style="color:#f8fafc;">${t.scenario.code}</strong> · Budget Limit: <strong style="color:#86efac;">$${t.budgetCapM}M</strong>
             </span>
-            <button type="button" id="btn-commit-arch" style="padding:9px 18px;border-radius:4px;border:1px solid #f8fafc;background:#f8fafc;color:#050810;font-family:var(--font-mono,monospace);font-size:11px;font-weight:700;letter-spacing:1.3px;cursor:pointer;">
+            <button type="button" id="btn-commit-arch" style="padding:11px 22px;border-radius:4px;border:1px solid #f8fafc;background:#f8fafc;color:#050810;font-family:var(--font-mono,monospace);font-size:12px;font-weight:700;letter-spacing:1.2px;cursor:pointer;">
               SAVE MISSION GOAL &amp; CONTINUE
             </button>
           </div>
@@ -4194,15 +4198,15 @@
             const active = md.orbitId === orb.id;
             const rec = t.scenario.recommendedOrbits.includes(orb.id);
             return `
-              <div class="md-orbit-card" data-id="${orb.id}" style="padding:11px;border-radius:8px;border:1px solid ${active ? "#67e8f9" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(103,232,249,0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-                  <span style="font-size:12px;font-weight:700;color:#ece7dc;">${orb.name}</span>
-                  ${rec ? `<span style="font-family:monospace;font-size:8.5px;padding:2px 6px;border-radius:4px;background:rgba(127,184,166,0.18);color:#7fb8a6;font-weight:700;">RECOMMENDED</span>` : ""}
+              <div class="md-orbit-card" data-id="${orb.id}" style="padding:13px 15px;border-radius:8px;border:1px solid ${active ? "#67e8f9" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(103,232,249,0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:5px;">
+                  <span style="font-size:13.5px;font-weight:700;color:#ece7dc;">${orb.name}</span>
+                  ${rec ? `<span style="font-family:monospace;font-size:10px;padding:2px 7px;border-radius:4px;background:rgba(127,184,166,0.18);color:#7fb8a6;font-weight:700;">RECOMMENDED</span>` : ""}
                 </div>
-                <div style="font-family:monospace;font-size:10px;color:#67e8f9;margin-bottom:5px;">
+                <div style="font-family:monospace;font-size:11px;color:#67e8f9;margin-bottom:6px;line-height:1.45;">
                   Time per Lap: ${orb.periodMin} min · Time in Shadow: ${Math.round(orb.eclipseFraction * 100)}% · Fuel Needed: ${orb.reqInsertionDv} m/s · Shield Needed: Level ${orb.radiationEnvKrad}
                 </div>
-                <div style="font-size:10.5px;color:#94a3b8;line-height:1.4;">${orb.explain}</div>
+                <div style="font-size:12px;color:#cbd5e1;line-height:1.48;">${orb.explain}</div>
               </div>
             `;
           })
@@ -4214,15 +4218,15 @@
             const capForOrbit = veh.capacityKg[md.orbitId] || 0;
             const fits = t.wetMassKg <= capForOrbit;
             return `
-              <div class="md-lv-card" data-id="${veh.id}" style="padding:11px;border-radius:8px;border:1px solid ${active ? "#d0a15c" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(208,161,92,0.12)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-                  <span style="font-size:12px;font-weight:700;color:#ece7dc;">${veh.name}</span>
-                  <span style="font-family:monospace;font-size:10.5px;font-weight:700;color:#d0a15c;">$${veh.costM}M</span>
+              <div class="md-lv-card" data-id="${veh.id}" style="padding:13px 15px;border-radius:8px;border:1px solid ${active ? "#d0a15c" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(208,161,92,0.12)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:5px;">
+                  <span style="font-size:13.5px;font-weight:700;color:#ece7dc;">${veh.name}</span>
+                  <span style="font-family:monospace;font-size:11.5px;font-weight:700;color:#d0a15c;">$${veh.costM}M</span>
                 </div>
-                <div style="font-family:monospace;font-size:10px;color:${fits ? "#7fb8a6" : "#fca5a5"};margin-bottom:5px;">
+                <div style="font-family:monospace;font-size:11px;color:${fits ? "#7fb8a6" : "#fca5a5"};margin-bottom:6px;line-height:1.45;">
                   Can Lift to This Orbit: ${capForOrbit} kg (Your Spacecraft: ${t.wetMassKg} kg) · Nose Cone Width: ${veh.fairingM}m
                 </div>
-                <div style="font-size:10.5px;color:#94a3b8;line-height:1.4;">${veh.explain}</div>
+                <div style="font-size:12px;color:#cbd5e1;line-height:1.48;">${veh.explain}</div>
               </div>
             `;
           })
@@ -4233,7 +4237,7 @@
         const launchReady = t.massOk && isIssDest;
         const compatible = launchReady && t.budgetOk;
         const bioLaunchBanner = isBio
-          ? `<div style="margin-bottom:10px;padding:9px 11px;border-radius:7px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.34);font-size:10.5px;color:#e2e8f0;line-height:1.45;">
+          ? `<div style="margin-bottom:12px;padding:11px 14px;border-radius:7px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.34);font-size:12px;color:#e2e8f0;line-height:1.5;">
               <strong style="color:#fbbf24;">SPACE STATION SUPPLY DELIVERY:</strong> Fly to the <strong>Space Station (418 km)</strong> aboard the <strong>Space Station Supply Ship (Cygnus)</strong>. The experiment kits ride at normal room temperature inside sealed silver pouches (<em>4 Growth Bags + 4 Water Filters per kit</em>) to keep the sleeping yeast dry and fresh.
             </div>`
           : "";
@@ -4241,25 +4245,25 @@
         container.innerHTML = `
           ${this._renderLiveTradeoffStrip({ onRerender: render })}
           ${bioLaunchBanner}
-          <div style="margin-bottom:12px;">
-            <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#9aa4ae;margin-bottom:6px;">
+          <div style="margin-bottom:14px;">
+            <div style="font-family:monospace;font-size:11.5px;font-weight:700;letter-spacing:1.2px;color:#9aa4ae;margin-bottom:8px;">
               STEP 2A · WHERE IN SPACE ARE WE FLYING?
             </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:8px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:10px;">
               ${orbitCards}
             </div>
           </div>
 
-          <div style="margin-bottom:12px;">
-            <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#9aa4ae;margin-bottom:6px;">
+          <div style="margin-bottom:14px;">
+            <div style="font-family:monospace;font-size:11.5px;font-weight:700;letter-spacing:1.2px;color:#9aa4ae;margin-bottom:8px;">
               STEP 2B · PICK A ROCKET STRONG ENOUGH TO LIFT YOUR SPACECRAFT
             </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:8px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:10px;">
               ${lvCards}
             </div>
           </div>
 
-          <div style="padding:10px 12px;border-radius:8px;background:${launchReady ? "rgba(127,184,166,0.08)" : "rgba(239,68,68,0.12)"};border:1px solid ${launchReady ? "rgba(127,184,166,0.35)" : "rgba(239,68,68,0.45)"};margin-bottom:14px;font-size:11.5px;color:#ece7dc;">
+          <div style="padding:12px 14px;border-radius:8px;background:${launchReady ? "rgba(127,184,166,0.08)" : "rgba(239,68,68,0.12)"};border:1px solid ${launchReady ? "rgba(127,184,166,0.35)" : "rgba(239,68,68,0.45)"};margin-bottom:16px;font-size:12.5px;line-height:1.5;color:#ece7dc;">
             ${
               !isIssDest
                 ? `<strong>[NEEDS FIX] Wrong Destination:</strong> The Space Station Vitamin Maker must fly to the <strong>Space Station Orbit (418 km)</strong>.`
@@ -4269,11 +4273,11 @@
             }
           </div>
 
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
-            <span style="font-family:monospace;font-size:10px;color:#94a3b8;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+            <span style="font-family:monospace;font-size:11.5px;color:#94a3b8;">
               ${compatible ? "Orbit path and rocket lift look great!" : "Pick a matching orbit, rocket, or budget before saving"}
             </span>
-            <button type="button" id="btn-commit-orbit" style="padding:10px 20px;border-radius:6px;border:1px solid ${launchReady ? "#67e8f9" : "rgba(239,68,68,0.6)"};background:${launchReady ? "#ece7dc" : "rgba(239,68,68,0.2)"};color:${launchReady ? "#05060a" : "#fecaca"};font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1.4px;cursor:pointer;">
+            <button type="button" id="btn-commit-orbit" style="padding:11px 22px;border-radius:6px;border:1px solid ${launchReady ? "#67e8f9" : "rgba(239,68,68,0.6)"};background:${launchReady ? "#ece7dc" : "rgba(239,68,68,0.2)"};color:${launchReady ? "#05060a" : "#fecaca"};font-family:monospace;font-size:12px;font-weight:700;letter-spacing:1.2px;cursor:pointer;">
               ${launchReady ? "SAVE ORBIT &amp; ROCKET CHOICE" : (isIssDest ? "PICK A BIGGER ROCKET OR LIGHTER PARTS" : "SELECT SPACE STATION ORBIT (418 km)")}
             </button>
           </div>
@@ -4327,15 +4331,15 @@
           .map((b) => {
             const active = md.busId === b.id;
             return `
-              <div class="md-bus-card" data-id="${b.id}" style="padding:10px;border-radius:8px;border:1px solid ${active ? "#67e8f9" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(103,232,249,0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:#ece7dc;">
+              <div class="md-bus-card" data-id="${b.id}" style="padding:12px 14px;border-radius:8px;border:1px solid ${active ? "#67e8f9" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(103,232,249,0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                <div style="display:flex;justify-content:space-between;gap:8px;font-size:13.5px;font-weight:700;color:#ece7dc;">
                   <span>${b.name}</span>
                   <span style="font-family:monospace;color:#d0a15c;">$${b.costM}M</span>
                 </div>
-                <div style="font-family:monospace;font-size:9.5px;color:#67e8f9;margin:4px 0;">
+                <div style="font-family:monospace;font-size:11px;color:#67e8f9;margin:5px 0;line-height:1.4;">
                   Empty Weight: ${b.dryMassKg} kg · Base Power: ${b.basePowerLoadW} W · Tool Slots: ${b.maxInstruments}
                 </div>
-                <div style="font-size:10px;color:#94a3b8;line-height:1.35;">${b.explain}</div>
+                <div style="font-size:12px;color:#cbd5e1;line-height:1.45;">${b.explain}</div>
               </div>
             `;
           })
@@ -4345,15 +4349,15 @@
           .map((p) => {
             const active = md.powerId === p.id;
             return `
-              <div class="md-pwr-card" data-id="${p.id}" style="padding:10px;border-radius:8px;border:1px solid ${active ? "#d0a15c" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(208,161,92,0.12)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:#ece7dc;">
+              <div class="md-pwr-card" data-id="${p.id}" style="padding:12px 14px;border-radius:8px;border:1px solid ${active ? "#d0a15c" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(208,161,92,0.12)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                <div style="display:flex;justify-content:space-between;gap:8px;font-size:13.5px;font-weight:700;color:#ece7dc;">
                   <span>${p.name}</span>
                   <span style="font-family:monospace;color:#d0a15c;">$${p.costM}M</span>
                 </div>
-                <div style="font-family:monospace;font-size:9.5px;color:#7fb8a6;margin:4px 0;">
+                <div style="font-family:monospace;font-size:11px;color:#7fb8a6;margin:5px 0;line-height:1.4;">
                   Power Made: +${p.genW} W · Weight: ${p.massKg} kg
                 </div>
-                <div style="font-size:10px;color:#94a3b8;line-height:1.35;">${p.explain}</div>
+                <div style="font-size:12px;color:#cbd5e1;line-height:1.45;">${p.explain}</div>
               </div>
             `;
           })
@@ -4363,25 +4367,25 @@
           .map((b) => {
             const active = md.batteryId === b.id;
             return `
-              <div class="md-bat-card" data-id="${b.id}" style="padding:10px;border-radius:8px;border:1px solid ${active ? "#7fb8a6" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(127,184,166,0.12)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:#ece7dc;">
+              <div class="md-bat-card" data-id="${b.id}" style="padding:12px 14px;border-radius:8px;border:1px solid ${active ? "#7fb8a6" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(127,184,166,0.12)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                <div style="display:flex;justify-content:space-between;gap:8px;font-size:13.5px;font-weight:700;color:#ece7dc;">
                   <span>${b.name}</span>
                   <span style="font-family:monospace;color:#d0a15c;">$${b.costM}M</span>
                 </div>
-                <div style="font-family:monospace;font-size:9.5px;color:#67e8f9;margin:4px 0;">
+                <div style="font-family:monospace;font-size:11px;color:#67e8f9;margin:5px 0;line-height:1.4;">
                   Battery Size: ${b.capacityWh} Wh · Weight: ${b.massKg} kg
                 </div>
-                <div style="font-size:10px;color:#94a3b8;line-height:1.35;">${b.explain}</div>
+                <div style="font-size:12px;color:#cbd5e1;line-height:1.45;">${b.explain}</div>
               </div>
             `;
           })
           .join("");
 
         const csFormBar = t.scenario.isCubesat
-          ? `<div style="margin-bottom:10px;padding:8px 10px;border-radius:7px;background:rgba(103,232,249,0.06);border:1px solid rgba(103,232,249,0.28);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-              <span style="font-family:monospace;font-size:9.5px;font-weight:700;color:#67e8f9;">MINI-SATELLITE SIZE:</span>
-              <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                ${Object.values(CUBESAT_FORMS).map((cf) => `<button type="button" class="md-csform-btn" data-id="${cf.id}" style="padding:4px 9px;border-radius:4px;border:1px solid ${md.cubesatFormId === cf.id ? "#67e8f9" : "rgba(255,255,255,0.16)"};background:${md.cubesatFormId === cf.id ? "rgba(103,232,249,0.22)" : "rgba(0,0,0,0.3)"};color:#ece7dc;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">${cf.shortLabel}</button>`).join("")}
+          ? `<div style="margin-bottom:12px;padding:10px 12px;border-radius:7px;background:rgba(103,232,249,0.06);border:1px solid rgba(103,232,249,0.28);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+              <span style="font-family:monospace;font-size:11px;font-weight:700;color:#67e8f9;">MINI-SATELLITE SIZE:</span>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                ${Object.values(CUBESAT_FORMS).map((cf) => `<button type="button" class="md-csform-btn" data-id="${cf.id}" style="padding:5px 11px;border-radius:4px;border:1px solid ${md.cubesatFormId === cf.id ? "#67e8f9" : "rgba(255,255,255,0.16)"};background:${md.cubesatFormId === cf.id ? "rgba(103,232,249,0.22)" : "rgba(0,0,0,0.3)"};color:#ece7dc;font-family:monospace;font-size:11px;font-weight:700;cursor:pointer;">${cf.shortLabel}</button>`).join("")}
               </div>
             </div>`
           : "";
@@ -4391,27 +4395,27 @@
         const bioHwOk = !isBio || (bio.containerMassOk && bio.kitVolumeOk && bio.bag.hasIssNonLuerCover);
         const step3Ready = t.powerOk && bioHwOk;
         const bioBagBar = isBio
-          ? `<div style="margin-bottom:10px;padding:10px 12px;border-radius:7px;background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.32);">
-              <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.2px;color:#fbbf24;margin-bottom:6px;">
+          ? `<div style="margin-bottom:12px;padding:12px 14px;border-radius:7px;background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.32);">
+              <div style="font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1.1px;color:#fbbf24;margin-bottom:6px;">
                 PICK YOUR GROWTH POUCH &amp; SAFETY LOCK CAP
               </div>
-              <div style="font-size:10.5px;color:#cbd5e1;margin-bottom:7px;line-height:1.4;">
+              <div style="font-size:12px;color:#cbd5e1;margin-bottom:9px;line-height:1.48;">
                 Each empty pouch must weigh less than <strong>250 g</strong>, take up less than <strong>300 mL</strong> of space, and include a leak-proof <strong>Space Station safety lock cap</strong> so astronauts can add water safely.
               </div>
-              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:7px;">
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;">
                 ${Object.values(BIO_BAG_CONFIGS).map((bag) => {
                   const active = md.bioBagId === bag.id;
                   const specsOk = bag.containerMassG < 250 && bag.kitVolumeMl < 300 && bag.hasIssNonLuerCover;
                   return `
-                    <div class="md-biobag-card" data-id="${bag.id}" style="padding:9px 10px;border-radius:7px;border:1px solid ${active ? "#fbbf24" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(245,158,11,0.14)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                      <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
-                        <span style="font-size:11px;font-weight:700;color:#ece7dc;">${bag.name}</span>
-                        <span style="font-family:monospace;font-size:9px;color:${specsOk ? "#86efac" : "#fca5a5"};">${specsOk ? "PASSES" : "CHECK"}</span>
+                    <div class="md-biobag-card" data-id="${bag.id}" style="padding:11px 13px;border-radius:7px;border:1px solid ${active ? "#fbbf24" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(245,158,11,0.14)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                      <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
+                        <span style="font-size:12.5px;font-weight:700;color:#ece7dc;">${bag.name}</span>
+                        <span style="font-family:monospace;font-size:10.5px;color:${specsOk ? "#86efac" : "#fca5a5"};">${specsOk ? "PASSES" : "CHECK"}</span>
                       </div>
-                      <div style="font-family:monospace;font-size:9px;color:#fcd34d;margin:3px 0;">
+                      <div style="font-family:monospace;font-size:10.5px;color:#fcd34d;margin:4px 0;line-height:1.4;">
                         Empty Weight: ${bag.containerMassG}g (&lt;250g) · Kit Size: ${bag.kitVolumeMl}mL (&lt;300mL) · ${bag.dimensions}
                       </div>
-                      <div style="font-size:9.8px;color:#94a3b8;line-height:1.35;">${bag.explain}</div>
+                      <div style="font-size:11.5px;color:#cbd5e1;line-height:1.45;">${bag.explain}</div>
                     </div>
                   `;
                 }).join("")}
@@ -4423,11 +4427,11 @@
           ${this._renderLiveTradeoffStrip({ onRerender: render })}
           ${csFormBar}
           ${bioBagBar}
-          <div style="display:grid;grid-template-columns:260px 1fr;gap:12px;align-items:start;margin-bottom:10px;">
-            <div style="padding:8px;border-radius:8px;background:rgba(0,0,0,0.35);border:1px solid rgba(103,232,249,0.24);">
-              <div style="font-family:monospace;font-size:9px;font-weight:700;letter-spacing:1px;color:#67e8f9;margin-bottom:5px;">LIVE 3D PREVIEW</div>
+          <div style="display:grid;grid-template-columns:260px 1fr;gap:14px;align-items:start;margin-bottom:14px;">
+            <div style="padding:10px;border-radius:8px;background:rgba(0,0,0,0.35);border:1px solid rgba(103,232,249,0.24);">
+              <div style="font-family:monospace;font-size:10.5px;font-weight:700;letter-spacing:1px;color:#67e8f9;margin-bottom:6px;">LIVE 3D PREVIEW</div>
               <div id="mdl-point-design-3d" style="width:100%;height:156px;border-radius:6px;background:#050914;"></div>
-              <div style="font-family:monospace;font-size:9px;color:#94a3b8;margin-top:5px;">
+              <div style="font-family:monospace;font-size:10.5px;color:#94a3b8;margin-top:6px;line-height:1.4;">
                 ${
                   isBio
                     ? `Pouch: <strong style="color:#ece7dc;">${bio.bag.shortLabel}</strong> · Weight: <strong>${bio.bag.containerMassG}g</strong> · Size: <strong>${bio.bag.kitVolumeMl}mL</strong>`
@@ -4436,34 +4440,34 @@
               </div>
             </div>
             <div>
-              <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#9aa4ae;margin-bottom:6px;">
+              <div style="font-family:monospace;font-size:11.5px;font-weight:700;letter-spacing:1.2px;color:#9aa4ae;margin-bottom:8px;">
                 STEP 3A · PICK YOUR SPACECRAFT BODY FRAME
               </div>
-              <div style="display:grid;grid-template-columns:1fr;gap:7px;">
+              <div style="display:grid;grid-template-columns:1fr;gap:9px;">
                 ${busCards}
               </div>
             </div>
           </div>
 
-          <div style="margin-bottom:10px;">
-            <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#9aa4ae;margin-bottom:6px;">
+          <div style="margin-bottom:14px;">
+            <div style="font-family:monospace;font-size:11.5px;font-weight:700;letter-spacing:1.2px;color:#9aa4ae;margin-bottom:8px;">
               STEP 3B · PICK SOLAR PANELS FOR DAYTIME ELECTRICITY
             </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;">
               ${pwrCards}
             </div>
           </div>
 
-          <div style="margin-bottom:12px;">
-            <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#9aa4ae;margin-bottom:6px;">
+          <div style="margin-bottom:14px;">
+            <div style="font-family:monospace;font-size:11.5px;font-weight:700;letter-spacing:1.2px;color:#9aa4ae;margin-bottom:8px;">
               STEP 3C · PICK RECHARGEABLE BATTERIES FOR NIGHT SHADOWS
             </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;">
               ${batCards}
             </div>
           </div>
 
-          <div style="padding:10px 12px;border-radius:8px;background:${step3Ready ? "rgba(127,184,166,0.08)" : "rgba(239,68,68,0.12)"};border:1px solid ${step3Ready ? "rgba(127,184,166,0.35)" : "rgba(239,68,68,0.45)"};margin-bottom:12px;font-size:11px;color:#ece7dc;line-height:1.45;">
+          <div style="padding:12px 14px;border-radius:8px;background:${step3Ready ? "rgba(127,184,166,0.08)" : "rgba(239,68,68,0.12)"};border:1px solid ${step3Ready ? "rgba(127,184,166,0.35)" : "rgba(239,68,68,0.45)"};margin-bottom:14px;font-size:12px;color:#ece7dc;line-height:1.5;">
             ${
               !bioHwOk
                 ? `<strong>[NEEDS FIX] Pouch Size or Cap:</strong> Make sure the empty pouch is under <strong>250 g</strong> (${bio.bag.containerMassG} g), the kit size is under <strong>300 mL</strong> (${bio.bag.kitVolumeMl} mL), and it has the Space Station safety lock cap.`
@@ -4471,11 +4475,11 @@
             }
           </div>
 
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
-            <span style="font-family:monospace;font-size:10px;color:#94a3b8;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+            <span style="font-family:monospace;font-size:11.5px;color:#94a3b8;">
               ${isBio ? `Pouch: ${bio.bag.containerMassG}/250g · ${bio.bag.kitVolumeMl}/300mL · Spare Power: +${t.netDaylightMarginW}W` : `Tool Slots Used: ${t.selectedInsts.length}/${t.maxInstruments} · Spare Power: ${t.netDaylightMarginW >= 0 ? `+${t.netDaylightMarginW}W` : `${t.netDaylightMarginW}W`}`}
             </span>
-            <button type="button" id="btn-commit-bus" style="padding:10px 20px;border-radius:6px;border:1px solid ${step3Ready ? "#67e8f9" : "rgba(239,68,68,0.6)"};background:${step3Ready ? "#ece7dc" : "rgba(239,68,68,0.2)"};color:${step3Ready ? "#05060a" : "#fecaca"};font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1.4px;cursor:pointer;">
+            <button type="button" id="btn-commit-bus" style="padding:11px 22px;border-radius:6px;border:1px solid ${step3Ready ? "#67e8f9" : "rgba(239,68,68,0.6)"};background:${step3Ready ? "#ece7dc" : "rgba(239,68,68,0.2)"};color:${step3Ready ? "#05060a" : "#fecaca"};font-family:monospace;font-size:12px;font-weight:700;letter-spacing:1.2px;cursor:pointer;">
               ${step3Ready ? "SAVE BODY, SOLAR &amp; BATTERY" : "FIX POUCH OR POWER SETTINGS"}
             </button>
           </div>
@@ -4563,15 +4567,15 @@
           const selected = md.instruments.includes(inst.id);
           const isPriority = t.scenario.requiredScienceTypes.includes(inst.type);
           return `
-            <div class="md-inst-card" data-id="${inst.id}" style="padding:11px;border-radius:8px;border:1px solid ${selected ? "#4ade80" : "rgba(255,255,255,0.12)"};background:${selected ? "rgba(74,222,128,0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                <span style="font-size:12px;font-weight:700;color:#ece7dc;">${selected ? "☑ " : "☐ "}${inst.name}</span>
-                ${isPriority ? `<span style="font-family:monospace;font-size:8.5px;padding:2px 6px;border-radius:4px;background:rgba(103,232,249,0.16);color:#67e8f9;font-weight:700;">MISSION PRIORITY</span>` : ""}
+            <div class="md-inst-card" data-id="${inst.id}" style="padding:13px 15px;border-radius:8px;border:1px solid ${selected ? "#4ade80" : "rgba(255,255,255,0.12)"};background:${selected ? "rgba(74,222,128,0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;">
+                <span style="font-size:13.5px;font-weight:700;color:#ece7dc;">${selected ? "☑ " : "☐ "}${inst.name}</span>
+                ${isPriority ? `<span style="font-family:monospace;font-size:10px;padding:2px 7px;border-radius:4px;background:rgba(103,232,249,0.16);color:#67e8f9;font-weight:700;">MISSION PRIORITY</span>` : ""}
               </div>
-              <div style="font-family:monospace;font-size:9.5px;color:#d0a15c;margin-bottom:5px;">
+              <div style="font-family:monospace;font-size:11px;color:#d0a15c;margin-bottom:6px;line-height:1.4;">
                 Mass: ${inst.massKg} kg · Power: ${inst.powerW} W · Cost: $${inst.costM}M · Data: ${inst.dataMbps} Mbps · Sci: +${inst.scienceVal}
               </div>
-              <div style="font-size:10px;color:#94a3b8;line-height:1.35;">${inst.explain}</div>
+              <div style="font-size:12px;color:#cbd5e1;line-height:1.48;">${inst.explain}</div>
             </div>
           `;
         }).join("");
@@ -4583,31 +4587,31 @@
         const payloadValid = isBio ? bioProtoValid : (baysOk && t.scienceScore >= 55 && t.telescopeOk);
 
         const bioProtoBanner = isBio
-          ? `<div style="margin-bottom:12px;padding:10px 12px;border-radius:7px;background:rgba(52,211,153,0.06);border:1px solid rgba(52,211,153,0.32);">
-              <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.2px;color:#34d399;margin-bottom:6px;">
+          ? `<div style="margin-bottom:14px;padding:12px 14px;border-radius:7px;background:rgba(52,211,153,0.06);border:1px solid rgba(52,211,153,0.32);">
+              <div style="font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1.1px;color:#34d399;margin-bottom:8px;">
                 SPACE STATION WATER MIXING &amp; SAMPLE RECIPE GOALS
               </div>
-              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:6px;margin-bottom:8px;font-family:monospace;font-size:9px;">
-                <div style="padding:5px 7px;border-radius:4px;background:rgba(0,0,0,0.35);border-left:3px solid ${bio.replicatesOk ? "#4ade80" : "#ef4444"};">SAMPLE BAGS: <strong>${bio.protocol.replicates}</strong> (Need ≥12)</div>
-                <div style="padding:5px 7px;border-radius:4px;background:rgba(0,0,0,0.35);border-left:3px solid ${bio.sampleVolOk ? "#4ade80" : "#ef4444"};">WATER / BAG: <strong>${bio.protocol.sampleVolMl} mL</strong> (Need ≥30 mL)</div>
-                <div style="padding:5px 7px;border-radius:4px;background:rgba(0,0,0,0.35);border-left:3px solid ${bio.yieldOk ? "#4ade80" : "#ef4444"};">VITAMIN A: <strong>${bio.betaCaroteneUgMl} mg/L</strong> (≥3.0)</div>
-                <div style="padding:5px 7px;border-radius:4px;background:rgba(0,0,0,0.35);border-left:3px solid ${bio.dcwOk ? "#4ade80" : "#ef4444"};">YEAST GROWTH: <strong>${bio.dryCellWeightMg} mg</strong> (≥1.0 mg)</div>
-                <div style="padding:5px 7px;border-radius:4px;background:rgba(0,0,0,0.35);border-left:3px solid ${bio.sterileOk ? "#4ade80" : "#ef4444"};">GERM CHECK: <strong>${bio.protocol.contaminationCfu} germs</strong> (Filter)</div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:8px;margin-bottom:10px;font-family:monospace;font-size:10.5px;">
+                <div style="padding:7px 9px;border-radius:4px;background:rgba(0,0,0,0.35);border-left:3px solid ${bio.replicatesOk ? "#4ade80" : "#ef4444"};">SAMPLE BAGS: <strong>${bio.protocol.replicates}</strong> (Need ≥12)</div>
+                <div style="padding:7px 9px;border-radius:4px;background:rgba(0,0,0,0.35);border-left:3px solid ${bio.sampleVolOk ? "#4ade80" : "#ef4444"};">WATER / BAG: <strong>${bio.protocol.sampleVolMl} mL</strong> (Need ≥30 mL)</div>
+                <div style="padding:7px 9px;border-radius:4px;background:rgba(0,0,0,0.35);border-left:3px solid ${bio.yieldOk ? "#4ade80" : "#ef4444"};">VITAMIN A: <strong>${bio.betaCaroteneUgMl} mg/L</strong> (≥3.0)</div>
+                <div style="padding:7px 9px;border-radius:4px;background:rgba(0,0,0,0.35);border-left:3px solid ${bio.dcwOk ? "#4ade80" : "#ef4444"};">YEAST GROWTH: <strong>${bio.dryCellWeightMg} mg</strong> (≥1.0 mg)</div>
+                <div style="padding:7px 9px;border-radius:4px;background:rgba(0,0,0,0.35);border-left:3px solid ${bio.sterileOk ? "#4ade80" : "#ef4444"};">GERM CHECK: <strong>${bio.protocol.contaminationCfu} germs</strong> (Filter)</div>
               </div>
-              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:7px;">
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;">
                 ${Object.values(BIO_PROTOCOL_OPTIONS).map((pr) => {
                   const active = md.bioProtocolId === pr.id;
                   const protoOk = pr.replicates >= 12 && pr.sampleVolMl >= 30 && pr.sterileFiltered && (!bio.organism.requiresSixHourShake || pr.hasSixHourShake);
                   return `
-                    <div class="md-bioproto-card" data-id="${pr.id}" style="padding:9px 10px;border-radius:7px;border:1px solid ${active ? "#34d399" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(52,211,153,0.12)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                      <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
-                        <span style="font-size:11px;font-weight:700;color:#ece7dc;">${pr.name}</span>
-                        <span style="font-family:monospace;font-size:8.5px;color:${protoOk ? "#86efac" : "#fca5a5"};">${protoOk ? "PASS" : "FAIL"}</span>
+                    <div class="md-bioproto-card" data-id="${pr.id}" style="padding:11px 13px;border-radius:7px;border:1px solid ${active ? "#34d399" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(52,211,153,0.12)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                      <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
+                        <span style="font-size:12.5px;font-weight:700;color:#ece7dc;">${pr.name}</span>
+                        <span style="font-family:monospace;font-size:10px;color:${protoOk ? "#86efac" : "#fca5a5"};">${protoOk ? "PASS" : "FAIL"}</span>
                       </div>
-                      <div style="font-family:monospace;font-size:9px;color:#6ee7b7;margin:3px 0;">
+                      <div style="font-family:monospace;font-size:10.5px;color:#6ee7b7;margin:4px 0;line-height:1.4;">
                         ${pr.replicates} bags × ${pr.sampleVolMl}mL · Germ Filter: ${pr.sterileFiltered ? "YES" : "NO"} · 6h Shake: ${pr.hasSixHourShake ? "YES" : "SKIPPED"}
                       </div>
-                      <div style="font-size:9.8px;color:#94a3b8;line-height:1.35;">${pr.explain}</div>
+                      <div style="font-size:11.5px;color:#cbd5e1;line-height:1.45;">${pr.explain}</div>
                     </div>
                   `;
                 }).join("")}
@@ -4616,14 +4620,14 @@
           : "";
 
         const waveBanner = t.scenario.requiresWavelength
-          ? `<div style="margin-bottom:10px;padding:9px 11px;border-radius:7px;background:${t.telescopeOk ? "rgba(167,139,250,0.08)" : "rgba(239,68,68,0.12)"};border:1px solid ${t.telescopeOk ? "rgba(167,139,250,0.35)" : "rgba(239,68,68,0.45)"};">
-              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
-                <span style="font-family:monospace;font-size:9.5px;font-weight:700;color:#ddd6fe;">LIGHT TYPE TO VIEW:</span>
-                <div style="display:flex;gap:5px;flex-wrap:wrap;">
-                  ${Object.values(WAVELENGTH_BANDS).map((wb) => `<button type="button" class="md-wave-pill" data-id="${wb.id}" style="padding:3px 7px;border-radius:4px;border:1px solid ${md.wavelengthId === wb.id ? "#c084fc" : "rgba(255,255,255,0.16)"};background:${md.wavelengthId === wb.id ? "rgba(192,132,252,0.22)" : "rgba(0,0,0,0.3)"};color:#ece7dc;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">${wb.shortLabel}</button>`).join("")}
+          ? `<div style="margin-bottom:12px;padding:11px 14px;border-radius:7px;background:${t.telescopeOk ? "rgba(167,139,250,0.08)" : "rgba(239,68,68,0.12)"};border:1px solid ${t.telescopeOk ? "rgba(167,139,250,0.35)" : "rgba(239,68,68,0.45)"};">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+                <span style="font-family:monospace;font-size:11px;font-weight:700;color:#ddd6fe;">LIGHT TYPE TO VIEW:</span>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                  ${Object.values(WAVELENGTH_BANDS).map((wb) => `<button type="button" class="md-wave-pill" data-id="${wb.id}" style="padding:5px 10px;border-radius:4px;border:1px solid ${md.wavelengthId === wb.id ? "#c084fc" : "rgba(255,255,255,0.16)"};background:${md.wavelengthId === wb.id ? "rgba(192,132,252,0.22)" : "rgba(0,0,0,0.3)"};color:#ece7dc;font-family:monospace;font-size:10.5px;font-weight:700;cursor:pointer;">${wb.shortLabel}</button>`).join("")}
                 </div>
               </div>
-              <div style="font-size:10.5px;color:${t.telescopeOk ? "#a7f3d0" : "#fecaca"};">
+              <div style="font-size:12px;line-height:1.45;color:${t.telescopeOk ? "#a7f3d0" : "#fecaca"};">
                 ${t.telescopeOk ? `[PASS] Light type (${t.wavelength.shortLabel}), camera, cooling &amp; spot in space all match!` : `[FIX] ${t.telescopeIssues.join(" · ")}`}
               </div>
             </div>`
@@ -4638,28 +4642,28 @@
           ${waveBanner}
           ${bioProtoBanner}
           ${csaContextualHtml}
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
-            <span style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#9aa4ae;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+            <span style="font-family:monospace;font-size:11.5px;font-weight:700;letter-spacing:1.2px;color:#9aa4ae;">
               PICK CAMERAS &amp; SENSORS (SLOTS USED: ${t.selectedInsts.length} / ${t.maxInstruments} MAX)
             </span>
-            <span style="font-family:monospace;font-size:10px;color:#7fb8a6;">
+            <span style="font-family:monospace;font-size:11.5px;color:#7fb8a6;">
               Matched Goals: ${t.matchedTypes.length} / ${t.scenario.requiredScienceTypes.length}
             </span>
           </div>
 
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:8px;margin-bottom:12px;">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:10px;margin-bottom:14px;">
             ${instCards}
           </div>
 
-          <div style="padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);margin-bottom:12px;font-size:11px;color:#cbd5e1;line-height:1.45;">
+          <div style="padding:12px 14px;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);margin-bottom:14px;font-size:12px;color:#cbd5e1;line-height:1.5;">
             <strong>Gear Summary:</strong> Your ${t.selectedInsts.length} chosen tools use <strong>${t.selectedInsts.reduce((a, b) => a + b.powerW, 0)} W</strong> of power, weigh <strong>${t.selectedInsts.reduce((a, b) => a + b.massKg, 0)} kg</strong>, cost <strong>$${t.selectedInsts.reduce((a, b) => a + b.costM, 0)}M</strong>, and create <strong>${t.dataGeneratedGbPerDay} GB/day</strong> of files to send home. Stronger cameras boost your score (now <strong>${t.scienceScore}/100</strong>), but need more solar power and faster radios.
           </div>
 
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
-            <span style="font-family:monospace;font-size:10px;color:#94a3b8;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+            <span style="font-family:monospace;font-size:11.5px;color:#94a3b8;">
               Science Score: <strong style="color:#4ade80;">${t.scienceScore}/100</strong> (Need at least 55)
             </span>
-            <button type="button" id="btn-commit-science" style="padding:10px 20px;border-radius:6px;border:1px solid ${payloadValid ? "#67e8f9" : "rgba(239,68,68,0.6)"};background:${payloadValid ? "#ece7dc" : "rgba(239,68,68,0.2)"};color:${payloadValid ? "#05060a" : "#fecaca"};font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1.4px;cursor:pointer;">
+            <button type="button" id="btn-commit-science" style="padding:11px 22px;border-radius:6px;border:1px solid ${payloadValid ? "#67e8f9" : "rgba(239,68,68,0.6)"};background:${payloadValid ? "#ece7dc" : "rgba(239,68,68,0.2)"};color:${payloadValid ? "#05060a" : "#fecaca"};font-family:monospace;font-size:12px;font-weight:700;letter-spacing:1.2px;cursor:pointer;">
               ${payloadValid ? (isBio ? "SAVE WATER MIXING &amp; 6H SHAKE RECIPE" : "SAVE CAMERAS &amp; SENSORS") : (isBio ? "FIX BAG COUNT / FILTER / 6H SHAKE" : (!t.telescopeOk ? "FIX LIGHT TYPE / CAMERA MISMATCH" : `PICK 2–${t.maxInstruments} TOOLS (SCORE ≥ 55)`))}
             </button>
           </div>
@@ -4741,15 +4745,15 @@
           .map((pkg) => {
             const active = md.thermalId === pkg.id;
             return `
-              <div class="md-thm-card" data-id="${pkg.id}" style="padding:12px;border-radius:8px;border:1px solid ${active ? "#67e8f9" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(103,232,249,0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                  <span style="font-size:12px;font-weight:700;color:#ece7dc;">${pkg.name}</span>
-                  <span style="font-family:monospace;font-size:11px;font-weight:700;color:#d0a15c;">$${pkg.costM}M</span>
+              <div class="md-thm-card" data-id="${pkg.id}" style="padding:13px 15px;border-radius:8px;border:1px solid ${active ? "#67e8f9" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(103,232,249,0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;">
+                  <span style="font-size:13.5px;font-weight:700;color:#ece7dc;">${pkg.name}</span>
+                  <span style="font-family:monospace;font-size:12px;font-weight:700;color:#d0a15c;">$${pkg.costM}M</span>
                 </div>
-                <div style="font-family:monospace;font-size:9.5px;color:#7fb8a6;margin-bottom:5px;">
+                <div style="font-family:monospace;font-size:11px;color:#7fb8a6;margin-bottom:6px;line-height:1.4;">
                   Cooling Power: ${pkg.thermalCapW} W · Space Shield: Level ${pkg.radRatingKrad} · Weight: ${pkg.massKg} kg · Power: ${pkg.powerW} W
                 </div>
-                <div style="font-size:10.5px;color:#94a3b8;line-height:1.4;">${pkg.explain}</div>
+                <div style="font-size:12px;color:#cbd5e1;line-height:1.48;">${pkg.explain}</div>
               </div>
             `;
           })
@@ -4759,27 +4763,27 @@
         const bio = t.bioTelemetry;
         const envSurvived = t.thermalOk && t.radiationOk && t.lifetimeOk;
         const bioThermalSection = isBio
-          ? `<div style="margin-bottom:12px;padding:10px 12px;border-radius:7px;background:rgba(56,189,248,0.06);border:1px solid rgba(56,189,248,0.34);">
-              <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.2px;color:#38bdf8;margin-bottom:6px;">
+          ? `<div style="margin-bottom:14px;padding:12px 14px;border-radius:7px;background:rgba(56,189,248,0.06);border:1px solid rgba(56,189,248,0.34);">
+              <div style="font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1.1px;color:#38bdf8;margin-bottom:8px;">
                 SPACE STATION WARMER &amp; -80°C ULTRA-COLD FREEZER SETUP
               </div>
-              <div style="font-size:10.5px;color:#cbd5e1;margin-bottom:7px;line-height:1.4;">
+              <div style="font-size:12px;color:#cbd5e1;margin-bottom:9px;line-height:1.48;">
                 Target warmth: <strong>Yeast 30°C</strong> (+6-hour shake) · <strong>Yogurt 42°C</strong> · <strong>Kefir Room Temp</strong>. Once grown, wrap each clear pouch and place it in the Station's <strong>-80°C ultra-cold freezer</strong> for the ride home.
               </div>
-              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:7px;">
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;">
                 ${Object.values(BIO_THERMAL_OPTIONS).map((bt) => {
                   const active = md.bioThermalId === bt.id;
                   const btOk = bt.incubateTempC === bio.organism.targetTempC && bt.melfiFrozen;
                   return `
-                    <div class="md-biothm-card" data-id="${bt.id}" style="padding:9px 10px;border-radius:7px;border:1px solid ${active ? "#38bdf8" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(56,189,248,0.14)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                      <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
-                        <span style="font-size:11px;font-weight:700;color:#ece7dc;">${bt.name}</span>
-                        <span style="font-family:monospace;font-size:8.5px;color:${btOk ? "#86efac" : "#fca5a5"};">${btOk ? "MATCH" : "MISMATCH"}</span>
+                    <div class="md-biothm-card" data-id="${bt.id}" style="padding:11px 13px;border-radius:7px;border:1px solid ${active ? "#38bdf8" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(56,189,248,0.14)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                      <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
+                        <span style="font-size:12.5px;font-weight:700;color:#ece7dc;">${bt.name}</span>
+                        <span style="font-family:monospace;font-size:10px;color:${btOk ? "#86efac" : "#fca5a5"};">${btOk ? "MATCH" : "MISMATCH"}</span>
                       </div>
-                      <div style="font-family:monospace;font-size:9px;color:#7dd3fc;margin:3px 0;">
+                      <div style="font-family:monospace;font-size:10.5px;color:#7dd3fc;margin:4px 0;line-height:1.4;">
                         Warmer: ${bt.incubateTempC}°C (Needs ${bio.organism.targetTempC}°C) · Freezer: ${bt.storageTempC}°C · ${bt.powerW} W
                       </div>
-                      <div style="font-size:9.8px;color:#94a3b8;line-height:1.35;">${bt.explain}</div>
+                      <div style="font-size:11.5px;color:#cbd5e1;line-height:1.45;">${bt.explain}</div>
                     </div>
                   `;
                 }).join("")}
@@ -4790,44 +4794,44 @@
         container.innerHTML = `
           ${this._renderLiveTradeoffStrip({ onRerender: render })}
           ${bioThermalSection}
-          <div style="margin-bottom:12px;">
-            <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#9aa4ae;margin-bottom:6px;">
+          <div style="margin-bottom:14px;">
+            <div style="font-family:monospace;font-size:11.5px;font-weight:700;letter-spacing:1.2px;color:#9aa4ae;margin-bottom:8px;">
               PICK COOLING SYSTEM &amp; SPACE RADIATION SHIELDING
             </div>
-            <div style="display:grid;grid-template-columns:1fr;gap:8px;">
+            <div style="display:grid;grid-template-columns:1fr;gap:10px;">
               ${thmCards}
             </div>
           </div>
 
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin-bottom:14px;">
-            <div style="padding:10px;border-radius:6px;background:rgba(0,0,0,0.35);border:1px solid ${t.thermalOk ? "rgba(127,184,166,0.35)" : "rgba(239,68,68,0.5)"};">
-              <div style="font-family:monospace;font-size:9.5px;color:#9aa4ae;">${isBio ? "WARMER &amp; -80°C FREEZER" : "HEAT COOLING"}</div>
-              <div style="font-family:monospace;font-size:13px;font-weight:700;color:${t.thermalOk ? "#7fb8a6" : "#fca5a5"};margin-top:2px;">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin-bottom:16px;">
+            <div style="padding:12px 14px;border-radius:6px;background:rgba(0,0,0,0.35);border:1px solid ${t.thermalOk ? "rgba(127,184,166,0.35)" : "rgba(239,68,68,0.5)"};">
+              <div style="font-family:monospace;font-size:10.5px;color:#9aa4ae;">${isBio ? "WARMER &amp; -80°C FREEZER" : "HEAT COOLING"}</div>
+              <div style="font-family:monospace;font-size:14.5px;font-weight:700;color:${t.thermalOk ? "#7fb8a6" : "#fca5a5"};margin-top:4px;">
                 ${isBio ? `${bio.thermal.incubateTempC}°C / ${bio.thermal.storageTempC}°C` : `${t.thm.thermalCapW} W Cooling vs ${t.totalPowerLoadW} W Used`}
               </div>
-              <div style="font-size:10px;color:#94a3b8;margin-top:2px;">${isBio ? `Needs ${bio.organism.targetTempC}°C warmer &amp; -80°C freezer (${t.thm.thermalCapW}W cooling).` : "Electricity inside the spacecraft turns into heat that must be cooled down in space."}</div>
+              <div style="font-size:11.5px;color:#cbd5e1;margin-top:4px;line-height:1.45;">${isBio ? `Needs ${bio.organism.targetTempC}°C warmer &amp; -80°C freezer (${t.thm.thermalCapW}W cooling).` : "Electricity inside the spacecraft turns into heat that must be cooled down in space."}</div>
             </div>
-            <div style="padding:10px;border-radius:6px;background:rgba(0,0,0,0.35);border:1px solid ${t.radiationOk ? "rgba(127,184,166,0.35)" : "rgba(239,68,68,0.5)"};">
-              <div style="font-family:monospace;font-size:9.5px;color:#9aa4ae;">RADIATION SHIELDING</div>
-              <div style="font-family:monospace;font-size:13px;font-weight:700;color:${t.radiationOk ? "#7fb8a6" : "#fca5a5"};margin-top:2px;">
+            <div style="padding:12px 14px;border-radius:6px;background:rgba(0,0,0,0.35);border:1px solid ${t.radiationOk ? "rgba(127,184,166,0.35)" : "rgba(239,68,68,0.5)"};">
+              <div style="font-family:monospace;font-size:10.5px;color:#9aa4ae;">RADIATION SHIELDING</div>
+              <div style="font-family:monospace;font-size:14.5px;font-weight:700;color:${t.radiationOk ? "#7fb8a6" : "#fca5a5"};margin-top:4px;">
                 Level ${t.thm.radRatingKrad} vs Level ${Math.max(t.scenario.minRadiationKrad, t.orbit.radiationEnvKrad)} Needed
               </div>
-              <div style="font-size:10px;color:#94a3b8;margin-top:2px;">Protects the computer and cameras from solar storms and harsh radiation zones.</div>
+              <div style="font-size:11.5px;color:#cbd5e1;margin-top:4px;line-height:1.45;">Protects the computer and cameras from solar storms and harsh radiation zones.</div>
             </div>
-            <div style="padding:10px;border-radius:6px;background:rgba(0,0,0,0.35);border:1px solid ${t.lifetimeOk ? "rgba(127,184,166,0.35)" : "rgba(239,68,68,0.5)"};">
-              <div style="font-family:monospace;font-size:9.5px;color:#9aa4ae;">MISSION LIFESPAN</div>
-              <div style="font-family:monospace;font-size:13px;font-weight:700;color:${t.lifetimeOk ? "#7fb8a6" : "#fca5a5"};margin-top:2px;">
+            <div style="padding:12px 14px;border-radius:6px;background:rgba(0,0,0,0.35);border:1px solid ${t.lifetimeOk ? "rgba(127,184,166,0.35)" : "rgba(239,68,68,0.5)"};">
+              <div style="font-family:monospace;font-size:10.5px;color:#9aa4ae;">MISSION LIFESPAN</div>
+              <div style="font-family:monospace;font-size:14.5px;font-weight:700;color:${t.lifetimeOk ? "#7fb8a6" : "#fca5a5"};margin-top:4px;">
                 ${t.estimatedLifetimeMonths} Months (Goal: ${t.scenario.targetLifetimeMonths} mo)
               </div>
-              <div style="font-size:10px;color:#94a3b8;margin-top:2px;">Depends on shield thickness, gentle battery use, and extra steering fuel.</div>
+              <div style="font-size:11.5px;color:#cbd5e1;margin-top:4px;line-height:1.45;">Depends on shield thickness, gentle battery use, and extra steering fuel.</div>
             </div>
           </div>
 
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
-            <span style="font-family:monospace;font-size:10px;color:#94a3b8;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+            <span style="font-family:monospace;font-size:11.5px;color:#94a3b8;">
               ${envSurvived ? (isBio ? "Warmer Temperature, -80°C Freezer & Cooling All Ready" : "Cooling, Radiation Shield & Lifespan Look Great") : (isBio ? "Match warmer temperature & turn on -80°C freezer" : "Upgrade shield or battery to last full mission")}
             </span>
-            <button type="button" id="btn-commit-thm" style="padding:10px 20px;border-radius:6px;border:1px solid ${envSurvived ? "#67e8f9" : "rgba(239,68,68,0.6)"};background:${envSurvived ? "#ece7dc" : "rgba(239,68,68,0.2)"};color:${envSurvived ? "#05060a" : "#fecaca"};font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1.4px;cursor:pointer;">
+            <button type="button" id="btn-commit-thm" style="padding:11px 22px;border-radius:6px;border:1px solid ${envSurvived ? "#67e8f9" : "rgba(239,68,68,0.6)"};background:${envSurvived ? "#ece7dc" : "rgba(239,68,68,0.2)"};color:${envSurvived ? "#05060a" : "#fecaca"};font-family:monospace;font-size:12px;font-weight:700;letter-spacing:1.2px;cursor:pointer;">
               ${envSurvived ? (isBio ? "SAVE WARMER (30°C) & -80°C FREEZER PLAN" : "SAVE COOLING & SHIELDING PLAN") : "FIX COOLING / FREEZER / SHIELDING"}
             </button>
           </div>
@@ -4881,15 +4885,15 @@
           .map((c) => {
             const active = md.commsId === c.id;
             return `
-              <div class="md-com-card" data-id="${c.id}" style="padding:10px;border-radius:8px;border:1px solid ${active ? "#67e8f9" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(103,232,249,0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                <div style="display:flex;justify-content:space-between;font-size:11.5px;font-weight:700;color:#ece7dc;">
+              <div class="md-com-card" data-id="${c.id}" style="padding:12px 14px;border-radius:8px;border:1px solid ${active ? "#67e8f9" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(103,232,249,0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                <div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;font-weight:700;color:#ece7dc;">
                   <span>${c.name}</span>
                   <span style="font-family:monospace;color:#d0a15c;">$${c.costM}M</span>
                 </div>
-                <div style="font-family:monospace;font-size:9.5px;color:#67e8f9;margin:3px 0;">
+                <div style="font-family:monospace;font-size:11px;color:#67e8f9;margin:5px 0;line-height:1.4;">
                   Speed: ${c.rateMbps} Mbps · Weight: ${c.massKg} kg · Power: ${c.powerW} W
                 </div>
-                <div style="font-size:10px;color:#94a3b8;line-height:1.35;">${c.explain}</div>
+                <div style="font-size:12px;color:#cbd5e1;line-height:1.48;">${c.explain}</div>
               </div>
             `;
           })
@@ -4899,15 +4903,15 @@
           .map((g) => {
             const active = md.groundNetId === g.id;
             return `
-              <div class="md-gnd-card" data-id="${g.id}" style="padding:10px;border-radius:8px;border:1px solid ${active ? "#9a8fc4" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(154,143,196,0.14)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                <div style="display:flex;justify-content:space-between;font-size:11.5px;font-weight:700;color:#ece7dc;">
+              <div class="md-gnd-card" data-id="${g.id}" style="padding:12px 14px;border-radius:8px;border:1px solid ${active ? "#9a8fc4" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(154,143,196,0.14)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                <div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;font-weight:700;color:#ece7dc;">
                   <span>${g.name}</span>
                   <span style="font-family:monospace;color:#d0a15c;">$${g.costM}M</span>
                 </div>
-                <div style="font-family:monospace;font-size:9.5px;color:#c4b5fd;margin:3px 0;">
+                <div style="font-family:monospace;font-size:11px;color:#c4b5fd;margin:5px 0;line-height:1.4;">
                   Signal Boost: +${g.gainDb} dB · Daily Passes: ${g.contactMultiplier}x
                 </div>
-                <div style="font-size:10px;color:#94a3b8;line-height:1.35;">${g.explain}</div>
+                <div style="font-size:12px;color:#cbd5e1;line-height:1.48;">${g.explain}</div>
               </div>
             `;
           })
@@ -4917,15 +4921,15 @@
           .map((p) => {
             const active = md.propulsionId === p.id;
             return `
-              <div class="md-prop-card" data-id="${p.id}" style="padding:10px;border-radius:8px;border:1px solid ${active ? "#7fb8a6" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(127,184,166,0.12)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                <div style="display:flex;justify-content:space-between;font-size:11.5px;font-weight:700;color:#ece7dc;">
+              <div class="md-prop-card" data-id="${p.id}" style="padding:12px 14px;border-radius:8px;border:1px solid ${active ? "#7fb8a6" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(127,184,166,0.12)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                <div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;font-weight:700;color:#ece7dc;">
                   <span>${p.name}</span>
                   <span style="font-family:monospace;color:#d0a15c;">$${p.costM}M</span>
                 </div>
-                <div style="font-family:monospace;font-size:9.5px;color:#7fb8a6;margin:3px 0;">
+                <div style="font-family:monospace;font-size:11px;color:#7fb8a6;margin:5px 0;line-height:1.4;">
                   Efficiency: ${p.ispSec} s · Fuel: ${p.propellantKg} kg · Engine Weight: ${p.dryMassKg} kg · Power: ${p.powerW} W
                 </div>
-                <div style="font-size:10px;color:#94a3b8;line-height:1.35;">${p.explain}</div>
+                <div style="font-size:12px;color:#cbd5e1;line-height:1.48;">${p.explain}</div>
               </div>
             `;
           })
@@ -4935,15 +4939,15 @@
           .map((d) => {
             const active = md.disposalId === d.id;
             return `
-              <div class="md-disp-card" data-id="${d.id}" style="padding:10px;border-radius:8px;border:1px solid ${active ? "#fbbf24" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(251,191,36,0.12)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:#ece7dc;">
+              <div class="md-disp-card" data-id="${d.id}" style="padding:12px 14px;border-radius:8px;border:1px solid ${active ? "#fbbf24" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(251,191,36,0.12)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                <div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;font-weight:700;color:#ece7dc;">
                   <span>${d.name}</span>
                   <span style="font-family:monospace;color:#d0a15c;">$${d.costM}M</span>
                 </div>
-                <div style="font-family:monospace;font-size:9px;color:${d.id === "none_drift" ? "#fca5a5" : "#86efac"};margin:3px 0;">
+                <div style="font-family:monospace;font-size:11px;color:${d.id === "none_drift" ? "#fca5a5" : "#86efac"};margin:5px 0;line-height:1.4;">
                   Cleanup Time: ${d.deorbitYears} yr · Weight: ${d.massKg} kg · Fuel Needed: +${d.dvCostMs} m/s
                 </div>
-                <div style="font-size:10px;color:#94a3b8;line-height:1.35;">${d.explain}</div>
+                <div style="font-size:12px;color:#cbd5e1;line-height:1.48;">${d.explain}</div>
               </div>
             `;
           })
@@ -4953,12 +4957,12 @@
         const bio = t.bioTelemetry;
         const systemsReady = t.commsOk && t.deltaVOk && t.disposalOk;
         const bioGroundBanner = isBio
-          ? `<div style="margin-bottom:10px;padding:10px 12px;border-radius:7px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.34);font-size:10.5px;color:#e2e8f0;line-height:1.45;">
-              <div style="font-family:monospace;font-size:9.5px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">
+          ? `<div style="margin-bottom:12px;padding:12px 14px;border-radius:7px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.34);font-size:12px;color:#e2e8f0;line-height:1.5;">
+              <div style="font-family:monospace;font-size:11px;font-weight:700;color:#c4b5fd;margin-bottom:6px;">
                 EARTH SUPPORT &amp; FINAL LAB CHECK ("BEGIN WITH THE END IN MIND")
               </div>
               <div><strong>Earth Monitoring:</strong> Scientists watch astronauts start the kit live on screen (helping with questions in real time) and continuously track <strong>${bio.thermal.incubateTempC}°C warming &amp; ${bio.thermal.storageTempC}°C freezer</strong> logs.</div>
-              <div style="margin-top:4px;font-family:monospace;font-size:9.5px;color:${bio.yieldOk && bio.dcwOk ? "#86efac" : "#fca5a5"};">
+              <div style="margin-top:6px;font-family:monospace;font-size:11px;line-height:1.45;color:${bio.yieldOk && bio.dcwOk ? "#86efac" : "#fca5a5"};">
                 EARTH LAB STEPS: 1. Deliver -> 2. Thaw -> 3. Wash -> 4. Spin -> 5. Test Vitamin A (${bio.betaCaroteneUgMl} mg/L, ${bio.dryCellWeightMg} mg yeast) &amp; Share Results
               </div>
             </div>`
@@ -4967,53 +4971,53 @@
         container.innerHTML = `
           ${this._renderLiveTradeoffStrip({ onRerender: render })}
           ${bioGroundBanner}
-          <div style="margin-bottom:10px;">
-            <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#9aa4ae;margin-bottom:6px;">
+          <div style="margin-bottom:14px;">
+            <div style="font-family:monospace;font-size:11.5px;font-weight:700;letter-spacing:1.2px;color:#9aa4ae;margin-bottom:8px;">
               STEP 6A · SPACECRAFT RADIO &amp; DISH
             </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;">
               ${comCards}
             </div>
           </div>
 
-          <div style="margin-bottom:10px;">
-            <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#9aa4ae;margin-bottom:6px;">
+          <div style="margin-bottom:14px;">
+            <div style="font-family:monospace;font-size:11.5px;font-weight:700;letter-spacing:1.2px;color:#9aa4ae;margin-bottom:8px;">
               STEP 6B · EARTH DISH NETWORK
             </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;">
               ${gndCards}
             </div>
           </div>
 
-          <div style="margin-bottom:10px;">
-            <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#9aa4ae;margin-bottom:6px;">
+          <div style="margin-bottom:14px;">
+            <div style="font-family:monospace;font-size:11.5px;font-weight:700;letter-spacing:1.2px;color:#9aa4ae;margin-bottom:8px;">
               STEP 6C · ENGINES &amp; STEERING FUEL
             </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;">
               ${propCards}
             </div>
           </div>
 
-          <div style="margin-bottom:12px;">
-            <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#fbbf24;margin-bottom:6px;">
+          <div style="margin-bottom:14px;">
+            <div style="font-family:monospace;font-size:11.5px;font-weight:700;letter-spacing:1.2px;color:#fbbf24;margin-bottom:8px;">
               STEP 6D · SAFE END-OF-MISSION CLEANUP (NO SPACE JUNK)
             </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;">
               ${dispCards}
             </div>
           </div>
 
-          <div style="padding:10px 12px;border-radius:8px;background:${systemsReady ? "rgba(127,184,166,0.08)" : "rgba(239,68,68,0.12)"};border:1px solid ${systemsReady ? "rgba(127,184,166,0.35)" : "rgba(239,68,68,0.45)"};margin-bottom:12px;font-size:11px;color:#ece7dc;line-height:1.45;">
+          <div style="padding:12px 14px;border-radius:8px;background:${systemsReady ? "rgba(127,184,166,0.08)" : "rgba(239,68,68,0.12)"};border:1px solid ${systemsReady ? "rgba(127,184,166,0.35)" : "rgba(239,68,68,0.45)"};margin-bottom:14px;font-size:12px;color:#ece7dc;line-height:1.5;">
             <div><strong>1. Radio Signal &amp; Data Check:</strong> Signal strength is <strong>${t.linkMarginDb} dB</strong> (needs at least 3.0 dB from ${t.orbit.altitudeKm.toLocaleString()} km away) and Earth dishes can download <strong>${t.downlinkCapGbPerDay} GB/day</strong> vs. <strong>${t.dataGeneratedGbPerDay} GB/day</strong> gathered by your tools.</div>
-            <div style="margin-top:4px;"><strong>2. Rocket Fuel Push:</strong> Loaded weight is <strong>${t.wetMassKg} kg</strong> (empty weight <strong>${t.dryMassKg} kg</strong>), so your engines give <strong>${t.achievedDeltaV} m/s</strong> of push vs. <strong>${t.requiredDeltaV} m/s</strong> needed (including +${t.disposal.dvCostMs} m/s for safe cleanup).</div>
-            <div style="margin-top:4px;"><strong>3. Safe Cleanup Check:</strong> ${t.disposalOk ? `[PASS] ${t.disposalNote}` : `[WARN] ${t.disposalNote}`}</div>
+            <div style="margin-top:6px;"><strong>2. Rocket Fuel Push:</strong> Loaded weight is <strong>${t.wetMassKg} kg</strong> (empty weight <strong>${t.dryMassKg} kg</strong>), so your engines give <strong>${t.achievedDeltaV} m/s</strong> of push vs. <strong>${t.requiredDeltaV} m/s</strong> needed (including +${t.disposal.dvCostMs} m/s for safe cleanup).</div>
+            <div style="margin-top:6px;"><strong>3. Safe Cleanup Check:</strong> ${t.disposalOk ? `[PASS] ${t.disposalNote}` : `[WARN] ${t.disposalNote}`}</div>
           </div>
 
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
-            <span style="font-family:monospace;font-size:10px;color:#94a3b8;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+            <span style="font-family:monospace;font-size:11.5px;color:#94a3b8;">
               Signal: ${t.linkMarginDb} dB · Fuel Push: ${t.achievedDeltaV}/${t.requiredDeltaV} m/s · Cleanup: ${t.disposalOk ? "PASS" : "NEEDS FIX"}
             </span>
-            <button type="button" id="btn-commit-comms" style="padding:10px 20px;border-radius:6px;border:1px solid ${systemsReady ? "#67e8f9" : "rgba(239,68,68,0.6)"};background:${systemsReady ? "#ece7dc" : "rgba(239,68,68,0.2)"};color:${systemsReady ? "#05060a" : "#fecaca"};font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1.4px;cursor:pointer;">
+            <button type="button" id="btn-commit-comms" style="padding:11px 22px;border-radius:6px;border:1px solid ${systemsReady ? "#67e8f9" : "rgba(239,68,68,0.6)"};background:${systemsReady ? "#ece7dc" : "rgba(239,68,68,0.2)"};color:${systemsReady ? "#05060a" : "#fecaca"};font-family:monospace;font-size:12px;font-weight:700;letter-spacing:1.2px;cursor:pointer;">
               ${systemsReady ? "SAVE RADIO, FUEL &amp; CLEANUP PLAN" : "FIX SIGNAL, FUEL OR CLEANUP"}
             </button>
           </div>
@@ -5370,67 +5374,67 @@
         container.innerHTML = `
           ${this._renderLiveTradeoffStrip({ onRerender: render })}
 
-          <div style="padding:10px 12px;border-radius:8px;background:rgba(167,139,250,0.06);border:1px solid rgba(167,139,250,0.28);margin-bottom:10px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
-              <span style="font-family:monospace;font-size:9.5px;font-weight:700;color:#ddd6fe;">
+          <div style="padding:12px 14px;border-radius:8px;background:rgba(167,139,250,0.06);border:1px solid rgba(167,139,250,0.28);margin-bottom:14px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+              <span style="font-family:monospace;font-size:11px;font-weight:700;line-height:1.4;color:#ddd6fe;">
                 ${t.analogue.agencyTag} REAL NASA INSPIRATION: <strong style="color:#ffffff;">${t.analogue.missions}</strong>
               </span>
-              <span style="font-family:monospace;font-size:9.5px;color:#7dd3fc;">
+              <span style="font-family:monospace;font-size:11px;color:#7dd3fc;">
                 ${t.disposalOk ? `PASS ${t.disposal.deorbitYears} yr SAFE CLEANUP` : "NEEDS SAFE CLEANUP PLAN"}
               </span>
             </div>
-            <canvas id="sim-science-canvas" width="700" height="150" style="width:100%;height:150px;border-radius:6px;border:1px solid rgba(103,232,249,0.28);display:block;margin-bottom:8px;"></canvas>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:6px;">
+            <canvas id="sim-science-canvas" width="700" height="150" style="width:100%;height:150px;border-radius:6px;border:1px solid rgba(103,232,249,0.28);display:block;margin-bottom:10px;"></canvas>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;">
               ${t.riskMatrix.map((r) => `
-                <div style="padding:5px 7px;border-radius:5px;background:rgba(0,0,0,0.35);border-left:3px solid ${r.level === "GREEN" ? "#4ade80" : r.level === "AMBER" ? "#fbbf24" : "#ef4444"};">
-                  <div style="font-family:monospace;font-size:8.5px;font-weight:700;color:#e2e8f0;">${r.subsystem} (${r.level === "GREEN" ? "GOOD" : r.level === "AMBER" ? "TIGHT" : "NEEDS FIX"})</div>
-                  <div style="font-family:monospace;font-size:8px;color:#94a3b8;">Chance:${r.likelihood} / Impact:${r.consequence}</div>
+                <div style="padding:8px 10px;border-radius:5px;background:rgba(0,0,0,0.35);border-left:3px solid ${r.level === "GREEN" ? "#4ade80" : r.level === "AMBER" ? "#fbbf24" : "#ef4444"};">
+                  <div style="font-family:monospace;font-size:10.5px;font-weight:700;color:#e2e8f0;">${r.subsystem} (${r.level === "GREEN" ? "GOOD" : r.level === "AMBER" ? "TIGHT" : "NEEDS FIX"})</div>
+                  <div style="font-family:monospace;font-size:10px;color:#94a3b8;margin-top:2px;">Chance:${r.likelihood} / Impact:${r.consequence}</div>
                 </div>
               `).join("")}
             </div>
           </div>
 
           ${missionEvent ? `
-            <div style="padding:10px 12px;border-radius:8px;background:${missionEvent.ok ? "rgba(74,222,128,0.07)" : "rgba(239,68,68,0.08)"};border:1px solid ${missionEvent.ok ? "rgba(74,222,128,0.4)" : "rgba(239,68,68,0.45)"};margin-bottom:10px;">
+            <div style="padding:12px 14px;border-radius:8px;background:${missionEvent.ok ? "rgba(74,222,128,0.07)" : "rgba(239,68,68,0.08)"};border:1px solid ${missionEvent.ok ? "rgba(74,222,128,0.4)" : "rgba(239,68,68,0.45)"};margin-bottom:14px;">
               <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-                <span style="font-family:monospace;font-size:9.5px;font-weight:800;letter-spacing:1.1px;color:${missionEvent.ok ? "#86efac" : "#fca5a5"};">
+                <span style="font-family:monospace;font-size:11px;font-weight:800;letter-spacing:1.1px;color:${missionEvent.ok ? "#86efac" : "#fca5a5"};">
                   SURPRISE MISSION TEST · ${missionEvent.severity === "CADET" ? "BEGINNER" : missionEvent.severity === "DIRECTOR" ? "EXPERT" : "NORMAL"}
                 </span>
-                <span style="font-family:monospace;font-size:9px;font-weight:800;padding:2px 7px;border-radius:4px;background:${missionEvent.ok ? "rgba(74,222,128,0.16)" : "rgba(239,68,68,0.16)"};color:${missionEvent.ok ? "#4ade80" : "#f87171"};">
+                <span style="font-family:monospace;font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:4px;background:${missionEvent.ok ? "rgba(74,222,128,0.16)" : "rgba(239,68,68,0.16)"};color:${missionEvent.ok ? "#4ade80" : "#f87171"};">
                   ${missionEvent.ok ? "SURVIVED" : "FAILED"}
                 </span>
               </div>
-              <div style="font-size:13px;font-weight:700;color:#f8fafc;margin-top:3px;">${missionEvent.title}</div>
-              <div style="font-size:11px;color:#cbd5e1;line-height:1.45;margin-top:3px;">${missionEvent.situation}</div>
-              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:6px;margin-top:7px;">
-                <div style="font-family:monospace;font-size:9.5px;color:${missionEvent.ok ? "#86efac" : "#fbbf24"};">CHECK: ${missionEvent.metric}</div>
-                <div style="font-family:monospace;font-size:9.5px;color:#94a3b8;">TIP: ${missionEvent.mitigation}</div>
+              <div style="font-size:14.5px;font-weight:700;color:#f8fafc;margin-top:5px;">${missionEvent.title}</div>
+              <div style="font-size:12.5px;color:#cbd5e1;line-height:1.5;margin-top:5px;">${missionEvent.situation}</div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;margin-top:9px;">
+                <div style="font-family:monospace;font-size:11px;line-height:1.45;color:${missionEvent.ok ? "#86efac" : "#fbbf24"};">CHECK: ${missionEvent.metric}</div>
+                <div style="font-family:monospace;font-size:11px;line-height:1.45;color:#cbd5e1;">TIP: ${missionEvent.mitigation}</div>
               </div>
             </div>
           ` : ""}
 
-          <div style="padding:12px;border-radius:8px;background:rgba(0,0,0,0.42);border:1px solid rgba(255,255,255,0.12);margin-bottom:12px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
-              <span style="font-family:monospace;font-size:10.5px;font-weight:700;letter-spacing:1.4px;color:#67e8f9;">
+          <div style="padding:14px 16px;border-radius:8px;background:rgba(0,0,0,0.42);border:1px solid rgba(255,255,255,0.12);margin-bottom:14px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+              <span style="font-family:monospace;font-size:12px;font-weight:700;letter-spacing:1.2px;color:#67e8f9;">
                 FULL TEST FLIGHT &amp; MISSION REPORT CARD
               </span>
-              <span style="font-family:monospace;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;background:${allNominal ? "rgba(74,222,128,0.15)" : "rgba(251,191,36,0.15)"};color:${allNominal ? "#4ade80" : "#fbbf24"};">
+              <span style="font-family:monospace;font-size:12px;font-weight:700;padding:4px 10px;border-radius:4px;background:${allNominal ? "rgba(74,222,128,0.15)" : "rgba(251,191,36,0.15)"};color:${allNominal ? "#4ade80" : "#fbbf24"};">
                 ${allNominal ? "MISSION GRADE: A (READY TO FLY!)" : `MISSION SCORE: ${t.overallScore}/100 (NEEDS TWEAKS)`}
               </span>
             </div>
 
-            <div style="display:flex;flex-direction:column;gap:7px;">
+            <div style="display:flex;flex-direction:column;gap:9px;">
               ${phases
                 .map(
                   (p) => `
-                  <div style="padding:9px 11px;border-radius:6px;background:rgba(255,255,255,0.025);border-left:3px solid ${p.ok ? "#4ade80" : "#ef4444"};">
+                  <div style="padding:11px 13px;border-radius:6px;background:rgba(255,255,255,0.025);border-left:3px solid ${p.ok ? "#4ade80" : "#ef4444"};">
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-                      <span style="font-family:monospace;font-size:10px;font-weight:700;color:${p.ok ? "#a7f3d0" : "#fca5a5"};">
+                      <span style="font-family:monospace;font-size:11.5px;font-weight:700;color:${p.ok ? "#a7f3d0" : "#fca5a5"};">
                         ${p.ok ? "[PASS] " : "[FIX] "}${p.phase}
                       </span>
-                      <span style="font-family:monospace;font-size:9.5px;color:#cbd5e1;">${p.metric}</span>
+                      <span style="font-family:monospace;font-size:11px;color:#cbd5e1;">${p.metric}</span>
                     </div>
-                    <div style="font-size:11px;color:#94a3b8;margin-top:3px;line-height:1.4;">${p.detail}</div>
+                    <div style="font-size:12px;color:#cbd5e1;margin-top:5px;line-height:1.48;">${p.detail}</div>
                   </div>
                 `
                 )
@@ -5438,22 +5442,22 @@
             </div>
           </div>
 
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button type="button" id="btn-sim-lunar-3d" style="padding:9px 12px;border-radius:4px;border:1px solid rgba(56,189,248,0.45);background:rgba(37,99,235,0.14);color:#93c5fd;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
+              <button type="button" id="btn-sim-lunar-3d" style="padding:9px 13px;border-radius:4px;border:1px solid rgba(56,189,248,0.45);background:rgba(37,99,235,0.14);color:#93c5fd;font-family:monospace;font-size:11px;font-weight:700;cursor:pointer;">
                 3D MOON [K]
               </button>
-              <button type="button" id="btn-sim-export-json" style="padding:9px 12px;border-radius:4px;border:1px solid rgba(148,163,184,0.28);background:rgba(255,255,255,0.04);color:#cbd5e1;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
+              <button type="button" id="btn-sim-export-json" style="padding:9px 13px;border-radius:4px;border:1px solid rgba(148,163,184,0.28);background:rgba(255,255,255,0.04);color:#cbd5e1;font-family:monospace;font-size:11px;font-weight:700;cursor:pointer;">
                 SAVE PLAN (.JSON)
               </button>
-              <button type="button" id="btn-sim-export-gmat" style="padding:9px 12px;border-radius:4px;border:1px solid rgba(103,232,249,0.45);background:rgba(103,232,249,0.12);color:#67e8f9;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
+              <button type="button" id="btn-sim-export-gmat" style="padding:9px 13px;border-radius:4px;border:1px solid rgba(103,232,249,0.45);background:rgba(103,232,249,0.12);color:#67e8f9;font-family:monospace;font-size:11px;font-weight:700;cursor:pointer;">
                 EXPORT 3D PATH
               </button>
-              <button type="button" id="btn-sim-edit-arch" style="padding:9px 12px;border-radius:4px;border:1px solid rgba(148,163,184,0.28);background:rgba(255,255,255,0.04);color:#f8fafc;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
+              <button type="button" id="btn-sim-edit-arch" style="padding:9px 13px;border-radius:4px;border:1px solid rgba(148,163,184,0.28);background:rgba(255,255,255,0.04);color:#f8fafc;font-family:monospace;font-size:11px;font-weight:700;cursor:pointer;">
                 EDIT PLAN
               </button>
             </div>
-            <button type="button" id="btn-commit-sim" style="padding:10px 22px;border-radius:6px;border:1px solid ${allNominal ? "#4ade80" : "#fbbf24"};background:${allNominal ? "#ece7dc" : "rgba(251,191,36,0.22)"};color:${allNominal ? "#05060a" : "#fef08a"};font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1.4px;cursor:pointer;">
+            <button type="button" id="btn-commit-sim" style="padding:11px 22px;border-radius:6px;border:1px solid ${allNominal ? "#4ade80" : "#fbbf24"};background:${allNominal ? "#ece7dc" : "rgba(251,191,36,0.22)"};color:${allNominal ? "#05060a" : "#fef08a"};font-family:monospace;font-size:12px;font-weight:700;letter-spacing:1.2px;cursor:pointer;">
               ${allNominal ? "FINISH &amp; SAVE MISSION REPORT" : "FIX RED STEPS TO FINISH (" + t.overallScore + "/100)"}
             </button>
           </div>
@@ -5610,7 +5614,7 @@
         else statusIcon = "OPEN";
 
         item.innerHTML = `
-          <div class="task-status-icon" style="font-size:8px;font-family:var(--font-mono,monospace);font-weight:700;letter-spacing:0.4px;width:auto;min-width:34px;color:${isCompleted ? "#86efac" : isBlocked ? "#94a3b8" : "#93c5fd"};">${statusIcon}</div>
+          <div class="task-status-icon" style="font-size:10px;font-family:var(--font-mono,monospace);font-weight:700;letter-spacing:0.4px;width:auto;min-width:40px;color:${isCompleted ? "#86efac" : isBlocked ? "#94a3b8" : "#93c5fd"};">${statusIcon}</div>
           <div class="task-item-content">
             <div class="task-title-row">
               <span class="task-title-text">${t.name}</span>
@@ -5620,7 +5624,7 @@
               <span class="task-loc-pin">LOC</span>
               <span class="task-loc-text">${t.location}</span>
             </div>
-            ${isBlocked && blockedReason ? `<div class="task-location-row" style="color:#fbbf24;font-size:9px;">[${phaseLocked ? "ORBIT" : "LOCK"}] ${blockedReason}</div>` : ""}
+            ${isBlocked && blockedReason ? `<div class="task-location-row" style="color:#fbbf24;font-size:10.5px;">[${phaseLocked ? "ORBIT" : "LOCK"}] ${blockedReason}</div>` : ""}
           </div>
         `;
         item.addEventListener("click", () => {
@@ -5694,9 +5698,9 @@
       if (details) {
         const crew = Array.isArray(data.crew) ? data.crew : [];
         const crewRows = crew.map((member) => `
-          <div style="display:flex;justify-content:space-between;gap:12px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+          <div style="display:flex;justify-content:space-between;gap:12px;padding:6px 0;font-size:13px;border-bottom:1px solid rgba(255,255,255,0.06);">
             <span style="color:#ece7dc;">${this._escapeHtml(member.name || "Player")}</span>
-            <span style="color:#9aa4ae;font-family:monospace;font-size:10px;">${this._escapeHtml(String(member.role || "crew").toUpperCase())} · ${Number(member.tasksDone || 0)} STEPS</span>
+            <span style="color:#9aa4ae;font-family:monospace;font-size:11px;">${this._escapeHtml(String(member.role || "crew").toUpperCase())} · ${Number(member.tasksDone || 0)} STEPS</span>
           </div>
         `).join("");
         const evalSummary = this.evaluateMissionDesign();
@@ -5705,49 +5709,49 @@
         const finalCmlLevel = serverResult ? serverResult.cmlLevel : evalSummary.cmlLevel;
         const eventInfo = serverResult && serverResult.event ? serverResult.event : this.lastMissionEvent;
         const validationBadge = serverResult
-          ? `<span style="font-family:monospace;font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;background:rgba(74,222,128,0.14);border:1px solid rgba(74,222,128,0.4);color:#86efac;">SERVER VALIDATED</span>`
+          ? `<span style="font-family:monospace;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:4px;background:rgba(74,222,128,0.14);border:1px solid rgba(74,222,128,0.4);color:#86efac;">SERVER VALIDATED</span>`
           : "";
         details.innerHTML = `
-          <div style="display:grid;grid-template-columns:repeat(2,minmax(150px,1fr));gap:8px;margin-bottom:10px;text-align:left;">
-            <div style="padding:8px 10px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;background:rgba(255,255,255,0.03);">
-              <div style="font-family:monospace;font-size:9px;color:#9aa4ae;letter-spacing:1px;">MISSION TIME</div>
-              <div style="font-family:monospace;font-size:15px;color:#67e8f9;">${durationText}</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:12px;text-align:left;">
+            <div style="padding:10px 12px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;background:rgba(255,255,255,0.03);">
+              <div style="font-family:monospace;font-size:10.5px;color:#9aa4ae;letter-spacing:0.9px;">MISSION TIME</div>
+              <div style="font-family:monospace;font-size:17px;color:#67e8f9;margin-top:2px;">${durationText}</div>
             </div>
-            <div style="padding:8px 10px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;background:rgba(255,255,255,0.03);">
-              <div style="font-family:monospace;font-size:9px;color:#9aa4ae;letter-spacing:1px;">STEPS &amp; SCORE ${validationBadge}</div>
-              <div style="font-family:monospace;font-size:15px;color:#34d399;">${completedCount} / ${totalCount} (${finalScore}/100)</div>
+            <div style="padding:10px 12px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;background:rgba(255,255,255,0.03);">
+              <div style="font-family:monospace;font-size:10.5px;color:#9aa4ae;letter-spacing:0.9px;">STEPS &amp; SCORE ${validationBadge}</div>
+              <div style="font-family:monospace;font-size:17px;color:#34d399;margin-top:2px;">${completedCount} / ${totalCount} (${finalScore}/100)</div>
             </div>
-            <div style="padding:8px 10px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;background:rgba(255,255,255,0.03);">
-              <div style="font-family:monospace;font-size:9px;color:#9aa4ae;letter-spacing:1px;">LEVEL / READINESS</div>
-              <div style="font-family:monospace;font-size:12px;color:#fbbf24;">${this._escapeHtml(difficulty)} · STAGE ${finalCmlLevel}${!serverResult && evalSummary.cml ? ` (${evalSummary.cml.activeSummary.percentGreen}% @ Stage ${evalSummary.cml.targetCml})` : ""}</div>
+            <div style="padding:10px 12px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;background:rgba(255,255,255,0.03);">
+              <div style="font-family:monospace;font-size:10.5px;color:#9aa4ae;letter-spacing:0.9px;">LEVEL / READINESS</div>
+              <div style="font-family:monospace;font-size:13.5px;color:#fbbf24;margin-top:2px;">${this._escapeHtml(difficulty)} · STAGE ${finalCmlLevel}${!serverResult && evalSummary.cml ? ` (${evalSummary.cml.activeSummary.percentGreen}% @ Stage ${evalSummary.cml.targetCml})` : ""}</div>
             </div>
-            <div style="padding:8px 10px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;background:rgba(255,255,255,0.03);">
-              <div style="font-family:monospace;font-size:9px;color:#9aa4ae;letter-spacing:1px;">TEAM SIZE</div>
-              <div style="font-family:monospace;font-size:12px;color:#ece7dc;">${crew.length} ${crew.length === 1 ? "PLAYER" : "PLAYERS"}</div>
+            <div style="padding:10px 12px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;background:rgba(255,255,255,0.03);">
+              <div style="font-family:monospace;font-size:10.5px;color:#9aa4ae;letter-spacing:0.9px;">TEAM SIZE</div>
+              <div style="font-family:monospace;font-size:13.5px;color:#ece7dc;margin-top:2px;">${crew.length} ${crew.length === 1 ? "PLAYER" : "PLAYERS"}</div>
             </div>
           </div>
-          <div style="padding:8px 10px;border-radius:6px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.3);margin-bottom:10px;text-align:left;font-size:11px;color:#e2e8f0;">
-            <div style="font-family:monospace;font-size:9px;color:#c4b5fd;font-weight:700;letter-spacing:0.8px;">${evalSummary.analogue.agencyTag} INSPIRATION &amp; SCIENCE GOAL</div>
-            <div style="margin-top:2px;"><strong>${evalSummary.analogue.missions}</strong> — ${evalSummary.analogue.productTitle}</div>
-            <div style="margin-top:6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-              <span style="font-family:monospace;font-size:9.5px;color:#86efac;">Clean Finish: ${evalSummary.disposal.name.split("(")[0].trim()} (${evalSummary.disposal.deorbitYears} yr)</span>
-              <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                <button type="button" id="btn-victory-open-cml" style="padding:4px 9px;border-radius:4px;border:1px solid rgba(251,191,36,0.55);background:rgba(245,158,11,0.16);color:#fde68a;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">READINESS REPORT</button>
-                <button type="button" id="btn-victory-export-mdl" style="padding:4px 9px;border-radius:4px;border:1px solid rgba(103,232,249,0.5);background:rgba(103,232,249,0.14);color:#7dd3fc;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">DOWNLOAD PLAN (.JSON)</button>
+          <div style="padding:11px 13px;border-radius:6px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.3);margin-bottom:12px;text-align:left;font-size:12.5px;line-height:1.48;color:#e2e8f0;">
+            <div style="font-family:monospace;font-size:10.5px;color:#c4b5fd;font-weight:700;letter-spacing:0.8px;margin-bottom:3px;">${evalSummary.analogue.agencyTag} INSPIRATION &amp; SCIENCE GOAL</div>
+            <div style="margin-top:3px;"><strong>${evalSummary.analogue.missions}</strong> — ${evalSummary.analogue.productTitle}</div>
+            <div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+              <span style="font-family:monospace;font-size:11px;color:#86efac;">Clean Finish: ${evalSummary.disposal.name.split("(")[0].trim()} (${evalSummary.disposal.deorbitYears} yr)</span>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button type="button" id="btn-victory-open-cml" style="padding:6px 11px;border-radius:4px;border:1px solid rgba(251,191,36,0.55);background:rgba(245,158,11,0.16);color:#fde68a;font-family:monospace;font-size:11px;font-weight:700;cursor:pointer;">READINESS REPORT</button>
+                <button type="button" id="btn-victory-export-mdl" style="padding:6px 11px;border-radius:4px;border:1px solid rgba(103,232,249,0.5);background:rgba(103,232,249,0.14);color:#7dd3fc;font-family:monospace;font-size:11px;font-weight:700;cursor:pointer;">DOWNLOAD PLAN (.JSON)</button>
               </div>
             </div>
           </div>
-          <div style="font-family:monospace;font-size:9px;color:#9aa4ae;letter-spacing:0.8px;margin-bottom:8px;text-align:left;">
+          <div style="font-family:monospace;font-size:10.5px;color:#9aa4ae;letter-spacing:0.8px;margin-bottom:10px;line-height:1.45;text-align:left;">
             LAUNCHED BY: <span style="color:#ece7dc;">${this._escapeHtml(data.launchedBy || "—")}</span>
             &nbsp;·&nbsp; PARKED BY: <span style="color:#ece7dc;">${this._escapeHtml(data.dockedBy || "—")}</span>
           </div>
           ${eventInfo ? `
-            <div style="margin-bottom:8px;padding:7px 10px;border-radius:5px;background:${eventInfo.ok ? "rgba(74,222,128,0.08)" : "rgba(239,68,68,0.1)"};border:1px solid ${eventInfo.ok ? "rgba(74,222,128,0.35)" : "rgba(239,68,68,0.4)"};font-family:monospace;font-size:9.5px;color:${eventInfo.ok ? "#86efac" : "#fca5a5"};text-align:left;">
+            <div style="margin-bottom:10px;padding:9px 12px;border-radius:5px;background:${eventInfo.ok ? "rgba(74,222,128,0.08)" : "rgba(239,68,68,0.1)"};border:1px solid ${eventInfo.ok ? "rgba(74,222,128,0.35)" : "rgba(239,68,68,0.4)"};font-family:monospace;font-size:11px;line-height:1.45;color:${eventInfo.ok ? "#86efac" : "#fca5a5"};text-align:left;">
               SURPRISE CHALLENGE · ${this._escapeHtml(eventInfo.title)} · ${eventInfo.ok ? "PASSED" : "NEEDS FIX"} — ${this._escapeHtml(eventInfo.metric || "")}
             </div>
           ` : ""}
-          <div style="font-family:monospace;font-size:10px;color:#9aa4ae;letter-spacing:1px;margin-bottom:4px;text-align:left;">TEAM ROSTER</div>
-          <div style="text-align:left;max-height:130px;overflow:auto;margin-bottom:6px;">${crewRows}</div>
+          <div style="font-family:monospace;font-size:11px;color:#9aa4ae;letter-spacing:1px;margin-bottom:6px;text-align:left;">TEAM ROSTER</div>
+          <div style="text-align:left;max-height:160px;overflow:auto;margin-bottom:8px;">${crewRows}</div>
         `;
         const btnVCml = details.querySelector("#btn-victory-open-cml");
         if (btnVCml) {

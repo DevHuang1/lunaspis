@@ -843,6 +843,9 @@
       this.lastDesignKey = "";
       this._rebuildTrajectoryFromDesign();
       this._ensureUI();
+      if (window.csaNasaLab && typeof window.csaNasaLab.syncGroundLockState === "function") {
+        window.csaNasaLab.syncGroundLockState();
+      }
       this.uiRoot.style.display = "block";
       document.body.classList.add("mission-viz-active");
       this._setCameraMode("system");

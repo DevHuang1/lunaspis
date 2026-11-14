@@ -11,22 +11,22 @@ body.academy-open {
 }
 
 .academy-modal-card {
-  width: min(860px, 96vw);
-  max-width: 860px;
+  width: min(920px, 95vw);
+  max-width: 920px;
   max-height: 92vh;
 }
 
 .academy-body {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 16px 20px 18px;
+  gap: 16px;
+  padding: 20px 24px 22px;
   overflow-y: auto;
-  max-height: calc(92vh - 52px);
+  max-height: calc(92vh - 54px);
 }
 
 .academy-body::-webkit-scrollbar {
-  width: 5px;
+  width: 6px;
 }
 
 .academy-body::-webkit-scrollbar-thumb {
@@ -38,25 +38,25 @@ body.academy-open {
 .academy-progress {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   flex-wrap: wrap;
-  padding-bottom: 10px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--border-hairline);
 }
 
 .academy-dot {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 9px;
+  gap: 7px;
+  padding: 6px 11px;
   background: rgba(255, 255, 255, 0.025);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 999px;
   color: var(--text-slate);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10.5px;
   font-weight: 700;
-  letter-spacing: 0.8px;
+  letter-spacing: 0.7px;
   cursor: pointer;
   transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
@@ -81,11 +81,11 @@ body.academy-open {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.07);
-  font-size: 8.5px;
+  font-size: 10px;
 }
 
 .academy-dot.active .academy-dot-index {
@@ -99,7 +99,7 @@ body.academy-open {
 }
 
 .academy-dot-line {
-  width: 12px;
+  width: 14px;
   height: 1px;
   background: rgba(255, 255, 255, 0.12);
 }
@@ -111,36 +111,36 @@ body.academy-open {
 /* Step content */
 .academy-step-kicker {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 1.5px;
+  letter-spacing: 1.4px;
   color: var(--accent-cyan);
 }
 
 .academy-step-title {
-  margin: 4px 0 8px;
+  margin: 6px 0 10px;
   font-family: var(--font-display, var(--font-mono));
-  font-size: clamp(20px, 2.6vw, 28px);
-  line-height: 1.1;
+  font-size: clamp(22px, 2.8vw, 30px);
+  line-height: 1.15;
   letter-spacing: 1px;
   color: var(--text-ivory);
 }
 
 .academy-lede {
-  margin: 0 0 10px;
-  font-size: 13px;
-  line-height: 1.6;
-  color: rgba(236, 231, 220, 0.76);
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.65;
+  color: rgba(236, 231, 220, 0.84);
 }
 
 .academy-resource-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(205px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(225px, 1fr));
+  gap: 10px;
 }
 
 .academy-resource {
-  padding: 10px 11px;
+  padding: 12px 14px;
   border-radius: 6px;
   background: rgba(8, 13, 24, 0.75);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -149,27 +149,27 @@ body.academy-open {
 
 .academy-resource-code {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11.5px;
   font-weight: 800;
-  letter-spacing: 1.1px;
+  letter-spacing: 1px;
   color: var(--rc, var(--accent-cyan));
 }
 
 .academy-resource p {
-  margin: 4px 0 0;
-  font-size: 11px;
-  line-height: 1.45;
-  color: rgba(226, 232, 240, 0.76);
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: rgba(226, 232, 240, 0.82);
 }
 
 .academy-callout {
-  margin-top: 10px;
-  padding: 10px 12px;
+  margin-top: 12px;
+  padding: 12px 14px;
   border-radius: 6px;
   background: rgba(127, 184, 166, 0.08);
   border: 1px solid rgba(127, 184, 166, 0.32);
-  font-size: 12px;
-  line-height: 1.55;
+  font-size: 13px;
+  line-height: 1.6;
   color: #d9f0e8;
 }
 
@@ -215,10 +215,10 @@ body.academy-open {
 
 .academy-flow li {
   display: grid;
-  grid-template-columns: 150px 1fr;
-  gap: 10px;
+  grid-template-columns: 165px 1fr;
+  gap: 12px;
   align-items: start;
-  padding: 7px 9px;
+  padding: 10px 12px;
   border-radius: 5px;
   background: rgba(255, 255, 255, 0.025);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -226,15 +226,15 @@ body.academy-open {
 
 .academy-flow b {
   font-family: var(--font-mono);
-  font-size: 9.5px;
-  letter-spacing: 0.8px;
+  font-size: 11px;
+  letter-spacing: 0.7px;
   color: var(--accent-cyan);
 }
 
 .academy-flow span {
-  font-size: 11.5px;
-  line-height: 1.45;
-  color: rgba(226, 232, 240, 0.78);
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(226, 232, 240, 0.84);
 }
 
 /* Trade-off table */
@@ -248,10 +248,11 @@ body.academy-open {
 .academy-tradeoff-row {
   display: grid;
   grid-template-columns: 1fr 1.25fr;
-  gap: 10px;
-  padding: 7px 10px;
-  font-size: 11.5px;
-  color: rgba(226, 232, 240, 0.82);
+  gap: 12px;
+  padding: 10px 13px;
+  font-size: 13px;
+  line-height: 1.48;
+  color: rgba(226, 232, 240, 0.86);
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
 
@@ -266,9 +267,9 @@ body.academy-open {
 .academy-tradeoff-head {
   background: rgba(255, 255, 255, 0.04);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10.5px;
   font-weight: 700;
-  letter-spacing: 1px;
+  letter-spacing: 0.9px;
   color: var(--text-slate);
 }
 
@@ -279,12 +280,12 @@ body.academy-open {
 /* Flight phases */
 .academy-phase-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 7px;
+  grid-template-columns: repeat(auto-fit, minmax(235px, 1fr));
+  gap: 10px;
 }
 
 .academy-phase {
-  padding: 9px 10px;
+  padding: 12px 13px;
   border-radius: 6px;
   background: rgba(8, 13, 24, 0.72);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -293,36 +294,36 @@ body.academy-open {
 .academy-phase b {
   display: block;
   font-family: var(--font-mono);
-  font-size: 9.5px;
-  letter-spacing: 1px;
+  font-size: 11px;
+  letter-spacing: 0.9px;
   color: var(--accent-cyan);
-  margin-bottom: 3px;
+  margin-bottom: 5px;
 }
 
 .academy-phase span {
-  font-size: 11px;
-  line-height: 1.45;
-  color: rgba(226, 232, 240, 0.78);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: rgba(226, 232, 240, 0.84);
 }
 
 .academy-controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 10px;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .academy-controls span {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 8px;
+  gap: 6px;
+  padding: 6px 10px;
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.035);
   border: 1px solid rgba(255, 255, 255, 0.1);
   font-family: var(--font-mono);
-  font-size: 8.5px;
-  letter-spacing: 0.6px;
+  font-size: 10.5px;
+  letter-spacing: 0.5px;
   color: var(--text-slate);
 }
 
@@ -332,7 +333,7 @@ body.academy-open {
 .briefing-coach kbd,
 .cadet-coach kbd {
   display: inline-block;
-  padding: 1px 4px;
+  padding: 2px 5px;
   border-radius: 3px;
   background: rgba(103, 232, 249, 0.12);
   border: 1px solid rgba(103, 232, 249, 0.35);
@@ -345,47 +346,47 @@ body.academy-open {
 /* Solo / crew panels */
 .academy-two-col {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 10px;
 }
 
 .academy-panel {
-  padding: 10px 12px;
+  padding: 13px 15px;
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.025);
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .academy-panel h3 {
-  margin: 0 0 4px;
+  margin: 0 0 6px;
   font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 1.4px;
+  font-size: 11.5px;
+  letter-spacing: 1.2px;
   color: var(--accent-cyan);
 }
 
 .academy-panel p {
   margin: 0;
-  font-size: 11.5px;
-  line-height: 1.5;
-  color: rgba(226, 232, 240, 0.78);
+  font-size: 13px;
+  line-height: 1.55;
+  color: rgba(226, 232, 240, 0.84);
 }
 
 .academy-role-map {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 5px 14px;
-  margin-top: 10px;
-  padding: 9px 11px;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 8px 16px;
+  margin-top: 12px;
+  padding: 12px 14px;
   border-radius: 6px;
   background: rgba(8, 13, 24, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .academy-role-map div {
-  font-size: 10.5px;
+  font-size: 12px;
   line-height: 1.55;
-  color: rgba(226, 232, 240, 0.72);
+  color: rgba(226, 232, 240, 0.82);
 }
 
 .academy-role-map b {
@@ -398,20 +399,20 @@ body.academy-open {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
-  padding-top: 10px;
+  padding-top: 12px;
   border-top: 1px solid var(--border-hairline);
 }
 
 .academy-tips-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.7px;
+  letter-spacing: 0.6px;
   color: var(--text-slate);
   cursor: pointer;
   user-select: none;
@@ -424,7 +425,7 @@ body.academy-open {
 
 .academy-nav {
   display: flex;
-  gap: 7px;
+  gap: 8px;
   flex-wrap: wrap;
   justify-content: flex-end;
 }
@@ -432,15 +433,15 @@ body.academy-open {
 .academy-nav .btn-primary,
 .academy-nav .btn-secondary {
   width: auto;
-  padding: 8px 14px;
-  font-size: 10px;
-  letter-spacing: 1px;
+  padding: 9px 16px;
+  font-size: 11.5px;
+  letter-spacing: 0.9px;
 }
 
 /* Contextual coach inside design consoles */
 .cadet-coach {
-  margin-bottom: 10px;
-  padding: 9px 11px;
+  margin-bottom: 12px;
+  padding: 11px 14px;
   border-radius: 6px;
   background: rgba(103, 232, 249, 0.055);
   border: 1px solid rgba(103, 232, 249, 0.32);
@@ -450,33 +451,33 @@ body.academy-open {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
-  margin-bottom: 5px;
+  margin-bottom: 6px;
 }
 
 .cadet-coach-badge {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10.5px;
   font-weight: 800;
-  letter-spacing: 1.3px;
+  letter-spacing: 1.1px;
   color: #a5f3fc;
 }
 
 .cadet-coach-actions {
   display: flex;
-  gap: 5px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
 .cadet-coach-btn {
-  padding: 3px 7px;
+  padding: 5px 10px;
   border-radius: 4px;
   border: 1px solid rgba(103, 232, 249, 0.36);
   background: rgba(5, 8, 16, 0.5);
   color: #a5f3fc;
   font-family: var(--font-mono);
-  font-size: 8.5px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.5px;
   cursor: pointer;
@@ -492,21 +493,21 @@ body.academy-open {
 }
 
 .cadet-coach-copy {
-  font-size: 11px;
+  font-size: 12.5px;
   line-height: 1.55;
-  color: rgba(226, 240, 255, 0.8);
+  color: rgba(226, 240, 255, 0.86);
 }
 
 /* Mission briefing coach */
 .briefing-coach {
-  margin: 14px 0 4px;
-  padding: 10px 12px;
+  margin: 14px 0 6px;
+  padding: 12px 14px;
   border-radius: 6px;
   text-align: left;
   background: rgba(103, 232, 249, 0.06);
   border: 1px solid rgba(103, 232, 249, 0.32);
-  font-size: 11.5px;
-  line-height: 1.55;
+  font-size: 13px;
+  line-height: 1.58;
   color: #d9f7ff;
 }
 
@@ -516,19 +517,19 @@ body.academy-open {
 
 .briefing-coach .briefing-coach-actions {
   display: flex;
-  gap: 6px;
-  margin-top: 7px;
+  gap: 8px;
+  margin-top: 9px;
   flex-wrap: wrap;
 }
 
 .briefing-coach button {
-  padding: 4px 9px;
+  padding: 6px 11px;
   border-radius: 4px;
   border: 1px solid rgba(103, 232, 249, 0.4);
   background: rgba(5, 8, 16, 0.55);
   color: #a5f3fc;
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0.6px;
   cursor: pointer;
@@ -540,26 +541,26 @@ body.academy-open {
 
 /* Lobby beginner hints */
 .lobby-mission-tip {
-  margin-top: 8px;
-  padding: 7px 9px;
+  margin-top: 10px;
+  padding: 10px 12px;
   border-radius: 5px;
   background: rgba(103, 232, 249, 0.05);
   border: 1px solid rgba(103, 232, 249, 0.22);
-  font-size: 9.5px;
-  line-height: 1.5;
-  color: rgba(226, 240, 255, 0.72);
+  font-size: 11.5px;
+  line-height: 1.52;
+  color: rgba(226, 240, 255, 0.82);
 }
 
 .lobby-mission-tip strong {
   color: #a5f3fc;
   font-family: var(--font-mono);
-  letter-spacing: 0.6px;
+  letter-spacing: 0.5px;
 }
 
 .lobby-difficulty-hint {
-  margin-top: 6px;
-  font-size: 9px;
-  line-height: 1.45;
+  margin-top: 8px;
+  font-size: 11px;
+  line-height: 1.48;
   color: var(--text-slate);
 }
 
@@ -574,9 +575,9 @@ body.academy-open {
   border: none;
   color: var(--accent-cyan);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10.5px;
   font-weight: 700;
-  letter-spacing: 0.7px;
+  letter-spacing: 0.6px;
   text-align: left;
   cursor: pointer;
 }
