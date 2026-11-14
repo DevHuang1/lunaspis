@@ -514,6 +514,155 @@
     return applyTextureEncoding(tex, 4);
   }
 
+  // ---------------------------------------------------------------------------
+  // Shared detail textures. These are generated once and reused by instanced
+  // hatch thresholds, rack placards, ventilation grilles and the cupola glass.
+  // ---------------------------------------------------------------------------
+  let hazardTextureCache = null;
+  function getHazardTexture() {
+    if (hazardTextureCache) return hazardTextureCache;
+    const { element, context } = makeCanvas(256, 64);
+    context.fillStyle = "#242a2e";
+    context.fillRect(0, 0, 256, 64);
+    context.save();
+    context.beginPath();
+    context.rect(0, 0, 256, 64);
+    context.clip();
+    for (let x = -64; x < 320; x += 32) {
+      context.fillStyle = "#d7a93f";
+      context.beginPath();
+      context.moveTo(x, 0);
+      context.lineTo(x + 16, 0);
+      context.lineTo(x - 48, 64);
+      context.lineTo(x - 64, 64);
+      context.closePath();
+      context.fill();
+    }
+    context.restore();
+    context.fillStyle = "rgba(255,255,255,0.10)";
+    context.fillRect(0, 0, 256, 2);
+    context.fillRect(0, 62, 256, 2);
+    const tex = new window.THREE.CanvasTexture(element);
+    tex.wrapS = window.THREE.RepeatWrapping;
+    tex.wrapT = window.THREE.ClampToEdgeWrapping;
+    hazardTextureCache = applyTextureEncoding(tex, 4);
+    return hazardTextureCache;
+  }
+
+  let ventTextureCache = null;
+  function getVentTexture() {
+    if (ventTextureCache) return ventTextureCache;
+    const { element, context } = makeCanvas(128, 128);
+    context.fillStyle = "#aeb8b7";
+    context.fillRect(0, 0, 128, 128);
+    context.fillStyle = "#687578";
+    context.fillRect(8, 8, 112, 112);
+    context.fillStyle = "#c5cdca";
+    context.fillRect(12, 12, 104, 104);
+    for (let slot = 0; slot < 7; slot++) {
+      const y = 22 + slot * 12;
+      context.fillStyle = "#273236";
+      context.fillRect(20, y, 88, 6);
+      context.fillStyle = "rgba(255,255,255,0.22)";
+      context.fillRect(20, y, 88, 1);
+    }
+    [[16, 16], [112, 16], [16, 112], [112, 112]].forEach(([x, y]) => {
+      context.beginPath();
+      context.arc(x, y, 3, 0, Math.PI * 2);
+      context.fillStyle = "#5d6b6e";
+      context.fill();
+    });
+    const tex = new window.THREE.CanvasTexture(element);
+    ventTextureCache = applyTextureEncoding(tex, 4);
+    return ventTextureCache;
+  }
+
+  let rackLabelTextureCache = null;
+  function getRackLabelTexture() {
+    if (rackLabelTextureCache) return rackLabelTextureCache;
+    const { element, context } = makeCanvas(256, 64);
+    context.fillStyle = "#e7e9e2";
+    context.fillRect(0, 0, 256, 64);
+    context.strokeStyle = "#7c8a8c";
+    context.lineWidth = 2;
+    context.strokeRect(1, 1, 254, 62);
+    context.fillStyle = "#203847";
+    context.font = "700 20px ui-monospace, SFMono-Regular, Menlo, monospace";
+    context.textAlign = "left";
+    context.fillText("ISPR", 10, 27);
+    context.fillStyle = "#5a6a70";
+    context.font = "500 10px ui-monospace, SFMono-Regular, Menlo, monospace";
+    context.fillText("ISS PAYLOAD RACK", 10, 44);
+    context.fillStyle = "#203847";
+    for (let bar = 0; bar < 16; bar++) {
+      const width = 1 + ((bar * 7) % 3);
+      context.fillRect(150 + bar * 6, 14, width, 28);
+    }
+    context.fillStyle = "#d7a93f";
+    context.fillRect(10, 49, 12, 5);
+    context.fillStyle = "#53646c";
+    context.fillText("REF", 27, 55);
+    const tex = new window.THREE.CanvasTexture(element);
+    rackLabelTextureCache = applyTextureEncoding(tex, 4);
+    return rackLabelTextureCache;
+  }
+
+  let cautionTextureCache = null;
+  function getCautionTexture() {
+    if (cautionTextureCache) return cautionTextureCache;
+    const { element, context } = makeCanvas(256, 72);
+    context.fillStyle = "#d7a93f";
+    context.fillRect(0, 0, 256, 72);
+    context.fillStyle = "#1d2327";
+    context.fillRect(4, 4, 248, 64);
+    context.fillStyle = "#d7a93f";
+    context.beginPath();
+    context.moveTo(16, 50);
+    context.lineTo(30, 22);
+    context.lineTo(44, 50);
+    context.closePath();
+    context.fill();
+    context.fillStyle = "#1d2327";
+    context.font = "700 15px ui-monospace, monospace";
+    context.fillText("!", 27, 45);
+    context.fillStyle = "#f2e5bd";
+    context.font = "700 15px ui-monospace, SFMono-Regular, Menlo, monospace";
+    context.textAlign = "left";
+    context.fillText("CAUTION", 56, 26);
+    context.font = "500 11px ui-monospace, SFMono-Regular, Menlo, monospace";
+    context.fillStyle = "#d7a93f";
+    context.fillText("PRESSURE HATCH / KEEP CLEAR", 56, 44);
+    const tex = new window.THREE.CanvasTexture(element);
+    cautionTextureCache = applyTextureEncoding(tex, 4);
+    return cautionTextureCache;
+  }
+
+  let glassReflectionTextureCache = null;
+  function getGlassReflectionTexture() {
+    if (glassReflectionTextureCache) return glassReflectionTextureCache;
+    const { element, context } = makeCanvas(256, 256);
+    context.clearRect(0, 0, 256, 256);
+    const gradient = context.createLinearGradient(0, 0, 256, 256);
+    gradient.addColorStop(0, "rgba(190,230,255,0)");
+    gradient.addColorStop(0.38, "rgba(190,230,255,0)");
+    gradient.addColorStop(0.50, "rgba(210,240,255,0.34)");
+    gradient.addColorStop(0.55, "rgba(255,255,255,0.10)");
+    gradient.addColorStop(0.62, "rgba(190,230,255,0)");
+    gradient.addColorStop(1, "rgba(190,230,255,0)");
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, 256, 256);
+    context.strokeStyle = "rgba(224,246,255,0.38)";
+    context.lineWidth = 3;
+    [[22, 178, 92, 108], [58, 210, 142, 122], [104, 236, 196, 140]].forEach(([x1, y1, x2, y2]) => {
+      context.beginPath();
+      context.moveTo(x1, y1);
+      context.lineTo(x2, y2);
+      context.stroke();
+    });
+    glassReflectionTextureCache = applyTextureEncoding(new window.THREE.CanvasTexture(element), 2);
+    return glassReflectionTextureCache;
+  }
+
   // ============================================================================
   // 3. MODULAR INTERIOR KIT BUILDERS (Kit.tsx & FaultBeacon.tsx)
   // ============================================================================
@@ -938,6 +1087,483 @@
         new THREE.MeshStandardMaterial({ color, roughness: 0.7 })));
     });
     return g;
+  }
+
+  // ============================================================================
+  // 3b. CONSTRUCTED-STATION DETAIL LAYER
+  // ============================================================================
+  // These builders add the visual evidence of a working orbital laboratory:
+  // hazard-marked hatches, utility trays, ventilation, rack placards, emergency
+  // equipment and module colour coding. Repeated elements are instanced so the
+  // extra fidelity does not turn into a draw-call explosion.
+  function buildHatchThresholds() {
+    const THREE = window.THREE;
+    const group = new THREE.Group();
+    group.name = "ISS_Hatch_Thresholds";
+    const hazardMaterial = new THREE.MeshStandardMaterial({
+      map: getHazardTexture(),
+      roughness: 0.82,
+      metalness: 0.04,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2
+    });
+    const thresholdGeometry = new THREE.PlaneGeometry(1, 1);
+    ISS_HATCHES.forEach((hatch) => {
+      const span = Math.max(1.2, hatch.halfWidth * 2 - 0.28);
+      const width = hatch.axis === "z" ? span : 0.36;
+      const depth = hatch.axis === "z" ? 0.36 : span;
+      const plate = new THREE.Mesh(thresholdGeometry, hazardMaterial);
+      plate.rotation.x = -Math.PI / 2;
+      plate.scale.set(width, depth, 1);
+      plate.position.set(
+        hatch.axis === "z" ? hatch.center : hatch.at,
+        -0.012,
+        hatch.axis === "z" ? hatch.at : hatch.center
+      );
+      group.add(plate);
+    });
+
+    // Recessed tie-down rings along the clear aisle edges. They give the deck
+    // scale without adding anything the walking collision has to know about.
+    const tiePoints = [];
+    for (let z = 1.4; z <= 48; z += 4.1) {
+      [-0.82, 0.82].forEach((x) => {
+        const nearHatch = ISS_HATCHES.some((hatch) => hatch.axis === "z" &&
+          Math.abs(z - hatch.at) < 0.9 && Math.abs(x - hatch.center) < hatch.halfWidth + 0.25);
+        if (!nearHatch) tiePoints.push([x, z]);
+      });
+    }
+    if (tiePoints.length) {
+      const ringGeometry = new THREE.TorusGeometry(0.055, 0.011, 6, 14);
+      const ringMaterial = new THREE.MeshStandardMaterial({ color: 0x65777e, roughness: 0.45, metalness: 0.62 });
+      const rings = new THREE.InstancedMesh(ringGeometry, ringMaterial, tiePoints.length);
+      const transform = new THREE.Object3D();
+      tiePoints.forEach(([x, z], index) => {
+        transform.position.set(x, -0.006, z);
+        transform.rotation.set(-Math.PI / 2, 0, 0);
+        transform.updateMatrix();
+        rings.setMatrixAt(index, transform.matrix);
+      });
+      rings.instanceMatrix.needsUpdate = true;
+      rings.frustumCulled = false;
+      group.add(rings);
+    }
+    return group;
+  }
+
+  function buildUtilityRun(wallSurfaces) {
+    const THREE = window.THREE;
+    const group = new THREE.Group();
+    group.name = "ISS_Overhead_Utility_Run";
+
+    // Split the overhead cable trays at every pressure hatch so the services
+    // appear to terminate at a proper bulkhead pass-through instead of
+    // clipping through the hatch surround.
+    const breaks = ISS_HATCHES.filter((hatch) => hatch.axis === "z")
+      .map((hatch) => hatch.at)
+      .sort((a, b) => a - b);
+    const runs = [];
+    let cursor = -4.8;
+    breaks.forEach((at) => {
+      if (at - 0.48 > cursor) runs.push([cursor, at - 0.48]);
+      cursor = Math.max(cursor, at + 0.48);
+    });
+    if (49 > cursor) runs.push([cursor, 49]);
+    const usableRuns = runs.filter(([start, end]) => end - start > 0.7);
+
+    const trayMaterial = new THREE.MeshStandardMaterial({ color: 0x5e6c72, roughness: 0.55, metalness: 0.38 });
+    const lipMaterial = new THREE.MeshStandardMaterial({ color: 0x7d898b, roughness: 0.5, metalness: 0.45 });
+    const cableMaterials = [0xcfd2cb, 0x36434a, 0x7993a0].map((color) =>
+      new THREE.MeshStandardMaterial({ color, roughness: 0.74, metalness: 0.12 }));
+    const hangerMaterial = new THREE.MeshStandardMaterial({ color: 0x6b797c, roughness: 0.58, metalness: 0.3 });
+
+    const trayItems = [], lipItems = [], cableItems = [[], [], []], hangerItems = [];
+    usableRuns.forEach(([start, end]) => {
+      const length = end - start;
+      const center = (start + end) / 2;
+      [-1, 1].forEach((side) => {
+        const x = side * 0.95;
+        trayItems.push({ x, z: center, length });
+        lipItems.push({ x: x - 0.09, z: center, length });
+        lipItems.push({ x: x + 0.09, z: center, length });
+        [-0.044, 0, 0.044].forEach((offset, variant) => {
+          cableItems[variant].push({ x: x + offset, z: center, length });
+        });
+        for (let z = start + 0.65; z < end - 0.2; z += 2.5) {
+          hangerItems.push({ x, z });
+        }
+      });
+    });
+
+    if (trayItems.length) {
+      const trayGeometry = new THREE.BoxGeometry(0.18, 0.035, 1);
+      const trays = new THREE.InstancedMesh(trayGeometry, trayMaterial, trayItems.length);
+      const transform = new THREE.Object3D();
+      trayItems.forEach((item, index) => {
+        transform.position.set(item.x, 2.625, item.z);
+        transform.rotation.set(0, 0, 0);
+        transform.scale.set(1, 1, item.length);
+        transform.updateMatrix();
+        trays.setMatrixAt(index, transform.matrix);
+      });
+      trays.instanceMatrix.needsUpdate = true;
+      trays.frustumCulled = false;
+      group.add(trays);
+
+      const lipGeometry = new THREE.BoxGeometry(0.018, 0.052, 1);
+      const lips = new THREE.InstancedMesh(lipGeometry, lipMaterial, lipItems.length);
+      lipItems.forEach((item, index) => {
+        transform.position.set(item.x, 2.638, item.z);
+        transform.scale.set(1, 1, item.length);
+        transform.updateMatrix();
+        lips.setMatrixAt(index, transform.matrix);
+      });
+      lips.instanceMatrix.needsUpdate = true;
+      lips.frustumCulled = false;
+      group.add(lips);
+    }
+
+    if (cableItems[0].length) {
+      const cableGeometry = new THREE.CylinderGeometry(0.011, 0.011, 1, 6);
+      cableItems.forEach((items, variant) => {
+        const cables = new THREE.InstancedMesh(cableGeometry, cableMaterials[variant], items.length);
+        const transform = new THREE.Object3D();
+        items.forEach((item, index) => {
+          transform.position.set(item.x, 2.652, item.z);
+          transform.rotation.set(Math.PI / 2, 0, 0);
+          transform.scale.set(1, item.length, 1);
+          transform.updateMatrix();
+          cables.setMatrixAt(index, transform.matrix);
+        });
+        cables.instanceMatrix.needsUpdate = true;
+        cables.frustumCulled = false;
+        group.add(cables);
+      });
+    }
+
+    if (hangerItems.length) {
+      const hangerGeometry = new THREE.BoxGeometry(0.035, 0.22, 0.035);
+      const hangers = new THREE.InstancedMesh(hangerGeometry, hangerMaterial, hangerItems.length);
+      const transform = new THREE.Object3D();
+      hangerItems.forEach((item, index) => {
+        transform.position.set(item.x, 2.745, item.z);
+        transform.updateMatrix();
+        hangers.setMatrixAt(index, transform.matrix);
+      });
+      hangers.instanceMatrix.needsUpdate = true;
+      hangers.frustumCulled = false;
+      group.add(hangers);
+    }
+
+    // Ceiling return-air diffusers, spaced away from the hatch rings.
+    const diffusers = [];
+    for (let z = -1.5; z <= 48; z += 5.4) {
+      const nearHatch = ISS_HATCHES.some((hatch) => hatch.axis === "z" && Math.abs(z - hatch.at) < 1.15);
+      if (nearHatch) continue;
+      [-0.54, 0.54].forEach((x) => diffusers.push([x, z]));
+    }
+    if (diffusers.length) {
+      const housing = new THREE.InstancedMesh(new THREE.BoxGeometry(0.34, 0.032, 0.34),
+        new THREE.MeshStandardMaterial({ color: 0x7d8a8b, roughness: 0.62, metalness: 0.24 }), diffusers.length);
+      const grille = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.28, 0.28),
+        new THREE.MeshStandardMaterial({ map: getVentTexture(), roughness: 0.7, metalness: 0.18 }), diffusers.length);
+      const transform = new THREE.Object3D();
+      diffusers.forEach(([x, z], index) => {
+        transform.position.set(x, 2.815, z);
+        transform.rotation.set(0, 0, 0);
+        transform.updateMatrix();
+        housing.setMatrixAt(index, transform.matrix);
+        transform.position.set(x, 2.797, z);
+        transform.rotation.set(Math.PI / 2, 0, 0);
+        transform.updateMatrix();
+        grille.setMatrixAt(index, transform.matrix);
+      });
+      housing.instanceMatrix.needsUpdate = true;
+      grille.instanceMatrix.needsUpdate = true;
+      housing.frustumCulled = false;
+      grille.frustumCulled = false;
+      group.add(housing, grille);
+    }
+
+    // Smoke detectors are deliberately small; the repeated white pucks help
+    // the ceiling read as an engineered volume rather than a flat panel.
+    const detectors = [];
+    for (let z = 0.5; z <= 48; z += 6.2) {
+      const nearHatch = ISS_HATCHES.some((hatch) => hatch.axis === "z" && Math.abs(z - hatch.at) < 0.9);
+      if (!nearHatch) [-0.36, 0.36].forEach((x) => detectors.push([x, z]));
+    }
+    if (detectors.length) {
+      const detectorMaterial = new THREE.MeshStandardMaterial({ color: 0xe3e7e2, roughness: 0.55, metalness: 0.15 });
+      const detectorGeometry = new THREE.CylinderGeometry(0.052, 0.058, 0.035, 12);
+      const mesh = new THREE.InstancedMesh(detectorGeometry, detectorMaterial, detectors.length);
+      const led = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.009, 0.009, 0.006, 8),
+        new THREE.MeshBasicMaterial({ color: 0xff8a75 }), detectors.length);
+      const transform = new THREE.Object3D();
+      detectors.forEach(([x, z], index) => {
+        transform.position.set(x, 2.815, z);
+        transform.updateMatrix();
+        mesh.setMatrixAt(index, transform.matrix);
+        transform.position.set(x, 2.795, z);
+        transform.updateMatrix();
+        led.setMatrixAt(index, transform.matrix);
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+      led.instanceMatrix.needsUpdate = true;
+      mesh.frustumCulled = false;
+      led.frustumCulled = false;
+      group.add(mesh, led);
+    }
+
+    // A scattering of wall return grilles breaks up the long rack runs.
+    const grilleSurfaces = wallSurfaces.filter((surface, index) => index % 13 === 5 &&
+      !Object.values(ISS_STATION_LAYOUT).some(({ position }) =>
+        Math.hypot(surface.x - position[0], surface.z - position[2]) < 1.15));
+    if (grilleSurfaces.length) {
+      const wallGrilles = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.34, 0.22),
+        new THREE.MeshStandardMaterial({ map: getVentTexture(), roughness: 0.72, metalness: 0.16 }), grilleSurfaces.length);
+      const transform = new THREE.Object3D();
+      grilleSurfaces.forEach((surface, index) => {
+        transform.position.set(
+          surface.x + Math.sin(surface.rotation) * 0.085,
+          2.48,
+          surface.z + Math.cos(surface.rotation) * 0.085
+        );
+        transform.rotation.set(0, surface.rotation, 0);
+        transform.updateMatrix();
+        wallGrilles.setMatrixAt(index, transform.matrix);
+      });
+      wallGrilles.instanceMatrix.needsUpdate = true;
+      wallGrilles.frustumCulled = false;
+      group.add(wallGrilles);
+    }
+    return group;
+  }
+
+  function buildModuleAccents(wallSurfaces) {
+    const THREE = window.THREE;
+    const group = new THREE.Group();
+    group.name = "ISS_Module_Accent_Strips";
+    const groups = [[], [], [], []];
+    wallSurfaces.forEach((surface) => {
+      const index = surface.z > 12 ? 3 : surface.x < -3 ? 1 : surface.x > 3 ? 2 : 0;
+      groups[index].push(surface);
+    });
+    const palette = [0x67e8f9, 0x3b82f6, 0x34d399, 0xd8b56a];
+    const geometry = new THREE.BoxGeometry(0.92, 0.022, 0.012);
+    groups.forEach((surfaces, index) => {
+      if (!surfaces.length) return;
+      const material = new THREE.MeshStandardMaterial({
+        color: palette[index],
+        emissive: palette[index],
+        emissiveIntensity: 0.28,
+        roughness: 0.52,
+        metalness: 0.22
+      });
+      const strips = new THREE.InstancedMesh(geometry, material, surfaces.length);
+      const transform = new THREE.Object3D();
+      surfaces.forEach((surface, stripIndex) => {
+        transform.position.set(
+          surface.x + Math.sin(surface.rotation) * 0.078,
+          2.64,
+          surface.z + Math.cos(surface.rotation) * 0.078
+        );
+        transform.rotation.set(0, surface.rotation, 0);
+        transform.updateMatrix();
+        strips.setMatrixAt(stripIndex, transform.matrix);
+      });
+      strips.instanceMatrix.needsUpdate = true;
+      strips.frustumCulled = false;
+      group.add(strips);
+    });
+    return group;
+  }
+
+  function buildRackTrim(racks) {
+    const THREE = window.THREE;
+    const group = new THREE.Group();
+    group.name = "ISS_Rack_Trim";
+    if (!racks.length) return group;
+    const labelMaterial = new THREE.MeshBasicMaterial({ map: getRackLabelTexture() });
+    const headerMaterial = new THREE.MeshStandardMaterial({ color: 0x3f5058, roughness: 0.6, metalness: 0.28 });
+    const latchMaterial = new THREE.MeshStandardMaterial({ color: 0x59686c, roughness: 0.52, metalness: 0.42 });
+    const drawerMaterial = new THREE.MeshStandardMaterial({ color: 0xa9b3b0, roughness: 0.62, metalness: 0.24 });
+    const handleMaterial = new THREE.MeshStandardMaterial({ color: 0x465a63, roughness: 0.46, metalness: 0.5 });
+
+    const headers = new THREE.InstancedMesh(new THREE.BoxGeometry(0.72, 0.1, 0.025), headerMaterial, racks.length);
+    const labels = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.43, 0.105), labelMaterial, racks.length);
+    const latches = new THREE.InstancedMesh(new THREE.BoxGeometry(0.1, 0.035, 0.028), latchMaterial, racks.length * 2);
+    const indicatorGroups = [[], [], []];
+    const drawerItems = [];
+    const transform = new THREE.Object3D();
+
+    racks.forEach((rack, index) => {
+      const rotation = (rack.rotation && rack.rotation[1]) || 0;
+      const forwardX = Math.sin(rotation);
+      const forwardZ = Math.cos(rotation);
+      const x = rack.position[0];
+      const z = rack.position[2];
+      transform.position.set(x + forwardX * 0.246, 1.83, z + forwardZ * 0.246);
+      transform.rotation.set(0, rotation, 0);
+      transform.scale.set(1, 1, 1);
+      transform.updateMatrix();
+      headers.setMatrixAt(index, transform.matrix);
+
+      transform.position.set(x + forwardX * 0.262, 1.832, z + forwardZ * 0.262);
+      transform.updateMatrix();
+      labels.setMatrixAt(index, transform.matrix);
+
+      [-0.31, 0.31].forEach((side, sideIndex) => {
+        transform.position.set(
+          x + Math.cos(rotation) * side + forwardX * 0.258,
+          0.38,
+          z - Math.sin(rotation) * side + forwardZ * 0.258
+        );
+        transform.rotation.set(0, rotation, 0);
+        transform.updateMatrix();
+        latches.setMatrixAt(index * 2 + sideIndex, transform.matrix);
+      });
+
+      const seed = Math.abs(Math.round(x * 71 + z * 37 + rotation * 19));
+      indicatorGroups[seed % indicatorGroups.length].push({ x, z, rotation, forwardX, forwardZ });
+      if (index % 3 === 0) drawerItems.push({ x, z, rotation, forwardX, forwardZ, seed });
+    });
+
+    const indicatorPalette = [
+      { color: 0x6ee7b7, emissive: 0x34d399 },
+      { color: 0xfde68a, emissive: 0xf59e0b },
+      { color: 0x93c5fd, emissive: 0x3b82f6 }
+    ];
+    indicatorGroups.forEach((items, index) => {
+      if (!items.length) return;
+      const material = new THREE.MeshStandardMaterial({
+        color: indicatorPalette[index].color,
+        emissive: indicatorPalette[index].emissive,
+        emissiveIntensity: 0.85,
+        roughness: 0.4
+      });
+      const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.024, 0.012, 0.01), material, items.length);
+      items.forEach((item, itemIndex) => {
+        transform.position.set(
+          item.x + Math.cos(item.rotation) * 0.28 + item.forwardX * 0.268,
+          1.832,
+          item.z - Math.sin(item.rotation) * 0.28 + item.forwardZ * 0.268
+        );
+        transform.rotation.set(0, item.rotation, 0);
+        transform.updateMatrix();
+        mesh.setMatrixAt(itemIndex, transform.matrix);
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.frustumCulled = false;
+      group.add(mesh);
+    });
+
+    if (drawerItems.length) {
+      const drawerBody = new THREE.InstancedMesh(new THREE.BoxGeometry(0.56, 0.2, 0.04), drawerMaterial, drawerItems.length);
+      const drawerHandle = new THREE.InstancedMesh(new THREE.BoxGeometry(0.2, 0.022, 0.018), handleMaterial, drawerItems.length);
+      drawerItems.forEach((item, index) => {
+        transform.position.set(item.x + item.forwardX * 0.262, 0.58, item.z + item.forwardZ * 0.262);
+        transform.rotation.set(0, item.rotation, 0);
+        transform.updateMatrix();
+        drawerBody.setMatrixAt(index, transform.matrix);
+        transform.position.set(item.x + item.forwardX * 0.284, 0.58, item.z + item.forwardZ * 0.284);
+        transform.updateMatrix();
+        drawerHandle.setMatrixAt(index, transform.matrix);
+      });
+      drawerBody.instanceMatrix.needsUpdate = true;
+      drawerHandle.instanceMatrix.needsUpdate = true;
+      drawerBody.frustumCulled = false;
+      drawerHandle.frustumCulled = false;
+      group.add(drawerBody, drawerHandle);
+    }
+
+    headers.instanceMatrix.needsUpdate = true;
+    labels.instanceMatrix.needsUpdate = true;
+    latches.instanceMatrix.needsUpdate = true;
+    headers.frustumCulled = false;
+    labels.frustumCulled = false;
+    latches.frustumCulled = false;
+    group.add(headers, labels, latches);
+    return group;
+  }
+
+  function buildEmergencyStations() {
+    const THREE = window.THREE;
+    const group = new THREE.Group();
+    group.name = "ISS_Emergency_Equipment";
+    const redMaterial = new THREE.MeshStandardMaterial({ color: 0xb2382f, roughness: 0.55, metalness: 0.3 });
+    const darkMaterial = new THREE.MeshStandardMaterial({ color: 0x243238, roughness: 0.6, metalness: 0.25 });
+    const whiteMaterial = new THREE.MeshStandardMaterial({ color: 0xd9ded8, roughness: 0.7, metalness: 0.12 });
+    const greenMaterial = new THREE.MeshStandardMaterial({ color: 0x3f6a58, roughness: 0.66, metalness: 0.16 });
+
+    const extinguisher = (x, z, rotation) => {
+      const unit = new THREE.Group();
+      unit.position.set(x, 0, z);
+      unit.rotation.y = rotation;
+      const bracket = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.34, 0.06), darkMaterial);
+      bracket.position.set(0, 1.15, -0.03);
+      unit.add(bracket);
+      const bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.062, 0.072, 0.36, 14), redMaterial);
+      bottle.position.set(0, 1.15, 0.075);
+      unit.add(bottle);
+      const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.04, 0.09, 10), darkMaterial);
+      neck.position.set(0, 1.37, 0.075);
+      unit.add(neck);
+      const handle = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.025, 0.035), darkMaterial);
+      handle.position.set(0.035, 1.42, 0.075);
+      unit.add(handle);
+      const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.085),
+        new THREE.MeshBasicMaterial({ map: createSignTexture("FIRE", "EXTINGUISHER") }));
+      sign.position.set(0, 1.52, 0.02);
+      unit.add(sign);
+      group.add(unit);
+    };
+
+    const storedBreathing = (x, z, rotation) => {
+      const unit = new THREE.Group();
+      unit.position.set(x, 0, z);
+      unit.rotation.y = rotation;
+      const box = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.26, 0.13), greenMaterial);
+      box.position.set(0, 1.38, 0.05);
+      unit.add(box);
+      const lid = new THREE.Mesh(new THREE.BoxGeometry(0.29, 0.035, 0.02), whiteMaterial);
+      lid.position.set(0, 1.38, 0.12);
+      unit.add(lid);
+      const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.32, 0.08),
+        new THREE.MeshBasicMaterial({ map: createSignTexture("O2", "CREW BREATHING") }));
+      sign.position.set(0, 1.58, 0.02);
+      unit.add(sign);
+      group.add(unit);
+    };
+
+    const firstAid = (x, z, rotation) => {
+      const unit = new THREE.Group();
+      unit.position.set(x, 0, z);
+      unit.rotation.y = rotation;
+      const box = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.24, 0.1), whiteMaterial);
+      box.position.set(0, 1.32, 0.04);
+      unit.add(box);
+      const crossVertical = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.14, 0.012), redMaterial);
+      crossVertical.position.set(0, 1.32, 0.096);
+      unit.add(crossVertical);
+      const crossHorizontal = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.035, 0.012), redMaterial);
+      crossHorizontal.position.set(0, 1.32, 0.096);
+      unit.add(crossHorizontal);
+      const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.08),
+        new THREE.MeshBasicMaterial({ map: createSignTexture("FIRST AID", "MEDICAL KIT") }));
+      sign.position.set(0, 1.49, 0.02);
+      unit.add(sign);
+      group.add(unit);
+    };
+
+    extinguisher(1.14, 6.42, Math.PI);
+    extinguisher(-1.14, 22.84, Math.PI);
+    storedBreathing(-1.14, 11.84, Math.PI);
+    storedBreathing(10.4, 10.06, Math.PI);
+    firstAid(1.14, 32.84, Math.PI);
+    firstAid(-7.0, 9.94, Math.PI);
+    storedBreathing(1.14, 46.34, Math.PI);
+    return group;
   }
 
   // ============================================================================
@@ -1564,6 +2190,10 @@
       });
 
       group.add(buildEquipmentCables(wallSurfaces.filter((surface, index) => index % 7 !== 0), ceilings));
+      group.add(buildHatchThresholds());
+      group.add(buildUtilityRun(wallSurfaces));
+      group.add(buildModuleAccents(wallSurfaces));
+      group.add(buildEmergencyStations());
 
       // Instrument racks and strapped cargo line the perimeter on every side,
       // with their backs inside the wall so the center route stays clear.
@@ -1670,6 +2300,22 @@
         const indicator = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.07, 0.07), statusMat);
         indicator.position.set(0.86, 0.9, 0);
         portal.add(indicator);
+        const caution = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.11),
+          new THREE.MeshBasicMaterial({ map: getCautionTexture(), transparent: true, side: THREE.DoubleSide }));
+        caution.position.set(1.0, 1.25, 0.145);
+        portal.add(caution);
+        const gaugeFace = new THREE.Mesh(new THREE.CircleGeometry(0.062, 18),
+          new THREE.MeshBasicMaterial({ color: 0xe8ece6 }));
+        gaugeFace.position.set(1.16, 0.63, 0.132);
+        portal.add(gaugeFace);
+        const gaugeRim = new THREE.Mesh(new THREE.TorusGeometry(0.066, 0.008, 6, 18), rimMat);
+        gaugeRim.position.set(1.16, 0.63, 0.136);
+        portal.add(gaugeRim);
+        const gaugeNeedle = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.05, 0.004),
+          new THREE.MeshBasicMaterial({ color: 0x27373b }));
+        gaugeNeedle.position.set(1.16, 0.646, 0.14);
+        gaugeNeedle.rotation.z = -0.55;
+        portal.add(gaugeNeedle);
         const signMaterial = new THREE.MeshBasicMaterial({ map: createSignTexture(code, label), transparent: true });
         const signs = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.78, 0.16), signMaterial, 2);
         [0.14, -0.14].forEach((depth, index) => {
@@ -1826,20 +2472,151 @@
       const windowSign = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.16), new THREE.MeshBasicMaterial({ map: createSignTexture("CUPOLA", "EARTH OBSERVATION"), transparent: true, side: THREE.DoubleSide }));
       windowSign.position.set(0, 1.2, 0.02);
       cupola.add(windowSign);
+
+      // Finish the cupola as a padded observation bay rather than a flat pane:
+      // structural sill, interior handrails, a non-slip ledge and a subtle
+      // reflection layer on the central glass.
+      const sillMaterial = new THREE.MeshStandardMaterial({ color: 0x35444d, roughness: 0.62, metalness: 0.28 });
+      const railMaterial = new THREE.MeshStandardMaterial({ color: 0x4b7d97, roughness: 0.46, metalness: 0.52 });
+      [
+        { size: [2.1, 0.11, 0.14], position: [0, 1.4, 0.085] },
+        { size: [2.1, 0.11, 0.14], position: [0, -1.4, 0.085] },
+        { size: [0.11, 2.9, 0.14], position: [-1.0, 0, 0.085] },
+        { size: [0.11, 2.9, 0.14], position: [1.0, 0, 0.085] }
+      ].forEach((piece) => {
+        const frame = new THREE.Mesh(new THREE.BoxGeometry(...piece.size), sillMaterial);
+        frame.position.set(...piece.position);
+        cupola.add(frame);
+      });
+      // Dark padded reveal around the seven panes keeps the white pressure
+      // wall from reading as a flat cut-out and gives the window a real depth.
+      const surroundMaterial = new THREE.MeshStandardMaterial({ color: 0x36444c, roughness: 0.58, metalness: 0.3 });
+      [
+        { size: [2.14, 0.095, 0.16], position: [0, 1.025, 0.19] },
+        { size: [2.14, 0.095, 0.16], position: [0, -1.025, 0.19] },
+        { size: [0.095, 2.15, 0.16], position: [-1.025, 0, 0.19] },
+        { size: [0.095, 2.15, 0.16], position: [1.025, 0, 0.19] }
+      ].forEach((piece) => {
+        const reveal = new THREE.Mesh(new THREE.BoxGeometry(...piece.size), surroundMaterial);
+        reveal.position.set(...piece.position);
+        cupola.add(reveal);
+      });
+      const headBumper = new THREE.Mesh(new THREE.BoxGeometry(1.62, 0.13, 0.2),
+        new THREE.MeshStandardMaterial({ color: 0x2c363d, roughness: 0.7, metalness: 0.2 }));
+      headBumper.position.set(0, 1.16, 0.25);
+      cupola.add(headBumper);
+      const observationLedge = new THREE.Mesh(new THREE.BoxGeometry(1.78, 0.075, 0.34), sillMaterial);
+      observationLedge.position.set(0, -1.36, 0.22);
+      cupola.add(observationLedge);
+      [-0.86, 0.86].forEach((x) => {
+        const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 1.52, 8), railMaterial);
+        rail.position.set(x, 0, 0.22);
+        cupola.add(rail);
+        [-0.76, 0.76].forEach((y) => {
+          const mount = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.09, 8), railMaterial);
+          mount.rotation.x = Math.PI / 2;
+          mount.position.set(x, y, 0.175);
+          cupola.add(mount);
+        });
+      });
+      const crossRail = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 1.74, 8), railMaterial);
+      crossRail.rotation.z = Math.PI / 2;
+      crossRail.position.set(0, 1.18, 0.22);
+      cupola.add(crossRail);
+      const reflection = new THREE.Mesh(new THREE.PlaneGeometry(0.68, 0.68),
+        new THREE.MeshBasicMaterial({
+          map: getGlassReflectionTexture(),
+          transparent: true,
+          opacity: 0.6,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending
+        }));
+      reflection.position.set(0, 0, -0.298);
+      cupola.add(reflection);
+      const cupolaLamp = new THREE.PointLight(0xbfe4ff, 0.35, 4.2, 1.8);
+      cupolaLamp.position.set(0, 0.1, 0.7);
+      cupola.add(cupolaLamp);
       group.add(cupola);
-      const earthTexture = new THREE.TextureLoader().load("textures/earth/earth_day_4096.jpg");
+
+      const earthTexture = new THREE.TextureLoader().load("textures/earth/earth_day_5400.jpg");
       earthTexture.encoding = THREE.sRGBEncoding;
-      const earth = new THREE.Mesh(new THREE.SphereGeometry(14, 64, 48), new THREE.MeshBasicMaterial({ map: earthTexture }));
-      earth.position.set(27.5, 1.1, 8);
+      earthTexture.anisotropy = window.isMobileDevice ? 2 : 8;
+      const earth = new THREE.Mesh(new THREE.SphereGeometry(11.5, 72, 54), new THREE.MeshBasicMaterial({ map: earthTexture }));
+      // Push the planet far enough away that the limb and the black of space
+      // remain visible around it through the cupola panes.
+      earth.position.set(50, 2.0, 8.5);
       earth.rotation.y = 1.4;
       group.add(earth);
       const cloudTexture = new THREE.TextureLoader().load("textures/earth/earth_clouds_2048.png");
       cloudTexture.encoding = THREE.sRGBEncoding;
-      const clouds = new THREE.Mesh(new THREE.SphereGeometry(14.03, 64, 48),
-        new THREE.MeshBasicMaterial({ map: cloudTexture, transparent: true, opacity: 0.72, depthWrite: false }));
+      const clouds = new THREE.Mesh(new THREE.SphereGeometry(11.54, 72, 54),
+        new THREE.MeshBasicMaterial({ map: cloudTexture, transparent: true, opacity: 0.68, depthWrite: false }));
       clouds.position.copy(earth.position);
       clouds.rotation.y = earth.rotation.y;
       group.add(clouds);
+      // Fresnel rim gives the Earth a believable atmospheric limb without a
+      // full post-processing pass; the interior stays lightweight on mobile.
+      const atmosphere = new THREE.Mesh(new THREE.SphereGeometry(11.7, 48, 32),
+        new THREE.ShaderMaterial({
+          uniforms: { glowColor: { value: new THREE.Color(0x4d9dff) } },
+          vertexShader: [
+            "varying vec3 vNormal;",
+            "varying vec3 vView;",
+            "void main() {",
+            "  vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);",
+            "  vNormal = normalize(normalMatrix * normal);",
+            "  vView = normalize(-mvPosition.xyz);",
+            "  gl_Position = projectionMatrix * mvPosition;",
+            "}"
+          ].join("\n"),
+          fragmentShader: [
+            "uniform vec3 glowColor;",
+            "varying vec3 vNormal;",
+            "varying vec3 vView;",
+            "void main() {",
+            "  float rim = pow(1.0 - abs(dot(normalize(vNormal), normalize(vView))), 2.1);",
+            "  gl_FragColor = vec4(glowColor, rim * 0.62);",
+            "}"
+          ].join("\n"),
+          transparent: true,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        }));
+      atmosphere.position.copy(earth.position);
+      group.add(atmosphere);
+
+      // A local starfield behind the cupola guarantees a convincing orbital
+      // backdrop even when the main exterior skybox is hidden by the station.
+      const starPositions = [];
+      const starSeed = (index) => {
+        const value = Math.sin(index * 127.1 + 311.7) * 43758.5453;
+        return value - Math.floor(value);
+      };
+      for (let index = 0; index < 520; index++) {
+        const theta = starSeed(index) * Math.PI * 2;
+        const phi = Math.acos(1 - starSeed(index + 37) * 0.92);
+        const radius = 62 + starSeed(index + 91) * 18;
+        starPositions.push(
+          12 + Math.sin(phi) * Math.cos(theta) * radius,
+          1.45 + Math.cos(phi) * radius,
+          8 + Math.sin(phi) * Math.sin(theta) * radius
+        );
+      }
+      const starGeometry = new THREE.BufferGeometry();
+      starGeometry.setAttribute("position", new THREE.Float32BufferAttribute(starPositions, 3));
+      const starfield = new THREE.Points(starGeometry, new THREE.PointsMaterial({
+        color: 0xcfe3ff,
+        size: 0.42,
+        sizeAttenuation: true,
+        transparent: true,
+        opacity: 0.85,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+      }));
+      starfield.name = "Cupola_Starfield";
+      group.add(starfield);
+      this.cupolaEarth = earth;
+      this.cupolaClouds = clouds;
 
       // Equipment is mounted outside the walkable center line so astronauts
       // and the third-person camera can move through the same clear passage.
@@ -1866,6 +2643,7 @@
       group.add(buildEquipmentFixtures(rackFixtures, bagFixtures));
       group.add(buildRackElectronics(wallSurfaces));
       group.add(buildRackInstruments(wallSurfaces));
+      group.add(buildRackTrim(rackFixtures));
       group.add(buildScienceGlovebox([-1.72, 0, 4.15]));
       group.add(buildAirlockPanel([-5.9, 0, 6.65]));
       group.add(buildAirlockPanel([-8.2, 0, 6.65]));
@@ -2259,8 +3037,8 @@
         ${this.minimapCollapsed ? "" : `
           ${markup.svgHtml}
           <div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid rgba(148,163,184,0.18);padding:4px 8px;font-size:7px;text-transform:uppercase;letter-spacing:1.4px;color:rgba(148,163,184,0.72);">
-            <span>DECK 01</span>
-            <span>${markup.pingRoomCode ? `LCC PING: ${markup.pingRoomCode}` : `${markup.faultCount} FAULTS`}</span>
+            <span>MAIN DECK</span>
+            <span>${markup.pingRoomCode ? `GROUND ALERT: ${markup.pingRoomCode}` : `${markup.faultCount} TO FIX`}</span>
           </div>
         `}
       `;
@@ -2432,6 +3210,12 @@
       }
 
       if (!this.isInteriorActive) return;
+
+      // The cupola is the visual anchor of the station; a very slow Earth and
+      // cloud drift keeps the vista alive without pulling attention from work.
+      const interiorDelta = Math.min(0.1, Number(delta) || 0);
+      if (this.cupolaEarth) this.cupolaEarth.rotation.y += interiorDelta * 0.0011;
+      if (this.cupolaClouds) this.cupolaClouds.rotation.y += interiorDelta * 0.0035;
 
       // Update Minimap player marker
       if (window.localCrew && window.localCrew.group) {
