@@ -2243,6 +2243,7 @@
       const hatchBulkheadMat = new THREE.MeshStandardMaterial({ color: 0x7f8e92, roughness: 0.56, metalness: 0.34 });
       const hatchLeafMat = new THREE.MeshStandardMaterial({ color: 0x9da9a8, roughness: 0.58, metalness: 0.3 });
       const hatchHardwareMat = new THREE.MeshStandardMaterial({ color: 0x51656d, roughness: 0.46, metalness: 0.5 });
+      const hatchRailMat = new THREE.MeshStandardMaterial({ color: 0x4b7d97, roughness: 0.46, metalness: 0.52 });
       const hatch = (x, z, alongX, code, label) => {
         const portal = new THREE.Group();
         portal.position.set(x, 1.08, z);
@@ -2286,6 +2287,19 @@
         frameBolts.instanceMatrix.needsUpdate = true;
         frameBolts.frustumCulled = false;
         portal.add(frameBolts);
+        // Vertical translation handrails flank the opening so the finished
+        // bulkhead has somewhere for a crewmember to hold while working a hatch.
+        [-1.38, 1.38].forEach((side) => {
+          const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 1.45, 8), hatchRailMat);
+          rail.position.set(side, 0.08, 0.13);
+          portal.add(rail);
+          [-0.64, 0.8].forEach((y) => {
+            const mount = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.1, 8), hatchRailMat);
+            mount.rotation.x = Math.PI / 2;
+            mount.position.set(side, y, 0.08);
+            portal.add(mount);
+          });
+        });
         const outer = new THREE.Mesh(new THREE.TorusGeometry(1.18, 0.085, 8, 32), rimMat);
         const inner = new THREE.Mesh(new THREE.TorusGeometry(1.06, 0.035, 8, 32), innerRimMat);
         portal.add(outer, inner);
