@@ -9,6 +9,7 @@
  */
 (function () {
   "use strict";
+  const LINE_INK = 0xede8dd;   // guidance / orbit lines: thin STS_OS ink white, as in the CubeSat mission
   const T = window.THREE;
   const S = window.ShuttleSim;
   const toR = (v) => new T.Vector3(v[0], v[2], -v[1]);
@@ -25,7 +26,7 @@
       const aspect = window.innerWidth / window.innerHeight;
       this.scope = { on: false, fov: 1.0 };
       this.farCam = new T.PerspectiveCamera(60, aspect, 0.5, 2e6);   // km: Earth, Moon (384,400 km), sky points
-      this.nearCam = new T.PerspectiveCamera(60, aspect, 0.5, 60000);
+      this.nearCam = new T.PerspectiveCamera(60, aspect, 0.5, 2e7);   // m: complete Earth-scale mission route in one pass
       this.camMode = "follow"; this.camModes = ["follow", "bay", "fixed"];
       this.camPos = null; this.objs = {}; this.mixers = []; this.debrisObjs = {}; this.loaded = false; this.disposed = false;
       this.camOrbit = { yaw: 0, pitch: 0, idle: 0 }; this.zoom = 1; this.showRibbon = true;
@@ -281,100 +282,54 @@
     // deviation shows as a visible curve. Near scene (metres) for approach/rollout/orbit, far
     // scene (km) for the long entry track.
     _buildRibbons() {
-      const mk = (cap, opacity) => { const g = new T.BufferGeometry(); g.setAttribute("position", new T.BufferAttribute(new Float32Array(3 * 2 * cap), 3));
-        g.setAttribute("color", new T.BufferAttribute(new Float32Array(3 * 2 * cap), 3)); g.setDrawRange(0, 0);
-        const idx = []; for (let i = 0; i < cap - 1; i++) { const a = 2 * i; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } g.setIndex(idx);
-        const m = new T.Mesh(g, new T.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity, depthTest: false, depthWrite: false, side: T.DoubleSide }));
-        m.renderOrder = 30; m.frustumCulled = false; m.visible = false; m.userData.cap = cap; return m; };
-      this.ribbonNear = mk(400, 0.95); this.near.add(this.ribbonNear);
-      this.trailNear = mk(600, 0.55); this.near.add(this.trailNear);
-      this.trail = []; this._trailKey = null;
+      const geometry = new T.BufferGeometry();
+      geometry.setAttribute("position", new T.BufferAttribute(new Float32Array(32768 * 3), 3));
+      geometry.setDrawRange(0, 0);
+      const material = new T.LineBasicMaterial({ color: LINE_INK, transparent: true, opacity: 0.8, depthTest: true, depthWrite: false });
+      this.routeEarth = { value: new T.Vector3() };
+      // Earth is rendered in a different depth pass. Occlude this one continuous route
+      // analytically, instead of splitting it into competing near/far lines.
+      material.onBeforeCompile = shader => {
+        shader.uniforms.routeEarth = this.routeEarth;
+        shader.vertexShader = "varying vec3 routePosition;\n" + shader.vertexShader;
+        shader.vertexShader = shader.vertexShader.replace("#include <begin_vertex>", "#include <begin_vertex>\nroutePosition = position;");
+        shader.fragmentShader = "uniform vec3 routeEarth; varying vec3 routePosition;\n" + shader.fragmentShader;
+        shader.fragmentShader = shader.fragmentShader.replace("#include <clipping_planes_fragment>", `#include <clipping_planes_fragment>
+          float routeDistance = length(routePosition);
+          vec3 routeRay = routePosition / max(0.001, routeDistance);
+          float along = dot(routeEarth, routeRay);
+          vec3 perpendicular = cross(routeEarth, routeRay);
+          float disc = ${(S.RE - 50) ** 2}.0 - dot(perpendicular, perpendicular);
+          if (along > 0.0 && disc > 0.0 && along - sqrt(disc) < routeDistance - 5.0) discard;`);
+      };
+      this.ribbonNear = new T.Line(geometry, material);
+      this.ribbonNear.frustumCulled = false; this.ribbonNear.renderOrder = 30; this.ribbonNear.visible = false;
+      this.near.add(this.ribbonNear);
+      window.ShuttleRoute.load().then(data => {
+        if (this.disposed) return;
+        this.routes = Object.fromEntries(Object.entries(data.routes).map(([key, route]) => [key, new window.ShuttleRoute(route)]));
+      }).catch(error => console.error("[Shuttle] Planned flight route unavailable:", error));
     }
-    // camera-facing thin band through pts (scene coords, camera at origin); ~2 px wide at any distance
-    _ribbonFill(mesh, pts, colA, colB) {
-      const g = mesh.geometry, P = g.attributes.position.array, C = g.attributes.color.array, n = Math.min(pts.length, mesh.userData.cap);
-      if (n < 2) { g.setDrawRange(0, 0); mesh.visible = false; return; }
-      const ca = new T.Color(colA), cb = new T.Color(colB || colA);
-      const pxK = Math.tan((this.nearCam.fov * Math.PI / 180) / 2) * 2 / Math.max(300, window.innerHeight || 720);   // world metres per pixel per metre of range
-      let prevSide = null;
-      for (let i = 0; i < n; i++) {
-        const p = pts[i], d = (i < n - 1 ? pts[i + 1].clone().sub(p) : p.clone().sub(pts[i - 1])).normalize();
-        const side = new T.Vector3().crossVectors(d, p.clone().normalize()); if (side.lengthSq() < 1e-12) side.set(0, 1, 0); side.normalize();
-        if (prevSide && side.dot(prevSide) < 0) side.negate();
-        prevSide = side;
-        const w = Math.max(0.02, p.length() * pxK * 1.1), col = ca.clone().lerp(cb, i / (n - 1)), o = 6 * i;
-        P[o] = p.x + side.x * w; P[o + 1] = p.y + side.y * w; P[o + 2] = p.z + side.z * w;
-        P[o + 3] = p.x - side.x * w; P[o + 4] = p.y - side.y * w; P[o + 5] = p.z - side.z * w;
-        for (let j = 0; j < 2; j++) { C[o + 3 * j] = col.r; C[o + 3 * j + 1] = col.g; C[o + 3 * j + 2] = col.b; }
-      }
-      g.setDrawRange(0, (n - 1) * 6); g.attributes.position.needsUpdate = true; g.attributes.color.needsUpdate = true; mesh.visible = true;
+    _lineFill(line, pts) {
+      const g = line.geometry, n = pts.length;
+      if (n < 2) { g.setDrawRange(0, 0); line.visible = false; return; }
+      if (g.attributes.position.count < n) g.setAttribute("position", new T.BufferAttribute(new Float32Array(n * 6), 3));
+      const P = g.attributes.position.array;
+      for (let i = 0; i < n; i++) { const p = pts[i]; P[3 * i] = p.x; P[3 * i + 1] = p.y; P[3 * i + 2] = p.z; }
+      g.setDrawRange(0, n); g.attributes.position.needsUpdate = true; line.visible = true;
     }
-    // ---- the line: TRAIL (where the orbiter has been, Earth-fixed) + AHEAD (where it should go).
-    // Both meet at the orbiter, so the line always passes through it.
     _updateRibbon(sn, rV, qV, cam, th) {
-      const path = sn.guidance && sn.guidance.path, vec = S.vec, v = sn.vehicle.v, ph = sn.phase;
-      this.ribbonNear.visible = false; this.trailNear.visible = false;
-      if (!this.showRibbon) return;
-      const toScene = (p) => toR(vec.sub(p, cam));
-      // ---- trail: sample the flown path in Earth-fixed coordinates (stays on the ground track)
-      const key = sn.missionId + "|" + (sn.checkpointName || "");
-      if (this._trailKey !== key || (this._trailT !== undefined && sn.simTime < this._trailT - 1)) { this.trail = []; this._trailKey = key; }
-      this._trailT = sn.simTime;
-      const flying = !["briefing", "prelaunch", "debrief"].includes(ph) || sn.vehicle.regime !== "ground";
-      if (flying && sn.met !== null) {
-        // orbit: inertial trail (the orbit itself); in the air: Earth-fixed (the ground track)
-        const ecef = S.eciToEcef(rV, th), last = this.trail[this.trail.length - 1];
-        const alt = vec.norm(rV) - S.RE, inOrbit = alt > 90e3, spacing = inOrbit ? 2000 : alt > 20e3 ? 400 : alt > 1500 ? 60 : 12;
-        if (!last || vec.norm(vec.sub(rV, last.eci)) > spacing) { this.trail.push({ eci: rV.slice(), ecef }); if (this.trail.length > 580) this.trail.shift(); }
-        const tpts = [];
-        for (const e of this.trail) { const p = inOrbit ? e.eci : S.ecefToEci(e.ecef, th); if (vec.norm(vec.sub(p, rV)) < 55e3) tpts.push(toScene(p)); }
-        tpts.push(toScene(rV));
-        if (tpts.length >= 2) this._ribbonFill(this.trailNear, tpts, 0x8a7a2a, 0xffd21a);
-      }
-      // ---- ahead
-      const ax = S.quat.qAxes(qV);
-      let pts = [];
-      if (!path || path.frame === "coast") {
-        // no steering task: where the orbiter is going on its own (ballistic arc, ~50 km ahead)
-        if (sn.vehicle.regime !== "orbit" && ph !== "deorbit" && ph !== "insertion" && ph !== "payload") return;
-        let r = rV.slice(), vv = v.slice(); pts.push(r.slice());
-        const dt = Math.max(0.2, 50e3 / Math.max(1, vec.norm(vv)) / 40);
-        for (let i = 0; i < 40; i++) { const g = S.gravity(r); vv = vec.add(vv, vec.scl(g, dt)); r = vec.add(r, vec.scl(vv, dt)); pts.push(r.slice()); }
-      } else if (path.frame === "dir") {
-        // orbit tasks: a straight line through the orbiter along the required direction (front and
-        // back); the arrows next to the orbiter say which way to turn until the nose sits on it
-        const d = path.dir, L = path.len;
-        for (let i = -6; i <= 12; i++) pts.push(vec.add(rV, vec.scl(d, L * i / 6)));
-      } else {
-        let P0 = rV, T0, ref, Lmin;
-        if (path.frame === "rwy") {
-          const stl = { theta0: sn.theta0, t: sn.simTime };
-          const va = S.airVel(rV, v); T0 = vec.norm(va) > 1 ? vec.unit(va) : ax.z;
-          ref = path.pts.map((p) => S.fromRunway(stl, p[0], p[1], p[2]));
-          Lmin = ph === "rollout" ? 120 : Math.min(1500, Math.max(400, vec.norm(va) * 6));
-        } else {   // entry: great-circle track to KSC
-          T0 = vec.unit(S.airVel(rV, v));
-          ref = path.pts.map((p) => S.ecefToEci(p, th)).filter((p) => vec.norm(vec.sub(p, rV)) < 55e3);
-          if (ref.length < 2) { const far = path.pts.map((p) => S.ecefToEci(p, th)); const dd = vec.unit(vec.sub(far[0], rV)); ref = [vec.add(rV, vec.scl(dd, 20e3)), vec.add(rV, vec.scl(dd, 50e3))]; }
-          Lmin = 12e3;
-        }
-        // drop reference points that are behind the orbiter, then blend from the actual direction
-        // of travel onto the first point at least Lmin ahead
-        ref = ref.filter((p) => vec.dot(vec.sub(p, P0), T0) > 0);
-        if (ref.length) {
-          let k = 0; while (k < ref.length - 1 && vec.norm(vec.sub(ref[k], P0)) < Lmin) k++;
-          const P1 = ref[k], T1 = vec.unit(vec.sub(k < ref.length - 1 ? ref[k + 1] : P1, k > 0 ? ref[k - 1] : P0));
-          const L = vec.norm(vec.sub(P1, P0)), dA = vec.sub(P1, P0);
-          this.aimBody = [vec.dot(dA, ax.x), vec.dot(dA, ax.y), vec.dot(dA, ax.z)];   // body-frame aim point (runway steering arrows)
-          for (let i = 0; i <= 30; i++) {
-            const u = i / 30, h00 = 2 * u ** 3 - 3 * u ** 2 + 1, h10 = u ** 3 - 2 * u ** 2 + u, h01 = -2 * u ** 3 + 3 * u ** 2, h11 = u ** 3 - u ** 2;
-            pts.push([0, 1, 2].map((j) => h00 * P0[j] + h10 * L * T0[j] + h01 * P1[j] + h11 * L * T1[j]));
-          }
-          for (let i = k + 1; i < ref.length; i++) pts.push(ref[i]);
-        }
-      }
-      pts = pts.filter((p) => vec.norm(vec.sub(p, cam)) < 58e3);
-      if (pts.length >= 2) this._ribbonFill(this.ribbonNear, pts.map(toScene), 0xffd21a, 0xff9a1a);
+      this.ribbonNear.visible = false;
+      const route = this.routes && this.routes[sn.variant || "deploy"];
+      if (!this.showRibbon || !route || sn.phase === "debrief") return;
+      route.update(sn, rV, th);
+      this.routeEarth.value.copy(toR(S.vec.scl(cam, -1)));
+      const points = route.sample(S.eciToEcef(cam, th));
+      this._lineFill(this.ribbonNear, points.map(p => toR(S.vec.sub(S.ecefToEci(p.toArray(), th), cam))));
+      // Keep the existing screen steering arrows aimed along the upcoming route.
+      const aim = route.point(Math.min(1, route.anchor + route.right * 0.5));
+      const delta = S.vec.sub(S.ecefToEci(aim.toArray(), th), rV), ax = S.quat.qAxes(qV);
+      this.aimBody = [S.vec.dot(delta, ax.x), S.vec.dot(delta, ax.y), S.vec.dot(delta, ax.z)];
     }
     // Screen anchors for the steering arrows: the orbiter centre and points off its own left, right,
     // top and bottom (body axes), so the arrows stay correct from any camera angle.
@@ -734,6 +689,7 @@
       this.disposed = true; window.removeEventListener("resize", this._onResize);
       const free = (root) => root.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { if (m.map && m.map !== undefined) { /* shared textures are cached by the loader */ } m.dispose(); }); });
       free(this.far); free(this.groundGroup);   // GLB instances share cached geometry: not disposed here
+      this.ribbonNear.geometry.dispose(); this.ribbonNear.material.dispose();
       this.mixers.length = 0;
     }
   }
