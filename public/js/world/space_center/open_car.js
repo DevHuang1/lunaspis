@@ -147,10 +147,15 @@
         return false;
       };
       const buckets = new Map();
+      const isVisibleWithin = (object) => {
+        let node = object;
+        while (node && node !== container) { if (!node.visible) return false; node = node.parent; }
+        return true;
+      };
       container.traverse((obj) => {
         if (!obj.isMesh || obj.isInstancedMesh || obj.isSkinnedMesh) return;
         if (!obj.material || Array.isArray(obj.material) || obj.material.transparent) return;
-        if (isExcluded(obj)) return;
+        if (isExcluded(obj) || !isVisibleWithin(obj)) return;
         const key = obj.material.uuid;
         if (!buckets.has(key)) buckets.set(key, { material: obj.material, items: [] });
         buckets.get(key).items.push(obj);
@@ -862,6 +867,7 @@
       // site-tour collision/camera rules while driving. Ground crew already do.
       if (!this.sc.siteTourActive && typeof this.sc._isLocalGroundCrew === "function" && !this.sc._isLocalGroundCrew()) {
         this.sc.siteTourActive = true;
+        if (typeof this.sc._syncSpaceGamesLock === "function") this.sc._syncSpaceGamesLock();
         if (typeof this.sc._renderGroundHUD === "function") this.sc._renderGroundHUD();
       }
 

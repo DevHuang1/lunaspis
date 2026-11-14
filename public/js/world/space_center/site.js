@@ -101,9 +101,15 @@
       root.updateWorldMatrix(true, true);
       const invRoot = new THREE.Matrix4().copy(root.matrixWorld).invert();
       const buckets = new Map();
+      const isVisibleWithin = (object) => {
+        let node = object;
+        while (node && node !== root) { if (!node.visible) return false; node = node.parent; }
+        return true;
+      };
       root.traverse((obj) => {
         if (!obj.isMesh || obj.isInstancedMesh || obj.isSkinnedMesh) return;
         if (!obj.material || Array.isArray(obj.material) || obj.material.transparent) return;
+        if (!isVisibleWithin(obj)) return;
         const key = obj.material.uuid;
         if (!buckets.has(key)) buckets.set(key, { material: obj.material, items: [] });
         buckets.get(key).items.push(obj);
@@ -133,10 +139,15 @@
       if (!THREE.InstancedMesh) return;
       this.group.updateMatrixWorld(true);
       const invGroup = new THREE.Matrix4().copy(this.group.matrixWorld).invert();
+      const isVisibleWithin = (object) => {
+        let node = object;
+        while (node && node !== this.group) { if (!node.visible) return false; node = node.parent; }
+        return true;
+      };
       const collect = (name) => {
         const items = [];
         this.group.traverse((obj) => {
-          if (obj.isMesh && obj.name === name && obj.geometry && obj.material && !obj.material.transparent) items.push(obj);
+          if (obj.isMesh && obj.name === name && obj.geometry && obj.material && !obj.material.transparent && isVisibleWithin(obj)) items.push(obj);
         });
         return items;
       };
@@ -184,9 +195,15 @@
       this.group.updateMatrixWorld(true);
       const invGroup = new THREE.Matrix4().copy(this.group.matrixWorld).invert();
       const buckets = new Map();
+      const isVisibleWithin = (object) => {
+        let node = object;
+        while (node && node !== this.group) { if (!node.visible) return false; node = node.parent; }
+        return true;
+      };
       this.group.traverse((obj) => {
         if (!obj.isMesh || obj.isInstancedMesh || obj.isSkinnedMesh) return;
         if (!BATCHABLE.has(obj.name)) return;
+        if (!isVisibleWithin(obj)) return;
         if (!obj.material || Array.isArray(obj.material) || obj.material.transparent) return;
         if (obj.geometry === this.sc.unitBoxGeo) return;
         const params = obj.geometry && obj.geometry.parameters ? JSON.stringify(obj.geometry.parameters) : `${obj.geometry ? obj.geometry.id : "none"}`;
@@ -218,10 +235,16 @@
       this.group.updateMatrixWorld(true);
       const buckets = new Map();
       const toRemove = [];
+      const isVisibleWithin = (object) => {
+        let node = object;
+        while (node && node !== this.group) { if (!node.visible) return false; node = node.parent; }
+        return true;
+      };
 
       this.group.traverse((obj) => {
         if (!obj.isMesh || obj.geometry !== this.sc.unitBoxGeo) return;
         if (!obj.material || obj.material.transparent) return;
+        if (!isVisibleWithin(obj)) return;
         const key = obj.material.uuid || obj.material.id || "shared";
         if (!buckets.has(key)) {
           buckets.set(key, { material: obj.material, matrices: [] });

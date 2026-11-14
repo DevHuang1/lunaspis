@@ -170,11 +170,16 @@
         return false;
       };
       const buckets = new Map();
+      const isVisibleWithin = (object) => {
+        let node = object;
+        while (node && node !== this.padGroup) { if (!node.visible) return false; node = node.parent; }
+        return true;
+      };
       this.padGroup.traverse((obj) => {
         if (!obj.isMesh || obj.isInstancedMesh) return;
         if (obj.geometry !== this.unitBoxGeo) return;
         if (!obj.material || obj.material.transparent) return;
-        if (isExcluded(obj)) return;
+        if (isExcluded(obj) || !isVisibleWithin(obj)) return;
         const key = obj.material.uuid || obj.material.id || "shared";
         if (!buckets.has(key)) buckets.set(key, { material: obj.material, items: [] });
         buckets.get(key).items.push(obj);
@@ -209,10 +214,15 @@
         return false;
       };
       const buckets = new Map();
+      const isVisibleWithin = (object) => {
+        let node = object;
+        while (node && node !== this.padGroup) { if (!node.visible) return false; node = node.parent; }
+        return true;
+      };
       this.padGroup.traverse((obj) => {
         if (!obj.isMesh || obj.isInstancedMesh || obj.isSkinnedMesh) return;
         if (!obj.material || Array.isArray(obj.material) || obj.material.transparent) return;
-        if (isExcluded(obj)) return;
+        if (isExcluded(obj) || !isVisibleWithin(obj)) return;
         const key = obj.material.uuid;
         if (!buckets.has(key)) buckets.set(key, { material: obj.material, items: [] });
         buckets.get(key).items.push(obj);
@@ -2409,18 +2419,13 @@
       if (wasOnBridge) {
         const armX = Math.max(-25.5, Math.min(-3.6, nx));
         const armZ = Math.max(-8.8, Math.min(-5.6, nz));
-        if (!this.crewBoarded && armX >= -6.8) {
-          this.boardSpacecraft();
-        }
         return new THREE.Vector3(armX, y, armZ);
       }
 
       if (inGantry || inBridge) {
-        // Board when the player crosses into the White Room at the orbiter
-        // hatch end of the access arm.
-        if (inBridge && !this.crewBoarded && nx >= -6.8) {
-          this.boardSpacecraft();
-        }
+        // Boarding is a deliberate [E]/[B] action at the hatch. Walking the
+        // bridge must stay reversible so the crew can inspect the ship or walk
+        // back to the tower without being trapped or force-boarded.
         return new THREE.Vector3(nx, y, nz);
       }
 
@@ -4022,6 +4027,7 @@
       this.isLaunching = false;
       this.isGroundMode = false;
       document.body.classList.remove("ground-mode-active");
+      this._syncSpaceGamesLock();
       if (this.group) this.group.visible = false;
       if (this.hudOverlay) this.hudOverlay.style.display = "none";
       this._restoreSpaceAtmosphere();
@@ -4120,6 +4126,7 @@
       this.lccConsoleOpen = false;
       if (this.lccConsoleOverlay) this.lccConsoleOverlay.style.display = "none";
       document.body.classList.remove("ground-mode-active");
+      this._syncSpaceGamesLock();
       if (window.launchCutscene && window.launchCutscene.isPlaying && typeof window.launchCutscene.cancel === "function") {
         window.launchCutscene.cancel();
       }
