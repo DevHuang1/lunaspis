@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * PERILUNE // 3D NASA MISSION VIZ & GMAT TRAJECTORY THEATER
+ * LUNASPIS // 3D NASA MISSION VIZ & GMAT TRAJECTORY THEATER
  * ============================================================================
  * Interactive 3D mission visualization inspired by NASA Mission Viz & GMAT:
  * - High-resolution 3D Earth with day/night, clouds, Rayleigh limb glow & umbra shadow cone
@@ -19,12 +19,21 @@
   const EARTH_RADIUS = 6.2;
 
   const TIMELINE_EVENTS = [
-    { t: 0.02, id: "launch", label: "T+0 LAUNCH", desc: "LC-39A Ascent & Fairing Jettison" },
-    { t: 0.18, id: "burn", label: "INJECTION ΔV", desc: "Transfer / Orbital Insertion Burn" },
-    { t: 0.42, id: "eclipse", label: "ECLIPSE TEST", desc: "Umbra Shadow & Battery DoD Cycle" },
-    { t: 0.62, id: "cme", label: "CME STORM", desc: "Solar Particle & Radiation Belt Transit" },
-    { t: 0.80, id: "science", label: "SCIENCE PASS", desc: "Payload Acquisition & Ground Downlink" },
-    { t: 0.96, id: "eom", label: "END-OF-MISSION", desc: "Deorbit / Disposal Maneuver Compliance" }
+    { t: 0.02, id: "launch", label: "1. LIFTOFF", desc: "Rocket launches from Earth into space" },
+    { t: 0.18, id: "burn", label: "2. ENGINE PUSH", desc: "Thrusters fire to steer onto our flight path" },
+    { t: 0.42, id: "eclipse", label: "3. NIGHT SHADOW", desc: "Passing behind Earth using battery power" },
+    { t: 0.62, id: "cme", label: "4. SPACE WEATHER", desc: "Shields protect the computer from space storms" },
+    { t: 0.80, id: "science", label: "5. COLLECT & SEND", desc: "Tools gather science and beam it to Earth" },
+    { t: 0.96, id: "eom", label: "6. CLEAN FINISH", desc: "Safely retiring the spacecraft with no space junk" }
+  ];
+
+  const BIO_TIMELINE_EVENTS = [
+    { t: 0.02, id: "launch", label: "1. CARGO LAUNCH", desc: "Supply ship carries our space food pouches to the station" },
+    { t: 0.18, id: "burn", label: "2. ADD WATER", desc: "Astronaut adds warm drinking water to wake up the yeast" },
+    { t: 0.42, id: "eclipse", label: "3. WARM UP (30°C)", desc: "Mix for 1 minute and keep cozy in the warm box" },
+    { t: 0.62, id: "cme", label: "4. 6-HOUR MIX", desc: "Gently shake the pouch after 6 hours so it grows evenly" },
+    { t: 0.80, id: "science", label: "5. DEEP FREEZE", desc: "Wrap pouch and freeze at -80°C to preserve the nutrients" },
+    { t: 0.96, id: "eom", label: "6. LAB CHECK", desc: "Thaw and test on Earth to confirm fresh vitamins were made" }
   ];
 
   const GROUND_STATION_COORDS = {
@@ -164,17 +173,22 @@
       this.vizGroup.add(this.earthGroup);
 
       const texLoader = new THREE.TextureLoader();
-      const dayTex = texLoader.load("textures/earth/earth_day_4096.jpg");
-      const specTex = texLoader.load("textures/earth/earth_specular_2048.jpg");
-      const cloudTex = texLoader.load("textures/earth/earth_clouds_1024.png");
+      const mobile = !!window.isMobileDevice;
+      const loadTex = (path) => {
+        const tex = texLoader.load(path);
+        tex.anisotropy = mobile ? 2 : 8;
+        return tex;
+      };
+      const dayTex = loadTex(mobile ? "textures/earth/blue-marble-2048.jpg" : "textures/earth/earth_day_4096.jpg");
+      const cloudTex = loadTex("textures/earth/earth_clouds_1024.png");
 
       const earthMat = new THREE.MeshPhongMaterial({
         map: dayTex,
-        specularMap: specTex,
         specular: new THREE.Color(0x5ea2ff),
         shininess: 18
       });
-      this.earthMesh = new THREE.Mesh(new THREE.SphereGeometry(EARTH_RADIUS, 48, 48), earthMat);
+      if (!mobile) earthMat.specularMap = loadTex("textures/earth/earth_specular_2048.jpg");
+      this.earthMesh = new THREE.Mesh(new THREE.SphereGeometry(EARTH_RADIUS, mobile ? 32 : 48, mobile ? 32 : 48), earthMat);
       this.earthGroup.add(this.earthMesh);
 
       const cloudMat = new THREE.MeshPhongMaterial({
@@ -183,7 +197,7 @@
         opacity: 0.45,
         depthWrite: false
       });
-      this.cloudMesh = new THREE.Mesh(new THREE.SphereGeometry(EARTH_RADIUS * 1.012, 40, 40), cloudMat);
+      this.cloudMesh = new THREE.Mesh(new THREE.SphereGeometry(EARTH_RADIUS * 1.012, mobile ? 28 : 40, mobile ? 28 : 40), cloudMat);
       this.earthGroup.add(this.cloudMesh);
 
       const atmoMat = new THREE.MeshBasicMaterial({
@@ -192,12 +206,13 @@
         opacity: 0.14,
         side: THREE.BackSide
       });
-      this.earthGroup.add(new THREE.Mesh(new THREE.SphereGeometry(EARTH_RADIUS * 1.045, 36, 36), atmoMat));
+      this.earthGroup.add(new THREE.Mesh(new THREE.SphereGeometry(EARTH_RADIUS * 1.045, mobile ? 24 : 36, mobile ? 24 : 36), atmoMat));
 
       // Equatorial reference ring
       const eqPts = [];
-      for (let i = 0; i <= 96; i++) {
-        const a = (i / 96) * Math.PI * 2;
+      const eqSegments = mobile ? 48 : 96;
+      for (let i = 0; i <= eqSegments; i++) {
+        const a = (i / eqSegments) * Math.PI * 2;
         eqPts.push(new THREE.Vector3(Math.cos(a) * EARTH_RADIUS * 1.02, 0, Math.sin(a) * EARTH_RADIUS * 1.02));
       }
       this.earthGroup.add(new THREE.Line(
@@ -477,13 +492,13 @@
           pts.push(new THREE.Vector3(x * Math.cos(inc), z0, x * Math.sin(inc) * 0.35 + z0 * 0.15));
         }
       } else {
-        // leo_400 or iss_cubesat_418 (with end-of-mission decay spiral cue)
+        // leo_400 or iss_cubesat_418 (with end-of-mission decay spiral cue for deployable cubesats)
         const baseR = orbitId === "iss_cubesat_418" ? 7.55 : 7.4;
         const inc = (51.6 * Math.PI) / 180;
         for (let i = 0; i <= N; i++) {
           const u = i / N;
           const theta = u * Math.PI * 2;
-          const decay = orbitId === "iss_cubesat_418" && u > 0.78 ? (u - 0.78) * 1.8 : 0;
+          const decay = orbitId === "iss_cubesat_418" && !t.scenario.isBioPayload && u > 0.78 ? (u - 0.78) * 1.8 : 0;
           const r = Math.max(EARTH_RADIUS + 0.35, baseR - decay);
           const x = r * Math.cos(theta);
           const z0 = r * Math.sin(theta);
@@ -501,6 +516,7 @@
       const lineMat = new THREE.LineBasicMaterial({ color: orbitColor, transparent: true, opacity: 0.92 });
       this.orbitLine = new THREE.Line(lineGeo, lineMat);
       this.vizGroup.add(this.orbitLine);
+      this._syncTimelineChips();
 
       // Maneuver & Timeline Nodes along the curve
       this.orbitNodesGroup.clear();
@@ -637,39 +653,41 @@
       `;
 
       root.innerHTML = `
-        <div id="mv-topbar" style="pointer-events:auto;position:absolute;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;border-radius:8px;background:rgba(6,11,22,0.88);border:1px solid rgba(103,232,249,0.28);backdrop-filter:blur(10px);">
+        <div id="mv-topbar" style="pointer-events:auto;position:absolute;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 14px;border-radius:4px;background:rgba(8,13,24,0.88);border:1px solid rgba(148,163,184,0.22);backdrop-filter:blur(8px);">
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-            <span style="width:8px;height:8px;border-radius:50%;background:#67e8f9;box-shadow:0 0 8px #67e8f9;"></span>
+            <span style="width:7px;height:7px;border-radius:2px;background:#2563eb;"></span>
             <div>
-              <div style="font-size:11px;font-weight:700;letter-spacing:1.4px;color:#67e8f9;" id="mv-title">NASA MISSION VIZ // GMAT TRAJECTORY THEATER</div>
-              <div style="font-size:10px;color:#94a3b8;" id="mv-subtitle">Drag to orbit · Scroll/Pinch to zoom · Scrub Mission Timeline below</div>
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.4px;color:#f8fafc;" id="mv-title">3D EARTH &amp; SPACE FLIGHT MAP</div>
+              <div style="font-size:10px;color:#94a3b8;" id="mv-subtitle">Drag to spin &middot; Scroll/Pinch to zoom &middot; Scrub the Mission Timeline below</div>
             </div>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-            <button type="button" id="mv-btn-cam-sys" style="padding:6px 10px;border-radius:5px;border:1px solid rgba(103,232,249,0.45);background:rgba(103,232,249,0.14);color:#cffafe;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">EARTH / SYSTEM</button>
-            <button type="button" id="mv-btn-cam-craft" style="padding:6px 10px;border-radius:5px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.05);color:#ece7dc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">FOLLOW CRAFT</button>
-            <button type="button" id="mv-btn-cam-target" style="padding:6px 10px;border-radius:5px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.05);color:#ece7dc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">TARGET BODY</button>
-            <button type="button" id="mv-btn-vr" style="padding:6px 10px;border-radius:5px;border:1px solid rgba(167,139,250,0.5);background:rgba(167,139,250,0.14);color:#ddd6fe;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">🥽 VR MODE</button>
-            <button type="button" id="mv-btn-close" style="padding:6px 12px;border-radius:5px;border:1px solid rgba(248,113,113,0.55);background:rgba(239,68,68,0.16);color:#fecaca;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">EXIT [U]</button>
+            <button type="button" id="mv-btn-cam-sys" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(37,99,235,0.6);background:rgba(37,99,235,0.16);color:#f8fafc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">FULL EARTH VIEW</button>
+            <button type="button" id="mv-btn-cam-craft" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(148,163,184,0.22);background:rgba(8,13,24,0.75);color:#f8fafc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">FOLLOW CRAFT</button>
+            <button type="button" id="mv-btn-cam-target" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(148,163,184,0.22);background:rgba(8,13,24,0.75);color:#f8fafc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">ZOOM TARGET</button>
+            <button type="button" id="mv-btn-gmat" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(52,211,153,0.48);background:rgba(16,185,129,0.16);color:#a7f3d0;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;" title="Download flight path file">FLIGHT PATH FILE</button>
+            <button type="button" id="mv-btn-csa-lab" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(103,232,249,0.48);background:rgba(103,232,249,0.14);color:#67e8f9;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;" title="Open Space Games &amp; Learning Activities">GAMES &amp; TOOLS</button>
+            <button type="button" id="mv-btn-vr" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(148,163,184,0.28);background:rgba(8,13,24,0.75);color:#93c5fd;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">VR MODE</button>
+            <button type="button" id="mv-btn-close" style="padding:5px 12px;border-radius:4px;border:1px solid rgba(220,38,38,0.55);background:rgba(220,38,38,0.14);color:#fecaca;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">EXIT [U]</button>
           </div>
         </div>
 
-        <div id="mv-telemetry-card" style="pointer-events:auto;position:absolute;top:76px;left:12px;width:295px;max-width:calc(100vw - 24px);padding:12px;border-radius:8px;background:rgba(6,11,22,0.86);border:1px solid rgba(255,255,255,0.14);backdrop-filter:blur(10px);font-size:10.5px;">
-          <div style="font-size:9.5px;font-weight:700;letter-spacing:1.3px;color:#d0a15c;margin-bottom:8px;">ORBITAL DYNAMICS &amp; LINK TELEMETRY</div>
+        <div id="mv-telemetry-card" style="pointer-events:auto;position:absolute;top:74px;left:12px;width:295px;max-width:calc(100vw - 24px);padding:12px;border-radius:4px;background:rgba(8,13,24,0.88);border:1px solid rgba(148,163,184,0.22);backdrop-filter:blur(8px);font-size:10.5px;">
+          <div style="font-size:9.5px;font-weight:700;letter-spacing:1.3px;color:#93c5fd;margin-bottom:8px;">LIVE ORBIT &amp; SIGNAL STATUS</div>
           <div id="mv-telemetry-rows" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;"></div>
-          <div id="mv-segment-badges" style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:9px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.1);"></div>
+          <div id="mv-segment-badges" style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:9px;padding-top:8px;border-top:1px solid rgba(148,163,184,0.16);"></div>
         </div>
 
-        <div id="mv-timeline-bar" style="pointer-events:auto;position:absolute;bottom:14px;left:12px;right:12px;padding:10px 14px;border-radius:8px;background:rgba(6,11,22,0.90);border:1px solid rgba(255,255,255,0.16);backdrop-filter:blur(10px);">
+        <div id="mv-timeline-bar" style="pointer-events:auto;position:absolute;bottom:14px;left:12px;right:12px;padding:10px 14px;border-radius:4px;background:rgba(8,13,24,0.9);border:1px solid rgba(148,163,184,0.22);backdrop-filter:blur(8px);">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:7px;">
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-              <button type="button" id="mv-btn-play" style="padding:5px 10px;border-radius:4px;border:1px solid #67e8f9;background:rgba(103,232,249,0.14);color:#cffafe;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">❚❚ PAUSE</button>
-              <button type="button" id="mv-btn-speed" style="padding:5px 9px;border-radius:4px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.05);color:#ece7dc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">1x</button>
-              <span id="mv-event-active" style="font-size:10px;font-weight:700;color:#7fb8a6;margin-left:4px;">T+0 LAUNCH</span>
+              <button type="button" id="mv-btn-play" style="padding:5px 10px;border-radius:4px;border:1px solid #2563eb;background:rgba(37,99,235,0.2);color:#f8fafc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">PAUSE</button>
+              <button type="button" id="mv-btn-speed" style="padding:5px 9px;border-radius:4px;border:1px solid rgba(148,163,184,0.22);background:rgba(8,13,24,0.75);color:#f8fafc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">1x</button>
+              <span id="mv-event-active" style="font-size:10px;font-weight:700;color:#86efac;margin-left:4px;">LIFTOFF</span>
             </div>
             <div id="mv-event-chips" style="display:flex;gap:5px;flex-wrap:wrap;"></div>
           </div>
-          <input type="range" id="mv-timeline-slider" min="0" max="1000" value="140" style="width:100%;accent-color:#67e8f9;cursor:pointer;" />
+          <input type="range" id="mv-timeline-slider" min="0" max="1000" value="140" style="width:100%;accent-color:#2563eb;cursor:pointer;" />
         </div>
       `;
 
@@ -687,10 +705,28 @@
         }
       });
 
+      const gmatBtn = root.querySelector("#mv-btn-gmat");
+      if (gmatBtn) {
+        gmatBtn.addEventListener("click", () => {
+          if (window.csaNasaLab && typeof window.csaNasaLab.exportGmatScript === "function") {
+            window.csaNasaLab.exportGmatScript();
+          }
+        });
+      }
+
+      const csaBtn = root.querySelector("#mv-btn-csa-lab");
+      if (csaBtn) {
+        csaBtn.addEventListener("click", () => {
+          if (window.csaNasaLab && typeof window.csaNasaLab.openModal === "function") {
+            window.csaNasaLab.openModal("gmat");
+          }
+        });
+      }
+
       const playBtn = root.querySelector("#mv-btn-play");
       playBtn.addEventListener("click", () => {
         this.playing = !this.playing;
-        playBtn.textContent = this.playing ? "❚❚ PAUSE" : "▶ PLAY";
+        playBtn.textContent = this.playing ? "PAUSE" : "PLAY";
       });
 
       const speedBtn = root.querySelector("#mv-btn-speed");
@@ -706,14 +742,23 @@
         this.progress = Number(slider.value) / 1000;
       });
 
-      const chipsHost = root.querySelector("#mv-event-chips");
-      chipsHost.innerHTML = TIMELINE_EVENTS.map((ev) => `
+      this._syncTimelineChips();
+    }
+
+    _syncTimelineChips() {
+      if (!this.uiRoot) return;
+      const chipsHost = this.uiRoot.querySelector("#mv-event-chips");
+      const slider = this.uiRoot.querySelector("#mv-timeline-slider");
+      if (!chipsHost) return;
+      const t = this._getTelemetry();
+      const events = (t && t.scenario && t.scenario.isBioPayload) ? BIO_TIMELINE_EVENTS : TIMELINE_EVENTS;
+      chipsHost.innerHTML = events.map((ev) => `
         <button type="button" data-ev-t="${ev.t}" title="${ev.desc}" style="padding:3px 7px;border-radius:4px;border:1px solid rgba(255,255,255,0.14);background:rgba(255,255,255,0.04);color:#cbd5e1;font-family:inherit;font-size:9px;cursor:pointer;">${ev.label}</button>
       `).join("");
       chipsHost.querySelectorAll("[data-ev-t]").forEach((btn) => {
         btn.addEventListener("click", () => {
           this.progress = Number(btn.dataset.evT);
-          slider.value = String(Math.round(this.progress * 1000));
+          if (slider) slider.value = String(Math.round(this.progress * 1000));
         });
       });
     }
@@ -757,6 +802,9 @@
       }
       if (window.issShowcase && window.issShowcase.isActive) {
         window.issShowcase.close();
+      }
+      if (window.solarSystem && window.solarSystem.isActive) {
+        window.solarSystem.close();
       }
       if (window.glbManager && window.glbManager.hangarActive) {
         window.glbManager.closeHangar();
@@ -872,7 +920,7 @@
       const inShadow = this._isInEarthShadow(pos);
 
       // Update Ground Station RF Beam
-      let activeStationName = "OCCULTED (NO LOS)";
+      let activeStationName = "OUT OF VIEW";
       if (this.stationNodes.length > 0 && this.rfBeamLine) {
         const tmpWorld = new window.THREE.Vector3();
         let bestDist = Infinity;
@@ -945,12 +993,17 @@
 
       const titleEl = this.uiRoot.querySelector("#mv-title");
       const subEl = this.uiRoot.querySelector("#mv-subtitle");
-      if (titleEl) titleEl.textContent = `NASA MISSION VIZ // ${t.scenario.code} · ${t.orbit.name.toUpperCase()}`;
-      if (subEl) subEl.textContent = `${t.bus.name} · ${t.lv.name.split("(")[0].trim()} · ${t.gnd.name}`;
+      if (titleEl) titleEl.textContent = `3D FLIGHT VIEWER // ${t.scenario.name.toUpperCase()} · ${t.orbit.name.toUpperCase()}`;
+      if (subEl) {
+        subEl.textContent = t.scenario.isBioPayload && t.bioTelemetry
+          ? `${t.bioTelemetry.bag.shortLabel} · ${t.lv.name.split("(")[0].trim()} · ${t.gnd.name}`
+          : `${t.bus.name} · ${t.lv.name.split("(")[0].trim()} · ${t.gnd.name}`;
+      }
 
-      let activeEv = TIMELINE_EVENTS[0];
-      for (let i = 0; i < TIMELINE_EVENTS.length; i++) {
-        if (this.progress >= TIMELINE_EVENTS[i].t) activeEv = TIMELINE_EVENTS[i];
+      const timelineList = t.scenario.isBioPayload ? BIO_TIMELINE_EVENTS : TIMELINE_EVENTS;
+      let activeEv = timelineList[0];
+      for (let i = 0; i < timelineList.length; i++) {
+        if (this.progress >= timelineList[i].t) activeEv = timelineList[i];
       }
       const evEl = this.uiRoot.querySelector("#mv-event-active");
       if (evEl) evEl.textContent = `${activeEv.label} — ${activeEv.desc}`;
@@ -960,7 +1013,7 @@
         const altLabel = t.orbit.altitudeKm >= 100000
           ? `${(t.orbit.altitudeKm / 1000).toFixed(0)}k km`
           : `${t.orbit.altitudeKm.toLocaleString()} km`;
-        const orbVel = t.orbit.id === "sun_earth_l2" ? "1.02 km/s (L2)" : t.orbit.id === "lunar_polar_100" ? "1.63 km/s (LPO)" : t.orbit.id === "gto_heo" ? "1.6–10.1 km/s" : "7.6 km/s";
+        const orbVel = t.orbit.id === "sun_earth_l2" ? "1.0 km/s (Deep Space)" : t.orbit.id === "lunar_polar_100" ? "1.6 km/s (Moon)" : t.orbit.id === "gto_heo" ? "1.6–10.1 km/s" : "7.6 km/s";
         const cell = (k, v, c = "#ece7dc") => `
           <div style="padding:5px 7px;border-radius:5px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);">
             <div style="font-size:8.5px;color:#94a3b8;">${k}</div>
@@ -968,12 +1021,16 @@
           </div>
         `;
         rows.innerHTML = [
-          cell("ALTITUDE / INC", `${altLabel} · ${t.orbit.inclinationDeg}°`, "#67e8f9"),
-          cell("ORBIT VELOCITY", orbVel),
-          cell("ILLUMINATION", inShadow ? "UMBRA ECLIPSE" : "SOLAR DAYLIGHT", inShadow ? "#fbbf24" : "#4ade80"),
-          cell("GROUND LINK", activeStationName, activeStationName.includes("OCCULTED") ? "#94a3b8" : (t.commsOk ? "#34d399" : "#f87171")),
-          cell("PROPULSION ΔV", `${t.achievedDeltaV} / ${t.requiredDeltaV} m/s`, t.deltaVOk ? "#38bdf8" : "#f87171"),
-          cell("RAD / LIFE", `${t.orbit.radiationEnvKrad} krad · ${t.estimatedLifetimeMonths} mo`, t.radiationOk ? "#7fb8a6" : "#f87171")
+          cell("HEIGHT & TILT", `${altLabel} · ${t.orbit.inclinationDeg}°`, "#67e8f9"),
+          cell("TRAVEL SPEED", orbVel),
+          cell("SUNLIGHT", inShadow ? "IN EARTH'S SHADOW" : "IN SUNLIGHT", inShadow ? "#fbbf24" : "#4ade80"),
+          cell("EARTH DISH", activeStationName, activeStationName.includes("OUT OF VIEW") ? "#94a3b8" : (t.commsOk ? "#34d399" : "#f87171")),
+          t.scenario.isBioPayload && t.bioTelemetry
+            ? cell("WARM BOX / FREEZER", `${t.bioTelemetry.thermal.incubateTempC}°C / ${t.bioTelemetry.thermal.storageTempC}°C`, (t.bioTelemetry.tempMatch && t.bioTelemetry.melfiOk) ? "#38bdf8" : "#f87171")
+            : cell("FUEL POWER", `${t.achievedDeltaV} / ${t.requiredDeltaV} m/s`, t.deltaVOk ? "#38bdf8" : "#f87171"),
+          t.scenario.isBioPayload && t.bioTelemetry
+            ? cell("NUTRIENT YIELD", `${t.bioTelemetry.betaCaroteneUgMl} mg/L (${t.bioTelemetry.protocol.replicates} pouches)`, t.bioTelemetry.yieldOk ? "#7fb8a6" : "#f87171")
+            : cell("SHIELD & LIFESPAN", `Level ${t.orbit.radiationEnvKrad} · ${t.estimatedLifetimeMonths} mo`, t.radiationOk ? "#7fb8a6" : "#f87171")
         ].join("");
       }
 
@@ -991,9 +1048,9 @@
         );
         segEl.innerHTML = [
           seg("LAUNCH", segmentOk("launch", t.massOk && t.budgetOk)),
-          seg("SPACE", segmentOk("space", t.powerOk && t.deltaVOk && t.thermalOk && t.radiationOk && t.disposalOk && t.telescopeOk)),
+          seg("IN SPACE", segmentOk("space", t.powerOk && t.deltaVOk && t.thermalOk && t.radiationOk && t.disposalOk && t.telescopeOk)),
           seg("GROUND", segmentOk("ground", t.commsOk)),
-          seg("USER", segmentOk("user", t.scienceScore >= 55 && Array.isArray(t.matchedTypes) && t.matchedTypes.length > 0))
+          seg("RESULTS", segmentOk("user", t.scienceScore >= 55 && Array.isArray(t.matchedTypes) && t.matchedTypes.length > 0))
         ].join("");
       }
     }

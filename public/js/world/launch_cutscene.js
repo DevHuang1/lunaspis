@@ -254,14 +254,14 @@
 
         this.camera.position.set(camX, camY, camZ);
         this.camera.lookAt(0, 42.0 + k * 2.0, 0);
-        this._updateTelemetry(0, 0, t - 3.5, "T-3s: MAIN ENGINE IGNITION (SSME) & SOUND SUPPRESSION ACTIVE");
+        this._updateTelemetry(0, 0, t - 3.5, "T-3s: MAIN ENGINES IGNITE & WATER COOLING ACTIVE");
       } else if (t < 8.0) {
         // Stage 2: T0 to T+4.5s: SRB ignition & tower liftoff, clearing the 300 FT Fixed Service Structure!
         const climbTime = t - 3.5;
         const altitude = Math.pow(climbTime, 2.05) * 11.5;
         this.stackGroup.position.set(0, altitude, 0);
 
-        // Roll program (rolls 120 degrees to line up with flight azimuth)
+        // Roll program (rolls 120 degrees to line up with flight path)
         const rollFrac = Math.min(1.0, Math.max(0, climbTime - 0.8) / 3.5);
         this.stackGroup.rotation.y = rollFrac * (Math.PI * 0.66);
 
@@ -282,7 +282,7 @@
         this.camera.lookAt(0, trackY, 0);
 
         const telemAlt = Math.max(0, altitude / 100);
-        this._updateTelemetry(telemAlt, climbTime * 145, climbTime, "T+0s: LIFTOFF! THE SHUTTLE CLEARS THE TOWER");
+        this._updateTelemetry(telemAlt, climbTime * 145, climbTime, "T+0s: LIFTOFF! ROCKET CLEARS THE LAUNCH TOWER");
       } else if (t < 13.0) {
         // Stage 3: T+4.5 to T+9.5s: Pitch-over heads-down climbing over Florida & Atlantic Coast
         const climbTime = t - 3.5;
@@ -304,9 +304,9 @@
         );
         this.camera.lookAt(this.stackGroup.position.x, this.stackGroup.position.y + 10, this.stackGroup.position.z);
 
-        this._updateTelemetry(altitude * 0.8, 1200 + (t - 8) * 480, climbTime, "T+5s: HOUSTON CONFIRMS ROLL PROGRAM & PITCH-OVER HEADS DOWN");
+        this._updateTelemetry(altitude * 0.8, 1200 + (t - 8) * 480, climbTime, "T+5s: MISSION CONTROL CONFIRMS SMOOTH CLIMB PATH");
       } else if (t < 19.0) {
-        // Stage 4: T+13s: Solid Rocket Booster Separation
+        // Stage 4: T+13s: Side Rocket Booster Separation
         if (!this.srbSeparated) {
           this.srbSeparated = true;
           if (window.spaceAudio) window.spaceAudio.playStagingSeparation();
@@ -320,7 +320,7 @@
 
         this.stackGroup.position.set(0, altitude, -downrange);
 
-        // Animate SRBs peeling outboard and tumbling away
+        // Animate side boosters peeling outboard and tumbling away
         const sepTime = t - 13.0;
         if (this.srbLeft && this.srbRight) {
           this.srbLeft.position.x = 6.6 + Math.pow(sepTime, 1.8) * 12.0;
@@ -338,7 +338,7 @@
         this.camera.position.set(65, altitude + 12, -downrange + 40);
         this.camera.lookAt(this.stackGroup.position.x, this.stackGroup.position.y + 10, this.stackGroup.position.z);
 
-        this._updateTelemetry(65.4 + (t - 13) * 6, 4200 + (t - 13) * 580, climbTime, "T+13s: BOOSTER BURNOUT — SRB SEPARATION CONFIRMED");
+        this._updateTelemetry(65.4 + (t - 13) * 6, 4200 + (t - 13) * 580, climbTime, "T+13s: SIDE BOOSTERS EMPTY & SAFELY SEPARATED");
       } else if (t < 24.0) {
         // Stage 5: T+19 to T+24s: MECO & External Tank Separation
         if (!this.tankSeparated) {
@@ -377,7 +377,7 @@
         const targetOrbitLabel = designTelem
           ? `${designTelem.scenario.code} → ${designTelem.orbit.name.split("(")[0].trim().toUpperCase()}`
           : "ORBITAL INSERTION";
-        this._updateTelemetry(385.0, 7820, climbTime, `T+19s: MECO — EXTERNAL TANK JETTISON • ${targetOrbitLabel}`);
+        this._updateTelemetry(385.0, 7820, climbTime, `T+19s: MAIN ENGINE SHUTDOWN — FUEL TANK DROPPED • ${targetOrbitLabel}`);
       } else if (t < this.duration) {
         // Stage 6: T+24 to T+32s: Payload Bay Doors Open & Satellite Deployment
         const climbTime = t - 3.5;
@@ -423,7 +423,9 @@
           ? window.gameplay.evaluateMissionDesign()
           : null;
         const payloadName = designTelem
-          ? `${designTelem.bus.name.split("(")[0].trim().toUpperCase()} (${designTelem.scenario.code})`
+          ? (designTelem.scenario && designTelem.scenario.isBioPayload
+            ? `BIONUTRIENTS-2 KIT → ISS 418 KM (${designTelem.scenario.code})`
+            : `${designTelem.bus.name.split("(")[0].trim().toUpperCase()} (${designTelem.scenario.code})`)
           : "DEEP SPACE COMM SATELLITE";
         const statusMsg = t < 27.0 ?
           `T+24s: ORBIT STABILIZED (${designTelem ? designTelem.orbit.id.toUpperCase() : "LEO"}) — OPENING PAYLOAD BAY DOORS [O]` :
@@ -522,18 +524,18 @@
       this.overlayEl.innerHTML = `
         <div class="launch-header-row">
           <div class="launch-badge-card">
-            <div style="font-size:10px;font-weight:900;letter-spacing:1.5px;color:#38bdf8;">NASA MISSION CONTROL &bull; KENNEDY LC-39A</div>
-            <div class="launch-title-main" style="font-size:14px;font-weight:900;color:#f1f5f9;letter-spacing:1px;">EX-01 LAUNCH VEHICLE ASCENT &amp; PAYLOAD DEPLOY</div>
-            <div id="launch-crew-banner" style="font-size:10px;font-weight:700;color:#cbd5e1;margin-top:4px;letter-spacing:0.6px;"></div>
+            <div style="font-size:10px;font-weight:700;letter-spacing:1.6px;color:#93c5fd;">LUNASPIS FLIGHT CONTROL &bull; LAUNCH PAD 39A</div>
+            <div class="launch-title-main" style="font-size:14px;font-weight:700;color:#f8fafc;letter-spacing:1px;">ROCKET LIFTOFF &amp; SPACECRAFT RELEASE</div>
+            <div id="launch-crew-banner" style="font-size:10px;font-weight:600;color:#cbd5e1;margin-top:4px;letter-spacing:0.6px;"></div>
           </div>
 
           <button id="btn-skip-launch">
-            SKIP LAUNCH [SPACE] ⏩
+            SKIP LAUNCH [SPACE]
           </button>
         </div>
 
         <div id="launch-capcom-banner">
-          T-3s: MAIN ENGINE IGNITION SEQUENCE START
+          T-3s: MAIN ENGINES STARTING UP
         </div>
 
         <div id="launch-telem-bar"></div>
@@ -577,16 +579,18 @@
       }
 
       if (this.skipBtnEl) {
-        if (players.length <= 1 || !nm || !nm.connected) {
-          this.skipBtnEl.textContent = "SKIP LAUNCH [SPACE] ⏩";
+        const flightPlayers = players.filter((p) => (p && p.team) !== "ground");
+        const count = flightPlayers.length;
+        if (count <= 1 || !nm || !nm.connected) {
+          this.skipBtnEl.textContent = "SKIP LAUNCH [SPACE]";
         } else if (isAuthority) {
-          this.skipBtnEl.textContent = "SKIP FOR CREW [SPACE] ⏩";
+          this.skipBtnEl.textContent = "SKIP FOR CREW [SPACE]";
         } else {
           const votes = Array.isArray(mission.skipVotes) ? mission.skipVotes : [];
-          const needed = Math.max(1, Math.ceil(players.length / 2));
+          const needed = Math.max(1, Math.ceil(count / 2));
           const voted = votes.includes(nm.socketId) || this._localSkipVoted;
           this.skipBtnEl.textContent = voted
-            ? `✓ SKIP VOTED (${votes.length}/${needed})`
+            ? `SKIP VOTED (${votes.length}/${needed})`
             : `VOTE SKIP (${votes.length}/${needed}) [SPACE]`;
         }
       }
@@ -696,7 +700,7 @@
           : null;
         const selectedBusId = (designTelem && designTelem.bus && designTelem.bus.glbId) || window.glbManager.selectedStationModelId;
         const hasCatalogBus = selectedBusId && window.glbManager.catalog && window.glbManager.catalog[selectedBusId];
-        const targetModelKey = hasCatalogBus ? selectedBusId : "assets/Satellite.glb";
+        const targetModelKey = hasCatalogBus ? window.glbManager.catalog[selectedBusId].file : "assets/Satellite.glb";
         const targetScale = hasCatalogBus ? 1.85 : 0.95;
 
         window.glbManager.loadGLB(targetModelKey).then((entry) => {

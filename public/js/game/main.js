@@ -3,8 +3,8 @@
  * INTERFELLAS 3D MULTIPLAYER ENGINE & THREE.JS SCENE PIPELINE (SPACESHIP EDITION)
  * ============================================================================
  * Integrates all 3D ship designs, interiors, models, shaders, and interactive
- * systems from SpaceShip (Perilune — Orbital / Mission Lab) in vanilla Three.js:
- * - 6-Room Perilune Orbital Transit Craft Interior + Exterior Hull & Solar Arrays
+ * systems from SpaceShip (Lunaspis — Orbital / Mission Lab) in vanilla Three.js:
+ * - 6-Room Lunaspis Orbital Transit Craft Interior + Exterior Hull & Solar Arrays
  * - Draco, KTX2/Basis Universal, and Meshopt GLTF 2.0 3D asset pipeline
  * - SpaceShip NASA Astronaut rigs (astronaut_lod0.glb & astronaut_lod1.glb)
  * - 27-Part Interactive NASA ISS Reference Showcase [J]
@@ -67,7 +67,7 @@
   let toggleSystemsSettingsModal = null, toggleDiagnosticsOverlay = null;
 
   const defaultPerfSettings = {
-    renderScale: isMobile ? 90 : 100,
+    renderScale: isMobile ? 95 : 100,
     cinematicPreset: isMobile ? "off" : "balanced",
     fpsCap: 60,
     lightingQuality: isMobile ? "low" : "high",
@@ -128,8 +128,11 @@
       MIN_RENDER_SCALE,
       Math.min(MAX_RENDER_SCALE, (Number(perfSettings.renderScale) || 100) / 100)
     );
-    const drs = Math.max(0.7, Math.min(1.0, Number(dynamicResolutionMultiplier) || 1.0));
-    return Math.max(0.35, Math.min(MAX_RENDER_SCALE, userScale * drs));
+    // Mobile GPUs hit thermal/fill-rate limits sooner, so allow DRS to fall a
+    // little further before the frame rate becomes visibly unstable.
+    const drsFloor = isMobile ? 0.7 : 0.7;
+    const drs = Math.max(drsFloor, Math.min(1.0, Number(dynamicResolutionMultiplier) || 1.0));
+    return Math.max(isMobile ? 0.3 : 0.35, Math.min(MAX_RENDER_SCALE, userScale * drs));
   }
 
   function applyRenderResolution(w, h) {
@@ -168,11 +171,15 @@
     if (ambLightRef) {
       ambLightRef.intensity = perfSettings.lightingQuality === "low" ? 0.65 : 0.38;
     }
+    if (Array.isArray(window.interiorPointLights)) {
+      interiorPointLights = window.interiorPointLights;
+    }
     if (Array.isArray(interiorPointLights)) {
       interiorPointLights.forEach((pl, idx) => {
+        if (!pl.userData.originalIntensity) pl.userData.originalIntensity = pl.intensity;
         if (perfSettings.lightingQuality === "low") {
           pl.visible = (idx % 2 === 0);
-          pl.intensity = 0.8;
+          pl.intensity = isMobile ? 1.35 : 0.8;
         } else {
           pl.visible = true;
           pl.intensity = pl.userData.originalIntensity || 1.3;
@@ -237,10 +244,30 @@
     role: "commander",
     color: "#67e8f9",
     isEva: false,
+    isZeroG: false,
     suitLights: true,
     magBoots: true,
     walkCycle: 0
   };
+
+  // The ISS interior is a zero-g environment: the crew hover clear of the
+  // deck and carry a little momentum instead of walking. The bob is applied to
+  // the model, not the root, so network updates stay quiet while idle.
+  const ZERO_G_HOVER_Y = 0.32;
+  const zeroGVelocity = { x: 0, z: 0 };
+
+  function isISSInteriorViewActive() {
+    const interior = window.shipInterior;
+    return !!(
+      interior &&
+      interior.isInteriorActive &&
+      interior.issInteriorModel &&
+      interior.group &&
+      interior.group.visible &&
+      !interior.isMoonLandingActive &&
+      !(window.spaceCenter && window.spaceCenter.isGroundMode)
+    );
+  }
 
   function setLocalMeshVisibility(visible) {
     if (localCrew.helmetMeshGroup) localCrew.helmetMeshGroup.visible = visible;
@@ -252,11 +279,13 @@
     if (localCrew.rig && localCrew.rig.modelContainer) {
       localCrew.rig.modelContainer.visible = visible;
     }
+    const poseStillFloating = localCrew.rig && localCrew.rig.zeroGBlend > 0.05;
+    const grounded = visible && !localCrew.isZeroG && !poseStillFloating;
     if (localCrew.rig && localCrew.rig.shadowMesh) {
-      localCrew.rig.shadowMesh.visible = visible;
+      localCrew.rig.shadowMesh.visible = grounded;
     }
     if (localCrew.rig && localCrew.rig.accentRing) {
-      localCrew.rig.accentRing.visible = visible;
+      localCrew.rig.accentRing.visible = grounded;
     }
     if (localCrew.rig && localCrew.rig.emoteBubble) {
       localCrew.rig.emoteBubbleHidden = !visible;
@@ -280,8 +309,8 @@
   window.virtualJoyActive = false;
 
   const CAMERA_MODES = [
-    { id: 0, name: "1ST PERSON", icon: "👁️" },
-    { id: 1, name: "3RD PERSON", icon: "🎥" }
+    { id: 0, name: "1ST PERSON", icon: "1P" },
+    { id: 1, name: "3RD PERSON", icon: "CAM" }
   ];
 
   function cycleCameraMode() {
@@ -436,7 +465,7 @@
 
     const lobbyHint = document.querySelector(".lobby-controls-hint");
     if (lobbyHint) {
-      lobbyHint.innerHTML = "<strong>Thumbstick</strong> Move &bull; <strong>Drag</strong> Look &bull; <strong>Tap</strong> Console &bull; <strong>EMOTE</strong> &bull; <strong>CAM</strong>";
+      lobbyHint.innerHTML = "<strong>Thumbstick</strong> Move &bull; <strong>Push Far</strong> Sprint &bull; <strong>Drag</strong> Look &bull; <strong>Tap</strong> Console &bull; <strong>EMOTE</strong> &bull; <strong>CAM</strong>";
     }
 
     const voiceKeyHint = document.querySelector(".voice-key-hint");
@@ -507,7 +536,9 @@
     });
     window.renderer = renderer;
     renderer.setSize(w, h, false);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isMobile ? 1.25 : 1.75));
+    // 1 CSS pixel per device pixel is the sweet spot on phone GPUs; the DRS
+    // pass can still trade a little more resolution for a steady frame rate.
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isMobile ? 1.0 : 1.75));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.05;
     renderer.outputEncoding = THREE.sRGBEncoding;
@@ -526,12 +557,15 @@
     // 4. Lighting & Cosmos Environment
     setupCosmosEnvironment();
 
-    // 5. Initialize Perilune 27-Part Interactive ISS Reference Showcase, Mission Viz & VR Mode
+    // 5. Initialize Lunaspis 27-Part Interactive ISS Reference Showcase, Mission Viz & VR Mode
     if (window.issShowcase && typeof window.issShowcase.init === "function") {
       window.issShowcase.init(scene, camera, renderer);
     }
     if (window.missionViz && typeof window.missionViz.init === "function") {
       window.missionViz.init(scene, camera, renderer);
+    }
+    if (window.solarSystem && typeof window.solarSystem.init === "function") {
+      window.solarSystem.init(scene, camera, renderer);
     }
     if (window.vrManager && typeof window.vrManager.init === "function") {
       window.vrManager.init(scene, camera, renderer);
@@ -540,7 +574,7 @@
     // 5a. Build Station & Attach ISS Model
     buildSpaceStationAndFleet();
 
-    // 5b. Preload Perilune GLB Assets
+    // 5b. Preload Lunaspis GLB Assets
     if (window.glbManager) {
       const primaryAstronautPath = isMobile ? "models/astronaut/astronaut_lod1.glb" : "models/astronaut/astronaut_lod0.glb";
       window.glbManager.loadGLB(primaryAstronautPath).catch(() => {});
@@ -548,7 +582,7 @@
       window.glbManager.loadGLB("models/iss/ISS_stationary_opt.glb").catch(() => {});
     }
 
-    // 5c. Perilune 6-Room Modular Spacecraft Interior (hidden during orbital title screen until mission launch)
+    // 5c. Lunaspis 6-Room Modular Spacecraft Interior (hidden during orbital title screen until mission launch)
     if (window.shipInterior && typeof window.shipInterior.init === "function") {
       window.shipInterior.init(scene);
       window.shipInterior.hide();
@@ -574,6 +608,12 @@
     if (window.gameplay) {
       window.gameplay.init();
       window.gameplay.updateTaskListUI();
+    }
+    if (window.missionAcademy && typeof window.missionAcademy.init === "function") {
+      window.missionAcademy.init();
+    }
+    if (window.missionLog && typeof window.missionLog.init === "function") {
+      window.missionLog.init();
     }
 
     // Auto-collapse dense panels on compact viewports so the 3D scene stays open
@@ -701,7 +741,7 @@
           if (window.issShowcase && typeof window.issShowcase.attachModel === "function") {
             window.issShowcase.attachModel(flagshipStation, issShowcaseGroup);
           }
-          console.log(`🛰️ [SpaceShip] High-fidelity NASA ISS (${modelId}) loaded & wired to 27-part Showcase.`);
+          console.log(`[SpaceShip] High-fidelity NASA ISS (${modelId}) loaded & wired to 27-part Showcase.`);
         } catch (e) {
           console.warn("Could not instantiate ISS model:", e);
         }
@@ -768,10 +808,10 @@
       ctx.textBaseline = "middle";
 
       let prefix = "";
-      if (h) prefix += "👑 ";
-      if (isRadio) prefix += "📻 ";
-      else if (isSpeaking) prefix += "🎙️ ";
-      else if (isMuted) prefix += "🔇 ";
+      if (h) prefix += "[HOST] ";
+      if (isRadio) prefix += "[TX] ";
+      else if (isSpeaking) prefix += "[MIC] ";
+      else if (isMuted) prefix += "[MUTE] ";
 
       const displayName = prefix + String(n || "CREW").toUpperCase();
       ctx.font = "900 34px 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
@@ -879,7 +919,7 @@
     localCrew.team = team;
 
     // Preserve active in-world coordinates when swapping suits/roles mid-mission;
-    // otherwise spawn at Perilune's PLAYER_SPAWN in Transit Hub facing -Z.
+    // otherwise spawn at Lunaspis's PLAYER_SPAWN in Transit Hub facing -Z.
     if (prevPos) {
       localCrew.group.position.copy(prevPos);
       localCrew.group.rotation.y = prevRotY != null ? prevRotY : Math.PI;
@@ -916,370 +956,38 @@
     const btnHost = document.getElementById("btn-host-game");
     const btnJoin = document.getElementById("btn-join-game");
     const btnQuick = document.getElementById("btn-quick-play");
+    const btnShuttleOps = document.getElementById("btn-shuttle-ops");
 
     const lobbyRoomCode = document.getElementById("lobby-room-code");
     const btnCopyLink = document.getElementById("btn-copy-invite");
     const btnStartMission = document.getElementById("btn-start-mission");
 
-    // Auth modal elements
-    const modalAuth = document.getElementById("modal-auth");
-    const btnOpenAuth = document.getElementById("btn-open-auth");
-    const btnCloseAuth = document.getElementById("btn-close-auth");
-    const btnAuthLogout = document.getElementById("btn-auth-logout");
-    const btnDossierLogout = document.getElementById("btn-dossier-logout");
-
-    const tabLogin = document.getElementById("tab-auth-login");
-    const tabRegister = document.getElementById("tab-auth-register");
-    const tabReset = document.getElementById("tab-auth-reset");
-    const tabDossier = document.getElementById("tab-auth-dossier");
-
-    const formLogin = document.getElementById("form-auth-login");
-    const formRegister = document.getElementById("form-auth-register");
-    const formReset = document.getElementById("form-auth-reset");
-    const formDossier = document.getElementById("form-auth-dossier");
-    const authBanner = document.getElementById("auth-msg-banner");
-    const linkGotoReg = document.getElementById("link-goto-register");
-    const linkGotoReset = document.getElementById("link-goto-reset");
-    const linkGotoLoginFromReg = document.getElementById("link-goto-login-from-reg");
-    const linkGotoResetFromReg = document.getElementById("link-goto-reset-from-reg");
-    const linkGotoLoginFromReset = document.getElementById("link-goto-login-from-reset");
-
-    const authStatusTitle = document.getElementById("auth-status-title");
-    const authStatusDesc = document.getElementById("auth-status-desc");
-    const authStatusIcon = document.getElementById("auth-status-icon");
-
-    let regSelectedColor = "#67e8f9";
-    let dossierSelectedColor = "#67e8f9";
-
-    function showAuthBanner(msg, isError = false) {
-      if (!authBanner) return;
-      authBanner.textContent = msg;
-      authBanner.className = `auth-msg-banner ${isError ? 'error' : 'success'}`;
-      authBanner.style.display = "flex";
-    }
-
-    function hideAuthBanner() {
-      if (authBanner) authBanner.style.display = "none";
-    }
-
-    function switchAuthTab(tab) {
-      hideAuthBanner();
-      [tabLogin, tabRegister, tabReset, tabDossier].forEach(t => { if (t) t.classList.remove("active"); });
-      [formLogin, formRegister, formReset, formDossier].forEach(f => { if (f) f.style.display = "none"; });
-
-      if (tab === "register") {
-        if (tabRegister) tabRegister.classList.add("active");
-        if (formRegister) formRegister.style.display = "block";
-      } else if (tab === "reset") {
-        if (tabReset) tabReset.classList.add("active");
-        if (formReset) formReset.style.display = "block";
-      } else if (tab === "dossier") {
-        if (tabDossier) tabDossier.classList.add("active");
-        if (formDossier) formDossier.style.display = "block";
-        populateDossierForm();
-      } else {
-        if (tabLogin) tabLogin.classList.add("active");
-        if (formLogin) formLogin.style.display = "block";
-      }
-    }
-
-    if (btnOpenAuth) {
-      btnOpenAuth.addEventListener("click", () => {
-        if (modalAuth) modalAuth.style.display = "flex";
-        switchAuthTab(currentAstronaut ? "dossier" : "login");
-      });
-    }
-    if (btnCloseAuth) btnCloseAuth.addEventListener("click", () => { if (modalAuth) modalAuth.style.display = "none"; });
-    if (linkGotoReg) linkGotoReg.addEventListener("click", (e) => { e.preventDefault(); switchAuthTab("register"); });
-    if (linkGotoReset) linkGotoReset.addEventListener("click", (e) => { e.preventDefault(); switchAuthTab("reset"); });
-    if (linkGotoLoginFromReg) linkGotoLoginFromReg.addEventListener("click", (e) => { e.preventDefault(); switchAuthTab("login"); });
-    if (linkGotoResetFromReg) linkGotoResetFromReg.addEventListener("click", (e) => { e.preventDefault(); switchAuthTab("reset"); });
-    if (linkGotoLoginFromReset) linkGotoLoginFromReset.addEventListener("click", (e) => { e.preventDefault(); switchAuthTab("login"); });
-
-    if (tabLogin) tabLogin.addEventListener("click", () => switchAuthTab("login"));
-    if (tabRegister) tabRegister.addEventListener("click", () => switchAuthTab("register"));
-    if (tabReset) tabReset.addEventListener("click", () => switchAuthTab("reset"));
-    if (tabDossier) tabDossier.addEventListener("click", () => switchAuthTab("dossier"));
-
-    document.querySelectorAll("#reg-color-swatches .lobby-color-btn").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        document.querySelectorAll("#reg-color-swatches .lobby-color-btn").forEach(b => b.classList.remove("active"));
-        e.currentTarget.classList.add("active");
-        regSelectedColor = e.currentTarget.getAttribute("data-color");
-      });
-    });
-
-    document.querySelectorAll("#dossier-color-swatches .lobby-color-btn").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        document.querySelectorAll("#dossier-color-swatches .lobby-color-btn").forEach(b => b.classList.remove("active"));
-        e.currentTarget.classList.add("active");
-        dossierSelectedColor = e.currentTarget.getAttribute("data-color");
-      });
-    });
-
     function applyAstronautProfile(astro) {
-      currentAstronaut = astro;
+      currentAstronaut = null;
       const defaultModel = isMobile ? "astronaut_lod1" : "astronaut_lod0";
-      if (!astro) {
-        if (authStatusTitle) authStatusTitle.textContent = "GUEST";
-        if (authStatusDesc) authStatusDesc.textContent = "Local session";
-        if (btnOpenAuth) btnOpenAuth.textContent = "SIGN IN";
-        if (btnAuthLogout) btnAuthLogout.style.display = "none";
-        if (tabDossier) tabDossier.style.display = "none";
-        if (window.netManager) window.netManager.userId = null;
+      if (window.netManager) window.netManager.userId = null;
 
-        const defName = localStorage.getItem("interfellas_name") || "CDR. Vance";
-        if (inputName) inputName.value = defName;
-        window.netManager.localPlayer.name = defName;
-        window.netManager.localPlayer.color = "#67e8f9";
-        window.netManager.localPlayer.role = "commander";
-        buildLocalAstronaut("#67e8f9", "commander", defaultModel);
-        return;
-      }
-
-      const rank = astro.flight_title || "Commander";
-      const callsign = astro.callsign || astro.username;
-      const color = astro.suit_color || "#67e8f9";
-
-      if (authStatusTitle) authStatusTitle.textContent = `${callsign.toUpperCase()}`;
-      if (authStatusDesc) authStatusDesc.textContent = `${rank.toUpperCase()}`;
-      if (btnOpenAuth) btnOpenAuth.textContent = "DOSSIER";
-      if (btnAuthLogout) btnAuthLogout.style.display = "inline-block";
-      if (tabDossier) tabDossier.style.display = "inline-block";
-
-      if (inputName) inputName.value = callsign;
-
-      const statMissions = document.getElementById("stat-missions");
-      const statVictories = document.getElementById("stat-victories");
-      const statTasks = document.getElementById("stat-tasks");
-      if (statMissions) statMissions.textContent = astro.games_played || 0;
-      if (statVictories) statVictories.textContent = astro.games_won || 0;
-      if (statTasks) statTasks.textContent = astro.tasks_completed || 0;
-
-      if (astro.token && typeof window.netManager.setAuthToken === "function") {
-        window.netManager.setAuthToken(astro.token);
-      }
-      const normalizedRole = window.InterfellasRoles
-        ? window.InterfellasRoles.normalizeRole(astro.preferred_role || rank, "commander")
-        : "commander";
-      window.netManager.userId = astro.id;
-      window.netManager.localPlayer.name = callsign;
-      window.netManager.localPlayer.color = color;
-      window.netManager.localPlayer.role = normalizedRole;
-      if (normalizedRole !== "commander") {
-        window.netManager.explicitRoleSelected = true;
-      }
-      buildLocalAstronaut(color, normalizedRole, defaultModel);
-      if (typeof window.syncLobbySelectionUI === "function") window.syncLobbySelectionUI();
-      if (typeof window.renderHudCrewRoster === "function") window.renderHudCrewRoster();
+      const defName = localStorage.getItem("interfellas_name") || "CDR. Vance";
+      if (inputName) inputName.value = defName;
+      window.netManager.localPlayer.name = defName;
+      window.netManager.localPlayer.color = "#67e8f9";
+      window.netManager.localPlayer.role = "commander";
+      buildLocalAstronaut("#67e8f9", "commander", defaultModel);
     }
-
-    function populateDossierForm() {
-      if (!currentAstronaut) return;
-      const cInput = document.getElementById("dossier-callsign");
-      const tSelect = document.getElementById("dossier-title");
-      const dMissions = document.getElementById("dossier-missions");
-      const dVictories = document.getElementById("dossier-victories");
-      const dTasks = document.getElementById("dossier-tasks");
-
-      if (cInput) cInput.value = currentAstronaut.callsign || currentAstronaut.username;
-      if (tSelect) tSelect.value = currentAstronaut.flight_title || "Commander";
-      if (dMissions) dMissions.textContent = currentAstronaut.games_played || 0;
-      if (dVictories) dVictories.textContent = currentAstronaut.games_won || 0;
-      if (dTasks) dTasks.textContent = currentAstronaut.tasks_completed || 0;
-
-      dossierSelectedColor = currentAstronaut.suit_color || "#67e8f9";
-      document.querySelectorAll("#dossier-color-swatches .lobby-color-btn").forEach(b => {
-        b.classList.toggle("active", b.getAttribute("data-color") === dossierSelectedColor);
-      });
-    }
-
-    if (formLogin) {
-      formLogin.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const username = document.getElementById("login-username").value.trim();
-        const password = document.getElementById("login-password").value;
-        try {
-          const res = await fetch("/api/auth/login", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, password })
-          });
-          const data = await res.json();
-          if (data.success && data.user) {
-            const credential = { ...data.user, token: data.token };
-            localStorage.setItem("nasa_astronaut_credential", JSON.stringify(credential));
-            applyAstronautProfile(credential);
-            showAuthBanner("NASA Flight Credential Authenticated. Welcome aboard!", false);
-            setTimeout(() => { if (modalAuth) modalAuth.style.display = "none"; }, 1000);
-          } else {
-            showAuthBanner(data.error || "Authentication failed.", true);
-          }
-        } catch (err) {
-          showAuthBanner("Server communication error: " + err.message, true);
-        }
-      });
-    }
-
-    if (formRegister) {
-      formRegister.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const username = document.getElementById("reg-username").value.trim();
-        const callsign = document.getElementById("reg-callsign").value.trim();
-        const password = document.getElementById("reg-password").value;
-        const flightTitle = document.getElementById("reg-title").value;
-        try {
-          const res = await fetch("/api/auth/register", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, password, callsign, flightTitle, suitColor: regSelectedColor })
-          });
-          const data = await res.json();
-          if (data.success && data.user) {
-            const credential = { ...data.user, token: data.token };
-            localStorage.setItem("nasa_astronaut_credential", JSON.stringify(credential));
-            window.netManager.explicitRoleSelected = true;
-            applyAstronautProfile(credential);
-            showAuthBanner("Flight Credential Issued! Welcome to the Astronaut Corps.", false);
-            setTimeout(() => { if (modalAuth) modalAuth.style.display = "none"; }, 1000);
-          } else {
-            showAuthBanner(data.error || "Registration failed.", true);
-          }
-        } catch (err) {
-          showAuthBanner("Server communication error: " + err.message, true);
-        }
-      });
-    }
-
-    if (formReset) {
-      formReset.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const username = document.getElementById("reset-username").value.trim();
-        const currentPassword = document.getElementById("reset-current-password").value;
-        const newPassword = document.getElementById("reset-password").value;
-        try {
-          const res = await fetch("/api/auth/reset-password", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, currentPassword, newPassword })
-          });
-          const data = await res.json();
-          if (data.success && data.user) {
-            const credential = { ...data.user, token: data.token };
-            localStorage.setItem("nasa_astronaut_credential", JSON.stringify(credential));
-            applyAstronautProfile(credential);
-            showAuthBanner(data.message || "Password reset successfully.", false);
-            setTimeout(() => { if (modalAuth) modalAuth.style.display = "none"; }, 1000);
-          } else {
-            showAuthBanner(data.error || "Password reset failed.", true);
-          }
-        } catch (err) {
-          showAuthBanner("Server communication error: " + err.message, true);
-        }
-      });
-    }
-
-    if (formDossier) {
-      formDossier.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        if (!currentAstronaut) return;
-        const callsign = document.getElementById("dossier-callsign").value.trim();
-        const flightTitle = document.getElementById("dossier-title").value;
-        try {
-          const normalizedPreferredRole = window.InterfellasRoles
-            ? window.InterfellasRoles.normalizeRole(flightTitle, "commander")
-            : "commander";
-          const res = await fetch("/api/auth/update-profile", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${currentAstronaut.token || ""}`
-            },
-            body: JSON.stringify({
-              callsign,
-              flightTitle,
-              suitColor: dossierSelectedColor,
-              preferredRole: normalizedPreferredRole
-            })
-          });
-          const data = await res.json();
-          if (data.success && data.user) {
-            const credential = { ...data.user, token: currentAstronaut.token };
-            localStorage.setItem("nasa_astronaut_credential", JSON.stringify(credential));
-            window.netManager.explicitRoleSelected = true;
-            applyAstronautProfile(credential);
-            if (window.netManager.roomId) {
-              window.netManager.customizeAstronaut(callsign, dossierSelectedColor, normalizedPreferredRole, null, null, null, { explicitRole: true });
-            }
-            showAuthBanner("Flight Dossier updated successfully.", false);
-            setTimeout(() => { if (modalAuth) modalAuth.style.display = "none"; }, 1000);
-          } else {
-            showAuthBanner(data.error || "Update failed.", true);
-          }
-        } catch (err) {
-          showAuthBanner("Server communication error: " + err.message, true);
-        }
-      });
-    }
-
-    const doLogout = () => {
-      const stored = localStorage.getItem("nasa_astronaut_credential");
-      let token = null;
-      try {
-        token = stored ? JSON.parse(stored).token : null;
-      } catch (e) {}
-      if (token) {
-        fetch("/api/auth/logout", {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${token}` }
-        }).catch(() => {});
-      }
-      localStorage.removeItem("nasa_astronaut_credential");
-      if (window.netManager && typeof window.netManager.setAuthToken === "function") {
-        window.netManager.setAuthToken(null);
-      }
-      if (window.netManager) window.netManager.explicitRoleSelected = false;
-      applyAstronautProfile(null);
-      if (modalAuth) modalAuth.style.display = "none";
-    };
-    if (btnAuthLogout) btnAuthLogout.addEventListener("click", doLogout);
-    if (btnDossierLogout) btnDossierLogout.addEventListener("click", doLogout);
 
     try {
-      const stored = localStorage.getItem("nasa_astronaut_credential");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        applyAstronautProfile(parsed);
-        if (parsed.token) {
-          fetch("/api/auth/me", {
-            headers: { "Authorization": `Bearer ${parsed.token}` }
-          })
-            .then(r => r.json())
-            .then(data => {
-              if (data.success && data.user) {
-                const credential = { ...data.user, token: parsed.token };
-                localStorage.setItem("nasa_astronaut_credential", JSON.stringify(credential));
-                applyAstronautProfile(credential);
-              } else {
-                localStorage.removeItem("nasa_astronaut_credential");
-                if (window.netManager && typeof window.netManager.setAuthToken === "function") {
-                  window.netManager.setAuthToken(null);
-                }
-                applyAstronautProfile(null);
-              }
-            }).catch(() => {});
-        }
-      } else {
-        applyAstronautProfile(null);
-      }
-    } catch (e) {
-      applyAstronautProfile(null);
-    }
+      localStorage.removeItem("nasa_astronaut_credential");
+    } catch (e) {}
+    applyAstronautProfile(null);
 
     if (inputName) {
-      if (!currentAstronaut) inputName.value = window.netManager.localPlayer.name;
+      inputName.value = window.netManager.localPlayer.name;
       inputName.addEventListener("input", (e) => {
-        window.netManager.localPlayer.name = e.target.value;
+        const val = e.target.value;
+        window.netManager.localPlayer.name = val;
+        try {
+          if (val && val.trim()) localStorage.setItem("interfellas_name", val.trim());
+        } catch (err) {}
       });
     }
 
@@ -1300,12 +1008,7 @@
         const name = inputName ? inputName.value.trim() : (currentAstronaut ? currentAstronaut.callsign : "Commander");
         const color = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.color)
           || (currentAstronaut ? currentAstronaut.suit_color : "#67e8f9");
-        const rawRole = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.role)
-          || (currentAstronaut ? (currentAstronaut.preferred_role || currentAstronaut.flight_title) : "commander");
-        const role = window.InterfellasRoles ? window.InterfellasRoles.normalizeRole(rawRole, "commander") : "commander";
-        window.netManager.createRoom(name, color, role, {
-          explicitRole: !!(window.netManager && window.netManager.explicitRoleSelected)
-        });
+        window.netManager.createRoom(name, color, null, { explicitRole: false, isPublic: false });
       });
     }
 
@@ -1319,11 +1022,7 @@
         const name = inputName ? inputName.value.trim() : (currentAstronaut ? currentAstronaut.callsign : "Crew");
         const color = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.color)
           || (currentAstronaut ? currentAstronaut.suit_color : "#67e8f9");
-        const explicitRole = !!(window.netManager && window.netManager.explicitRoleSelected);
-        const rawRole = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.role)
-          || (currentAstronaut ? (currentAstronaut.preferred_role || currentAstronaut.flight_title) : "commander");
-        const role = window.InterfellasRoles ? window.InterfellasRoles.normalizeRole(rawRole, "commander") : "commander";
-        window.netManager.joinRoom(code, name, color, explicitRole ? role : null, { explicitRole });
+        window.netManager.joinRoom(code, name, color, null, { explicitRole: false });
       });
     }
 
@@ -1332,11 +1031,16 @@
         const name = inputName ? inputName.value.trim() : (currentAstronaut ? currentAstronaut.callsign : "Crew");
         const color = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.color)
           || (currentAstronaut ? currentAstronaut.suit_color : "#67e8f9");
-        const explicitRole = !!(window.netManager && window.netManager.explicitRoleSelected);
-        const rawRole = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.role)
-          || (currentAstronaut ? (currentAstronaut.preferred_role || currentAstronaut.flight_title) : "commander");
-        const role = window.InterfellasRoles ? window.InterfellasRoles.normalizeRole(rawRole, "commander") : "commander";
-        window.netManager.quickPlay(name, color, explicitRole ? role : null, { explicitRole });
+        window.netManager.startSolo(name, color, null, { opsMode: "iss_expedition" });
+      });
+    }
+
+    if (btnShuttleOps) {
+      btnShuttleOps.addEventListener("click", () => {
+        const name = inputName ? inputName.value.trim() : (currentAstronaut ? currentAstronaut.callsign : "Commander");
+        const color = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.color)
+          || (currentAstronaut ? currentAstronaut.suit_color : "#67e8f9");
+        window.netManager.createRoom(name, color, null, { explicitRole: false, opsMode: "shuttle_flight" });
       });
     }
 
@@ -1346,10 +1050,16 @@
         if (!code) return;
         const link = `${window.location.origin}/?room=${code}`;
         navigator.clipboard.writeText(link).then(() => {
-          btnCopyLink.textContent = "COPIED TO CLIPBOARD!";
-          setTimeout(() => { btnCopyLink.textContent = "📋 COPY INVITE LINK"; }, 2500);
+          btnCopyLink.textContent = "COPIED TO CLIPBOARD";
+          setTimeout(() => { btnCopyLink.textContent = "COPY LINK"; }, 2500);
         });
       });
+    }
+
+    function syncSpaceGamesLock() {
+      if (window.csaNasaLab && typeof window.csaNasaLab.syncGroundLockState === "function") {
+        window.csaNasaLab.syncGroundLockState();
+      }
     }
 
     function cleanupGameWorldForLobby() {
@@ -1363,12 +1073,24 @@
         "interior-active",
         "iss-showcase-active",
         "mission-viz-active",
+        "shuttle-mode-active",
+        "solar-system-active",
         "vr-stereo-active",
-        "vr-webxr-active"
+        "vr-webxr-active",
+        "space-games-ground-locked"
       );
+      syncSpaceGamesLock();
+
+      if (window.shuttleGame && window.shuttleGame.isActive && typeof window.shuttleGame.exit === "function") {
+        window.shuttleGame.exit();
+        onWindowResize();
+      }
 
       if (window.vrManager && window.vrManager.isAnyVRActive && typeof window.vrManager.exitVR === "function") {
         window.vrManager.exitVR();
+      }
+      if (window.solarSystem && window.solarSystem.isActive && typeof window.solarSystem.close === "function") {
+        window.solarSystem.close();
       }
       if (window.missionViz && window.missionViz.isActive && typeof window.missionViz.close === "function") {
         window.missionViz.close();
@@ -1406,7 +1128,7 @@
         window.gameplay.closeTaskModal();
       }
 
-      const resBar = document.getElementById("perilune-resource-meters");
+      const resBar = document.getElementById("lunaspis-resource-meters");
       if (resBar) resBar.style.display = "none";
       const btnUse = document.getElementById("btn-proximity-use");
       if (btnUse) btnUse.style.display = "none";
@@ -1473,8 +1195,20 @@
         } else if (status === "playing") {
           window.netManager.emitEvent("game_started", window.netManager.roomState);
         } else {
-          window.netManager.startGame();
+          const chkShuffle = document.getElementById("chk-shuffle-on-launch");
+          window.netManager.startGame({ randomizeRoles: !!(chkShuffle && chkShuffle.checked) });
         }
+      });
+    }
+
+    const btnRandomizeRoles = document.getElementById("btn-randomize-roles");
+    if (btnRandomizeRoles) {
+      btnRandomizeRoles.addEventListener("click", () => {
+        if (!window.netManager || !window.netManager.isHost) return;
+        if (typeof window.netManager.randomizeRoles === "function") {
+          window.netManager.randomizeRoles();
+        }
+        if (window.spaceAudio) window.spaceAudio.playClick();
       });
     }
 
@@ -1484,20 +1218,6 @@
         window.netManager.customizeAstronaut(null, col, null, null);
         buildLocalAstronaut(col, window.netManager.localPlayer.role);
         if (typeof window.syncLobbySelectionUI === "function") window.syncLobbySelectionUI();
-        if (window.spaceAudio) window.spaceAudio.playClick();
-      });
-    });
-
-    document.querySelectorAll(".lobby-role-card").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        const rawRole = e.currentTarget.getAttribute("data-role");
-        const role = window.InterfellasRoles ? window.InterfellasRoles.normalizeRole(rawRole, "commander") : rawRole;
-        window.netManager.explicitRoleSelected = true;
-        window.netManager.customizeAstronaut(null, null, role, null, null, null, { explicitRole: true });
-        buildLocalAstronaut(window.netManager.localPlayer.color, role);
-        if (typeof window.syncLobbySelectionUI === "function") window.syncLobbySelectionUI();
-        if (typeof window.renderHudCrewRoster === "function") window.renderHudCrewRoster();
-        if (window.gameplay && typeof window.gameplay.updateTaskListUI === "function") window.gameplay.updateTaskListUI();
         if (window.spaceAudio) window.spaceAudio.playClick();
       });
     });
@@ -1535,6 +1255,24 @@
       });
     }
 
+    const btnCmlHUD = document.getElementById("btn-hud-cml");
+    if (btnCmlHUD) {
+      btnCmlHUD.addEventListener("click", () => {
+        if (window.gameplay && typeof window.gameplay.openCmlWorkbench === "function") {
+          window.gameplay.openCmlWorkbench("checklist");
+        }
+      });
+    }
+
+    const btnSolarHUD = document.getElementById("btn-hud-solar");
+    if (btnSolarHUD) {
+      btnSolarHUD.addEventListener("click", () => {
+        if (window.solarSystem && typeof window.solarSystem.toggle === "function") {
+          window.solarSystem.toggle();
+        }
+      });
+    }
+
     const btnVrMainHUD = document.getElementById("btn-hud-vr-main");
     if (btnVrMainHUD) {
       btnVrMainHUD.addEventListener("click", () => {
@@ -1562,11 +1300,7 @@
       if (inputCode) inputCode.value = roomCode;
       const color = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.color)
         || (currentAstronaut ? currentAstronaut.suit_color : "#67e8f9");
-      const explicitRole = !!(window.netManager && window.netManager.explicitRoleSelected);
-      const rawRole = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.role)
-        || (currentAstronaut ? (currentAstronaut.preferred_role || currentAstronaut.flight_title) : "commander");
-      const role = window.InterfellasRoles ? window.InterfellasRoles.normalizeRole(rawRole, "commander") : "commander";
-      window.netManager.joinRoom(roomCode, inputName ? inputName.value : "Crew", color, explicitRole ? role : null, { explicitRole });
+      window.netManager.joinRoom(roomCode, inputName ? inputName.value : "Crew", color, null, { explicitRole: false });
     });
 
     function updateLocalBadge() {
@@ -1729,17 +1463,31 @@
         btnDeafenToggle.textContent = vm.isDeafened ? "DEAFENED" : "DEAFEN";
       }
 
+      const btnSbandRadio = document.getElementById("btn-sband-radio");
+      const sbandRadioLabel = document.getElementById("sband-radio-label");
+      if (btnSbandRadio) {
+        const latched = !!vm.radioChannelLatched;
+        const txLive = !!vm.isRadioTransmitting;
+        btnSbandRadio.classList.toggle("active", latched || txLive);
+        btnSbandRadio.classList.toggle("radio-tx", txLive);
+        if (sbandRadioLabel) {
+          sbandRadioLabel.textContent = txLive
+            ? "TX [R]"
+            : (latched ? "LINKED [R]" : "OFF [R]");
+        }
+      }
+
       if (activeSpeakersEl) {
         const tags = [];
         if (vm.isEnabled && !vm.isMuted && vm.isSpeaking) {
           const localName = (window.netManager && window.netManager.localPlayer) ? window.netManager.localPlayer.name : "YOU";
-          tags.push(`<div class="active-speaker-tag ${vm.isRadioTransmitting ? "speaker-radio" : "speaker-local"}">${vm.isRadioTransmitting ? "📻" : "🎙️"} ${escapeHtml(localName)}</div>`);
+          tags.push(`<div class="active-speaker-tag ${vm.isRadioTransmitting ? "speaker-radio" : "speaker-local"}">${vm.isRadioTransmitting ? "[TX]" : "[MIC]"} ${escapeHtml(localName)}</div>`);
         }
         if (window.netManager && window.netManager.remotePlayers) {
           for (const id in window.netManager.remotePlayers) {
             const rp = window.netManager.remotePlayers[id];
             if (rp && rp.isSpeaking && !rp.isMuted) {
-              tags.push(`<div class="active-speaker-tag">🎙️ ${escapeHtml(rp.name || "CREW")}</div>`);
+              tags.push(`<div class="active-speaker-tag ${rp.isRadio ? "speaker-radio" : ""}">${rp.isRadio ? "[TX]" : "[MIC]"} ${escapeHtml(rp.name || "CREW")}</div>`);
             }
           }
         }
@@ -1815,7 +1563,7 @@
         if (!ok) {
           const msg = vm.lastError || "Unable to access microphone. Check browser permissions.";
           if (window.gameplay && typeof window.gameplay.showToast === "function") {
-            window.gameplay.showToast(`⚠️ ${msg}`);
+            window.gameplay.showToast(msg);
           }
           if (showErrorAlert) alert(msg);
         } else {
@@ -1832,11 +1580,42 @@
       syncVoiceUI();
     }
 
+    window.crewComms = {
+      toggleMic: () => handleToggleVoiceComms(false),
+      openSettings: () => {
+        refreshAudioDevicesAndCrewList();
+        toggleSystemsSettingsModal(true);
+      },
+      state: () => {
+        const vm = window.voiceManager;
+        if (!vm || !vm.isEnabled) return "OFFLINE";
+        return vm.isMuted ? "MUTED" : "MIC ON";
+      }
+    };
+
     if (btnLobbyVoice) {
       btnLobbyVoice.addEventListener("click", () => handleToggleVoiceComms(true));
     }
     if (btnVoiceMic) {
       btnVoiceMic.addEventListener("click", () => handleToggleVoiceComms(false));
+    }
+    const btnSbandRadio = document.getElementById("btn-sband-radio");
+    if (btnSbandRadio) {
+      btnSbandRadio.addEventListener("click", async () => {
+        const vm = window.voiceManager;
+        if (!vm) return;
+        if (!vm.isEnabled) {
+          const ok = await vm.startMicrophone();
+          if (!ok && window.gameplay && typeof window.gameplay.showToast === "function") {
+            window.gameplay.showToast(vm.lastError || "Unable to enable microphone for S-Band radio.");
+            return;
+          }
+        }
+        if (typeof vm.toggleRadioChannel === "function") {
+          vm.toggleRadioChannel();
+        }
+        syncVoiceUI();
+      });
     }
     if (audioDeviceSelect) {
       audioDeviceSelect.addEventListener("change", async () => {
@@ -2075,14 +1854,24 @@
 
     // Network Callbacks
     window.netManager.on("room_created", (data) => {
+      const isSolo = !!(data.solo || (data.room && data.room.isSolo));
       screenMenu.style.display = "none";
+      syncLocalRigWithServer();
+      updateLocalBadge();
+
+      // Single-player missions skip the staging deck and launch immediately.
+      if (isSolo) {
+        screenLobby.style.display = "none";
+        screenGame.style.display = "none";
+        window.netManager.startGame();
+        return;
+      }
+
       screenLobby.style.display = "flex";
       screenGame.style.display = "none";
       if (lobbyRoomCode) lobbyRoomCode.textContent = data.roomId;
-      syncLocalRigWithServer();
       updateLobbySlots(data.room.players, data.hostId, data.room.status);
       renderLobbyMission(data.room.mission);
-      updateLocalBadge();
     });
 
     window.netManager.on("room_joined", (data) => {
@@ -2107,24 +1896,139 @@
       syncLocalRigWithServer();
       updateLobbySlots(data.players, data.hostId, data.status);
       renderLobbyMission(data.mission);
+      if (window.shuttleGame && window.shuttleGame.isActive) {
+        window.shuttleGame.onRoomUpdate(data);
+      }
       const hudRoom = document.getElementById("hud-room-code");
       if (hudRoom) {
-        hudRoom.textContent = data.roomId || "------";
-        hudRoom.title = data.roomId ? `Expedition Room: ${data.roomId}` : "";
+        if (data.isSolo) {
+          hudRoom.textContent = "SOLO";
+          hudRoom.title = "Single-player expedition";
+        } else {
+          hudRoom.textContent = data.roomId || "------";
+          hudRoom.title = data.roomId ? `Expedition Room: ${data.roomId}` : "";
+        }
       }
       updateLocalBadge();
       if (window.gameplay) {
         if (data.tasks) window.gameplay.updateTaskBar(data.tasks);
         if (typeof window.gameplay.updateTaskListUI === "function") window.gameplay.updateTaskListUI();
       }
-      if (window.spaceCenter && typeof window.spaceCenter._renderGroundHUD === "function") {
-        window.spaceCenter._renderGroundHUD(true);
+      if (window.spaceCenter) {
+        const curRoleNow = window.netManager && window.netManager.localPlayer ? window.netManager.localPlayer.role : null;
+        if (window._lastSyncedRoleInMain && curRoleNow && window._lastSyncedRoleInMain !== curRoleNow && typeof window.spaceCenter.syncLocalRoleChange === "function") {
+          window.spaceCenter.syncLocalRoleChange();
+        }
+        window._lastSyncedRoleInMain = curRoleNow;
+        if (typeof window.spaceCenter._renderGroundHUD === "function") {
+          window.spaceCenter._renderGroundHUD(true);
+        }
+        if (window.spaceCenter.lccConsoleOpen && typeof window.spaceCenter._renderLccConsole === "function") {
+          window.spaceCenter._renderLccConsole();
+        }
+      }
+      syncSpaceGamesLock();
+      if (typeof window.renderSwapBanners === "function") {
+        window.renderSwapBanners();
       }
       if (window.launchCutscene && typeof window.launchCutscene.updateCrewStatus === "function") {
         window.launchCutscene.updateCrewStatus(data.mission);
       }
       if (window.dockingSim && typeof window.dockingSim.updateCrewStatus === "function") {
         window.dockingSim.updateCrewStatus(data.mission);
+      }
+    });
+
+    window.netManager.on("roles_randomized", () => {
+      syncLocalRigWithServer();
+      updateLocalBadge();
+      if (window.spaceAudio) window.spaceAudio.playClick();
+      if (window.spaceCenter && typeof window.spaceCenter.syncLocalRoleChange === "function") {
+        window.spaceCenter.syncLocalRoleChange();
+      }
+      syncSpaceGamesLock();
+      if (window.gameplay) {
+        if (typeof window.gameplay.updateTaskListUI === "function") window.gameplay.updateTaskListUI();
+        if (typeof window.gameplay.showToast === "function") {
+          const meta = window.InterfellasRoles ? window.InterfellasRoles.getRoleMeta(window.netManager.localPlayer.role) : { label: "CREW" };
+          window.gameplay.showToast(`ROLES RANDOMIZED · YOUR ASSIGNMENT: ${meta.label}`);
+        }
+      }
+      if (typeof window.renderSwapBanners === "function") window.renderSwapBanners();
+    });
+
+    window.netManager.on("role_swap_requested", (req) => {
+      if (window.spaceAudio) window.spaceAudio.playClick();
+      if (typeof window.renderSwapBanners === "function") window.renderSwapBanners(req);
+      if (window.gameplay && typeof window.gameplay.showToast === "function" && req) {
+        const toMeta = window.InterfellasRoles ? window.InterfellasRoles.getRoleMeta(req.fromRole) : { short: "CREW" };
+        window.gameplay.showToast(`SWAP REQUEST FROM ${req.fromName || "CREW"} (${toMeta.short})`);
+      }
+    });
+
+    window.netManager.on("role_swap_resolved", (payload) => {
+      syncLocalRigWithServer();
+      updateLocalBadge();
+      if (window.spaceCenter && typeof window.spaceCenter.syncLocalRoleChange === "function") {
+        window.spaceCenter.syncLocalRoleChange();
+      }
+      syncSpaceGamesLock();
+      if (window.gameplay && typeof window.gameplay.updateTaskListUI === "function") {
+        window.gameplay.updateTaskListUI();
+      }
+      if (typeof window.renderSwapBanners === "function") window.renderSwapBanners();
+      if (window.gameplay && typeof window.gameplay.showToast === "function" && payload) {
+        if (payload.accepted) {
+          const rA = window.InterfellasRoles ? window.InterfellasRoles.getRoleMeta(payload.newFromRole).short : payload.newFromRole;
+          const rB = window.InterfellasRoles ? window.InterfellasRoles.getRoleMeta(payload.newToRole).short : payload.newToRole;
+          window.gameplay.showToast(`ROLE SWAP CONFIRMED: ${payload.fromName} -> ${rA} | ${payload.toName} -> ${rB}`);
+        } else {
+          window.gameplay.showToast(`ROLE SWAP DECLINED BY ${payload.toName || "CREW"}`);
+        }
+      }
+    });
+
+    window.netManager.on("role_swap_error", (err) => {
+      if (typeof window.renderSwapBanners === "function") window.renderSwapBanners();
+      if (window.gameplay && typeof window.gameplay.showToast === "function") {
+        window.gameplay.showToast((err && err.message) || "Role swap unavailable.");
+      }
+    });
+
+    window.netManager.on("ground_support_event", (ev) => {
+      if (!ev) return;
+      if (window.spaceCenter) {
+        if (typeof window.spaceCenter._renderGroundHUD === "function") window.spaceCenter._renderGroundHUD();
+        if (window.spaceCenter.lccConsoleOpen && typeof window.spaceCenter._renderLccConsole === "function") {
+          window.spaceCenter._renderLccConsole();
+        }
+      }
+      if (typeof window.renderHudCrewRoster === "function") window.renderHudCrewRoster();
+      if (window.dockingSim && typeof window.dockingSim.updateCrewStatus === "function") {
+        window.dockingSim.updateCrewStatus();
+      }
+      if (window.gameplay) {
+        if (typeof window.gameplay.updateTaskListUI === "function") window.gameplay.updateTaskListUI();
+        if (typeof window.gameplay.showToast === "function") {
+          const actor = ev.byName || "EARTH CONTROL";
+          if (ev.type === "go_nogo_poll") {
+            window.gameplay.showToast("ASKING EARTH CONTROL FOR LAUNCH OK · 8s TO REPLY");
+          } else if (ev.type === "go_nogo_launch") {
+            window.gameplay.showToast(`${actor}: LAUNCH CLEARED FOR LIFTOFF!`);
+          } else if (ev.type === "docking_clearance") {
+            window.gameplay.showToast(`${actor}: STATION PARKING LANE CLEARED`);
+          } else if (ev.type === "dsn_lock") {
+            window.gameplay.showToast(`${actor}: EARTH DISH SIGNAL LOCKED`);
+          } else if (ev.type === "power_route") {
+            window.gameplay.showToast(`${actor}: SOLAR POWER CHECK COMPLETE`);
+          } else if (ev.type === "science_downlink") {
+            window.gameplay.showToast(`${actor}: SCIENCE DATA SHARING READY`);
+          } else if (ev.type === "ping_room" && ev.ping) {
+            window.gameplay.showToast(`EARTH ALERT -> ${String(ev.ping.roomLabel || ev.ping.roomId || "HUB").toUpperCase()}`);
+          } else if (ev.type === "board_blocked_ground" && ev.message) {
+            window.gameplay.showToast(ev.message);
+          }
+        }
       }
     });
 
@@ -2136,13 +2040,43 @@
         || (window.netManager.roomState && window.netManager.roomState.mission)
         || (typeof window.netManager.getMission === "function" ? window.netManager.getMission() : null);
 
+      const isShuttleOps = !!((data && data.opsMode === "shuttle_flight") || (mission && mission.opsMode === "shuttle_flight"));
+      if (isShuttleOps && window.shuttleGame) {
+        cleanupGameWorldForLobby();
+        isGameStarted = true;
+        window.isGameStarted = true;
+        document.body.classList.add("game-active", "shuttle-mode-active");
+        syncSpaceGamesLock();
+        screenGame.style.display = "none";
+        const resBar = document.getElementById("lunaspis-resource-meters");
+        if (resBar) resBar.style.display = "none";
+        window.shuttleGame.start({
+          renderer,
+          net: window.netManager,
+          canReturnLobby: !!(window.netManager && window.netManager.isHost),
+          onLeave: leaveCurrentRoom,
+          onReturnToLobby: () => {
+            if (window.netManager && window.netManager.isHost && typeof window.netManager.returnToLobby === "function") {
+              window.netManager.returnToLobby();
+            }
+          }
+        });
+        return;
+      }
+
+      if (window.shuttleGame && window.shuttleGame.isActive) {
+        window.shuttleGame.exit();
+      }
+      document.body.classList.remove("shuttle-mode-active");
+
       const startStationOperations = () => {
         isGameStarted = true;
         window.isGameStarted = true;
         document.body.classList.add("game-active");
+        syncSpaceGamesLock();
         screenGame.style.display = "flex";
         syncResponsiveHudState();
-        const resBar = document.getElementById("perilune-resource-meters");
+        const resBar = document.getElementById("lunaspis-resource-meters");
         if (resBar) {
           if (window.gameplay && typeof window.gameplay._applyResourceBarLayout === "function") {
             window.gameplay._applyResourceBarLayout(resBar);
@@ -2174,11 +2108,11 @@
           if (phase === "station") {
             banner.textContent = "STATION INTERIOR — ALL CREW ABOARD. BEGIN MISSION OPERATIONS.";
           } else if (phase === "docking") {
-            banner.textContent = "PHASE 3: ORBITAL APPROACH — ALIGN WITH PMA-2 AND COMPLETE DOCKING";
+            banner.textContent = "STEP 3: SPACE RENDEZVOUS — LINE UP WITH THE STATION DOOR AND CONNECT";
           } else if (phase === "launch") {
-            banner.textContent = "PHASE 2: ASCENT IN PROGRESS — CREW STRAPPED IN";
+            banner.textContent = "STEP 2: ROCKET LAUNCH — HOLD ON TIGHT, HEADING TO SPACE!";
           } else {
-            banner.textContent = "PHASE 1: KENNEDY SPACE CENTER LC-39A — FOLLOW THE GLOWING MARKERS TO BOARD THE ORBITER";
+            banner.textContent = "STEP 1: LAUNCH PAD — FOLLOW THE GLOWING PATH TO BOARD THE SPACESHIP";
           }
           banner.style.display = "flex";
           setTimeout(() => { banner.style.display = "none"; }, 3000);
@@ -2230,17 +2164,17 @@
         typeof window.gameplay.showToast === "function"
       ) {
         if (payload.action === "board") {
-          window.gameplay.showToast(`👨‍🚀 ${payload.playerName || "CREW"} BOARDED THE ORBITER`);
+          window.gameplay.showToast(`${payload.playerName || "TEAMMATE"} BOARDED THE SPACESHIP`);
         } else if (payload.action === "dock") {
           window.gameplay.showToast(
             payload.mission.dockLocked
-              ? "🌉 CREW LOCKED THE ORBITER ACCESS ARM"
-              : "🌉 ORBITER ACCESS ARM RETRACTED"
+              ? "TEAM LOCKED THE BOARDING BRIDGE"
+              : "BOARDING BRIDGE PULLED BACK"
           );
         } else if (payload.action === "reset") {
-          window.gameplay.showToast(`🚀 ${payload.playerName || "CREW"} RETURNED THE CREW TO LC-39A`);
+          window.gameplay.showToast(`${payload.playerName || "TEAMMATE"} BROUGHT THE TEAM BACK TO THE LAUNCH PAD`);
         } else if (payload.action === "design_revised" || payload.action === "design_sync") {
-          window.gameplay.showToast(`📡 ${payload.playerName || "CREW"} SYNCED MISSION POINT DESIGN`);
+          window.gameplay.showToast(`${payload.playerName || "TEAMMATE"} UPDATED THE MISSION PLAN`);
         }
       }
     });
@@ -2261,15 +2195,89 @@
 
     window.netManager.on("chat_message", (comm) => {
       appendLobbyChat(comm);
+      if (window.shuttleGame && window.shuttleGame.isActive) {
+        window.shuttleGame.onChat(comm);
+      }
+    });
+
+    window.netManager.on("disconnected", () => {
+      if (window.shuttleGame && window.shuttleGame.isActive) {
+        cleanupGameWorldForLobby();
+        if (screenLobby) screenLobby.style.display = "none";
+        if (screenGame) screenGame.style.display = "none";
+        if (screenMenu) screenMenu.style.display = "flex";
+      }
     });
   }
 
   function renderLobbyMission(mission) {
     const cards = document.getElementById("lobby-mission-cards");
     const difficultyRow = document.getElementById("lobby-difficulty-pills");
+    const difficultyContainer = document.getElementById("lobby-difficulty-row");
+    const modeBar = document.getElementById("lobby-ops-mode-bar");
     const selectedLabel = document.getElementById("lobby-mission-selected");
     const hint = document.getElementById("lobby-mission-hint");
+    const missionTip = document.getElementById("lobby-mission-tip");
+    const difficultyHint = document.getElementById("lobby-difficulty-hint");
     if (!cards) return;
+
+    const opsMode = (mission && mission.opsMode === "shuttle_flight") ? "shuttle_flight" : "iss_expedition";
+    const status = window.netManager && window.netManager.roomState
+      ? window.netManager.roomState.status
+      : "lobby";
+    const isHost = !!(window.netManager && window.netManager.isHost);
+    const canSelect = isHost && status === "lobby";
+
+    if (modeBar) {
+      modeBar.querySelectorAll("[data-ops-mode]").forEach((btn) => {
+        const mode = btn.getAttribute("data-ops-mode");
+        btn.classList.toggle("active", mode === opsMode);
+        btn.disabled = !canSelect;
+        btn.onclick = () => {
+          if (!canSelect) return;
+          window.netManager.selectMission(undefined, undefined, mode);
+          if (window.spaceAudio) window.spaceAudio.playClick();
+        };
+      });
+    }
+
+    const btnStart = document.getElementById("btn-start-mission");
+    if (opsMode === "shuttle_flight") {
+      if (selectedLabel) {
+        selectedLabel.textContent = "SPACE SHUTTLE · LAUNCH & RUNWAY LANDING";
+      }
+      if (hint) {
+        hint.textContent = canSelect
+          ? "HOST PICKS — SPACE SHUTTLE FLIGHT"
+          : "HOST PICKED SPACE SHUTTLE — CREW VIEW";
+        hint.style.color = canSelect ? "#67e8f9" : "#9aa4ae";
+      }
+      if (difficultyContainer) difficultyContainer.style.display = "none";
+      if (missionTip) missionTip.style.display = "none";
+      if (difficultyHint) difficultyHint.style.display = "none";
+      cards.innerHTML = `
+        <div class="shuttle-mode-card">
+          <div class="shuttle-mode-card-title">SPACE SHUTTLE CO-OP FLIGHT · LAUNCH TO RUNWAY LANDING</div>
+          <div class="shuttle-mode-card-desc">
+            Fly into space, release a satellite, dive back through the sky, and steer your Space Shuttle safely onto the landing runway!
+          </div>
+          <div class="shuttle-mode-seats">
+            <div><strong>CAPT</strong> (Commander) · Launch, Re-entry &amp; Wheels</div>
+            <div><strong>PILOT</strong> (Engineer) · Space Engines, Steering &amp; Brakes</div>
+            <div><strong>SPEC 1</strong> (Cargo) · Cargo Doors &amp; Satellite Release</div>
+            <div><strong>SPEC 2</strong> (Science) · Speed-Up Time &amp; Flight Guide</div>
+          </div>
+        </div>
+      `;
+      if (btnStart && isHost && status === "lobby") {
+        btnStart.textContent = "FLY SPACE SHUTTLE →";
+      } else if (btnStart && status === "playing") {
+        btnStart.textContent = "JOIN SHUTTLE FLIGHT →";
+      }
+      return;
+    }
+
+    if (difficultyContainer) difficultyContainer.style.display = "flex";
 
     const catalog = window.gameplay && typeof window.gameplay.getScenarioCatalog === "function"
       ? window.gameplay.getScenarioCatalog()
@@ -2282,30 +2290,35 @@
     const selectedId = (mission && mission.scenarioId) || "lunar_south_pole";
     const selectedDifficultyId = (mission && mission.difficultyId) || "engineer";
     const selected = catalog.find((scenario) => scenario.id === selectedId) || catalog[0];
-    const status = window.netManager && window.netManager.roomState
-      ? window.netManager.roomState.status
-      : "lobby";
-    const isHost = !!(window.netManager && window.netManager.isHost);
-    const canSelect = isHost && status === "lobby";
 
     if (selectedLabel && selected) {
       selectedLabel.textContent = `${selected.code} · ${selected.badge}`;
     }
     if (hint) {
       hint.textContent = canSelect
-        ? "HOST CONTROL — SELECT EXPEDITION PROFILE"
-        : "HOST SELECTS THE EXPEDITION — CREW VIEW";
+        ? "HOST PICKS — CHOOSE MISSION"
+        : "HOST PICKS THE MISSION — CREW VIEW";
       hint.style.color = canSelect ? "#67e8f9" : "#9aa4ae";
+    }
+
+    if (missionTip) {
+      if (selected && selected.tradeoffTip) {
+        missionTip.innerHTML = `<strong>TRADE-OFF:</strong> ${escapeHtml(selected.tradeoffTip)}`;
+        missionTip.style.display = "block";
+      } else {
+        missionTip.style.display = "none";
+        missionTip.innerHTML = "";
+      }
     }
 
     cards.innerHTML = catalog.map((scenario) => {
       const active = scenario.id === selected.id;
       return `
         <button type="button" data-scenario-id="${escapeHtml(scenario.id)}" style="
-          flex:1 1 170px;
-          min-width:170px;
+          flex:1 1 190px;
+          min-width:190px;
           text-align:left;
-          padding:10px;
+          padding:13px 14px;
           border-radius:8px;
           border:1px solid ${active ? "#67e8f9" : "rgba(255,255,255,0.12)"};
           background:${active ? "rgba(103,232,249,0.10)" : "rgba(255,255,255,0.025)"};
@@ -2315,10 +2328,10 @@
           opacity:${canSelect ? "1" : "0.82"};
           transition:all 0.15s;
         ">
-          <div style="font-family:monospace;font-size:8.5px;font-weight:700;color:#67e8f9;letter-spacing:1.1px;">${escapeHtml(scenario.badge)}</div>
-          <div style="font-size:11px;font-weight:700;color:#ece7dc;margin:4px 0 3px;">${escapeHtml(scenario.code)} · ${escapeHtml(scenario.name)}</div>
-          <div style="font-size:9.5px;color:#9aa4ae;line-height:1.35;height:39px;overflow:hidden;">${escapeHtml(scenario.summary)}</div>
-          <div style="display:flex;justify-content:space-between;margin-top:6px;font-family:monospace;font-size:8.5px;color:#7fb8a6;">
+          <div style="font-family:monospace;font-size:10.5px;font-weight:700;color:#67e8f9;letter-spacing:0.9px;">${escapeHtml(scenario.badge)}</div>
+          <div style="font-size:13px;font-weight:700;color:#ece7dc;margin:5px 0 4px;">${escapeHtml(scenario.code)} · ${escapeHtml(scenario.name)}</div>
+          <div style="font-size:11.5px;color:#9aa4ae;line-height:1.48;min-height:48px;">${escapeHtml(scenario.summary)}</div>
+          <div style="display:flex;justify-content:space-between;margin-top:8px;font-family:monospace;font-size:10.5px;color:#7fb8a6;">
             <span>$${Number(scenario.baseBudgetM || 0)}M CAP</span>
             <span>${Number(scenario.targetLifetimeMonths || 0)} MO</span>
           </div>
@@ -2331,19 +2344,30 @@
         const active = difficulty.id === selectedDifficultyId;
         return `
           <button type="button" data-difficulty-id="${escapeHtml(difficulty.id)}" title="${escapeHtml(difficulty.desc)}" style="
-            padding:5px 9px;
+            padding:6px 12px;
             border-radius:999px;
             border:1px solid ${active ? "#d0a15c" : "rgba(255,255,255,0.14)"};
             background:${active ? "rgba(208,161,92,0.16)" : "rgba(255,255,255,0.03)"};
             color:${active ? "#fde68a" : "#9aa4ae"};
             font-family:monospace;
-            font-size:9px;
+            font-size:11px;
             font-weight:700;
-            letter-spacing:0.8px;
+            letter-spacing:0.6px;
             cursor:${canSelect ? "pointer" : "default"};
           ">${escapeHtml(String(difficulty.name || difficulty.id).split("(")[0].trim().toUpperCase())}</button>
         `;
       }).join("");
+    }
+
+    if (difficultyHint) {
+      const chosen = difficulties.find((entry) => entry.id === selectedDifficultyId);
+      if (chosen) {
+        const isCadet = chosen.id === "cadet";
+        difficultyHint.innerHTML = `${isCadet ? "<strong>CADET TIP:</strong> " : ""}${escapeHtml(chosen.desc)}`;
+        difficultyHint.style.display = "block";
+      } else {
+        difficultyHint.style.display = "none";
+      }
     }
 
     cards.querySelectorAll("[data-scenario-id]").forEach((button) => {
@@ -2363,9 +2387,10 @@
       });
     }
 
-    const btnStart = document.getElementById("btn-start-mission");
     if (btnStart && status === "lobby" && isHost && selected) {
       btnStart.textContent = `LAUNCH ${selected.code} →`;
+    } else if (btnStart && status === "playing") {
+      btnStart.textContent = "JOIN ACTIVE MISSION";
     }
   }
 
@@ -2379,17 +2404,19 @@
     const btnBegin = document.getElementById("btn-briefing-begin");
 
     if (title) {
-      title.textContent = `${mission.scenarioCode || "PERILUNE"} · ${mission.scenarioName || "CO-OP EXPEDITION"}`;
+      title.textContent = `${mission.scenarioCode || "LUNASPIS"} · ${mission.scenarioName || "TEAM MISSION"}`;
     }
     if (meta) {
       const crew = window.netManager && window.netManager.roomState && Array.isArray(window.netManager.roomState.players)
         ? window.netManager.roomState.players.length
         : 0;
-      meta.textContent = `DIFFICULTY: ${String(mission.difficultyId || "engineer").toUpperCase()} · CREW: ${crew}/6 · SEED: ${mission.seed || "—"}`;
+      const diffLabels = { cadet: "BEGINNER", engineer: "NORMAL", director: "EXPERT" };
+      const diffText = diffLabels[mission.difficultyId] || String(mission.difficultyId || "NORMAL").toUpperCase();
+      meta.textContent = `LEVEL: ${diffText} · TEAM: ${crew}/6`;
     }
     if (summary) {
       summary.textContent = mission.scenarioSummary ||
-        "Complete the shared mission objectives across the station before the expedition window closes.";
+        "Finish the shared mission steps across the Space Station before launch day.";
     }
     if (list) {
       const objectives = Array.isArray(mission.objectives) ? mission.objectives : [];
@@ -2401,13 +2428,39 @@
           return dep ? dep.room : id;
         });
         return `
-          <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
-            <span style="font-family:monospace;font-size:9px;font-weight:700;color:${done ? "#34d399" : "#67e8f9"};min-width:38px;">${escapeHtml(objective.room)}</span>
-            <span style="flex:1;font-size:11px;color:${done ? "#7fb8a6" : "#ece7dc"};">${escapeHtml(objective.title)}</span>
-            <span style="font-family:monospace;font-size:8.5px;color:#9aa4ae;">${done ? "COMPLETE" : deps.length ? "AFTER " + deps.join("+") : "FIRST"}</span>
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+            <span style="font-family:monospace;font-size:11px;font-weight:700;color:${done ? "#34d399" : "#67e8f9"};min-width:46px;">${escapeHtml(objective.room)}</span>
+            <span style="flex:1;font-size:12.5px;line-height:1.45;color:${done ? "#7fb8a6" : "#ece7dc"};">${escapeHtml(objective.title)}</span>
+            <span style="font-family:monospace;font-size:10.5px;color:#9aa4ae;">${done ? "COMPLETE" : deps.length ? "AFTER " + deps.join("+") : "FIRST"}</span>
           </div>
         `;
       }).join("");
+    }
+
+    const coach = document.getElementById("briefing-coach");
+    if (coach) {
+      const guidanceOn = !window.missionAcademy
+        || typeof window.missionAcademy.isGuidanceEnabled !== "function"
+        || window.missionAcademy.isGuidanceEnabled();
+      if (guidanceOn) {
+        let scenarioTip = "";
+        if (window.gameplay && typeof window.gameplay.getScenarioCatalog === "function") {
+          const scenario = window.gameplay.getScenarioCatalog().find((entry) => entry.id === mission.scenarioId);
+          scenarioTip = scenario && scenario.tradeoffTip ? scenario.tradeoffTip : "";
+        }
+        const isCadet = String(mission.difficultyId || "").toLowerCase() === "cadet";
+        coach.innerHTML = `
+          <strong>${isCadet ? "BEGINNER HELPER" : "QUICK TIP"}:</strong>
+          ${escapeHtml(scenarioTip || "Every choice trades weight, power, radio strength, and budget. Keep all status bars green before locking in!")}
+          <div class="briefing-coach-actions">
+            <button type="button" id="btn-briefing-academy">OPEN BEGINNER GUIDE [F1]</button>
+          </div>
+        `;
+        coach.style.display = "block";
+      } else {
+        coach.style.display = "none";
+        coach.innerHTML = "";
+      }
     }
 
     if (btnBegin) {
@@ -2419,20 +2472,118 @@
     overlay.style.display = "flex";
   }
 
+  function roleBadgeClass(role) {
+    switch (role) {
+      case "flight_director": return "badge-fdir";
+      case "ground_capcom": return "badge-cap";
+      case "engineer": return "badge-eng";
+      case "scientist": return "badge-sci";
+      case "specialist": return "badge-spc";
+      default: return "badge-cmd";
+    }
+  }
+
+  function renderSwapBanners(transientIncoming = null) {
+    const net = window.netManager;
+    const myId = net ? net.socketId : null;
+    const rs = net && net.roomState ? net.roomState : null;
+    const swapList = (rs && Array.isArray(rs.swapRequests)) ? rs.swapRequests.slice() : [];
+    if (transientIncoming && transientIncoming.id && !swapList.some((r) => r && r.id === transientIncoming.id)) {
+      swapList.unshift(transientIncoming);
+    }
+
+    const incoming = myId ? swapList.find((r) => r && r.toId === myId) : null;
+    const outgoing = myId ? swapList.find((r) => r && r.fromId === myId) : null;
+    const rolesApi = window.InterfellasRoles;
+
+    const buildMarkup = (req, isIncoming) => {
+      if (!req) return "";
+      const fromShort = rolesApi ? rolesApi.getRoleMeta(req.fromRole).short : String(req.fromRole || "CREW").toUpperCase();
+      const toShort = rolesApi ? rolesApi.getRoleMeta(req.toRole).short : String(req.toRole || "CREW").toUpperCase();
+      if (isIncoming) {
+        return `
+          <div>
+            <strong>SWAP REQUEST:</strong> ${escapeHtml(req.fromName || "Crew")} (${escapeHtml(fromShort)}) wants to trade stations for your <strong>${escapeHtml(toShort)}</strong> role.
+          </div>
+          <div class="swap-banner-actions">
+            <button type="button" class="ground-action-btn is-approved" data-swap-accept="${escapeHtml(req.id)}">ACCEPT SWAP</button>
+            <button type="button" class="ground-action-btn" data-swap-decline="${escapeHtml(req.id)}">DECLINE</button>
+          </div>
+        `;
+      }
+      return `
+        <div>
+          <strong>PENDING SWAP:</strong> Requested ${escapeHtml(req.toName || "Crew")} (${escapeHtml(toShort)}) to trade for your ${escapeHtml(fromShort)} role...
+        </div>
+        <div class="swap-banner-actions">
+          <button type="button" class="ground-action-btn" data-swap-cancel="${escapeHtml(req.id)}">CANCEL</button>
+        </div>
+      `;
+    };
+
+    const bindBanner = (el, req, isIncoming) => {
+      if (!el) return;
+      if (!req) {
+        el.style.display = "none";
+        el.innerHTML = "";
+        return;
+      }
+      el.innerHTML = buildMarkup(req, isIncoming);
+      el.style.display = "flex";
+      const acceptBtn = el.querySelector("[data-swap-accept]");
+      if (acceptBtn) {
+        acceptBtn.addEventListener("click", () => {
+          if (net && typeof net.respondRoleSwap === "function") net.respondRoleSwap(req.id, true);
+        });
+      }
+      const declineBtn = el.querySelector("[data-swap-decline]");
+      if (declineBtn) {
+        declineBtn.addEventListener("click", () => {
+          if (net && typeof net.respondRoleSwap === "function") net.respondRoleSwap(req.id, false);
+        });
+      }
+      const cancelBtn = el.querySelector("[data-swap-cancel]");
+      if (cancelBtn) {
+        cancelBtn.addEventListener("click", () => {
+          if (net && typeof net.cancelRoleSwap === "function") net.cancelRoleSwap(req.id);
+        });
+      }
+    };
+
+    const lobbyBanner = document.getElementById("lobby-swap-banner");
+    const hudBanner = document.getElementById("hud-swap-banner");
+    const activeReq = incoming || outgoing || null;
+    const activeIncoming = !!incoming;
+    bindBanner(lobbyBanner, activeReq, activeIncoming);
+    bindBanner(hudBanner, window.isGameStarted ? activeReq : null, activeIncoming);
+  }
+  window.renderSwapBanners = renderSwapBanners;
+
   function updateLobbySlots(players, hostId, roomStatus) {
     const slotsContainer = document.getElementById("lobby-players-grid");
     const countBadge = document.getElementById("lobby-player-count");
     const btnStart = document.getElementById("btn-start-mission");
-    const status = roomStatus || (window.netManager.roomState && window.netManager.roomState.status) || "lobby";
+    const btnRand = document.getElementById("btn-randomize-roles");
+    const chkShuffle = document.getElementById("chk-shuffle-on-launch");
+    const rs = window.netManager && window.netManager.roomState;
+    const status = roomStatus || (rs && rs.status) || "lobby";
+    const isHost = window.netManager.socketId === hostId;
 
-    if (countBadge) countBadge.textContent = `${players.length} / 6 ASTRONAUTS (CO-OP CREW)`;
+    if (countBadge) countBadge.textContent = `${players.length} / 6 CREW ASSIGNED`;
+    if (btnRand) {
+      btnRand.style.display = (isHost && status === "lobby") ? "inline-flex" : "none";
+      btnRand.disabled = players.length < 2;
+      btnRand.style.opacity = players.length < 2 ? "0.5" : "1";
+    }
+    if (chkShuffle && chkShuffle.parentElement) {
+      chkShuffle.parentElement.style.display = (isHost && status === "lobby") ? "inline-flex" : "none";
+    }
     if (btnStart) {
-      const isHost = window.netManager.socketId === hostId;
       if (status === "victory") {
         btnStart.style.display = "block";
         btnStart.disabled = !isHost;
         btnStart.style.opacity = isHost ? "1" : "0.55";
-        btnStart.textContent = isHost ? "MISSION SELECT →" : "MISSION COMPLETE";
+        btnStart.textContent = isHost ? "MISSION SELECT ->" : "MISSION COMPLETE";
       } else if (status === "playing") {
         btnStart.style.display = "block";
         btnStart.disabled = false;
@@ -2451,96 +2602,116 @@
       }
     }
 
-    if (!slotsContainer) return;
-    slotsContainer.innerHTML = "";
-
-    const header = document.createElement("div");
-    header.style.gridColumn = "1 / -1";
-    header.style.display = "flex";
-    header.style.justifyContent = "space-between";
-    header.style.alignItems = "center";
-    header.style.padding = "4px 6px";
-    header.style.borderBottom = "1px solid rgba(255, 255, 255, 0.12)";
-    header.innerHTML = `
-      <div style="font-weight:700;color:#ece7dc;font-size:11px;letter-spacing:1.6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">PERILUNE CREW MANIFEST</div>
-      <div style="font-size:10px;font-weight:700;color:#9aa4ae;letter-spacing:1px;">${players.length} / 6 ABOARD</div>
-    `;
-    slotsContainer.appendChild(header);
-
-    const ROLES_ORDER = (window.InterfellasRoles && window.InterfellasRoles.ORDER) || ["commander", "engineer", "scientist"];
-
     if (typeof window.syncLobbySelectionUI === "function") {
       window.syncLobbySelectionUI(players);
     }
+    renderSwapBanners();
 
-    for (let i = 0; i < 6; i++) {
-      const expectedRole = ROLES_ORDER[i % ROLES_ORDER.length];
-      const expectedMeta = window.InterfellasRoles
-        ? window.InterfellasRoles.getRoleMeta(expectedRole)
-        : { short: expectedRole.slice(0, 3).toUpperCase(), label: expectedRole.toUpperCase(), color: "#67e8f9", duties: {} };
-      const p = players[i];
-      const pod = document.createElement("div");
-      pod.className = `lobby-player-pod ${p ? 'occupied' : 'empty'}`;
-      pod.style.cursor = p ? "default" : "pointer";
-      pod.style.padding = "12px 14px";
-      pod.style.flexDirection = "row";
-      pod.style.justifyContent = "space-between";
-      pod.style.gap = "8px";
-      pod.style.minHeight = "64px";
+    if (!slotsContainer) return;
+    slotsContainer.innerHTML = "";
 
-      if (p) {
-        const isSelf = p.id === window.netManager.socketId;
-        const color = safeHexColor(p.color, "#ef4444");
-        const name = escapeHtml(p.name || "Astronaut");
-        const normRole = window.InterfellasRoles
-          ? window.InterfellasRoles.normalizeRole(p.role, expectedRole)
-          : (p.role || expectedRole);
-        const roleMeta = window.InterfellasRoles
-          ? window.InterfellasRoles.getRoleMeta(normRole)
-          : expectedMeta;
-        const dutyBrief = roleMeta.duties && roleMeta.duties.station ? roleMeta.duties.station : "";
-        pod.innerHTML = `
-          <div style="display:flex;align-items:center;gap:8px;min-width:0;">
-            <div class="pod-color-indicator" style="width:30px;height:30px;flex-shrink:0;background:${color};box-shadow:0 0 10px ${color};"></div>
-            <div style="text-align:left;min-width:0;">
-              <div class="pod-name" style="font-size:12px;">${name} ${p.isHost ? '<span style="color:#fde047;">[HOST]</span>' : ''} ${isSelf ? '<span style="color:#67e8f9;">(YOU)</span>' : ''}</div>
-              <div class="pod-role" style="color:${color};font-size:10px;">[${escapeHtml(roleMeta.short)}] ${escapeHtml(roleMeta.label)}</div>
-              ${dutyBrief ? `<div class="lobby-pod-duty">${escapeHtml(dutyBrief)}</div>` : ""}
-            </div>
+    const rolesApi = window.InterfellasRoles;
+    const swapList = (rs && Array.isArray(rs.swapRequests)) ? rs.swapRequests : [];
+    const myId = window.netManager ? window.netManager.socketId : null;
+    const pendingToIds = new Set(swapList.filter((r) => r && r.fromId === myId).map((r) => r.toId));
+
+    const groundTarget = players.length <= 1 ? 0 : (players.length <= 3 ? 1 : 2);
+    const groundPlayers = players.filter((p) => p && (p.team === "ground" || (rolesApi && rolesApi.isGroundRole(p.role))));
+    const flightPlayers = players.filter((p) => p && !groundPlayers.includes(p));
+
+    const renderManifestRow = (p, fallbackDuty) => {
+      const row = document.createElement("div");
+      if (!p) {
+        row.className = "lobby-manifest-row is-empty";
+        row.innerHTML = `
+          <div class="lobby-row-head">
+            <span class="lobby-row-name" style="color:var(--text-slate);">STANDBY SEAT</span>
+            <span class="task-badge">OPEN</span>
           </div>
-          <div class="pod-ready-badge ready" style="padding:2px 6px;font-size:9px;flex-shrink:0;">READY</div>
+          <div class="lobby-row-duty">${escapeHtml(fallbackDuty)}</div>
         `;
-      } else {
-        pod.innerHTML = `
-          <div style="display:flex;align-items:center;gap:8px;">
-            <div class="pod-color-indicator empty" style="width:30px;height:30px;"></div>
-            <div style="text-align:left;">
-              <div class="pod-name" style="color:#9aa4ae;font-size:12px;">OPEN CREW SLOT</div>
-              <div class="pod-role" style="font-size:9px;color:rgba(154,164,174,0.85);">Click to assume [${escapeHtml(expectedMeta.short)}] ${escapeHtml(expectedMeta.label)}</div>
-            </div>
+        return row;
+      }
+      const isSelf = p.id === myId;
+      const color = safeHexColor(p.color, "#93c5fd");
+      const normRole = rolesApi ? rolesApi.normalizeRole(p.role, "commander") : (p.role || "commander");
+      const roleMeta = rolesApi ? rolesApi.getRoleMeta(normRole) : { short: "CMD", label: "COMMANDER", duties: {} };
+      const dutyText = (roleMeta.duties && roleMeta.duties.station) || fallbackDuty;
+      const isPending = pendingToIds.has(p.id);
+      row.className = `lobby-manifest-row${isSelf ? " is-self" : ""}`;
+      row.innerHTML = `
+        <div class="lobby-row-head">
+          <div class="lobby-row-identity">
+            <span class="lobby-suit-swatch" style="background:${color};"></span>
+            <span class="lobby-row-name">${escapeHtml(p.name || "Astronaut")} ${p.isHost ? "<span style='color:#fde68a;font-size:10px;'>[HOST]</span>" : ""} ${isSelf ? "<span style='color:#93c5fd;font-size:10px;'>(YOU)</span>" : ""}</span>
           </div>
-          <div style="font-size:10px;color:#67e8f9;font-weight:700;letter-spacing:1px;">SWITCH &rarr;</div>
-        `;
-        pod.addEventListener("click", () => {
-          window.netManager.explicitRoleSelected = true;
-          window.netManager.customizeAstronaut(null, null, expectedRole, null, null, "crew", { explicitRole: true });
-          buildLocalAstronaut(window.netManager.localPlayer.color, expectedRole);
-          if (typeof window.syncLobbySelectionUI === "function") window.syncLobbySelectionUI();
-          if (typeof window.renderHudCrewRoster === "function") window.renderHudCrewRoster();
+          <span class="task-badge ${roleBadgeClass(normRole)}">${escapeHtml(roleMeta.short)}</span>
+        </div>
+        <div class="lobby-row-foot">
+          <span class="lobby-row-duty">${escapeHtml(roleMeta.label)} · ${escapeHtml(dutyText)}</span>
+          ${!isSelf && players.length > 1 ? `
+            <button type="button" class="lobby-swap-btn${isPending ? " is-pending" : ""}" data-req-swap="${escapeHtml(p.id)}" ${isPending ? "disabled" : ""}>
+              ${isPending ? "PENDING" : "SWAP"}
+            </button>
+          ` : ""}
+        </div>
+      `;
+      const swapBtn = row.querySelector("[data-req-swap]");
+      if (swapBtn) {
+        swapBtn.addEventListener("click", () => {
+          if (window.netManager && typeof window.netManager.requestRoleSwap === "function") {
+            window.netManager.requestRoleSwap(p.id);
+          }
           if (window.spaceAudio) window.spaceAudio.playClick();
         });
       }
-      slotsContainer.appendChild(pod);
+      return row;
+    };
+
+    const groundGroup = document.createElement("div");
+    groundGroup.className = "lobby-zone-group";
+    groundGroup.innerHTML = `
+      <div class="lobby-zone-header zone-ground">
+        <span>EARTH CONTROL TEAM</span>
+        <span>${groundPlayers.length} / ${groundTarget} FILLED (${players.length <= 1 ? "SOLO MODE" : "MAX 2"})</span>
+      </div>
+      <div class="lobby-zone-rows"></div>
+    `;
+    const groundRows = groundGroup.querySelector(".lobby-zone-rows");
+    if (groundPlayers.length === 0) {
+      groundRows.appendChild(renderManifestRow(null, players.length <= 1
+        ? "Auto-assigned with 2+ players (1 Earth Control at 2-3 players, 2 at 4-6)."
+        : "Open Earth Control spot."));
+    } else {
+      groundPlayers.forEach((p) => groundRows.appendChild(renderManifestRow(p, "Launch OK, Earth Dish Lock, Power & Data Relay")));
+      if (groundPlayers.length < groundTarget) {
+        groundRows.appendChild(renderManifestRow(null, "Second Earth Control spot fills automatically."));
+      }
     }
+    slotsContainer.appendChild(groundGroup);
+
+    const flightGroup = document.createElement("div");
+    flightGroup.className = "lobby-zone-group";
+    flightGroup.innerHTML = `
+      <div class="lobby-zone-header zone-crew">
+        <span>SPACE CREW · STATION</span>
+        <span>${flightPlayers.length} JOINED</span>
+      </div>
+      <div class="lobby-zone-rows"></div>
+    `;
+    const flightRows = flightGroup.querySelector(".lobby-zone-rows");
+    if (flightPlayers.length === 0) {
+      flightRows.appendChild(renderManifestRow(null, "Commander, Engineer, Scientist & Mission Specialist seats."));
+    } else {
+      flightPlayers.forEach((p) => flightRows.appendChild(renderManifestRow(p, "Pad boarding, Orbital Docking & Station Ops")));
+    }
+    slotsContainer.appendChild(flightGroup);
   }
 
   function syncLobbySelectionUI(explicitPlayers) {
     const net = window.netManager;
     const lp = net && net.localPlayer ? net.localPlayer : {};
     const myColor = String(lp.color || "#67e8f9").toLowerCase();
-    const myRole = window.InterfellasRoles
-      ? window.InterfellasRoles.normalizeRole(lp.role, "commander")
-      : String(lp.role || "commander").toLowerCase();
     const players = Array.isArray(explicitPlayers)
       ? explicitPlayers
       : (net && net.roomState && Array.isArray(net.roomState.players) ? net.roomState.players : []);
@@ -2550,40 +2721,19 @@
       btn.classList.toggle("active", col === myColor);
     });
 
-    const grouped = window.InterfellasRoles
-      ? window.InterfellasRoles.getCrewByRole(players)
-      : { commander: [], engineer: [], scientist: [] };
-
-    document.querySelectorAll(".lobby-role-card").forEach((card) => {
-      const r = card.getAttribute("data-role");
-      card.classList.toggle("active", r === myRole);
-      const holderEl = card.querySelector(`[data-role-holders="${r}"]`);
-      if (holderEl) {
-        const list = grouped[r] || [];
-        if (list.length > 0) {
-          holderEl.textContent = list.map((p) => (p.id === net.socketId ? `${p.name} (YOU)` : p.name)).join(", ");
-          holderEl.classList.add("filled");
-        } else {
-          holderEl.textContent = "UNSTAFFED";
-          holderEl.classList.remove("filled");
-        }
-      }
-    });
+    const rolesApi = window.InterfellasRoles;
+    const groundCount = players.filter((p) => p && (p.team === "ground" || (rolesApi && rolesApi.isGroundRole(p.role)))).length;
+    const flightCount = Math.max(0, players.length - groundCount);
+    const myMeta = rolesApi ? rolesApi.getRoleMeta(lp.role) : { short: "CMD", label: "COMMANDER" };
 
     const coverageEl = document.getElementById("lobby-role-coverage");
     if (coverageEl) {
-      const missing = (window.InterfellasRoles ? window.InterfellasRoles.ORDER : ["commander", "engineer", "scientist"])
-        .filter((r) => !(grouped[r] && grouped[r].length));
       if (players.length <= 1) {
         coverageEl.className = "lobby-role-coverage";
-        coverageEl.textContent = "SOLO OR WAITING: Invite crewmates with Room Code. Unstaffed consoles can still be operated manually.";
-      } else if (missing.length > 0) {
-        const labels = missing.map((r) => (window.InterfellasRoles ? window.InterfellasRoles.getRoleMeta(r).short : r.toUpperCase()));
-        coverageEl.className = "lobby-role-coverage warn";
-        coverageEl.textContent = `COVERAGE NOTICE (${players.length} crew): ${labels.join(" & ")} unstaffed — click a role card above to balance duties.`;
+        coverageEl.textContent = "SOLO FLIGHT READY: Invite 1-5 crew with Room Code. Roles randomize cleanly across Ground Control (max 2) and Flight Crew.";
       } else {
         coverageEl.className = "lobby-role-coverage ready";
-        coverageEl.textContent = `ALL 3 FLIGHT ROLES COVERED (${players.length} crew): CMD, ENG & SCI ready for coordinated flight.`;
+        coverageEl.textContent = `ASSIGNED ROLE: [${myMeta.short}] ${myMeta.label} · ROSTER SPLIT: ${groundCount} GROUND / ${flightCount} FLIGHT · CLICK SWAP ON ANY PEER TO TRADE`;
       }
     }
   }
@@ -2595,18 +2745,13 @@
     const net = window.netManager;
     const rs = net && net.roomState ? net.roomState : null;
     const lp = net && net.localPlayer ? net.localPlayer : { role: "commander" };
-    const myRole = window.InterfellasRoles
-      ? window.InterfellasRoles.normalizeRole(lp.role, "commander")
-      : "commander";
+    const rolesApi = window.InterfellasRoles;
+    const myRole = rolesApi ? rolesApi.normalizeRole(lp.role, "commander") : "commander";
+    const localIsGround = lp.team === "ground" || (rolesApi && rolesApi.isGroundRole(myRole));
 
-    let players = rs && Array.isArray(rs.players) && rs.players.length > 0
+    const players = rs && Array.isArray(rs.players) && rs.players.length > 0
       ? rs.players
-      : [{ id: net ? net.socketId : "local", name: lp.name || "YOU", role: myRole, isHost: !!(net && net.isHost), color: lp.color || "#67e8f9" }];
-
-    const grouped = window.InterfellasRoles
-      ? window.InterfellasRoles.getCrewByRole(players)
-      : { commander: [], engineer: [], scientist: [] };
-    const order = (window.InterfellasRoles && window.InterfellasRoles.ORDER) || ["commander", "engineer", "scientist"];
+      : [{ id: net ? net.socketId : "local", name: lp.name || "YOU", role: myRole, team: localIsGround ? "ground" : "crew", isHost: !!(net && net.isHost), color: lp.color || "#67e8f9" }];
 
     const mission = (net && typeof net.getMission === "function" ? net.getMission() : null) || (rs && rs.mission) || {};
     const phase = mission.phase
@@ -2614,94 +2759,140 @@
         ? (window.spaceCenter.missionPhase || (window.spaceCenter.isGroundMode ? "gantry" : "station"))
         : "station");
     const hostId = rs ? rs.hostId : (net && net.isHost ? net.socketId : null);
+    const swapList = (rs && Array.isArray(rs.swapRequests)) ? rs.swapRequests : [];
+    const pendingToIds = new Set(swapList.filter((r) => r && r.fromId === (net && net.socketId)).map((r) => r.toId));
+    const boarded = Array.isArray(mission.boarded) ? mission.boarded : [];
 
-    const chipsHtml = order.map((r) => {
-      const meta = window.InterfellasRoles
-        ? window.InterfellasRoles.getRoleMeta(r)
-        : { short: r.slice(0, 3).toUpperCase(), label: r.toUpperCase(), color: "#67e8f9" };
-      const holders = grouped[r] || [];
-      const isSelf = r === myRole;
-      const namesText = holders.length > 0
-        ? holders.map((p) => (p.id === (net && net.socketId) ? `${p.name}*` : p.name)).join(", ")
-        : "OPEN";
-      const cls = `crew-role-chip${isSelf ? " is-self" : ""}${holders.length === 0 ? " is-unstaffed" : ""}`;
-      return `
-        <div class="${cls}" title="${escapeHtml(meta.label)}: ${escapeHtml(namesText)}">
-          <div class="crew-role-chip-head" style="color:${meta.color};">
-            <span>${escapeHtml(meta.short)}${isSelf ? " · YOU" : ""}</span>
+    const groundPlayers = players.filter((p) => p && (p.team === "ground" || (rolesApi && rolesApi.isGroundRole(p.role))));
+    const flightPlayers = players.filter((p) => p && !groundPlayers.includes(p));
+    const crossZoneOpen = phase === "gantry";
+
+    const renderGroupChips = (list, zoneLabel, countLabel) => {
+      if (!list.length) return "";
+      const chips = list.map((p) => {
+        const pRole = rolesApi ? rolesApi.normalizeRole(p.role, "commander") : (p.role || "commander");
+        const meta = rolesApi ? rolesApi.getRoleMeta(pRole) : { short: "CMD", label: "COMMANDER", color: "#93c5fd" };
+        const isSelf = net && p.id === net.socketId;
+        const pIsGround = p.team === "ground" || (rolesApi && rolesApi.isGroundRole(pRole));
+        const canSwap = !isSelf && players.length > 1 && (crossZoneOpen || pIsGround === localIsGround);
+        const isPending = pendingToIds.has(p.id);
+        const remotePeer = net && net.remotePlayers ? net.remotePlayers[p.id] : null;
+        const radioTag = (isSelf ? (window.voiceManager && window.voiceManager.isRadioTransmitting) : (remotePeer && remotePeer.isRadio)) ? " [ON AIR]" : "";
+        const statusHint = pIsGround
+          ? "EARTH"
+          : (phase === "gantry" ? (boarded.includes(p.id) ? "ABOARD" : "PAD") : (phase === "station" ? "STATION" : "ORBIT"));
+        return `
+          <div class="crew-role-chip${isSelf ? " is-self" : ""}" title="${escapeHtml(meta.label)} · ${statusHint}">
+            <div class="crew-role-chip-head">
+              <span style="color:${meta.color};">${escapeHtml(meta.short)}${isSelf ? " · YOU" : ""}${radioTag}</span>
+              <span style="color:var(--text-muted);font-size:8px;">${statusHint}</span>
+            </div>
+            <div class="crew-role-chip-names">${escapeHtml(p.name || "Crew")}</div>
+            ${canSwap ? `
+              <button type="button" class="crew-swap-btn" data-hud-swap="${escapeHtml(p.id)}" ${isPending ? "disabled" : ""}>
+                ${isPending ? "PENDING" : "SWAP"}
+              </button>
+            ` : ""}
           </div>
-          <div class="crew-role-chip-names">${escapeHtml(namesText)}</div>
+        `;
+      }).join("");
+      return `
+        <div class="crew-roster-zone-title">
+          <span>${zoneLabel}</span>
+          <span>${countLabel}</span>
         </div>
+        <div class="crew-roster-grid">${chips}</div>
       `;
-    }).join("");
+    };
+
+    const gs = mission.groundSupport || {};
+    const groundBadges = [
+      gs.goNoGoLaunch ? "LAUNCH OK" : null,
+      gs.dockingClearance ? "DOCK OK" : null,
+      gs.dsnLocked ? "DISH LOCK" : null,
+      gs.powerRouted ? "POWER OK" : null,
+      gs.scienceCleared ? "SCIENCE OK" : null
+    ].filter(Boolean);
 
     let callout = "";
-    if (phase === "gantry" || phase === "boarding") {
-      const boarded = Array.isArray(mission.boarded) ? mission.boarded : [];
-      const unboarded = players.filter((p) => !boarded.includes(p.id)).map((p) => p.name);
+    if (localIsGround) {
+      if (phase === "gantry") {
+        callout = `<strong>GROUND CONTROL ROOM:</strong> Watch crew boarding (${boarded.length}/${flightPlayers.length}) · Open Ground Desk [C] for Launch Clearance &amp; live updates. [R] Radio.`;
+      } else if (phase === "launch") {
+        callout = `<strong>LIFTOFF WATCH:</strong> Watch rocket liftoff from Ground Control · Turn on Dish Lock &amp; Solar Routing in Ground Desk [C].`;
+      } else if (phase === "docking") {
+        callout = `<strong>DOCKING SUPPORT:</strong> Give Safe Docking Clearance in Ground Desk [C] while Space Crew lines up with the hatch.`;
+      } else {
+        callout = `<strong>MISSION SUPPORT:</strong> Track Space Crew live in Ground Desk [C], alert rooms, &amp; use [R] Earth Radio.`;
+      }
+    } else if (phase === "gantry" || phase === "boarding") {
+      const unboarded = flightPlayers.filter((p) => !boarded.includes(p.id)).map((p) => p.name);
       const isMeAboard = net && boarded.includes(net.socketId);
-      const cmdHolder = grouped.commander[0] || players.find((p) => p.id === hostId) || players[0];
-      const engHolder = grouped.engineer[0] || players.find((p) => p.id === hostId) || players[0];
+      const cmdHolder = flightPlayers.find((p) => rolesApi && rolesApi.normalizeRole(p.role) === "commander") || flightPlayers.find((p) => p.id === hostId) || flightPlayers[0];
+      const engHolder = flightPlayers.find((p) => rolesApi && rolesApi.normalizeRole(p.role) === "engineer") || flightPlayers.find((p) => p.id === hostId) || flightPlayers[0];
       const armExtended = !!mission.dockLocked;
-      const cmdMeta = window.InterfellasRoles ? window.InterfellasRoles.getRoleMeta(cmdHolder && cmdHolder.role) : { short: "CMD" };
-      const engMeta = window.InterfellasRoles ? window.InterfellasRoles.getRoleMeta(engHolder && engHolder.role) : { short: "ENG" };
+      const cmdMeta = rolesApi && cmdHolder ? rolesApi.getRoleMeta(cmdHolder.role) : { short: "CMD" };
+      const engMeta = rolesApi && engHolder ? rolesApi.getRoleMeta(engHolder.role) : { short: "ENG" };
 
       if (!armExtended) {
-        const armActor = engHolder && engHolder.id === (net && net.socketId)
-          ? `YOU (${engMeta.short})`
-          : `${engHolder ? engHolder.name : "Crew"} (${engMeta.short})`;
-        callout = `<strong>1. PAD GANTRY:</strong> <strong>${escapeHtml(armActor)}</strong> press [F] at White Room Arm (x=-25.9, z=-6.3) to extend bridge.`;
+        const armActor = engHolder && engHolder.id === (net && net.socketId) ? `YOU (${engMeta.short})` : `${engHolder ? engHolder.name : "Crew"} (${engMeta.short})`;
+        callout = `<strong>1. BOARDING BRIDGE:</strong> <strong>${escapeHtml(armActor)}</strong> press [F] at the Boarding Bridge (top of the Launch Tower) to swing the walkway out.`;
       } else if (!isMeAboard) {
-        callout = `<strong>YOUR DUTY (PAD):</strong> Cross White Room Bridge &rarr; Press [E] or [B] at Orion Hatch to board (${boarded.length}/${players.length} aboard).`;
+        callout = `<strong>YOUR TURN:</strong> Walk across the Boarding Bridge &rarr; Press [E] or [B] at the Hatch to get inside (${boarded.length}/${flightPlayers.length} aboard).`;
       } else if (unboarded.length > 0) {
-        callout = `<strong>WAITING BOARDING (${boarded.length}/${players.length}):</strong> Waiting for <strong>${escapeHtml(unboarded.join(", "))}</strong>. ${cmdHolder && cmdHolder.id === (net && net.socketId) ? "You hold Launch Override [L]." : `Launch Auth: ${escapeHtml(cmdHolder ? cmdHolder.name : "Host")} (${escapeHtml(cmdMeta.short)}).`}`;
+        callout = `<strong>WAITING ON CREW (${boarded.length}/${flightPlayers.length}):</strong> Waiting for <strong>${escapeHtml(unboarded.join(", "))}</strong>. Launch Lead: ${escapeHtml(cmdHolder ? cmdHolder.name : "Host")} (${escapeHtml(cmdMeta.short)}).`;
       } else {
-        const launchActor = cmdHolder && cmdHolder.id === (net && net.socketId)
-          ? `YOU (${cmdMeta.short})`
-          : `${cmdHolder ? cmdHolder.name : "Host"} (${cmdMeta.short})`;
-        callout = `<strong>READY FOR LAUNCH:</strong> All aboard! <strong>${escapeHtml(launchActor)}</strong> press [L] or Launch button for T-10s ignition.`;
+        callout = mission.launchPollAt && !gs.goNoGoLaunch
+          ? `<strong>LAUNCH CHECK:</strong> Waiting for Ground Control GO (auto-clears in 8s) · Press [L] again to launch right now.`
+          : `<strong>READY FOR LIFTOFF:</strong> Whole crew aboard! Press [L] or click Launch to begin the countdown.`;
       }
     } else if (phase === "launch") {
-      const cmdHolder = grouped.commander[0] || players[0];
-      callout = `<strong>ASCENT FLIGHT:</strong> Pilot <strong>${escapeHtml(cmdHolder ? cmdHolder.name : "Commander")}</strong> leads trajectory. Crew hold for staging or vote skip.`;
+      const cmdHolder = flightPlayers.find((p) => rolesApi && rolesApi.normalizeRole(p.role) === "commander") || flightPlayers[0];
+      callout = `<strong>ROCKET ASCENT:</strong> Pilot <strong>${escapeHtml(cmdHolder ? cmdHolder.name : "Commander")}</strong> leads the climb to space. Sit tight or vote to skip.`;
     } else if (phase === "docking") {
-      const pilot = players.find((p) => p.id === mission.dockingPilotId) || grouped.commander[0] || players[0];
+      const pilot = flightPlayers.find((p) => p.id === mission.dockingPilotId) || flightPlayers[0];
       const isPilot = pilot && net && pilot.id === net.socketId;
       callout = isPilot
-        ? `<strong>YOUR DUTY (PILOT):</strong> Align docking rings [WASD+QE] &rarr; Press [SPACE] at corridor &le;1.2m.`
-        : `<strong>CREW SUPPORT:</strong> Pilot <strong>${escapeHtml(pilot ? pilot.name : "CMD")}</strong> flies [WASD]; ENG stabilizes [1/2], SCI locks boresight [3/4].`;
+        ? `<strong>YOUR TURN (PILOT):</strong> Line up the docking rings [WASD+QE] &rarr; Press [SPACE] within 1.2m.`
+        : `<strong>CREW HELP:</strong> Pilot <strong>${escapeHtml(pilot ? pilot.name : "CMD")}</strong> steers [WASD]; team steadies the craft [1-4].`;
     } else {
       const tasks = (window.gameplay && Array.isArray(window.gameplay.tasks)) ? window.gameplay.tasks : [];
       const myPending = tasks.filter((t) => !t.completed && (t.role === myRole || t.role === "all"));
       const anyPending = tasks.filter((t) => !t.completed);
       if (tasks.length > 0 && anyPending.length === 0) {
-        callout = `<strong>ALL 7 CONSOLES VERIFIED:</strong> Mission complete! Press [Y] for Mission Debrief.`;
+        callout = `<strong>ALL STATIONS DONE:</strong> Mission complete! Press [Y] for Final Results.`;
       } else if (myPending.length > 0) {
         const nextTask = myPending[0];
         const depsDone = !Array.isArray(nextTask.requires) || nextTask.requires.every((reqId) => {
           const dep = tasks.find((x) => x.id === reqId);
           return dep && dep.completed;
         });
-        const names = myPending.map((t) => `[${t.code || t.room || t.id}] ${t.location || t.room || "Console"}`).join(", ");
+        const names = myPending.map((t) => `[${t.code || t.room || t.id}] ${t.location || t.room || "Computer"}`).join(", ");
         callout = depsDone
-          ? `<strong>YOUR DUTY (${escapeHtml(myRole.toUpperCase())}):</strong> Head to ${escapeHtml(names)}.`
-          : `<strong>YOUR QUEUE (${escapeHtml(myRole.toUpperCase())}):</strong> ${escapeHtml(names)} (wait for upstream console check).`;
-      } else if (anyPending.length > 0) {
-        const nextOther = anyPending[0];
-        const otherRole = nextOther.role === "all" ? "ALL CREW" : String(nextOther.role || "crew").toUpperCase();
-        const otherHolder = nextOther.role === "all"
-          ? "ALL CREW"
-          : (grouped[nextOther.role] && grouped[nextOther.role][0] ? grouped[nextOther.role][0].name : `${otherRole} UNSTAFFED`);
-        callout = `<strong>YOUR ROLE DONE:</strong> Assist <strong>${escapeHtml(otherHolder)}</strong> with [${escapeHtml(nextOther.code || nextOther.room || nextOther.id)}] ${escapeHtml(nextOther.name)}.`;
+          ? `<strong>YOUR TURN (${escapeHtml(myRole.toUpperCase())}):</strong> Walk to ${escapeHtml(names)}.`
+          : `<strong>UP NEXT (${escapeHtml(myRole.toUpperCase())}):</strong> ${escapeHtml(names)} (wait for earlier step).`;
       } else {
-        callout = `<strong>PERILUNE STATION:</strong> Walk with [WASD] and interact [E] at your ${escapeHtml(myRole.toUpperCase())} consoles.`;
+        callout = `<strong>SPACE STATION:</strong> ${anyPending.length ? `${anyPending.length} tasks remaining with crew.` : "Float with [WASD] and press [E] at computers."} Ground support: ${groundBadges.length ? groundBadges.join(" · ") : "STANDBY"}.`;
       }
     }
 
     container.innerHTML = `
-      <div class="crew-roster-grid">${chipsHtml}</div>
+      ${renderGroupChips(groundPlayers, "GROUND TEAM · EARTH", `${groundPlayers.length}`)}
+      ${renderGroupChips(flightPlayers, "SPACE CREW · STATION", `${flightPlayers.length}`)}
       <div class="crew-duty-callout">${callout}</div>
     `;
+
+    container.querySelectorAll("[data-hud-swap]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const targetId = btn.getAttribute("data-hud-swap");
+        if (targetId && net && typeof net.requestRoleSwap === "function") {
+          net.requestRoleSwap(targetId);
+        }
+        if (window.spaceAudio) window.spaceAudio.playClick();
+      });
+    });
+
+    renderSwapBanners();
   }
   window.renderHudCrewRoster = renderHudCrewRoster;
 
@@ -2744,7 +2935,16 @@
     let lastMouseX = 0, lastMouseY = 0;
 
     window.addEventListener("keydown", (e) => {
+      if (window.shuttleGame && window.shuttleGame.isActive) return;
       if (e.code === "Escape" || e.key === "Escape") {
+        if (window.csaNasaLab && window.csaNasaLab.modalEl && window.csaNasaLab.modalEl.style.display && window.csaNasaLab.modalEl.style.display !== "none") {
+          window.csaNasaLab.closeModal();
+          return;
+        }
+        if (window.spaceCenter && window.spaceCenter.lccConsoleOpen && typeof window.spaceCenter.openLccConsole === "function") {
+          window.spaceCenter.openLccConsole(false);
+          return;
+        }
         if (emoteWheelOpen) {
           setEmoteWheelOpen(false);
           return;
@@ -2755,6 +2955,10 @@
           return;
         }
         if (window.vrManager && window.vrManager.isAnyVRActive) {
+          return;
+        }
+        if (window.solarSystem && window.solarSystem.isActive) {
+          window.solarSystem.close();
           return;
         }
         if (window.missionViz && window.missionViz.isActive) {
@@ -2781,7 +2985,7 @@
       const tTag = e.target && e.target.tagName ? e.target.tagName : "";
       if (tTag === "INPUT" || tTag === "TEXTAREA" || tTag === "SELECT" || (e.target && e.target.isContentEditable)) return;
 
-      const blockingOverlay = ["modal-auth", "modal-station-systems", "task-modal-overlay", "victory-overlay", "mission-briefing-overlay"]
+      const blockingOverlay = ["modal-auth", "modal-academy", "modal-mission-log", "modal-station-systems", "task-modal-overlay", "victory-overlay", "mission-briefing-overlay", "csa-nasa-lab-modal", "glb-hangar-modal"]
         .some((id) => {
           const el = document.getElementById(id);
           return el && el.style.display && el.style.display !== "none";
@@ -2791,7 +2995,7 @@
       keys[e.code] = true;
       if (e.key) keys[e.key.toLowerCase()] = true;
 
-      // 6-Room Perilune Ship Interior Toggle [I]
+      // 6-Room Lunaspis Ship Interior Toggle [I]
       // Telemetry & Diagnostics Deck [P] or [F3]
       if (e.code === "KeyP" || e.code === "F3" || e.key === "p" || e.key === "P") {
         e.preventDefault();
@@ -2808,6 +3012,23 @@
       // The site tour owns 1-9 fast travel; don't fire emote shortcuts.
       if (window.spaceCenter && window.spaceCenter.siteTourActive) {
         if (/^Digit[1-9]$/.test(e.code) || e.code === "KeyT") return;
+      }
+
+      // Solar Atlas is a full-screen takeover; close it before another view hotkey opens.
+      if (
+        window.solarSystem && window.solarSystem.isActive &&
+        ["KeyU", "KeyJ", "KeyK", "KeyH", "KeyG", "KeyI", "KeyC", "KeyV"].indexOf(e.code) !== -1
+      ) {
+        window.solarSystem.close();
+      }
+
+      // Solar System Atlas [O]
+      if (e.code === "KeyO" || e.key === "o" || e.key === "O") {
+        e.preventDefault();
+        if (window.solarSystem && typeof window.solarSystem.toggle === "function") {
+          window.solarSystem.toggle();
+        }
+        return;
       }
 
       // Crew emotes [X] to open the wheel, [1]-[6] to express
@@ -2849,7 +3070,7 @@
         return;
       }
 
-      // 6-Room Perilune Ship Interior Toggle [I]
+      // 6-Room Lunaspis Ship Interior Toggle [I]
       if (e.code === "KeyI" || e.key === "i" || e.key === "I") {
         e.preventDefault();
         if (window.missionViz && window.missionViz.isActive) window.missionViz.close();
@@ -2863,10 +3084,14 @@
           window.glbManager.closeHangar();
           return;
         }
+        if (window.spaceCenter && window.spaceCenter.isGroundMode) {
+          if (window.showActionToast) window.showActionToast("COMPLETE THE LAUNCH AND DOCKING SEQUENCE TO ENTER THE STATION");
+          return;
+        }
         if (window.shipInterior) {
           const vis = window.shipInterior.toggleInterior();
           if (window.showActionToast) {
-            window.showActionToast(vis ? "PERILUNE 6-ROOM SHIP INTERIOR: ACTIVE" : "EXTERIOR / EVA VIEW: ACTIVE");
+            window.showActionToast(vis ? "ISS INTERIOR: ZERO-G ACTIVE" : "EXTERIOR / EVA VIEW: ACTIVE");
           }
         }
       }
@@ -2929,12 +3154,14 @@
       if (!target || typeof target.closest !== "function") return false;
       return Boolean(
         target.closest(
-          "button, input, textarea, select, a, .hud-checklist-panel, .hud-race-bar-container, #hud-crew-roster, #hud-voice-panel, #virtual-dpad, #mobile-joystick-zone, #task-modal-overlay, #iss-showcase-ui, #mission-viz-ui, #vr-mode-overlay, #perilune-ship-minimap, #ship-interior-hud, #space-center-ground-hud, #docking-hud-overlay, #launch-cutscene-overlay, #perilune-resource-meters, #btn-telemetry-toggle, #emote-wheel, #hud-diagnostics-overlay, #modal-auth, #modal-station-systems, #victory-overlay, #mission-briefing-overlay, #action-toast, .modal-card, .menu-card"
+          "button, input, textarea, select, a, .hud-checklist-panel, .hud-race-bar-container, #hud-crew-roster, #hud-voice-panel, #virtual-dpad, #mobile-joystick-zone, #task-modal-overlay, #iss-showcase-ui, #mission-viz-ui, #solar-system-ui, #vr-mode-overlay, #ground-lcc-console, #lunaspis-ship-minimap, #ship-interior-hud, #space-center-ground-hud, #docking-hud-overlay, #launch-cutscene-overlay, #lunaspis-resource-meters, #btn-telemetry-toggle, #emote-wheel, #hud-diagnostics-overlay, #modal-auth, #modal-station-systems, #victory-overlay, #mission-briefing-overlay, #action-toast, .modal-card, .menu-card"
         )
       );
     };
 
     window.addEventListener("mousedown", (e) => {
+      if (window.shuttleGame && window.shuttleGame.isActive) return;
+      if (window.solarSystem && window.solarSystem.isActive) return;
       if (isUIElement(e.target)) return;
       isMouseDown = true;
       lastMouseX = e.clientX;
@@ -2943,6 +3170,8 @@
     });
 
     window.addEventListener("mouseup", () => {
+      if (window.shuttleGame && window.shuttleGame.isActive) return;
+      if (window.solarSystem && window.solarSystem.isActive) return;
       isMouseDown = false;
       dom.style.cursor = "grab";
     });
@@ -2956,9 +3185,11 @@
     });
 
     window.addEventListener("mousemove", (e) => {
+      if (window.shuttleGame && window.shuttleGame.isActive) return;
       if (isMouseDown) {
         if (window.issShowcase && window.issShowcase.isActive) return;
         if (window.missionViz && window.missionViz.isActive) return;
+        if (window.solarSystem && window.solarSystem.isActive) return;
         if (window.vrManager && window.vrManager.isAnyVRActive) return;
         if (window.dockingSim && window.dockingSim.isActive) return;
         const dx = e.clientX - lastMouseX;
@@ -2972,9 +3203,11 @@
     });
 
     window.addEventListener("wheel", (e) => {
+      if (window.shuttleGame && window.shuttleGame.isActive) return;
       if (!isGameStarted || isUIElement(e.target)) return;
       if (window.issShowcase && window.issShowcase.isActive) return;
       if (window.missionViz && window.missionViz.isActive) return;
+      if (window.solarSystem && window.solarSystem.isActive) return;
       if (window.vrManager && window.vrManager.isAnyVRActive) return;
       if (cameraMode === 1) {
         thirdPersonDist = Math.max(1.6, Math.min(5.5, thirdPersonDist + Math.sign(e.deltaY) * 0.25));
@@ -3093,6 +3326,7 @@
       (e) => {
         if (window.issShowcase && window.issShowcase.isActive) return;
         if (window.missionViz && window.missionViz.isActive) return;
+        if (window.solarSystem && window.solarSystem.isActive) return;
         if (window.vrManager && window.vrManager.isAnyVRActive) return;
         if (window.dockingSim && window.dockingSim.isActive) return;
         if (e.touches.length === 2) {
@@ -3120,6 +3354,7 @@
       (e) => {
         if (window.issShowcase && window.issShowcase.isActive) return;
         if (window.missionViz && window.missionViz.isActive) return;
+        if (window.solarSystem && window.solarSystem.isActive) return;
         if (window.vrManager && window.vrManager.isAnyVRActive) return;
         if (window.dockingSim && window.dockingSim.isActive) return;
         if (e.touches.length === 2 && lastPinchDist !== null) {
@@ -3190,27 +3425,47 @@
   // ============================================================================
   function updatePlayerPhysics(delta) {
     if (!localCrew.group) return;
+
+    // Zero-g is a property of the constructed ISS interior, not of the model.
+    // Compute it before the early-out branches so opening a task console does
+    // not snap a floating crewmate back onto the deck.
+    const zeroGNow = isISSInteriorViewActive() && !localCrew.isEva;
+    const wasZeroG = !!localCrew.isZeroG;
+    localCrew.isZeroG = zeroGNow;
+
     if (!isGameStarted) {
       if (localCrew.rig && typeof localCrew.rig.updateAnimation === "function") {
-        localCrew.rig.updateAnimation(delta, false, localCrew.isEva, !localCrew.isEva);
+        localCrew.rig.updateAnimation(delta, false, localCrew.isEva, !localCrew.isEva, null, zeroGNow);
       }
       return;
     }
+
+    // The open-top ground car owns locomotion while the crewmember is driving.
+    if (window.spaceCenterCar && window.spaceCenterCar.isDriving) {
+      return;
+    }
+
     if (
       (window.gameplay && window.gameplay.activeTask) ||
       (window.launchCutscene && window.launchCutscene.isPlaying) ||
       (window.dockingSim && window.dockingSim.isActive) ||
+      (window.solarSystem && window.solarSystem.isActive) ||
       (window.spaceCenter && window.spaceCenter.isGroundMode && window.spaceCenter.crewBoarded)
     ) {
       if (localCrew.rig && typeof localCrew.rig.updateAnimation === "function") {
-        localCrew.rig.updateAnimation(delta, false, localCrew.isEva, !localCrew.isEva);
+        localCrew.rig.updateAnimation(delta, false, localCrew.isEva, !localCrew.isEva, null, zeroGNow);
       }
       return;
     }
 
     const joyMag = window.virtualJoyActive ? Math.hypot(window.virtualJoyX || 0, window.virtualJoyY || 0) : 0;
-    const isRunning = keys["ShiftLeft"] || keys["ShiftRight"] || joyMag > 0.82;
-    const speed = localCrew.isEva ? 4.8 : (isRunning ? 5.6 : 3.9);
+    // Hold Shift (or push the mobile thumbstick to its outer ring) to sprint.
+    const isSprinting = !!(keys["ShiftLeft"] || keys["ShiftRight"] || joyMag > 0.82);
+    const inISSInterior = isISSInteriorViewActive();
+    const isZeroG = zeroGNow && inISSInterior;
+    const speed = localCrew.isEva
+      ? (isSprinting ? 7.2 : 4.8)
+      : (inISSInterior ? (isSprinting ? 3.4 : 1.8) : (isSprinting ? 7.8 : 3.9));
 
     const isRight = keys["KeyD"] || keys["ArrowRight"] || keys["d"] || window.virtualMoveRight;
     const isLeft = keys["KeyA"] || keys["ArrowLeft"] || keys["a"] || window.virtualMoveLeft;
@@ -3225,21 +3480,62 @@
       strafe += window.virtualJoyX || 0;
     }
 
-    const isMoving = Math.abs(fwd) > 0.05 || Math.abs(strafe) > 0.05;
-
     const sinY = Math.sin(camYaw);
     const cosY = Math.cos(camYaw);
 
     let dx = fwd * sinY - strafe * cosY;
     let dz = fwd * cosY + strafe * sinY;
     const len = Math.hypot(dx, dz);
+    let stepX = 0;
+    let stepZ = 0;
+    let facingX = 0;
+    let facingZ = 0;
+
     if (len > 0.001) {
       const moveScale = window.virtualJoyActive ? Math.min(1.0, len) : 1.0;
-      dx = (dx / len) * speed * moveScale * delta;
-      dz = (dz / len) * speed * moveScale * delta;
+      const dirX = dx / len;
+      const dirZ = dz / len;
+      const targetX = dirX * speed * moveScale;
+      const targetZ = dirZ * speed * moveScale;
 
-      // Smoothly turn astronaut to face movement vector
-      const targetFacing = Math.atan2(dx, dz);
+      if (isZeroG) {
+        // Ease into the push-off instead of setting velocity instantly. On
+        // release the remaining velocity decays gently, so a crewmate drifts
+        // a short way and then settles against a handrail.
+        const blend = 1 - Math.exp(-3.6 * delta);
+        zeroGVelocity.x += (targetX - zeroGVelocity.x) * blend;
+        zeroGVelocity.z += (targetZ - zeroGVelocity.z) * blend;
+      } else {
+        zeroGVelocity.x = 0;
+        zeroGVelocity.z = 0;
+        stepX = targetX * delta;
+        stepZ = targetZ * delta;
+        facingX = stepX;
+        facingZ = stepZ;
+      }
+    } else if (isZeroG) {
+      const decay = Math.exp(-1.35 * delta);
+      zeroGVelocity.x *= decay;
+      zeroGVelocity.z *= decay;
+      if (Math.hypot(zeroGVelocity.x, zeroGVelocity.z) < 0.015) {
+        zeroGVelocity.x = 0;
+        zeroGVelocity.z = 0;
+      }
+    } else {
+      zeroGVelocity.x = 0;
+      zeroGVelocity.z = 0;
+    }
+
+    if (isZeroG) {
+      stepX = zeroGVelocity.x * delta;
+      stepZ = zeroGVelocity.z * delta;
+      facingX = zeroGVelocity.x;
+      facingZ = zeroGVelocity.z;
+    }
+
+    // Smoothly turn astronaut to face movement vector
+    if (Math.hypot(facingX, facingZ) > 0.025) {
+      const targetFacing = Math.atan2(facingX, facingZ);
       let diff = targetFacing - localCrew.group.rotation.y;
       while (diff > Math.PI) diff -= Math.PI * 2;
       while (diff < -Math.PI) diff += Math.PI * 2;
@@ -3249,7 +3545,19 @@
     }
 
     const currentPos = localCrew.group.position;
-    const proposedPos = new THREE.Vector3(currentPos.x + dx, currentPos.y, currentPos.z + dz);
+    const previousX = currentPos.x;
+    const previousZ = currentPos.z;
+
+    if (isZeroG) {
+      currentPos.y = ZERO_G_HOVER_Y;
+    } else if (wasZeroG) {
+      // Leaving the interior hands locomotion back to the ground controller.
+      zeroGVelocity.x = 0;
+      zeroGVelocity.z = 0;
+      currentPos.y = 0;
+    }
+
+    const proposedPos = new THREE.Vector3(currentPos.x + stepX, currentPos.y, currentPos.z + stepZ);
 
     if (window.spaceCenter && window.spaceCenter.isGroundMode && typeof window.spaceCenter.resolveGroundCollision === "function") {
       const resolvedGround = window.spaceCenter.resolveGroundCollision(currentPos, proposedPos);
@@ -3258,10 +3566,16 @@
       } else {
         currentPos.copy(proposedPos);
       }
-    } else if (window.shipInterior && window.shipInterior.group && window.shipInterior.group.visible && typeof window.resolveShipInteriorCollision === "function") {
+    } else if (inISSInterior && typeof window.resolveShipInteriorCollision === "function") {
       const resolved = window.resolveShipInteriorCollision(currentPos, proposedPos, 0.32);
       if (resolved && typeof resolved.x === "number") {
-        currentPos.set(resolved.x, 0.0, resolved.z);
+        currentPos.set(resolved.x, currentPos.y, resolved.z);
+        if (isZeroG) {
+          // Kill only the blocked axis so a glancing push slides along the
+          // module wall instead of stopping the whole drift.
+          if (Math.abs(resolved.x - proposedPos.x) > 0.0001) zeroGVelocity.x *= 0.15;
+          if (Math.abs(resolved.z - proposedPos.z) > 0.0001) zeroGVelocity.z *= 0.15;
+        }
       } else {
         currentPos.copy(proposedPos);
       }
@@ -3269,9 +3583,10 @@
       currentPos.copy(proposedPos);
     }
 
-    // Update SpaceShip skeletal animations ('idle' / 'walk')
+    // Update SpaceShip skeletal animations ('idle' / 'walk' / zero-g float)
     if (localCrew.rig && typeof localCrew.rig.updateAnimation === "function") {
-      localCrew.rig.updateAnimation(delta, isMoving, localCrew.isEva, !localCrew.isEva);
+      const actuallyMoving = Math.hypot(currentPos.x - previousX, currentPos.z - previousZ) > 0.0001;
+      localCrew.rig.updateAnimation(delta, actuallyMoving, localCrew.isEva, !localCrew.isEva, null, isZeroG, isSprinting);
     }
 
     // Send coordinate update to network
@@ -3281,7 +3596,8 @@
         localCrew.group.rotation.y,
         camPitch,
         localCrew.isEva,
-        localCrew.suitLights
+        localCrew.suitLights,
+        isSprinting
       );
     }
 
@@ -3311,6 +3627,10 @@
   function updateCamera() {
     if (!isGameStarted) return;
     if (!localCrew.group) return;
+    if (window.spaceCenterCar && window.spaceCenterCar.isDriving) {
+      window.spaceCenterCar.updateCamera(camera);
+      return;
+    }
     const px = localCrew.group.position.x;
     const py = localCrew.group.position.y;
     const pz = localCrew.group.position.z;
@@ -3366,8 +3686,28 @@
       }
 
       const desiredX = headX + fullOffsetX * safeFrac;
-      const desiredY = Math.max(py + 0.5, Math.min(py + 3.2, headY + 0.25 + vertOffset * safeFrac));
       const desiredZ = headZ + fullOffsetZ * safeFrac;
+      const maxCameraHeight = window.shipInterior && window.shipInterior.issInteriorModel && window.shipInterior.group && window.shipInterior.group.visible ? 1.85 : 3.2;
+      let camFloorY = py;
+      if (window.spaceCenter && window.spaceCenter.isGroundMode && (window.spaceCenter.siteTourActive || (typeof window.spaceCenter._isLocalGroundCrew === "function" && window.spaceCenter._isLocalGroundCrew()))) {
+        const terrain = window.SpaceCenterModules && window.SpaceCenterModules.terrain;
+        if (terrain && typeof terrain.getSurfaceHeightAt === "function") {
+          camFloorY = Math.max(py, terrain.getSurfaceHeightAt(desiredX, desiredZ, py));
+        }
+      }
+      const desiredY = Math.max(camFloorY + 0.5, Math.min(py + maxCameraHeight, headY + 0.25 + vertOffset * safeFrac));
+
+      if (!localCrew.isEva && window.shipInterior && window.shipInterior.issInteriorModel && window.shipInterior.group && window.shipInterior.group.visible && typeof window.shipInterior.cameraClearFraction === "function") {
+        const origin = new THREE.Vector3(headX, headY, headZ);
+        const destination = new THREE.Vector3(desiredX, desiredY, desiredZ);
+        safeFrac = window.shipInterior.cameraClearFraction(origin, destination);
+        destination.lerpVectors(origin, destination, safeFrac);
+        const smoothed = camera.position.clone().lerp(destination, 0.25);
+        const smoothFraction = window.shipInterior.cameraClearFraction(origin, smoothed);
+        camera.position.lerpVectors(origin, smoothed, smoothFraction);
+        camera.lookAt(headX + sinY * 2.5, headY, headZ + cosY * 2.5);
+        return;
+      }
 
       camera.position.lerp(new THREE.Vector3(desiredX, desiredY, desiredZ), 0.25);
       camera.lookAt(headX + sinY * 2.5, headY, headZ + cosY * 2.5);
@@ -3544,6 +3884,11 @@
     const delta = Math.min(clock.getDelta(), 0.05);
     const elapsed = clock.getElapsedTime();
 
+    if (window.shuttleGame && window.shuttleGame.isActive) {
+      window.shuttleGame.frame(delta);
+      return;
+    }
+
     if (window.photorealisticEarth && typeof window.photorealisticEarth.update === "function") {
       window.photorealisticEarth.update(delta, camera);
     }
@@ -3560,6 +3905,12 @@
       window.spaceCenter.update(delta, camera, elapsed);
     }
 
+    // Drivable open-top ground car (kept outside the ground-only update so it
+    // can park its prompt/HUD correctly during phase changes).
+    if (window.spaceCenterCar && typeof window.spaceCenterCar.update === "function") {
+      window.spaceCenterCar.update(delta);
+    }
+
     if (window.launchCutscene && typeof window.launchCutscene.update === "function") {
       window.launchCutscene.update(delta);
     }
@@ -3570,6 +3921,10 @@
 
     if (window.missionViz && typeof window.missionViz.update === "function") {
       window.missionViz.update(delta, elapsed, camera);
+    }
+
+    if (window.solarSystem && typeof window.solarSystem.update === "function") {
+      window.solarSystem.update(delta, elapsed, camera);
     }
 
     if (window.issShowcase && typeof window.issShowcase.update === "function") {
@@ -3584,6 +3939,8 @@
       // Orbital Docking Simulator controls 6DOF docking camera
     } else if (window.missionViz && window.missionViz.isActive) {
       // NASA Mission Viz Trajectory Theater controls 3D orbital camera
+    } else if (window.solarSystem && window.solarSystem.isActive) {
+      // Solar System Atlas controls its own orbital camera
     } else if (window.issShowcase && window.issShowcase.isActive) {
       // ISS Showcase controls camera orbit & part focus
     } else if (window.shipInterior && window.shipInterior.isMoonLandingActive) {
@@ -3662,7 +4019,7 @@
               // targetPos would keep the walk cycle looping while an idle avatar
               // is briefly held/extrapolated ahead of its last packet.
               const isMoving = !!(rp.lastMoveAt && (performance.now() - rp.lastMoveAt) < 300);
-              rp.rig.updateAnimation(delta, isMoving, rp.isEva, !rp.isEva);
+              rp.rig.updateAnimation(delta, isMoving, rp.isEva, !rp.isEva, null, isISSInteriorViewActive() && !rp.isEva, !!rp.isSprinting);
             }
             if (rp.rig && typeof rp.rig.playEmote === "function" && rp.emoteSerial && rp.lastEmoteSerial !== rp.emoteSerial) {
               rp.lastEmoteSerial = rp.emoteSerial;
@@ -3707,15 +4064,26 @@
         : [];
       const crewInFlight = missionPhase === "launch" || missionPhase === "docking";
 
+      const rolesApi = window.InterfellasRoles;
       for (const id in remoteCrewMeshes) {
-        if (!window.netManager.remotePlayers[id]) {
+        const rp = window.netManager.remotePlayers[id];
+        if (!rp) {
           scene.remove(remoteCrewMeshes[id]);
           delete remoteCrewMeshes[id];
+        } else if (
+          (window.solarSystem && window.solarSystem.isActive) ||
+          (window.missionViz && window.missionViz.isActive) ||
+          (window.issShowcase && window.issShowcase.isActive)
+        ) {
+          remoteCrewMeshes[id].visible = false;
         } else {
-          // Remote crew disappears into the orbiter once they board and stays
-          // hidden during ascent/docking. They reappear together in the station.
-          const boarded = missionPhase === "gantry" && boardedIds.indexOf(id) !== -1;
-          remoteCrewMeshes[id].visible = !crewInFlight && !boarded;
+          const peerIsGround = rp.team === "ground" || (rolesApi && typeof rolesApi.isGroundRole === "function" && rolesApi.isGroundRole(rp.role));
+          const boarded = missionPhase === "gantry" && !peerIsGround && boardedIds.indexOf(id) !== -1;
+          if (window.spaceCenter && window.spaceCenter.isGroundMode) {
+            remoteCrewMeshes[id].visible = peerIsGround || (missionPhase === "gantry" && !boarded);
+          } else {
+            remoteCrewMeshes[id].visible = !crewInFlight && !boarded && !peerIsGround;
+          }
         }
       }
     }
@@ -3752,6 +4120,9 @@
       camera.updateProjectionMatrix();
     }
     applyRenderResolution(w, h);
+    if (window.shuttleGame) {
+      window.shuttleGame.resize();
+    }
   }
 
   window.addEventListener("DOMContentLoaded", init);

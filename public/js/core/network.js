@@ -7,63 +7,151 @@
 (function (window) {
   "use strict";
 
+  const GROUND_ORDER = ["flight_director", "ground_capcom"];
+  const FLIGHT_ORDER = ["commander", "engineer", "scientist", "specialist"];
+  const ALL_ORDER = [...GROUND_ORDER, ...FLIGHT_ORDER];
+
   const ROLE_META = {
+    flight_director: {
+      id: "flight_director",
+      short: "BOSS",
+      team: "ground",
+      zoneLabel: "EARTH CONTROL",
+      title: "Mission Boss",
+      label: "Mission Boss",
+      color: "#38bdf8",
+      padDuty: "Check Launch Pad & give GO for liftoff [Control]",
+      dockDuty: "Give final approach & Space Station docking OK [Control]",
+      consolesSummary: "Launch OK · Orbit Path · Crew Tracker",
+      stationDuty: "Launch OK · Orbit Path · Crew Tracker",
+      primaryDuty: "Earth Control Lead: Launch & Docking OK, Plan Review & Team Alerts",
+      duties: {
+        pad: "Check Launch Pad & give Launch GO [Control]",
+        dock: "Watch Approach & give Docking OK [Control]",
+        station: "Approve Power Routing, Track Crew & Coordinate [Control]"
+      }
+    },
+    ground_capcom: {
+      id: "ground_capcom",
+      short: "RADIO",
+      team: "ground",
+      zoneLabel: "EARTH CONTROL",
+      title: "Earth Radio Helper",
+      label: "Earth Radio Helper",
+      color: "#60a5fa",
+      padDuty: "Voice Radio [R] & Earth Dish Signal [Control]",
+      dockDuty: "Lock Earth Dish & Watch Approach Speed [Control]",
+      consolesSummary: "Earth Dish · Power Route · Science Data",
+      stationDuty: "Earth Dish · Power Route · Science Data",
+      primaryDuty: "Earth Dish & Systems Helper: Voice Radio [R], Dish Lock, Power & Science Data",
+      duties: {
+        pad: "Check Radio Signal & Launch Pad Cables [Control]",
+        dock: "Help Space Docking & Keep Radio Clear [R]",
+        station: "Lock Earth Dish, Route Power & Clear Science Data"
+      }
+    },
     commander: {
       id: "commander",
-      short: "CMD",
-      title: "Commander",
-      label: "Commander",
+      short: "CAPT",
+      team: "crew",
+      zoneLabel: "FLIGHT CREW",
+      title: "Captain",
+      label: "Captain",
       color: "#c08a8a",
-      padDuty: "Board White Room & Initiate Liftoff [L]",
-      dockDuty: "Primary 6DOF Pilot & Capture Latch [SPACE]",
-      consolesSummary: "Charter [HUB] · Orbit & Launch [CMD] · Sim [LDR]",
-      stationDuty: "Charter [HUB] · Orbit & Launch [CMD] · Sim [LDR]",
-      primaryDuty: "Launch Director [L], Docking Helm Pilot [WASD/QE] & Charter/Nav Consoles [HUB, CMD]",
+      padDuty: "Board the Spaceship & Start Liftoff [L]",
+      dockDuty: "Main Docking Pilot & Lock Hatch [SPACE]",
+      consolesSummary: "Goal [HUB] · Flight Path [CMD] · Test [LDR]",
+      stationDuty: "Goal [HUB] · Flight Path [CMD] · Test [LDR]",
+      primaryDuty: "Launch Captain [L], Docking Pilot [WASD/QE] & Goal / Flight Path Desks [HUB, CMD]",
       duties: {
-        pad: "Board White Room & Initiate Liftoff [L]",
-        dock: "Primary 6DOF Pilot & Capture Latch [SPACE]",
-        station: "Charter [HUB] · Orbit & Launch [CMD] · Sim [LDR]"
+        pad: "Board the Spaceship & Start Liftoff [L]",
+        dock: "Main Docking Pilot & Lock Hatch [SPACE]",
+        station: "Goal [HUB] · Flight Path [CMD] · Test [LDR]"
       }
     },
     engineer: {
       id: "engineer",
       short: "ENG",
+      team: "crew",
+      zoneLabel: "FLIGHT CREW",
       title: "Flight Engineer",
       label: "Flight Engineer",
       color: "#d0a15c",
-      padDuty: "Extend & Lock Access Arm [F]",
-      dockDuty: "RCS Attitude Stabilizer [1] & Fine Trim [2]",
-      consolesSummary: "Bus & Power [PWR] · Comms, Hull & ΔV [HULL]",
-      stationDuty: "Bus & Power [PWR] · Comms, Hull & ΔV [HULL]",
-      primaryDuty: "Pad Access Arm [F], Docking RCS Stabilizer [1/2] & Power/Hull Consoles [PWR, HULL]",
+      padDuty: "Swing & Lock Boarding Bridge [F]",
+      dockDuty: "Steadier Thrusters [1] & Gentle Mode [2]",
+      consolesSummary: "Body & Power [PWR] · Fuel & Radio [HULL]",
+      stationDuty: "Body & Power [PWR] · Fuel & Radio [HULL]",
+      primaryDuty: "Boarding Bridge [F], Steadier Thrusters [1/2] & Power / Fuel Desks [PWR, HULL]",
       duties: {
-        pad: "Extend & Lock Access Arm [F]",
-        dock: "RCS Attitude Stabilizer [1] & Fine Trim [2]",
-        station: "Bus & Power [PWR] · Comms, Hull & ΔV [HULL]"
+        pad: "Swing & Lock Boarding Bridge [F]",
+        dock: "Steadier Thrusters [1] & Gentle Mode [2]",
+        station: "Body & Power [PWR] · Fuel & Radio [HULL]"
       }
     },
     scientist: {
       id: "scientist",
       short: "SCI",
+      team: "crew",
+      zoneLabel: "FLIGHT CREW",
       title: "Science Officer",
       label: "Science Officer",
       color: "#7fb8a6",
-      padDuty: "White Room Ingress & Cabin Bio-Check",
-      dockDuty: "Boresight Auto-Align [3] & Corridor Ping [4]",
-      consolesSummary: "Instruments [SCI] · Thermal & ECLSS [LSS]",
-      stationDuty: "Instruments [SCI] · Thermal & ECLSS [LSS]",
-      primaryDuty: "Bio-Check Ingress, Boresight Laser Telemetry [3/4] & Science/ECLSS Consoles [SCI, LSS]",
+      padDuty: "Board Ship & Cabin Health Check",
+      dockDuty: "Laser Guide Beam [3] & Distance Check [4]",
+      consolesSummary: "Science Tools [SCI] · Heat & Air [LSS]",
+      stationDuty: "Science Tools [SCI] · Heat & Air [LSS]",
+      primaryDuty: "Cabin Check, Laser Guide [3/4] & Science / Heat Desks [SCI, LSS]",
       duties: {
-        pad: "White Room Ingress & Cabin Bio-Check",
-        dock: "Boresight Auto-Align [3] & Corridor Ping [4]",
-        station: "Instruments [SCI] · Thermal & ECLSS [LSS]"
+        pad: "Board Ship & Cabin Health Check",
+        dock: "Laser Guide Beam [3] & Distance Check [4]",
+        station: "Science Tools [SCI] · Heat & Air [LSS]"
+      }
+    },
+    specialist: {
+      id: "specialist",
+      short: "SPEC",
+      team: "crew",
+      zoneLabel: "FLIGHT CREW",
+      title: "Spacewalk Specialist",
+      label: "Spacewalk Specialist",
+      color: "#a78bfa",
+      padDuty: "Help Check Boarding Bridge & Board Ship",
+      dockDuty: "Distance Check [4] & Hatch Watch",
+      consolesSummary: "Extra Help: Science [SCI] · Radio [HULL] · Goal",
+      stationDuty: "Extra Help: Science [SCI] · Radio [HULL] · Goal",
+      primaryDuty: "Spacewalk & Docking Helper [3/4], Cross-Desk Support & Radio Relay",
+      duties: {
+        pad: "Check Boarding Bridge Lock & Board Ship",
+        dock: "Distance Check [4] & Docking Assist",
+        station: "Spacewalk Help · Science [SCI] · Radio [HULL]"
       }
     }
   };
 
+  function getTeamForRole(roleId) {
+    return GROUND_ORDER.includes(normalizeRole(roleId, "commander")) ? "ground" : "crew";
+  }
+
+  function isGroundRole(roleId) {
+    return GROUND_ORDER.includes(normalizeRole(roleId, "commander"));
+  }
+
   function normalizeRole(rawRole, fallback = "commander") {
     const s = String(rawRole || "").trim().toLowerCase().replace(/[_-]+/g, " ");
     if (!s) return fallback;
+    if (s === "flight director" || s === "fdir" || s.includes("director")) {
+      return "flight_director";
+    }
+    if (
+      s === "ground capcom" ||
+      s === "capcom" ||
+      s === "cap" ||
+      s === "ground systems" ||
+      s === "mission scientist" ||
+      s === "ground"
+    ) {
+      return "ground_capcom";
+    }
     if (s === "commander" || s === "cmd" || s.includes("commander") || s.includes("pilot")) {
       return "commander";
     }
@@ -80,6 +168,9 @@
     ) {
       return "scientist";
     }
+    if (s === "specialist" || s === "spc" || s.includes("specialist") || s.includes("eva")) {
+      return "specialist";
+    }
     return fallback;
   }
 
@@ -89,21 +180,33 @@
   }
 
   function getCrewByRole(players = []) {
-    const groups = { commander: [], engineer: [], scientist: [] };
+    const groups = {
+      flight_director: [],
+      ground_capcom: [],
+      commander: [],
+      engineer: [],
+      scientist: [],
+      specialist: []
+    };
     (Array.isArray(players) ? players : []).forEach((p) => {
       if (!p) return;
       const r = normalizeRole(p.role, "commander");
+      if (!groups[r]) groups[r] = [];
       groups[r].push(p);
     });
     return groups;
   }
 
   window.InterfellasRoles = {
-    ORDER: ["commander", "engineer", "scientist"],
+    ORDER: ALL_ORDER,
+    GROUND_ORDER,
+    FLIGHT_ORDER,
     META: ROLE_META,
     normalizeRole,
     getRoleMeta,
-    getCrewByRole
+    getCrewByRole,
+    getTeamForRole,
+    isGroundRole
   };
 
   class NetworkManager {
@@ -113,6 +216,7 @@
       this.socketId = null;
       this.roomId = null;
       this.isHost = false;
+      this.isSoloRoom = false;
       this.userId = null;
       this.authToken = this.readStoredToken();
       this.userProfile = null;
@@ -126,6 +230,7 @@
       this.explicitRoleSelected = false;
       this.roomState = null;
       this.mission = null;
+      this.snapshot = null;
       this.remotePlayers = {}; // id -> { id, name, color, role, targetPos, curPos, targetYaw, curYaw, mesh, isEva }
       this.lastSendTime = 0;
       this.lastHeartbeatTime = 0;
@@ -176,6 +281,16 @@
       this.callbacks[event].push(cb);
     }
 
+    off(event, cb) {
+      if (!this.callbacks[event]) return;
+      this.callbacks[event] = this.callbacks[event].filter((fn) => fn !== cb);
+    }
+
+    get pingMs() {
+      const m = this.getPingMedian();
+      return m !== null ? m : (this.lastPing || 0);
+    }
+
     emitEvent(event, data) {
       if (this.callbacks[event]) {
         this.callbacks[event].forEach(cb => cb(data));
@@ -183,14 +298,7 @@
     }
 
     readStoredToken() {
-      try {
-        const raw = localStorage.getItem("nasa_astronaut_credential");
-        if (!raw) return null;
-        const parsed = JSON.parse(raw);
-        return typeof parsed.token === "string" ? parsed.token : null;
-      } catch (e) {
-        return null;
-      }
+      return null;
     }
 
     setAuthToken(token) {
@@ -292,6 +400,7 @@
       this.socket.on("disconnect", () => {
         this.connected = false;
         this.transportName = "offline";
+        this.snapshot = null;
         console.warn("[NET] Disconnected from server");
         if (window.voiceManager) window.voiceManager.stopMicrophone();
         this.emitEvent("disconnected", {});
@@ -300,6 +409,7 @@
       const applyAuthoritativeRoomMembership = (data) => {
         this.roomId = data.roomId;
         this.isHost = data.hostId === this.socketId;
+        this.isSoloRoom = !!(data.solo || (data.room && data.room.isSolo));
         this.roomState = data.room || this.roomState;
         this.mission = (data.room && data.room.mission) || data.mission || this.mission || null;
         if (data.player) {
@@ -307,17 +417,18 @@
           if (data.player.color) this.localPlayer.color = data.player.color;
           if (data.player.role) this.localPlayer.role = normalizeRole(data.player.role, "commander");
           if (data.player.modelId) this.localPlayer.modelId = data.player.modelId;
-          this.localPlayer.team = data.player.team || "crew";
+          this.localPlayer.team = data.player.team || getTeamForRole(this.localPlayer.role);
         }
         const roomPlayers = data.room && Array.isArray(data.room.players) ? data.room.players : [];
         roomPlayers.forEach((p) => {
           if (!p || p.id === this.socketId || this.remotePlayers[p.id]) return;
+          const rNorm = normalizeRole(p.role, "commander");
           this.remotePlayers[p.id] = {
             id: p.id,
             name: p.name,
             color: p.color,
-            role: normalizeRole(p.role, "commander"),
-            team: p.team || "crew",
+            role: rNorm,
+            team: p.team || getTeamForRole(rNorm),
             ready: p.ready,
             modelId: p.modelId || "astronaut_lod1",
             curPos: p.pos ? [...p.pos] : [0, 0, -18],
@@ -366,11 +477,14 @@
       this.socket.on("room_update", (data) => {
         this.roomState = data;
         this.isHost = data.hostId === this.socketId;
+        this.isSoloRoom = !!data.isSolo;
         if (data.mission) this.mission = data.mission;
 
         // Update remote players list
         const currentIds = new Set();
         data.players.forEach(p => {
+          const rNorm = normalizeRole(p.role, "commander");
+          const teamVal = p.team || getTeamForRole(rNorm);
           if (p.id !== this.socketId) {
             currentIds.add(p.id);
             if (!this.remotePlayers[p.id]) {
@@ -378,8 +492,8 @@
                 id: p.id,
                 name: p.name,
                 color: p.color,
-                role: normalizeRole(p.role, "commander"),
-                team: p.team || "crew",
+                role: rNorm,
+                team: teamVal,
                 ready: p.ready,
                 modelId: p.modelId || "astronaut_lod1",
                 curPos: p.pos ? [...p.pos] : [0, 0, -18],
@@ -397,8 +511,8 @@
             } else {
               this.remotePlayers[p.id].name = p.name;
               this.remotePlayers[p.id].color = p.color;
-              this.remotePlayers[p.id].role = normalizeRole(p.role, "commander");
-              this.remotePlayers[p.id].team = p.team || "crew";
+              this.remotePlayers[p.id].role = rNorm;
+              this.remotePlayers[p.id].team = teamVal;
               this.remotePlayers[p.id].ready = p.ready;
               this.remotePlayers[p.id].modelId = p.modelId || "astronaut_lod1";
             }
@@ -406,8 +520,8 @@
             // Local player update
             this.localPlayer.name = p.name;
             this.localPlayer.color = p.color;
-            this.localPlayer.role = normalizeRole(p.role, "commander");
-            this.localPlayer.team = p.team || "crew";
+            this.localPlayer.role = rNorm;
+            this.localPlayer.team = teamVal;
             this.localPlayer.ready = p.ready;
           }
         });
@@ -437,6 +551,8 @@
           this.mission = data.mission;
           if (this.roomState) this.roomState.mission = data.mission;
         }
+        const isShuttle = !!((data && data.opsMode === "shuttle_flight") || (this.mission && this.mission.opsMode === "shuttle_flight"));
+        if (!isShuttle) this.snapshot = null;
         if (this.roomState) this.roomState.status = "playing";
         if (window.spaceAudio) window.spaceAudio.playAlarm("warning");
         this.emitEvent("game_started", data);
@@ -449,6 +565,20 @@
           if (this.roomState) this.roomState.mission = data.mission;
         }
         this.emitEvent("mission_update", data);
+      });
+
+      this.socket.on("shuttle_state", (sn) => {
+        this.packetsReceivedThisSec++;
+        this.snapshot = sn;
+        this.emitEvent("shuttle_state", sn);
+      });
+
+      this.socket.on("shuttle_events", (ev) => {
+        this.emitEvent("shuttle_events", ev);
+      });
+
+      this.socket.on("shuttle_command_log", (log) => {
+        this.emitEvent("shuttle_command_log", log);
       });
 
       this.socket.on("player_moved", (data) => {
@@ -520,6 +650,7 @@
         if (typeof data.pitch === "number") rp.targetPitch = data.pitch;
         if (typeof data.isEva === "boolean") rp.isEva = data.isEva;
         if (typeof data.suitLights === "boolean") rp.suitLights = data.suitLights;
+        if (typeof data.sprinting === "boolean") rp.isSprinting = data.sprinting;
       });
 
       this.socket.on("emote_broadcast", (data) => {
@@ -549,11 +680,17 @@
         this.emitEvent("objective_locked", data);
       });
 
+      this.socket.on("mission_validation_failed", (data) => {
+        this.emitEvent("mission_validation_failed", data);
+      });
+
       this.socket.on("lobby_returned", (data) => {
+        this.snapshot = null;
         if (data && data.room) {
           this.roomState = data.room;
           this.mission = data.room.mission || null;
           this.isHost = data.room.hostId === this.socketId;
+          this.isSoloRoom = !!data.room.isSolo;
         }
         this.emitEvent("lobby_returned", data);
       });
@@ -606,6 +743,26 @@
       this.socket.on("player_left", (data) => {
         this.emitEvent("player_left", data);
       });
+
+      this.socket.on("roles_randomized", (data) => {
+        this.emitEvent("roles_randomized", data);
+      });
+
+      this.socket.on("role_swap_requested", (data) => {
+        this.emitEvent("role_swap_requested", data);
+      });
+
+      this.socket.on("role_swap_resolved", (data) => {
+        this.emitEvent("role_swap_resolved", data);
+      });
+
+      this.socket.on("role_swap_error", (data) => {
+        this.emitEvent("role_swap_error", data);
+      });
+
+      this.socket.on("ground_support_event", (data) => {
+        this.emitEvent("ground_support_event", data);
+      });
     }
 
     syncUser(playerName, suitColor, role) {
@@ -628,13 +785,15 @@
         : (typeof opts.explicitRole === "boolean" ? opts.explicitRole : !!this.explicitRoleSelected);
       const normalized = normalizeRole(role || this.localPlayer.role, "commander");
       this.localPlayer.role = normalized;
-      this.localPlayer.team = "crew";
+      this.localPlayer.team = getTeamForRole(normalized);
       this.socket.emit("create_room", {
         playerName: this.localPlayer.name,
         suitColor: suitColor || this.localPlayer.color,
         role: normalized,
         explicitRole: explicit,
-        team: "crew"
+        team: this.localPlayer.team,
+        isPublic: opts.isPublic !== false,
+        opsMode: opts.opsMode || undefined
       });
     }
 
@@ -648,15 +807,12 @@
         ? explicitRole
         : (typeof opts.explicitRole === "boolean" ? opts.explicitRole : !!this.explicitRoleSelected);
       const normalized = role ? normalizeRole(role, "commander") : normalizeRole(this.localPlayer.role, "commander");
-      this.localPlayer.role = normalized;
-      this.localPlayer.team = "crew";
       this.socket.emit("join_room", {
         roomId: roomId.trim().toUpperCase(),
         playerName: this.localPlayer.name,
         suitColor: suitColor || this.localPlayer.color,
         role: explicit ? normalized : "",
-        explicitRole: explicit,
-        team: "crew"
+        explicitRole: explicit
       });
     }
 
@@ -665,20 +821,40 @@
         this.localPlayer.name = playerName;
         localStorage.setItem("interfellas_name", playerName);
       }
+      const opts = (explicitOrOpts && typeof explicitOrOpts === "object") ? explicitOrOpts : {};
       const explicit = typeof explicitOrOpts === "boolean"
         ? explicitOrOpts
-        : (explicitOrOpts && typeof explicitOrOpts === "object" && typeof explicitOrOpts.explicitRole === "boolean"
-          ? explicitOrOpts.explicitRole
-          : !!this.explicitRoleSelected);
+        : (typeof opts.explicitRole === "boolean" ? opts.explicitRole : !!this.explicitRoleSelected);
       const normalized = role ? normalizeRole(role, "commander") : normalizeRole(this.localPlayer.role, "commander");
-      this.localPlayer.role = normalized;
-      this.localPlayer.team = "crew";
       this.socket.emit("quick_play", {
         playerName: this.localPlayer.name,
         suitColor: suitColor || this.localPlayer.color,
         role: explicit ? normalized : "",
         explicitRole: explicit,
-        team: "crew"
+        opsMode: opts.opsMode || undefined
+      });
+    }
+
+    startSolo(playerName, suitColor, role, explicitOrOpts) {
+      if (playerName) {
+        this.localPlayer.name = playerName;
+        localStorage.setItem("interfellas_name", playerName);
+      }
+      const opts = (explicitOrOpts && typeof explicitOrOpts === "object") ? explicitOrOpts : {};
+      const normalized = normalizeRole(role || this.localPlayer.role, "commander");
+      this.localPlayer.role = normalized;
+      this.localPlayer.team = getTeamForRole(normalized);
+      this.socket.emit("create_room", {
+        playerName: this.localPlayer.name,
+        suitColor: suitColor || this.localPlayer.color,
+        role: normalized,
+        explicitRole: false,
+        team: this.localPlayer.team,
+        solo: true,
+        isPublic: false,
+        opsMode: opts.opsMode || "iss_expedition",
+        scenarioId: opts.scenarioId || undefined,
+        difficultyId: opts.difficultyId || undefined
       });
     }
 
@@ -703,7 +879,10 @@
       this.roomId = null;
       this.roomState = null;
       this.mission = null;
+      this.snapshot = null;
+      this.snapshot = null;
       this.isHost = false;
+      this.isSoloRoom = false;
       this.remotePlayers = {};
       this.lastSentState = null;
       this.wasMoving = false;
@@ -711,19 +890,12 @@
       this.lastHeartbeatTime = 0;
     }
 
-    customizeAstronaut(name, color, role, ready, modelId, team, opts) {
+    customizeAstronaut(name, color, _role, ready, modelId, _team, _opts) {
       if (name) {
         this.localPlayer.name = name;
         localStorage.setItem("interfellas_name", name);
       }
       if (color) this.localPlayer.color = color;
-      if (role) {
-        this.localPlayer.role = normalizeRole(role, "commander");
-        if (!opts || opts.explicitRole !== false) {
-          this.explicitRoleSelected = true;
-        }
-      }
-      this.localPlayer.team = "crew";
       if (modelId) this.localPlayer.modelId = modelId;
       if (typeof ready === "boolean") this.localPlayer.ready = ready;
 
@@ -731,16 +903,45 @@
       this.socket.emit("customize_astronaut", {
         name: this.localPlayer.name,
         color: this.localPlayer.color,
-        role: this.localPlayer.role,
-        team: "crew",
         modelId: this.localPlayer.modelId,
         ready: this.localPlayer.ready
       });
     }
 
-    startGame() {
+    randomizeRoles(callback) {
+      if (!this.connected || !this.roomId || !this.isHost) return;
+      this.socket.emit("randomize_roles", {}, (res) => {
+        if (typeof callback === "function") callback(res);
+      });
+    }
+
+    requestRoleSwap(targetId, callback) {
+      if (!this.connected || !this.roomId || !targetId) return;
+      this.socket.emit("request_role_swap", { targetId }, (res) => {
+        if (typeof callback === "function") callback(res);
+      });
+    }
+
+    respondRoleSwap(requestId, accept, callback) {
+      if (!this.connected || !this.roomId || !requestId) return;
+      this.socket.emit("respond_role_swap", { requestId, accept: !!accept }, (res) => {
+        if (typeof callback === "function") callback(res);
+      });
+    }
+
+    cancelRoleSwap(requestId) {
+      if (!this.connected || !this.roomId || !requestId) return;
+      this.socket.emit("cancel_role_swap", { requestId });
+    }
+
+    sendGroundAction(type, extra = {}) {
+      if (!this.connected || !this.roomId) return;
+      this.socket.emit("ground_action", { type, ...(extra || {}) });
+    }
+
+    startGame(opts = {}) {
       if (this.isHost) {
-        this.socket.emit("start_game");
+        this.socket.emit("start_game", opts && typeof opts === "object" ? opts : {});
       }
     }
 
@@ -754,6 +955,11 @@
     boardSpacecraft() {
       if (!this.connected || !this.roomId) return;
       this.socket.emit("space_board");
+    }
+
+    unboardSpacecraft() {
+      if (!this.connected || !this.roomId) return;
+      this.socket.emit("space_unboard");
     }
 
     requestLaunch() {
@@ -805,7 +1011,7 @@
       return this.mission || (this.roomState && this.roomState.mission) || null;
     }
 
-    sendPlayerUpdate(pos, yaw, pitch, isEva, suitLights) {
+    sendPlayerUpdate(pos, yaw, pitch, isEva, suitLights, isSprinting = false) {
       if (!this.connected || !this.roomId) return;
       const now = performance.now();
       if (now - this.lastSendTime < this.sendInterval) return;
@@ -821,7 +1027,9 @@
         const distSq = dx * dx + dy * dy + dz * dz;
         const dYaw = Math.abs(yaw - this.lastSentState.yaw);
         const dPitch = Math.abs(pitch - this.lastSentState.pitch);
-        const stateSame = (isEva === this.lastSentState.isEva) && (suitLights === this.lastSentState.suitLights);
+        const stateSame = (isEva === this.lastSentState.isEva) &&
+          (suitLights === this.lastSentState.suitLights) &&
+          (!!isSprinting === this.lastSentState.sprinting);
 
         // Translation drives the walk animation / extrapolation; yaw still
         // counts for culling so remote avatars turn smoothly in place.
@@ -849,7 +1057,8 @@
         yaw: yaw,
         pitch: pitch,
         isEva: !!isEva,
-        suitLights: !!suitLights
+        suitLights: !!suitLights,
+        sprinting: !!isSprinting
       };
 
       this.packetsSentThisSec++;
@@ -859,6 +1068,7 @@
         pitch: Number(pitch.toFixed(3)),
         isEva: !!isEva,
         suitLights: !!suitLights,
+        sprinting: !!isSprinting,
         moving: isTranslating
       });
     }
@@ -930,9 +1140,11 @@
       };
     }
 
-    completeTask(taskId, taskName, designPatch) {
+    completeTask(taskId, taskName, designPatch, evaluation) {
       this.packetsSentThisSec++;
-      this.socket.emit("complete_task", { taskId, taskName, designPatch });
+      const payload = { taskId, taskName, designPatch };
+      if (evaluation && typeof evaluation === "object") payload.evaluation = evaluation;
+      this.socket.emit("complete_task", payload);
     }
 
     syncMissionDesign(designPatch) {
@@ -941,11 +1153,63 @@
       this.socket.emit("mission_design_sync", { designPatch });
     }
 
-    selectMission(scenarioId, difficultyId) {
+    selectMission(scenarioId, difficultyId, opsMode) {
       this.packetsSentThisSec++;
       this.socket.emit("select_mission", {
         scenarioId: scenarioId || undefined,
-        difficultyId: difficultyId || undefined
+        difficultyId: difficultyId || undefined,
+        opsMode: opsMode || undefined
+      });
+    }
+
+    myRoles() {
+      const c = this.snapshot && this.snapshot.crew;
+      if (!c) return this.isHost ? ["cdr", "plt", "ms1", "ms2"] : [];
+      return Object.keys(c).filter((r) => c[r] && c[r].playerId === this.socketId);
+    }
+
+    sendCommand(type, args) {
+      return new Promise((resolve) => {
+        if (!this.socket || !this.connected) {
+          return resolve({ accepted: false, reason: "Not connected" });
+        }
+        let done = false;
+        const timer = setTimeout(() => {
+          if (!done) {
+            done = true;
+            resolve({ accepted: false, reason: "Timed out" });
+          }
+        }, 5000);
+        this.packetsSentThisSec++;
+        this.socket.emit("shuttle_command", { type, args }, (r) => {
+          if (done) return;
+          done = true;
+          clearTimeout(timer);
+          resolve(r || { accepted: false });
+        });
+      });
+    }
+
+    sendInput(input, ack) {
+      if (!this.socket || !this.connected) return ack ? Promise.resolve(false) : undefined;
+      this.packetsSentThisSec++;
+      if (!ack) {
+        this.socket.volatile.emit("shuttle_input", input);
+        return;
+      }
+      return new Promise((resolve) => {
+        let done = false;
+        setTimeout(() => { if (!done) { done = true; resolve(false); } }, 2000);
+        this.socket.emit("shuttle_input", input, (r) => {
+          if (!done) { done = true; resolve(!!r); }
+        });
+      });
+    }
+
+    testOp(data) {
+      return new Promise((resolve) => {
+        if (!this.socket || !this.connected) return resolve(null);
+        this.socket.emit("shuttle_test", data, (r) => resolve(r));
       });
     }
 

@@ -305,9 +305,11 @@
     site.box(g, 8, 4.2, 7, cx + 48, 2.28, cz - 72, m("steel_white"), "RestroomModule");
 
     // Subtle warm interior fill light inside High Bay so rocket stack stands out from outside
-    const bayLight = new window.THREE.PointLight(0xfff1d6, 1.6, 180, 1.4);
-    bayLight.position.set(cx, 72, cz - 35);
-    g.add(bayLight);
+    if (!window.isMobileDevice) {
+      const bayLight = new window.THREE.PointLight(0xfff1d6, 1.6, 180, 1.4);
+      bayLight.position.set(cx, 72, cz - 35);
+      g.add(bayLight);
+    }
 
     // Wall colliders (preserving exact player bounds)
     site.addBoxCollider(cx, northFaceZ - wallT * 0.5, hx * 2, wallT, "VAB north wall");
@@ -316,8 +318,10 @@
     site.addBoxCollider(cx - doorHalf - panelWidth * 0.5, southFaceZ + wallT * 0.5, panelWidth, wallT, "VAB south wall");
     site.addBoxCollider(cx + doorHalf + panelWidth * 0.5, southFaceZ + wallT * 0.5, panelWidth, wallT, "VAB south wall");
     site.addBoxCollider(cx - 134, cz + 62, 104, 76, "VAB low bay");
-    // Interior comms mezzanine, office/restroom modules are solid.
-    site.addBoxCollider(cx - 42, cz - 14, 18, 12, "VAB comms room");
+    // The comms room is an elevated mezzanine: collision starts above the
+    // walkway so players can pass under it instead of hitting an invisible
+    // ground-level wall. The office/restroom modules do sit on the floor.
+    site.addBoxCollider(cx - 42, cz - 14, 18, 12, "VAB comms mezzanine", { minY: 2.4 });
     site.addBoxCollider(cx + 48, cz - 86, 10, 8, "VAB operations office");
     site.addBoxCollider(cx + 48, cz - 72, 8, 7, "VAB restroom module");
   });

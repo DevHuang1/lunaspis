@@ -2,7 +2,7 @@
  * ============================================================================
  * INTERFELLAS PHOTOREALISTIC EARTH & SPACE ATMOSPHERE SYSTEM
  * ============================================================================
- * High-fidelity 4K Earth shader ported from Perilune / SpaceShip:
+ * High-fidelity 4K Earth shader ported from Lunaspis / SpaceShip:
  * - 4096px NASA Day Albedo & Night City Lights
  * - 2048px Normal & Specular mapping for ocean gloss and mountain topography
  * - Dynamic independent cloud layer with rotation drift
@@ -94,9 +94,55 @@
     }
   `;
 
+  // Mobile variant: day/night/clouds only. It skips the tangent-space normal
+  // map and ocean specular lookup, which are barely visible at the Earth's
+  // on-screen size but cost two extra texture samples per fragment.
+  const mobileFragmentShader = /* glsl */ `
+    precision mediump float;
+
+    uniform sampler2D uDay;
+    uniform sampler2D uNight;
+    uniform sampler2D uClouds;
+    uniform vec3 uSunDirection;
+    uniform vec3 uCameraPosition;
+    uniform float uCloudOffset;
+
+    varying vec2 vUv;
+    varying vec3 vWorldNormal;
+    varying vec3 vWorldPosition;
+
+    void main() {
+      vec3 viewDir = normalize(uCameraPosition - vWorldPosition);
+      vec3 baseNormal = normalize(vWorldNormal);
+      float ndl = dot(baseNormal, normalize(uSunDirection));
+      float day = smoothstep(-0.2, 0.3, ndl);
+
+      vec3 dayColor = texture2D(uDay, vUv).rgb;
+      vec3 nightColor = texture2D(uNight, vUv).rgb;
+      vec3 surface = mix(nightColor * vec3(3.2, 2.8, 2.2), dayColor * (0.18 + 1.15 * max(ndl, 0.0)), day);
+
+      float cloud = texture2D(uClouds, vUv + vec2(uCloudOffset, 0.0)).a;
+      vec3 cloudColor = vec3(0.86, 0.92, 1.0) * (0.07 + 1.05 * max(ndl, 0.0));
+      surface = mix(surface, cloudColor, cloud * 0.85);
+
+      float rimBase = 1.0 - max(dot(baseNormal, viewDir), 0.0);
+      float rimWide = pow(rimBase, 2.1);
+      float rimTight = pow(rimBase, 6.5);
+      vec3 atmosphereColor = mix(
+        vec3(0.24, 0.58, 1.0),
+        vec3(0.85, 0.62, 0.38),
+        clamp((1.0 - ndl) * 0.8, 0.0, 1.0)
+      );
+      surface += atmosphereColor * (rimWide * 0.42 + rimTight * 0.75);
+
+      gl_FragColor = vec4(surface, 1.0);
+    }
+  `;
+
   class PhotorealisticEarth {
     constructor(scene, options = {}) {
       this.scene = scene;
+      this.isMobile = !!window.isMobileDevice;
       this.radius = options.radius || 340;
       this.position = options.position || new window.THREE.Vector3(0, -380, 40);
       this.cloudOffset = 0.0;
@@ -110,34 +156,39 @@
 
     _initEarthMesh() {
       const texLoader = new window.THREE.TextureLoader();
+      const anisotropy = this.isMobile ? 2 : 8;
       const loadTex = (path) => {
         const t = texLoader.load(path);
         t.wrapS = window.THREE.RepeatWrapping;
         t.wrapT = window.THREE.ClampToEdgeWrapping;
+        t.anisotropy = anisotropy;
         return t;
       };
 
-      const uDay = loadTex("textures/earth/earth_day_4096.jpg");
-      const uNight = loadTex("textures/earth/earth_night_4096.jpg");
+      // Mobile keeps the same visual identity with 2K day/night art and no
+      // normal/specular maps, saving roughly 80 MB of GPU texture memory.
+      const uDay = loadTex(this.isMobile ? "textures/earth/blue-marble-2048.jpg" : "textures/earth/earth_day_4096.jpg");
+      const uNight = loadTex(this.isMobile ? "textures/earth/earth_night_2048.jpg" : "textures/earth/earth_night_4096.jpg");
       const uClouds = loadTex("textures/earth/earth_clouds_1024.png");
-      const uNormalMap = loadTex("textures/earth/earth_normal_2048.jpg");
-      const uSpecular = loadTex("textures/earth/earth_specular_2048.jpg");
 
       this.uniforms = {
         uDay: { value: uDay },
         uNight: { value: uNight },
         uClouds: { value: uClouds },
-        uNormalMap: { value: uNormalMap },
-        uSpecular: { value: uSpecular },
         uSunDirection: { value: this.sunDirection },
         uCameraPosition: { value: new window.THREE.Vector3() },
         uCloudOffset: { value: 0.0 }
       };
+      if (!this.isMobile) {
+        this.uniforms.uNormalMap = { value: loadTex("textures/earth/earth_normal_2048.jpg") };
+        this.uniforms.uSpecular = { value: loadTex("textures/earth/earth_specular_2048.jpg") };
+      }
 
-      const geo = new window.THREE.SphereGeometry(this.radius, 64, 64);
+      const segments = this.isMobile ? 48 : 64;
+      const geo = new window.THREE.SphereGeometry(this.radius, segments, segments);
       const mat = new window.THREE.ShaderMaterial({
         vertexShader,
-        fragmentShader,
+        fragmentShader: this.isMobile ? mobileFragmentShader : fragmentShader,
         uniforms: this.uniforms
       });
 
@@ -146,7 +197,7 @@
       this.group.add(this.earthMesh);
 
       // Outer atmospheric halo
-      const haloGeo = new window.THREE.SphereGeometry(this.radius * 1.025, 48, 48);
+      const haloGeo = new window.THREE.SphereGeometry(this.radius * 1.025, this.isMobile ? 32 : 48, this.isMobile ? 32 : 48);
       const haloMat = new window.THREE.MeshBasicMaterial({
         color: 0x38bdf8,
         transparent: true,

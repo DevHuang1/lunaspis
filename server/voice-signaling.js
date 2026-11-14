@@ -54,14 +54,15 @@ module.exports = function setupVoiceSignaling(io) {
       socket.to(roomId).emit("voice_peer_joined", { id: socket.id });
     });
 
-    // 3. Broadcast speaking/mute status (for 3D nametag rings & HUD indicators)
+    // 3. Broadcast speaking/mute/radio status (for 3D nametag rings, S-Band radio & HUD indicators)
     socket.on("voice_state_update", (data) => {
       const roomId = data && typeof data.roomId === "string" ? data.roomId.slice(0, 16) : null;
       if (!roomId || !socket.rooms.has(roomId)) return;
       const payload = {
         senderId: socket.id,
         isMuted: !!(data && data.isMuted),
-        isSpeaking: !!(data && data.isSpeaking)
+        isSpeaking: !!(data && data.isSpeaking),
+        isRadio: !!(data && data.isRadio)
       };
       socket.to(roomId).emit("voice_peer_state", payload);
     });

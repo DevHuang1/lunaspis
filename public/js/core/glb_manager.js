@@ -3,7 +3,7 @@
  * INTERFELLAS HIGH-PERFORMANCE 3D GLB/glTF ASSET & HANGAR ENGINE (SPACESHIP EDITION)
  * ============================================================================
  * Provides comprehensive, production-grade .glb/.gltf 3D model support ported from
- * SpaceShip (Perilune — Orbital / Mission Lab):
+ * SpaceShip (Lunaspis — Orbital / Mission Lab):
  * 1. Asynchronous multi-asset loading & in-memory caching with Draco, KTX2/Basis
  *    Universal, and Meshopt decompression support
  * 2. SpaceShip NASA Astronaut suit integration (astronaut_lod0.glb & astronaut_lod1.glb)
@@ -22,7 +22,7 @@
     // --- SPACESHIP PRIMARY ASTRONAUT RIGS ---
     "astronaut_lod0": {
       id: "astronaut_lod0",
-      name: "Perilune NASA Astronaut (LOD0 High-Detail)",
+      name: "Lunaspis NASA Astronaut (LOD0 High-Detail)",
       category: "astronauts",
       role: "commander",
       file: "models/astronaut/astronaut_lod0.glb",
@@ -33,7 +33,7 @@
     },
     "astronaut_lod1": {
       id: "astronaut_lod1",
-      name: "Perilune NASA Crewmate (LOD1 Optimized)",
+      name: "Lunaspis NASA Crewmate (LOD1 Optimized)",
       category: "astronauts",
       role: "scientist",
       file: "models/astronaut/astronaut_lod1.glb",
@@ -46,7 +46,7 @@
     // --- SPACESHIP PRIMARY ISS & SPACECRAFT MODELS ---
     "iss_stationary_opt": {
       id: "iss_stationary_opt",
-      name: "NASA International Space Station (Perilune Primary)",
+      name: "NASA International Space Station (Lunaspis Primary)",
       category: "spacecraft",
       file: "models/iss/ISS_stationary_opt.glb",
       scale: 1.0,
@@ -64,67 +64,67 @@
     },
     "orbiter_v2": {
       id: "orbiter_v2",
-      name: "NASA Space Shuttle Orbiter (Orbiter V2)",
+      name: "NASA Space Shuttle",
       category: "spacecraft",
       file: "assets/Orbiter_V2.glb",
       scale: 1.0,
-      description: "Reusable orbital crew spacecraft with payload bay doors, SSME nozzles, and forward ODS docking ring."
+      description: "Reusable winged spaceship with opening cargo doors, main rocket engines, and front docking ring."
     },
     "external_tank": {
       id: "external_tank",
-      name: "Cryogenic External Tank (LH2 / LOX)",
+      name: "Orange Main Fuel Tank",
       category: "spacecraft",
       file: "assets/ExternalTank.glb",
       scale: 1.0,
-      description: "Cryogenic liquid hydrogen and liquid oxygen propellant backbone tank for launch ascent."
+      description: "Giant tank holding super-cold liquid fuel and oxygen for the climb into space."
     },
     "solid_rocket_booster": {
       id: "solid_rocket_booster",
-      name: "Solid Rocket Booster (SRB)",
+      name: "Side Rocket Booster",
       category: "spacecraft",
       file: "assets/SolidRocketBooster.glb",
       scale: 1.0,
-      description: "High-thrust solid propellant booster for first-stage liftoff and tower clearance."
+      description: "Twin high-power side rockets that give extra push for liftoff and clearing the launch tower."
     },
     "satellite": {
       id: "satellite",
-      name: "Deployable Science & Comms Satellite",
+      name: "Science & Radio Satellite",
       category: "spacecraft",
       file: "assets/Satellite.glb",
       scale: 1.0,
-      description: "Orbital scientific payload with unfolding solar wings and high-gain dish boom."
+      description: "Space science craft with fold-out solar wings and a big dish antenna."
     },
     "modular_spacecraft_bus_smallsat": {
       id: "modular_spacecraft_bus_smallsat",
-      name: "12U / ESPA MicroSat Bus",
+      name: "Compact Mini-Satellite Frame",
       category: "spacecraft",
       file: "assets/modular_spacecraft_bus_smallsat.glb",
       scale: 1.0,
-      description: "Compact low-mass satellite bus for focused LEO Earth observation and technology demonstration."
+      description: "Small lightweight spacecraft body built for Earth-watching and quick tech tests close to home."
     },
     "modular_spacecraft_bus_hex": {
       id: "modular_spacecraft_bus_hex",
-      name: "Modular Hex Standard Spacecraft Bus",
+      name: "Six-Sided Standard Spacecraft Frame",
       category: "spacecraft",
       file: "assets/modular_spacecraft_bus_hex.glb",
       scale: 1.0,
-      description: "Balanced 3-axis stabilized hexagonal spacecraft bus for multi-instrument SSO and lunar missions."
+      description: "Steady all-purpose six-sided spacecraft body for Earth-pole and Moon missions."
     },
     "modular_spacecraft_bus_heavy": {
       id: "modular_spacecraft_bus_heavy",
-      name: "Deep-Space Heavy Explorer Bus",
+      name: "Deep-Space Heavy Explorer Frame",
       category: "spacecraft",
       file: "assets/modular_spacecraft_bus_heavy.glb",
       scale: 1.0,
-      description: "High-capacity deep-space spacecraft bus with radiation vault, high-gain comms, and large propellant tanks."
+      description: "Large deep-space spacecraft body with extra radiation shielding, a powerful radio dish, and big fuel tanks."
     },
     "modular_spacecraft_fully_configured": {
       id: "modular_spacecraft_fully_configured",
-      name: "Integrated Multi-Instrument Observatory",
+      name: "Full Multi-Tool Science Craft",
       category: "spacecraft",
       file: "assets/modular_spacecraft_fully_configured.glb",
       scale: 1.0,
-      description: "Fully integrated spacecraft configuration with deployable solar arrays, SAR antenna, optical imager, and Ka-band dish."
+      description: "Complete ready-to-fly spacecraft with unfolding solar panels, storm radar, camera, and fast Earth dish."
     }
   };
 
@@ -133,12 +133,12 @@
   // skeletal clip so the crew actually talk with their hands, plus a floating
   // emoji bubble so astronauts can communicate non-verbally.
   const EMOTE_DEFS = [
-    { id: "wave", icon: "👋", label: "Wave", clip: "wave", duration: 2.6, gesture: "wave" },
-    { id: "salute", icon: "🫡", label: "Salute", clip: "idle", duration: 2.4, gesture: "salute" },
-    { id: "dance", icon: "🕺", label: "Dance", clip: "idle", duration: 3.8, procedural: "dance", gesture: "dance" },
-    { id: "laugh", icon: "😂", label: "Laugh", clip: "idle", duration: 2.8, procedural: "laugh", gesture: "laugh" },
-    { id: "look", icon: "👀", label: "Look", clip: "look_around", duration: 3.0, gesture: "look" },
-    { id: "heart", icon: "❤️", label: "Heart", clip: "idle", duration: 3.0, procedural: "heart", gesture: "heart" }
+    { id: "wave", icon: "WAV", label: "Wave", clip: "wave", duration: 2.6, gesture: "wave" },
+    { id: "salute", icon: "SAL", label: "Salute", clip: "idle", duration: 2.4, gesture: "salute" },
+    { id: "dance", icon: "DNC", label: "Dance", clip: "idle", duration: 3.8, procedural: "dance", gesture: "dance" },
+    { id: "laugh", icon: "LGH", label: "Laugh", clip: "idle", duration: 2.8, procedural: "laugh", gesture: "laugh" },
+    { id: "look", icon: "OBS", label: "Look", clip: "look_around", duration: 3.0, gesture: "look" },
+    { id: "heart", icon: "ACK", label: "Roger", clip: "idle", duration: 3.0, procedural: "heart", gesture: "heart" }
   ];
   const EMOTE_BY_ID = {};
   EMOTE_DEFS.forEach((def) => { EMOTE_BY_ID[def.id] = def; });
@@ -233,7 +233,7 @@
     const bones = {};
     model.traverse((obj) => {
       if (!obj.name) return;
-      if (/^(hips|spine|spine1|chest|neck|head|shoulder_[LR]|upperarm_[LR]|forearm_[LR]|hand_[LR])$/.test(obj.name)) {
+      if (/^(hips|spine|spine1|chest|neck|head|shoulder_[LR]|upperarm_[LR]|forearm_[LR]|hand_[LR]|thigh_[LR]|calf_[LR]|foot_[LR]|toe_[LR])$/.test(obj.name)) {
         bones[obj.name] = obj;
       }
     });
@@ -469,6 +469,90 @@
       const handWorldQuat = new T.Quaternion().setFromRotationMatrix(handMatrix);
       aimEmoteHand(hand, handWorldQuat, weight);
     }
+  }
+
+  // Limb chains used by the zero-g sculling pose. Astronauts aboard the ISS
+  // drift instead of walking, so the arms sweep slowly and the legs trail and
+  // flutter rather than running through a planted walk cycle.
+  const ZERO_G_SIDES = [
+    { side: 1, upper: "upperarm_L", fore: "forearm_L", hand: "hand_L", thigh: "thigh_L", calf: "calf_L", foot: "foot_L" },
+    { side: -1, upper: "upperarm_R", fore: "forearm_R", hand: "hand_R", thigh: "thigh_R", calf: "calf_R", foot: "foot_R" }
+  ];
+
+  function applyZeroGPose(rig, elapsed, moveWeight, weight) {
+    const T = window.THREE;
+    if (!T || !rig || !rig.bones || !rig.modelContainer || weight <= 0.002) return;
+    const bones = rig.bones;
+    if (!bones.hips || !bones.chest) return;
+
+    rig.root.updateMatrixWorld(true);
+
+    const hipsPos = bones.hips.getWorldPosition(new T.Vector3());
+    const chestPos = bones.chest.getWorldPosition(new T.Vector3());
+    const modelQuat = rig.modelContainer.getWorldQuaternion(new T.Quaternion());
+    const scale = rig.modelScale || 1;
+    const move = Math.max(0, Math.min(1, moveWeight));
+    const point = (origin, x, y, z) => origin.clone()
+      .add(new T.Vector3(x, y, z).multiplyScalar(scale).applyQuaternion(modelQuat));
+
+    const armPhase = elapsed * 2.6;
+    const legPhase = elapsed * 5.2;
+
+    ZERO_G_SIDES.forEach((limb) => {
+      const upper = bones[limb.upper];
+      const fore = bones[limb.fore];
+      const hand = bones[limb.hand];
+      if (upper && fore && hand) {
+        // Slow breaststroke-style scull: hands sweep from in front of the
+        // chest out to the sides. When the crewmate is not moving the arms
+        // settle into a relaxed, slightly bent float.
+        const phase = armPhase + (limb.side < 0 ? 0.9 : 0);
+        const spread = 0.5 + 0.5 * Math.sin(phase);
+        const idleSway = Math.sin(elapsed * 0.7 + (limb.side < 0 ? 1.1 : 0)) * 0.015;
+        const idleHand = point(chestPos, limb.side * 0.40, -0.16 + idleSway, 0.12);
+        const swimHand = point(
+          chestPos,
+          limb.side * (0.13 + 0.36 * spread),
+          -0.16 + Math.sin(phase * 2) * 0.04,
+          0.32 - 0.22 * spread
+        );
+        const idleElbow = point(chestPos, limb.side * 0.52, -0.24, -0.03);
+        const swimElbow = point(
+          chestPos,
+          limb.side * (0.46 + 0.14 * spread),
+          -0.28,
+          0.0 - 0.06 * spread
+        );
+
+        aimEmoteBone(upper, fore, idleElbow.lerp(swimElbow, move), weight);
+        aimEmoteBone(fore, hand, idleHand.lerp(swimHand, move), weight);
+      }
+
+      const thigh = bones[limb.thigh];
+      const calf = bones[limb.calf];
+      const foot = bones[limb.foot];
+      if (thigh && calf && foot) {
+        // Alternating flutter kick, with a lazy bent-knee drift when idle.
+        const phase = legPhase + (limb.side < 0 ? Math.PI : 0);
+        const kick = Math.sin(phase);
+        const drift = Math.sin(elapsed * 0.8 + (limb.side < 0 ? 1.4 : 0)) * 0.015;
+        const kneeTarget = point(
+          hipsPos,
+          limb.side * 0.16,
+          -0.33 + kick * 0.05 * move + drift,
+          0.12 + Math.cos(phase) * 0.05 * move
+        );
+        const footTarget = point(
+          hipsPos,
+          limb.side * 0.15,
+          -0.66 + kick * 0.13 * move + drift * 0.5,
+          Math.cos(phase) * 0.16 * move
+        );
+
+        aimEmoteBone(thigh, calf, kneeTarget, weight);
+        aimEmoteBone(calf, foot, footTarget, weight);
+      }
+    });
   }
 
   let sharedShadowTex = null;
@@ -743,11 +827,14 @@
       const receiveShadow = options.receiveShadow !== false;
       const enhancePBR = options.enhancePBR !== false;
 
+      const maxAnisotropy = window.isMobileDevice ? 2 : 8;
       cloned.traverse((obj) => {
         if (obj.isMesh) {
           obj.castShadow = castShadow;
           obj.receiveShadow = receiveShadow;
-          obj.frustumCulled = false;
+          // Skinned bounds are pose-dependent, but static GLB meshes (ISS,
+          // vehicles, props) cull normally. This is a large win on phones.
+          obj.frustumCulled = !obj.isSkinnedMesh;
 
           if (obj.material) {
             const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
@@ -786,6 +873,13 @@
                   }
                 }
               }
+
+              // Keep GLB texture filtering modest on mobile; anisotropy above
+              // 2 is rarely visible on a phone and costs bandwidth.
+              ["map", "normalMap", "roughnessMap", "metalnessMap", "emissiveMap", "aoMap"].forEach((key) => {
+                const tex = m[key];
+                if (tex && "anisotropy" in tex) tex.anisotropy = maxAnisotropy;
+              });
 
               return m;
             });
@@ -963,6 +1057,10 @@
         currentColor: suitHexColor,
         emoteBubble,
         emote: null,
+        zeroGBlend: 0,
+        zeroGMoveBlend: 0,
+        zeroGT: 0,
+        wasZeroG: false,
 
         playEmote: (emoteId) => {
           const def = EMOTE_BY_ID[emoteId];
@@ -1002,7 +1100,7 @@
         /**
          * SpaceShip animation clip switcher & procedural fallback update.
          */
-        updateAnimation: (delta, isMoving = false, isEva = false, isGrounded = true, customAction = null) => {
+        updateAnimation: (delta, isMoving = false, isEva = false, isGrounded = true, customAction = null, isZeroG = false, isSprinting = false) => {
           if (rig.emote) {
             rig.emote.elapsed += delta;
             if (rig.emote.elapsed >= rig.emote.def.duration) {
@@ -1010,11 +1108,33 @@
             }
           }
 
+          // Blend into and out of the floating pose so entering the ISS does
+          // not snap the astronaut between a walk cycle and a weightless drift.
+          const zeroGSpeed = 3.4;
+          rig.zeroGBlend += ((isZeroG ? 1 : 0) - rig.zeroGBlend) * Math.min(1, delta * zeroGSpeed);
+          if (rig.zeroGBlend < 0.002) rig.zeroGBlend = 0;
+          rig.zeroGMoveBlend += ((isMoving ? 1 : 0) - rig.zeroGMoveBlend) * Math.min(1, delta * 4.2);
+          rig.zeroGT += delta * (isZeroG && isSprinting ? 1.45 : 1);
+          const floating = isZeroG || rig.zeroGBlend > 0.01;
+
+          // A ground shadow and floor ring would travel through the air with a
+          // floating crewmate; hide them until the astronaut is walking again.
+          if (floating) {
+            if (rig.shadowMesh) rig.shadowMesh.visible = false;
+            if (rig.accentRing) rig.accentRing.visible = false;
+          } else if (rig.wasZeroG) {
+            if (rig.shadowMesh) rig.shadowMesh.visible = true;
+            if (rig.accentRing) rig.accentRing.visible = true;
+          }
+          rig.wasZeroG = floating;
+
           const emoteClip = rig.emote && rig.emote.def.clip ? rig.emote.def.clip : null;
           const emoteSpeed = rig.emote && rig.emote.def.clipSpeed ? rig.emote.def.clipSpeed : 1;
 
           if (rig.mixer) {
-            const desiredClip = customAction || emoteClip || (isMoving ? "walk" : "idle");
+            // In zero-g the walk clip would look like running in place. Keep
+            // the quiet idle base and let the procedural limb pose do the work.
+            const desiredClip = customAction || emoteClip || (isMoving && !floating ? "walk" : "idle");
             if (rig.actions[desiredClip] && rig.activeClipName !== desiredClip) {
               const nextAct = rig.actions[desiredClip];
               const prevAct = rig.activeClipName ? rig.actions[rig.activeClipName] : null;
@@ -1027,7 +1147,7 @@
               rig.activeClipName = desiredClip;
             }
             if (rig.activeClipName === "walk" && rig.actions["walk"] && !emoteClip) {
-              rig.actions["walk"].timeScale = isEva ? 0.75 : 1.15;
+              rig.actions["walk"].timeScale = isEva ? 0.75 : (isSprinting ? 2.05 : 1.15);
             } else if (emoteClip && rig.actions[emoteClip]) {
               rig.actions[emoteClip].timeScale = emoteSpeed;
             }
@@ -1035,20 +1155,35 @@
             modelContainer.position.y = 0;
             modelContainer.rotation.x = 0;
             modelContainer.rotation.z = 0;
+            // A small forward lean sells the extra stride length while sprinting.
+            if (isSprinting && isMoving && !floating && !emoteClip) {
+              modelContainer.rotation.x = 0.075;
+            }
           } else {
             // Procedural bobbing for static GLB models without skeletal clips
             if (isMoving) {
-              rig.walkTime += delta * (isEva ? 3.0 : 8.5);
-              const bob = Math.abs(Math.sin(rig.walkTime)) * 0.04;
+              rig.walkTime += delta * (isSprinting ? 13.5 : (isEva ? 3.0 : 8.5));
+              const bob = Math.abs(Math.sin(rig.walkTime)) * (isSprinting ? 0.055 : 0.04);
               modelContainer.position.y = isEva ? Math.sin(rig.walkTime * 0.5) * 0.05 : bob;
-              modelContainer.rotation.x = isEva ? 0.14 : 0.05;
-              modelContainer.rotation.z = Math.sin(rig.walkTime * 0.5) * 0.03;
+              modelContainer.rotation.x = isEva ? 0.14 : (isSprinting ? 0.1 : 0.05);
+              modelContainer.rotation.z = Math.sin(rig.walkTime * 0.5) * (isSprinting ? 0.045 : 0.03);
             } else {
               rig.walkTime += delta * 1.8;
               modelContainer.position.y = Math.sin(rig.walkTime) * 0.015;
               modelContainer.rotation.x = 0;
               modelContainer.rotation.z = Math.sin(rig.walkTime * 0.7) * 0.01;
             }
+          }
+
+          // Weightless body attitude: a slow drift/roll with a gentle forward
+          // lean once the crewmate pushes off along the module.
+          if (rig.zeroGBlend > 0.002) {
+            const float = rig.zeroGBlend;
+            const move = rig.zeroGMoveBlend;
+            modelContainer.position.y += Math.sin(rig.zeroGT * 0.85) * 0.018 * float;
+            modelContainer.rotation.x += (0.03 + move * 0.20) * float;
+            modelContainer.rotation.z += Math.sin(rig.zeroGT * 0.62) * 0.035 * float;
+            applyZeroGPose(rig, rig.zeroGT, move, float);
           }
 
           // Emote body language & floating expression bubble
@@ -1211,7 +1346,7 @@
     }
 
     spawnOrbitalFleet() {
-      // Perilune uses only the 6-room transit craft, ISS reference craft, and Lunar Lander.
+      // Lunaspis uses only the 6-room transit craft, ISS reference craft, and Lunar Lander.
     }
 
     updateFleet(delta, elapsed) {
@@ -1416,7 +1551,7 @@
 
         this._updateHangarTelemetry(entry, loadedEntry.meta);
 
-        if (statusEl) statusEl.textContent = `TELEMETRY READY • ${entry.name}`;
+        if (statusEl) statusEl.textContent = `3D MODEL READY • ${entry.name}`;
       };
 
       if (entry.isCustom && this.cache[modelId]) {
@@ -1506,7 +1641,7 @@
         <div class="settings-modal-card hangar-modal-card">
           <div class="settings-modal-header hangar-header">
             <div>
-              <div class="settings-modal-title">PERILUNE // 3D ASSET INSPECTOR</div>
+              <div class="settings-modal-title">LUNASPIS // 3D ASSET INSPECTOR</div>
               <div style="font-size:10px;color:rgba(154,164,174,0.75);letter-spacing:1.2px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">DRACO / KTX2 / MESHOPT RIG STUDIO</div>
             </div>
             <button class="settings-close-btn" id="hangar-btn-close">&times;</button>
@@ -1584,10 +1719,10 @@
 
               <div style="margin-top:auto;display:flex;flex-direction:column;gap:8px;">
                 <button class="btn-primary" id="hangar-btn-equip" style="width:100%;font-size:12px;padding:12px;">
-                  🚀 EQUIP AS MY ASTRONAUT AVATAR
+                  EQUIP AS MY ASTRONAUT AVATAR
                 </button>
                 <button class="btn-secondary" id="hangar-btn-spawn" style="width:100%;font-size:12px;padding:10px;">
-                  🛰️ SPAWN IN SPACE ORBIT
+                  SPAWN IN SPACE ORBIT
                 </button>
               </div>
             </div>
@@ -1638,7 +1773,7 @@
 
         if (this.hangarCurrentModel.category !== "astronauts") {
           if (window.showActionToast) {
-            window.showActionToast(`ℹ️ ${this.hangarCurrentModel.name} is a spacecraft/object. Use 'SPAWN IN SPACE ORBIT' or press [U] to board!`);
+            window.showActionToast(`${this.hangarCurrentModel.name} is a spacecraft/object. Use 'SPAWN IN SPACE ORBIT' or press [U] to board.`);
           }
           return;
         }

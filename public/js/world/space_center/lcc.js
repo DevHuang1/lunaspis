@@ -263,12 +263,12 @@
         ctx.font = "700 18px Arial, Helvetica, sans-serif";
         ctx.fillStyle = "#d1fae5";
         const rows = [
-          "DSN 34m · MADRID ...... LOCK",
-          "DSN 70m · CANBERRA .... LOCK",
-          "TDRS-W · KA-BAND ....... OK",
-          "LINK MARGIN ........ 6.4 dB",
-          "DOWNLINK ....... 1.2 GB/day",
-          "NEXT PASS .......... T+02:14"
+          "SPAIN DISHES · MADRID ..... OK",
+          "AUSTRALIA DISHES · LARGE .. OK",
+          "RELAY SATELLITES .......... OK",
+          "SIGNAL STRENGTH ....... STRONG",
+          "DOWNLOAD SPEED .... 1.2 GB/day",
+          "NEXT PASS ............ +02:14"
         ];
         rows.forEach((r, i) => ctx.fillText(r, 20, 92 + i * 38));
       },

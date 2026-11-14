@@ -430,14 +430,14 @@
         if (this.isAnyVRActive) {
           mvBtn.textContent = "EXIT VR";
         } else {
-          mvBtn.textContent = this.webxrSupported ? "🥽 WEBXR / VR" : "🥽 STEREO VR";
+          mvBtn.textContent = this.webxrSupported ? "WEBXR / VR" : "STEREO VR";
         }
       }
       const hudVrBtn = document.getElementById("btn-hud-vr-main");
       if (hudVrBtn) {
         hudVrBtn.innerHTML = this.isAnyVRActive
-          ? "<span>⏹</span><span>EXIT VR</span>"
-          : "<span>🥽</span><span>VR</span>";
+          ? "<span>EXIT VR</span>"
+          : "<span>VR</span>";
         hudVrBtn.title = this.isAnyVRActive ? "Exit WebXR / Stereo VR Mode [ESC]" : "Toggle WebXR / Stereo VR Mode";
       }
       const interiorVrBtn = document.getElementById("btn-hud-vr");
@@ -448,8 +448,8 @@
       const issVrBtn = document.getElementById("iss-btn-vr");
       if (issVrBtn) {
         issVrBtn.textContent = this.isAnyVRActive
-          ? "⏹ EXIT VR"
-          : (this.webxrSupported ? "🥽 WEBXR / VR" : "🥽 STEREO VR");
+          ? "EXIT VR"
+          : (this.webxrSupported ? "WEBXR / VR" : "STEREO VR");
       }
     }
   }
