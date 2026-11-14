@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#05060a" />
+  <title>Interfellas — Shuttle Crew Mission</title>
+  <link rel="stylesheet" href="css/style.css?v=4.0.0" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" />
+  <link rel="stylesheet" href="css/os_theme.css?v=8.0.0" />
+  <!-- Three.js Engine & 3D GLTF/GLB/Draco/KTX2/Meshopt Loaders -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="js/loaders/DRACOLoader.js?v=4.0.0"></script>
+  <script src="js/loaders/KTX2Loader.js?v=4.0.0"></script>
+  <script src="js/loaders/meshopt_decoder.js?v=4.0.0"></script>
+  <script src="js/loaders/GLTFLoader.js?v=4.0.0"></script>
+  <script src="js/loaders/SkeletonUtils.js?v=4.0.0"></script>
+  <!-- Socket.IO Client -->
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+
+  <!-- Persistent Top Performance Bar (FPS & PING) -->
+  <div id="perf-overlay" title="Click to toggle Flight Telemetry &amp; Diagnostics [P] / [F3]">
+    <div class="perf-metric">
+      <span class="perf-dot" id="perf-fps-dot"></span>
+      <span class="perf-label">FPS</span>
+      <span class="perf-val" id="perf-fps-val">60</span>
+    </div>
+    <div class="perf-divider">|</div>
+    <div class="perf-metric">
+      <span class="perf-dot" id="perf-ping-dot"></span>
+      <span class="perf-label">PING</span>
+      <span class="perf-val" id="perf-ping-val">-- ms</span>
+      <span id="perf-latency-badge" class="perf-status-badge">NOMINAL</span>
+    </div>
+  </div>
+
+
+  <!-- 3D WebGL Canvas Layer -->
+  <div id="canvas-container"></div>
+
+  <!-- ========================================================================
+       TITLE
+       ======================================================================== -->
+  <div class="app-screen os-screen" id="screen-menu">
+    <div class="os-frame">
+      <header class="os-head"><b>INTERFELLAS</b><span>STS.CREW_MISSION_OS</span></header>
+      <div class="os-crumb"><span>STS_OS//MISSION.SELECT//KSC.LC-39A</span>
+        <span id="auth-status-bar" class="os-auth"><span id="auth-status-icon" class="auth-status-dot"></span><span id="auth-status-title">GUEST</span><span id="auth-status-desc" style="display:none;">Local session</span>
+          <button id="btn-open-auth" class="os-link">sign in</button><button id="btn-auth-logout" class="os-link" style="display:none;">sign out</button></span></div>
+      <main class="os-body">
+        <section class="os-col">
+          <div class="os-sec">
+            <h1 class="os-title">INTERFELLAS</h1>
+            <p class="os-text">Fly a Space Shuttle mission as a crew of up to four. Ride the launch, deploy a satellite in orbit, then bring the orbiter home to the runway by hand.</p>
+          </div>
+          <div class="os-sec">
+            <h3>CALLSIGN</h3>
+            <label class="os-input"><span>&gt;</span><input type="text" id="input-player-name" placeholder="your name" maxlength="16" /></label>
+          </div>
+          <div class="os-sec">
+            <h3>MISSION</h3>
+            <ul class="os-menu">
+              <li><button id="btn-host-game">CREATE CREW</button><span>host a room and share its code</span></li>
+              <li><button id="btn-solo-flight" title="Private room: you fly every seat">FLY SOLO</button><span>you hold every seat</span></li>
+              <li><button id="btn-quick-play" title="Public room ORBIT1">QUICK CREW</button><span>join the public room</span></li>
+              <li class="os-join"><button id="btn-join-game">JOIN</button><label class="os-input"><span>code</span><input type="text" id="input-join-code" placeholder="ABC123" maxlength="8" /></label></li>
+            </ul>
+          </div>
+          <div id="user-stats-card" class="os-stats"><span>MISSIONS <strong id="stat-missions">0</strong></span><span>LANDED <strong id="stat-victories">0</strong></span></div>
+        </section>
+      </main>
+      <footer class="os-foot"><span>P.000</span><div class="os-bar"><i class="d"></i><i></i></div></footer>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       CREW LOBBY
+       ======================================================================== -->
+  <div class="app-screen os-screen" id="screen-lobby">
+    <div class="lobby-top-bar">
+      <div class="room-code-badge">
+        <span class="field-label" style="margin:0;">CREW CODE:</span>
+        <span class="room-code-text" id="lobby-room-code">------</span>
+        <button class="btn-copy" id="btn-copy-invite">COPY LINK</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <button id="btn-lobby-voice" class="btn-lobby-voice">
+          <span id="lobby-voice-icon">MIC</span>
+          <span id="lobby-voice-text">ENABLE COMMS</span>
+        </button>
+        <button id="btn-lobby-audio-settings" class="btn-lobby-voice" style="padding:6px 10px;" title="Comms settings"><span>COMMS</span></button>
+        <div class="lobby-count-text" id="lobby-player-count">1 / 4 CREW</div>
+        <button id="btn-leave-room" class="btn-lobby-voice btn-danger-outline" style="padding:6px 10px;" title="Leave Room"><span>LEAVE</span></button>
+      </div>
+    </div>
+
+    <div class="lobby-main-area">
+      <div class="lobby-players-grid" id="lobby-players-grid"></div>
+
+      <div class="lobby-customizer">
+        <div class="customizer-title">CREW SEAT</div>
+        <div>
+          <div class="lobby-roles-list" id="lobby-roles-list">
+            <div class="lobby-role-card" data-role="cdr"><span>COMMANDER</span><span class="role-sub">Flies RCS, entry bank, landing, rollout</span></div>
+            <div class="lobby-role-card" data-role="plt"><span>PILOT</span><span class="role-sub">Burns, coast/time, speed brake, gear</span></div>
+            <div class="lobby-role-card" data-role="ms1"><span>MISSION SPECIALIST 1</span><span class="role-sub">Bay doors, release, separation</span></div>
+            <div class="lobby-role-card" data-role="ms2"><span>MISSION SPECIALIST 2</span><span class="role-sub">Satellite power, checkout GO</span></div>
+          </div>
+          <div class="role-sub" id="lobby-role-msg" style="margin-top:6px;">Empty seats are flown by the Commander.</div>
+        </div>
+
+        <div>
+          <label class="field-label">SUIT ACCENT</label>
+          <div class="color-swatches">
+            <button class="lobby-color-btn" data-color="#ef4444" style="background:#ef4444;"></button>
+            <button class="lobby-color-btn" data-color="#3b82f6" style="background:#3b82f6;"></button>
+            <button class="lobby-color-btn" data-color="#10b981" style="background:#10b981;"></button>
+            <button class="lobby-color-btn" data-color="#f59e0b" style="background:#f59e0b;"></button>
+          </div>
+        </div>
+
+        <div class="lobby-chat-box">
+          <div id="lobby-chat-msgs" class="lobby-chat-msgs">
+            <div style="color:rgba(154,164,174,0.7);">Crew room open. Share the code or invite link.</div>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:6px;">
+            <input type="text" id="lobby-chat-input" placeholder="Comms message..." class="lobby-chat-input" />
+            <button id="lobby-chat-send" class="lobby-chat-send">SEND</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="lobby-bottom-bar">
+      <div class="lobby-controls-hint" id="lobby-hint">The host launches the crew into the briefing; the Commander starts the count.</div>
+      <button class="btn-start-game" id="btn-start-mission">GO TO BRIEFING</button>
+    </div>
+  </div>
+
+
+  <div id="modal-station-systems" class="settings-modal-overlay">
+    <div class="settings-modal-card systems-modal-card">
+      <div class="settings-modal-header">
+        <span class="settings-modal-title">CREW COMMS</span>
+        <button id="btn-close-settings" class="settings-close-btn" title="Close">&times;</button>
+      </div>
+      <div class="settings-modal-body">
+        <div id="tab-comms" class="sys-tab-content active">
+          <div class="settings-group">
+            <label class="settings-label">MICROPHONE INPUT DEVICE</label>
+            <select id="audio-input-device" class="settings-select">
+              <option value="default">Default System Microphone</option>
+            </select>
+          </div>
+          <div class="settings-group">
+            <div class="settings-label-row">
+              <label class="settings-label">MIC INPUT LEVEL</label>
+              <span id="mic-meter-text" class="settings-val-badge">0%</span>
+            </div>
+            <div class="mic-meter-track">
+              <div id="mic-meter-fill" class="mic-meter-fill"></div>
+            </div>
+          </div>
+          <div class="settings-group">
+            <div class="settings-label-row">
+              <label class="settings-label">NOISE GATE SENSITIVITY</label>
+              <span id="sensitivity-val-badge" class="settings-val-badge">22</span>
+            </div>
+            <input type="range" id="mic-sensitivity-slider" min="5" max="75" value="22" class="settings-slider" />
+          </div>
+          <div class="settings-group">
+            <div class="settings-label-row">
+              <label class="settings-label">MASTER COMMS VOLUME</label>
+              <span id="master-vol-badge" class="settings-val-badge">100%</span>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;">
+              <input type="range" id="master-voice-slider" min="0" max="150" value="100" class="settings-slider" style="flex:1;" />
+              <button id="btn-deafen-toggle" class="btn-deafen">DEAFEN</button>
+            </div>
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">CREWMATE COMMS BALANCE</label>
+            <div id="crewmate-volume-list" class="crewmate-volume-list">
+              <div style="font-size:11px;color:rgba(154,164,174,0.7);text-align:center;padding:8px;">No crewmates in room</div>
+            </div>
+          </div>
+          <div class="settings-keybinds-box">
+            <div class="keybind-row"><span>[M]</span><span>Toggle Microphone Mute</span></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       FLIGHT CREDENTIALS MODAL
+       ======================================================================== -->
+  <div id="modal-auth" class="settings-modal-overlay">
+    <div class="settings-modal-card auth-modal-card">
+      <div class="settings-modal-header">
+        <span class="settings-modal-title">INTERFELLAS // FLIGHT CREDENTIALS</span>
+        <button id="btn-close-auth" class="settings-close-btn">&times;</button>
+      </div>
+
+      <div class="auth-tabs-row">
+        <button id="tab-auth-login" class="auth-tab-btn active">SIGN IN</button>
+        <button id="tab-auth-register" class="auth-tab-btn">REGISTER</button>
+        <button id="tab-auth-reset" class="auth-tab-btn">RESET</button>
+        <button id="tab-auth-dossier" class="auth-tab-btn" style="display:none;">DOSSIER</button>
+      </div>
+
+      <div id="auth-msg-banner" class="auth-msg-banner" style="display:none;"></div>
+
+      <div class="settings-modal-body" style="padding-top:14px;">
+        <form id="form-auth-login" class="auth-form-panel">
+          <div class="settings-group">
+            <label class="settings-label">USERNAME</label>
+            <input type="text" id="login-username" class="input-styled" placeholder="Enter username..." required autocomplete="username" />
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">PASSWORD</label>
+            <input type="password" id="login-password" class="input-styled" placeholder="Enter password..." required autocomplete="current-password" />
+          </div>
+          <button type="submit" class="btn-primary" style="margin-top:8px;">AUTHENTICATE</button>
+          <div class="auth-links-row">
+            <span>New crew? <a href="#" id="link-goto-register">Register</a></span>
+            <span>&middot;</span>
+            <a href="#" id="link-goto-reset">Reset Password</a>
+          </div>
+        </form>
+
+        <form id="form-auth-register" class="auth-form-panel" style="display:none;">
+          <div class="settings-group">
+            <label class="settings-label">USERNAME</label>
+            <input type="text" id="reg-username" class="input-styled" placeholder="e.g. voss" required minlength="3" autocomplete="username" />
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">CALLSIGN</label>
+            <input type="text" id="reg-callsign" class="input-styled" placeholder="e.g. CDR. Voss" required maxlength="16" />
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">PASSWORD</label>
+            <input type="password" id="reg-password" class="input-styled" placeholder="Minimum 4 characters..." required minlength="4" autocomplete="new-password" />
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">SPECIALIZATION</label>
+            <select id="reg-title" class="settings-select">
+              <option value="Commander">Commander (CDR) — Command &amp; Descent</option>
+              <option value="Flight Engineer">Flight Engineer (FE) — Power &amp; Hull</option>
+              <option value="Science Officer">Science Officer (SO) — Life Support</option>
+              <option value="Payload Specialist">Payload Specialist (PS) — Transit Ops</option>
+            </select>
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">SUIT ACCENT</label>
+            <div class="color-swatches" id="reg-color-swatches">
+              <button type="button" class="lobby-color-btn active" data-color="#67e8f9" style="background:#67e8f9;"></button>
+              <button type="button" class="lobby-color-btn" data-color="#d0a15c" style="background:#d0a15c;"></button>
+              <button type="button" class="lobby-color-btn" data-color="#7fb8a6" style="background:#7fb8a6;"></button>
+              <button type="button" class="lobby-color-btn" data-color="#c08a8a" style="background:#c08a8a;"></button>
+              <button type="button" class="lobby-color-btn" data-color="#9a8fc4" style="background:#9a8fc4;"></button>
+              <button type="button" class="lobby-color-btn" data-color="#ece7dc" style="background:#ece7dc;"></button>
+            </div>
+          </div>
+          <button type="submit" class="btn-primary" style="margin-top:8px;">ISSUE CREDENTIAL</button>
+          <div class="auth-links-row">
+            <span>Already registered? <a href="#" id="link-goto-login-from-reg">Sign In</a></span>
+            <span>&middot;</span>
+            <a href="#" id="link-goto-reset-from-reg">Reset Password</a>
+          </div>
+        </form>
+
+        <form id="form-auth-reset" class="auth-form-panel" style="display:none;">
+          <div class="settings-group">
+            <label class="settings-label">USERNAME</label>
+            <input type="text" id="reset-username" class="input-styled" placeholder="Enter username..." required autocomplete="username" />
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">NEW PASSWORD</label>
+            <input type="password" id="reset-password" class="input-styled" placeholder="Minimum 4 characters..." required minlength="4" autocomplete="new-password" />
+          </div>
+          <button type="submit" class="btn-primary" style="margin-top:8px;">RESET PASSWORD</button>
+          <div class="auth-links-row">
+            <a href="#" id="link-goto-login-from-reset">Back to Sign In</a>
+          </div>
+        </form>
+
+        <form id="form-auth-dossier" class="auth-form-panel" style="display:none;">
+          <div class="dossier-stat-grid">
+            <div class="dossier-stat-box">
+              <span class="dossier-stat-num" id="dossier-missions">0</span>
+              <span class="dossier-stat-lbl">EXPEDITIONS</span>
+            </div>
+            <div class="dossier-stat-box">
+              <span class="dossier-stat-num" id="dossier-victories">0</span>
+              <span class="dossier-stat-lbl">COMPLETED</span>
+            </div>
+            <div class="dossier-stat-box">
+              <span class="dossier-stat-num" id="dossier-tasks">0</span>
+              <span class="dossier-stat-lbl">REPAIRS</span>
+            </div>
+          </div>
+
+          <div class="settings-group" style="margin-top:12px;">
+            <label class="settings-label">CALLSIGN</label>
+            <input type="text" id="dossier-callsign" class="input-styled" maxlength="16" />
+          </div>
+
+          <div class="settings-group">
+            <label class="settings-label">RANK</label>
+            <select id="dossier-title" class="settings-select">
+              <option value="Commander">Commander (CDR)</option>
+              <option value="Flight Engineer">Flight Engineer (FE)</option>
+              <option value="Science Officer">Science Officer (SO)</option>
+              <option value="Payload Specialist">Payload Specialist (PS)</option>
+            </select>
+          </div>
+
+          <div class="settings-group">
+            <label class="settings-label">SUIT ACCENT</label>
+            <div class="color-swatches" id="dossier-color-swatches">
+              <button type="button" class="lobby-color-btn" data-color="#67e8f9" style="background:#67e8f9;"></button>
+              <button type="button" class="lobby-color-btn" data-color="#d0a15c" style="background:#d0a15c;"></button>
+              <button type="button" class="lobby-color-btn" data-color="#7fb8a6" style="background:#7fb8a6;"></button>
+              <button type="button" class="lobby-color-btn" data-color="#c08a8a" style="background:#c08a8a;"></button>
+              <button type="button" class="lobby-color-btn" data-color="#9a8fc4" style="background:#9a8fc4;"></button>
+              <button type="button" class="lobby-color-btn" data-color="#ece7dc" style="background:#ece7dc;"></button>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:10px;margin-top:10px;">
+            <button type="submit" class="btn-primary" style="flex:1;">SAVE DOSSIER</button>
+            <button type="button" id="btn-dossier-logout" class="btn-secondary btn-danger-outline" style="width:110px;">SIGN OUT</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- NOTIFICATION TOAST -->
+  <div id="action-toast">NOTIFICATION</div>
+
+  <!-- Core: audio, GLB loading, network, voice -->
+  <script src="js/core/audio_synth.js?v=8.0.0"></script>
+  <script src="js/core/glb_manager.js?v=8.0.0"></script>
+  <script src="js/core/network.js?v=8.0.0"></script>
+  <script src="js/core/voice.js?v=8.0.0"></script>
+
+  <!-- Shuttle mission: simulation/mission are DOM-free (also run on the server); view/HUD/controller are adapters -->
+  <script src="js/game/shuttle_simulation.js?v=8.0.0"></script>
+  <script src="js/game/shuttle_mission.js?v=8.0.0"></script>
+  <script src="js/world/shuttle_view.js?v=8.0.0"></script>
+  <script src="js/game/shuttle_sfx.js?v=8.0.0"></script>
+  <script src="js/game/shuttle_hud.js?v=8.0.0"></script>
+  <script src="js/game/shuttle_game.js?v=8.0.0"></script>
+  <script src="js/game/main.js?v=8.0.0"></script>
+</body>
+</html>
