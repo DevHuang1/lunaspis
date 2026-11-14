@@ -957,6 +957,11 @@
       this.socket.emit("space_board");
     }
 
+    unboardSpacecraft() {
+      if (!this.connected || !this.roomId) return;
+      this.socket.emit("space_unboard");
+    }
+
     requestLaunch() {
       if (!this.connected || !this.roomId) return;
       this.socket.emit("space_launch");

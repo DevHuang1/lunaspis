@@ -101,7 +101,7 @@ Interfellas/
 | **Interact with Console** | `[E]` or click prompt | Tap floating `⚡ ACCESS TERMINAL` button |
 | **Crew Emotes** | `[X]` wheel / `[1]`–`[6]` quick emotes | Tap `💬 EMOTE` in HUD |
 | **Switch 1st / 3rd Person** | `[C]` | Tap `👁️` Camera button in HUD |
-| **Boarding** | Follow the glowing Access Arm Control and Orbiter Hatch markers; arm lock, boarding and liftoff trigger automatically | Same glowing markers |
+| **Boarding** | Lock the Access Arm, walk the bridge, then press `[E]`/`[B]` at the Orbiter Hatch. Press `[E]`/`[B]` again before liftoff to step back onto the bridge | Tap the hatch prompt or **STEP OUT** button |
 | **Docking Camera** | Drag to orbit, wheel to zoom, double-click to reset, `[V]` chase/cockpit | Drag to orbit, pinch to zoom |
 | **Site Tour** | `SITE TOUR` on the pad HUD, `1`–`9` fast travel (39A, VAB, LCC, crawler, beach, press, Pad 39B, 39B crawler, MCC), `T` return to gantry | Tap `SITE TOUR`, then tap a destination |
 | **Ground Consoles** | `[E]` at the Flight Director / Ground Systems desks in the LCC, or the VAB integration desk | Tap the `⚡ ACCESS TERMINAL` prompt |

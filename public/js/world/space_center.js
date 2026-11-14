@@ -4,11 +4,11 @@
  * ============================================================================
  * Production-grade 3D Space Center starting environment & pre-flight sequence:
  * 1. Starts players at Kennedy Space Center Launch Complex 39A (Ground & Gantry).
- * 2. Guided boarding flow with no manual dock/launch buttons:
+ * 2. Guided boarding flow with a reversible access arm:
  *    - A glowing marker at the Access Arm Control extends & locks the bridge
  *      automatically when a crew member walks up to it.
- *    - A second marker at the orbiter hatch walks the crew across the White Room;
- *      boarding triggers automatically at the hatch.
+ *    - The crew walk the bridge freely and board with [E]/[B] at the orbiter
+ *      hatch. Before liftoff they can step back onto the bridge with [E]/[B].
  *    - Once every connected astronaut is aboard, the automatic liftoff
  *      countdown begins after a short safety pause.
  * 3. Pre-Launch Flight Deck & Liftoff Ignition:
@@ -2536,6 +2536,12 @@
             }
           }
 
+          if ((e.code === "KeyE" || e.code === "KeyB") && this.crewBoarded && this.missionPhase === "gantry" && !this.isLaunching) {
+            e.preventDefault();
+            this.unboardSpacecraft();
+            return;
+          }
+
           if ((e.code === "KeyE" || e.code === "KeyB") && this.dockLocked && !this.crewBoarded && this.missionPhase === "gantry") {
             const distHatch = this._distanceToGuidancePoint(-7.8, -7.2);
             if (distHatch !== null && distHatch <= 2.6) {
@@ -2720,16 +2726,6 @@
         }
       }
 
-      // Belt-and-braces hatch trigger: boarding also completes when a crew
-      // member reaches the glowing hatch marker, even if the collision clamp
-      // has already stopped their forward step.
-      if (this.dockLocked && !this.crewBoarded && crew && crew.visible && crew.position) {
-        const distanceToHatch = Math.hypot(crew.position.x + 7.8, crew.position.z + 7.2);
-        if (distanceToHatch <= 1.0) {
-          this.boardSpacecraft();
-        }
-      }
-
       const crewState = this._crewAboardState();
       if (this.dockLocked && crewState.allAboard && !this._launchSequenceStarted) {
         if (this.autoLaunchRemaining === null) {
@@ -2777,6 +2773,9 @@
         ? (crewState.launchAuthority.isSelf ? `YOU (${crewState.launchAuthority.roleShort})` : `${crewState.launchAuthority.roleShort} · ${crewState.launchAuthority.name}`)
         : "CMD";
       const unboardedNames = crewState.flightRoster.filter((p) => !p.isAboard).map((p) => p.name);
+      const stepOutHint = this.crewBoarded && !this.isLaunching ? " · [E/B] STEP OUT" : "";
+      const canUnboard = !isGround && this.crewBoarded && this.missionPhase === "gantry" &&
+        !this.isLaunching && !this._launchSequenceStarted;
 
       let statusText = `LAUNCH PAD · STEP 1 (${armOwnerLabel}): BRIDGE [F]`;
       let statusColor = "#93c5fd";
@@ -2841,18 +2840,18 @@
         statusColor = "#93c5fd";
       } else if (this.autoLaunchRemaining !== null) {
         const seconds = Math.max(1, Math.ceil(this.autoLaunchRemaining));
-        statusText = `CREW ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · LIFTOFF IN ${seconds}s`;
+        statusText = `CREW ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · LIFTOFF IN ${seconds}s${stepOutHint}`;
         statusColor = "#86efac";
       } else if (crewState.allAboard) {
         statusText = gs.goNoGoLaunch
           ? `CLEAR FOR LIFTOFF · CREW ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · STARTING...`
-          : `CREW ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · CHECKING WITH GROUND...`;
+          : `CREW ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · CHECKING WITH GROUND...${stepOutHint}`;
         statusColor = "#86efac";
       } else {
         const waitingOn = unboardedNames.length ? `WAIT: ${unboardedNames.join(", ")} · ` : "";
         statusText = touchUI
-          ? `CREW ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · ${waitingOn}LEADER: ${launchAuthLabel}`
-          : `CREW ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · ${waitingOn}${launchAuthLabel} [L]`;
+          ? `CREW ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · ${waitingOn}LEADER: ${launchAuthLabel}${stepOutHint}`
+          : `CREW ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · ${waitingOn}${launchAuthLabel} [L]${stepOutHint}`;
         statusColor = "#fbbf24";
       }
 
@@ -2865,6 +2864,8 @@
         pollActive,
         step1Done,
         step2Done,
+        crewBoarded: this.crewBoarded,
+        canUnboard,
         nearTerm,
         canLaunchNow,
         aboardCount: crewState.aboardCount,
@@ -2922,6 +2923,9 @@
             ` : `
               <button type="button" id="btn-sc-launch" class="sc-hud-btn sc-btn-launch" style="display:${guidance.canLaunchNow ? "inline-flex" : "none"};">
                 ${guidance.pollActive ? (touchUI ? "OVERRIDE LAUNCH" : "OVERRIDE [L]") : (touchUI ? "LAUNCH" : "LAUNCH [L]")}
+              </button>
+              <button type="button" id="btn-sc-unboard" class="sc-hud-btn sc-btn-term" style="display:${guidance.canUnboard ? "inline-flex" : "none"};">
+                ${touchUI ? "STEP OUT" : "STEP OUT [E/B]"}
               </button>
             `}
             <button type="button" id="btn-sc-hud-toggle" class="sc-hud-btn sc-btn-collapse" title="${this.hudCollapsed ? "Expand Launch Pad Dock" : "Minimize Launch Pad Dock"}">
@@ -3067,6 +3071,11 @@
         });
       }
 
+      const btnUnboard = this.hudOverlay.querySelector("#btn-sc-unboard");
+      if (btnUnboard) {
+        btnUnboard.addEventListener("click", () => this.unboardSpacecraft());
+      }
+
       this.hudOverlay.querySelectorAll("[data-ground-op]").forEach((btn) => {
         btn.addEventListener("click", () => {
           const op = btn.getAttribute("data-ground-op");
@@ -3127,6 +3136,12 @@
           : (guidance.touchUI ? "LAUNCH" : "LAUNCH [L]");
       }
 
+      const btnUnboard = this.hudOverlay.querySelector("#btn-sc-unboard");
+      if (btnUnboard) {
+        btnUnboard.style.display = guidance.canUnboard ? "inline-flex" : "none";
+        btnUnboard.textContent = guidance.touchUI ? "STEP OUT" : "STEP OUT [E/B]";
+      }
+
       const btnTermAct = this.hudOverlay.querySelector("#btn-sc-term-act");
       if (btnTermAct) {
         btnTermAct.style.display = guidance.nearTerm ? "inline-flex" : "none";
@@ -3158,7 +3173,7 @@
         background: "rgba(217,119,6,0.16)",
         color: "#fde68a"
       });
-      applyChip("sc-step-2", `2 · BOARD DOOR [E/B] (${guidance.aboardCount}/${guidance.crewTotal})`, guidance.step2Done, guidance.step1Done && !guidance.step2Done, {
+      applyChip("sc-step-2", guidance.crewBoarded ? "2 · ABOARD · [E/B] STEP OUT" : `2 · BOARD DOOR [E/B] (${guidance.aboardCount}/${guidance.crewTotal})`, guidance.step2Done, guidance.step1Done && !guidance.step2Done, {
         border: "rgba(59,130,246,0.6)",
         background: "rgba(37,99,235,0.18)",
         color: "#dbeafe"
@@ -3424,6 +3439,8 @@
       }
       const wasBoarded = this.crewBoarded;
       this.crewBoarded = true;
+      this._boardedAt = Date.now();
+      this._unboardedAt = 0;
       this.boardingState = "boarded";
 
       if (window.localCrew && window.localCrew.group) {
@@ -3448,6 +3465,51 @@
         }
       }
       this._renderGroundHUD();
+    }
+
+    /**
+     * Steps back out of the orbiter before liftoff and returns the crew member
+     * to the access arm. Once the launch sequence starts this is refused so a
+     * countdown cannot be cancelled at the hatch.
+     */
+    unboardSpacecraft(options = {}) {
+      if (this._isLocalGroundCrew()) return false;
+      if (!this.crewBoarded || this.missionPhase !== "gantry" || this.isLaunching || this._launchSequenceStarted) {
+        return false;
+      }
+
+      const fromNetwork = !!options.fromNetwork;
+      const broadcast = options.broadcast !== false;
+      this.crewBoarded = false;
+      this._boardedAt = 0;
+      this._unboardedAt = Date.now();
+      this.boardingState = this.dockLocked ? "dock_locked" : "gantry";
+      this.autoLaunchRemaining = null;
+      this._autoLaunchPollSent = false;
+
+      // Stand in the White Room on the ship side of the access arm, facing
+      // back toward the tower. The crew can immediately reboard or walk away.
+      const spawn = { x: -8.4, y: 64.1, z: -7.2, yaw: -Math.PI / 2 };
+      if (window.localCrew && window.localCrew.group) {
+        window.localCrew.group.visible = true;
+        window.localCrew.group.position.set(spawn.x, spawn.y, spawn.z);
+        window.localCrew.group.rotation.y = spawn.yaw;
+      }
+      if (typeof window.setCameraYawPitch === "function") {
+        window.setCameraYawPitch(spawn.yaw, -0.05);
+      }
+      if (!fromNetwork) {
+        if (window.spaceAudio) window.spaceAudio.playAirlockCycle();
+        if (window.gameplay && typeof window.gameplay.showToast === "function") {
+          window.gameplay.showToast("STEPPED BACK ONTO THE BOARDING BRIDGE · WALK BACK TO THE TOWER OR REBOARD AT THE HATCH");
+        }
+        if (broadcast && window.netManager && typeof window.netManager.unboardSpacecraft === "function") {
+          window.netManager.unboardSpacecraft();
+        }
+      }
+      this._renderGroundHUD();
+      this._syncSpaceGamesLock();
+      return true;
     }
 
     // ============================================================================
@@ -3572,7 +3634,20 @@
 
       if (phase === "gantry") {
         this.dockLocked = !!mission.dockLocked;
-        this.crewBoarded = isGround ? false : (this.crewBoarded || boardedByServer);
+        if (isGround) {
+          this.crewBoarded = false;
+        } else {
+          // Respect optimistic board/step-out states while the server ack is in
+          // flight, but never let a stale mission snapshot silently do either.
+          const recentlyUnboarded = this._unboardedAt && (Date.now() - this._unboardedAt < 2500);
+          const recentlyBoarded = this._boardedAt && (Date.now() - this._boardedAt < 2500);
+          if (boardedByServer && !recentlyUnboarded) {
+            this.crewBoarded = true;
+          } else if (!boardedByServer && !recentlyBoarded) {
+            this.crewBoarded = false;
+            this._unboardedAt = 0;
+          }
+        }
         this.targetDockSwingAngle = this.dockLocked ? 0.0 : 0.38;
         if (!this.isGroundMode) {
           this.enterSpaceCenter(mission);

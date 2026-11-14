@@ -2236,6 +2236,33 @@ io.on("connection", (socket) => {
     });
   });
 
+  socket.on("space_unboard", () => {
+    if (!currentRoomId || !rooms[currentRoomId]) return;
+    const room = rooms[currentRoomId];
+    const p = room.players[socket.id];
+    if (!p) return;
+    if (getTeamForRole(p.role) === "ground") return;
+    if (!room.mission || room.mission.phase !== "gantry") return;
+
+    if (room.mission.boarded) delete room.mission.boarded[socket.id];
+    // Stepping out cancels this player's own pending launch poll so the
+    // countdown cannot start after they have left the orbiter.
+    if (room.mission.launchPollBy === socket.id) {
+      if (room.launchPollTimer) {
+        clearTimeout(room.launchPollTimer);
+        room.launchPollTimer = null;
+      }
+      room.mission.launchPollAt = 0;
+      room.mission.launchPollBy = null;
+    }
+    room.mission.updatedAt = Date.now();
+    broadcastMissionUpdate(room, {
+      action: "unboard",
+      playerId: socket.id,
+      playerName: p.name
+    });
+  });
+
   socket.on("space_launch", () => {
     if (!currentRoomId || !rooms[currentRoomId]) return;
     const room = rooms[currentRoomId];
