@@ -925,363 +925,32 @@
     const btnCopyLink = document.getElementById("btn-copy-invite");
     const btnStartMission = document.getElementById("btn-start-mission");
 
-    // Auth modal elements
-    const modalAuth = document.getElementById("modal-auth");
-    const btnOpenAuth = document.getElementById("btn-open-auth");
-    const btnCloseAuth = document.getElementById("btn-close-auth");
-    const btnAuthLogout = document.getElementById("btn-auth-logout");
-    const btnDossierLogout = document.getElementById("btn-dossier-logout");
-
-    const tabLogin = document.getElementById("tab-auth-login");
-    const tabRegister = document.getElementById("tab-auth-register");
-    const tabReset = document.getElementById("tab-auth-reset");
-    const tabDossier = document.getElementById("tab-auth-dossier");
-
-    const formLogin = document.getElementById("form-auth-login");
-    const formRegister = document.getElementById("form-auth-register");
-    const formReset = document.getElementById("form-auth-reset");
-    const formDossier = document.getElementById("form-auth-dossier");
-    const authBanner = document.getElementById("auth-msg-banner");
-    const linkGotoReg = document.getElementById("link-goto-register");
-    const linkGotoReset = document.getElementById("link-goto-reset");
-    const linkGotoLoginFromReg = document.getElementById("link-goto-login-from-reg");
-    const linkGotoResetFromReg = document.getElementById("link-goto-reset-from-reg");
-    const linkGotoLoginFromReset = document.getElementById("link-goto-login-from-reset");
-
-    const authStatusTitle = document.getElementById("auth-status-title");
-    const authStatusDesc = document.getElementById("auth-status-desc");
-    const authStatusIcon = document.getElementById("auth-status-icon");
-
-    let regSelectedColor = "#67e8f9";
-    let dossierSelectedColor = "#67e8f9";
-
-    function showAuthBanner(msg, isError = false) {
-      if (!authBanner) return;
-      authBanner.textContent = msg;
-      authBanner.className = `auth-msg-banner ${isError ? 'error' : 'success'}`;
-      authBanner.style.display = "flex";
-    }
-
-    function hideAuthBanner() {
-      if (authBanner) authBanner.style.display = "none";
-    }
-
-    function switchAuthTab(tab) {
-      hideAuthBanner();
-      [tabLogin, tabRegister, tabReset, tabDossier].forEach(t => { if (t) t.classList.remove("active"); });
-      [formLogin, formRegister, formReset, formDossier].forEach(f => { if (f) f.style.display = "none"; });
-
-      if (tab === "register") {
-        if (tabRegister) tabRegister.classList.add("active");
-        if (formRegister) formRegister.style.display = "block";
-      } else if (tab === "reset") {
-        if (tabReset) tabReset.classList.add("active");
-        if (formReset) formReset.style.display = "block";
-      } else if (tab === "dossier") {
-        if (tabDossier) tabDossier.classList.add("active");
-        if (formDossier) formDossier.style.display = "block";
-        populateDossierForm();
-      } else {
-        if (tabLogin) tabLogin.classList.add("active");
-        if (formLogin) formLogin.style.display = "block";
-      }
-    }
-
-    if (btnOpenAuth) {
-      btnOpenAuth.addEventListener("click", () => {
-        if (modalAuth) modalAuth.style.display = "flex";
-        switchAuthTab(currentAstronaut ? "dossier" : "login");
-      });
-    }
-    if (btnCloseAuth) btnCloseAuth.addEventListener("click", () => { if (modalAuth) modalAuth.style.display = "none"; });
-    if (linkGotoReg) linkGotoReg.addEventListener("click", (e) => { e.preventDefault(); switchAuthTab("register"); });
-    if (linkGotoReset) linkGotoReset.addEventListener("click", (e) => { e.preventDefault(); switchAuthTab("reset"); });
-    if (linkGotoLoginFromReg) linkGotoLoginFromReg.addEventListener("click", (e) => { e.preventDefault(); switchAuthTab("login"); });
-    if (linkGotoResetFromReg) linkGotoResetFromReg.addEventListener("click", (e) => { e.preventDefault(); switchAuthTab("reset"); });
-    if (linkGotoLoginFromReset) linkGotoLoginFromReset.addEventListener("click", (e) => { e.preventDefault(); switchAuthTab("login"); });
-
-    if (tabLogin) tabLogin.addEventListener("click", () => switchAuthTab("login"));
-    if (tabRegister) tabRegister.addEventListener("click", () => switchAuthTab("register"));
-    if (tabReset) tabReset.addEventListener("click", () => switchAuthTab("reset"));
-    if (tabDossier) tabDossier.addEventListener("click", () => switchAuthTab("dossier"));
-
-    document.querySelectorAll("#reg-color-swatches .lobby-color-btn").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        document.querySelectorAll("#reg-color-swatches .lobby-color-btn").forEach(b => b.classList.remove("active"));
-        e.currentTarget.classList.add("active");
-        regSelectedColor = e.currentTarget.getAttribute("data-color");
-      });
-    });
-
-    document.querySelectorAll("#dossier-color-swatches .lobby-color-btn").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        document.querySelectorAll("#dossier-color-swatches .lobby-color-btn").forEach(b => b.classList.remove("active"));
-        e.currentTarget.classList.add("active");
-        dossierSelectedColor = e.currentTarget.getAttribute("data-color");
-      });
-    });
-
     function applyAstronautProfile(astro) {
-      currentAstronaut = astro;
+      currentAstronaut = null;
       const defaultModel = isMobile ? "astronaut_lod1" : "astronaut_lod0";
-      if (!astro) {
-        if (authStatusTitle) authStatusTitle.textContent = "GUEST";
-        if (authStatusDesc) authStatusDesc.textContent = "Local session";
-        if (btnOpenAuth) btnOpenAuth.textContent = "SIGN IN";
-        if (btnAuthLogout) btnAuthLogout.style.display = "none";
-        if (tabDossier) tabDossier.style.display = "none";
-        if (window.netManager) window.netManager.userId = null;
+      if (window.netManager) window.netManager.userId = null;
 
-        const defName = localStorage.getItem("interfellas_name") || "CDR. Vance";
-        if (inputName) inputName.value = defName;
-        window.netManager.localPlayer.name = defName;
-        window.netManager.localPlayer.color = "#67e8f9";
-        window.netManager.localPlayer.role = "commander";
-        buildLocalAstronaut("#67e8f9", "commander", defaultModel);
-        return;
-      }
-
-      const rank = astro.flight_title || "Commander";
-      const callsign = astro.callsign || astro.username;
-      const color = astro.suit_color || "#67e8f9";
-
-      if (authStatusTitle) authStatusTitle.textContent = `${callsign.toUpperCase()}`;
-      if (authStatusDesc) authStatusDesc.textContent = `${rank.toUpperCase()}`;
-      if (btnOpenAuth) btnOpenAuth.textContent = "DOSSIER";
-      if (btnAuthLogout) btnAuthLogout.style.display = "inline-block";
-      if (tabDossier) tabDossier.style.display = "inline-block";
-
-      if (inputName) inputName.value = callsign;
-
-      const statMissions = document.getElementById("stat-missions");
-      const statVictories = document.getElementById("stat-victories");
-      const statTasks = document.getElementById("stat-tasks");
-      if (statMissions) statMissions.textContent = astro.games_played || 0;
-      if (statVictories) statVictories.textContent = astro.games_won || 0;
-      if (statTasks) statTasks.textContent = astro.tasks_completed || 0;
-
-      if (astro.token && typeof window.netManager.setAuthToken === "function") {
-        window.netManager.setAuthToken(astro.token);
-      }
-      const normalizedRole = window.InterfellasRoles
-        ? window.InterfellasRoles.normalizeRole(astro.preferred_role || rank, "commander")
-        : "commander";
-      window.netManager.userId = astro.id;
-      window.netManager.localPlayer.name = callsign;
-      window.netManager.localPlayer.color = color;
-      if (!window.netManager.roomId) {
-        window.netManager.localPlayer.role = normalizedRole;
-      }
-      window.netManager.explicitRoleSelected = false;
-      buildLocalAstronaut(color, window.netManager.localPlayer.role || normalizedRole, defaultModel);
-      if (typeof window.syncLobbySelectionUI === "function") window.syncLobbySelectionUI();
-      if (typeof window.renderHudCrewRoster === "function") window.renderHudCrewRoster();
+      const defName = localStorage.getItem("interfellas_name") || "CDR. Vance";
+      if (inputName) inputName.value = defName;
+      window.netManager.localPlayer.name = defName;
+      window.netManager.localPlayer.color = "#67e8f9";
+      window.netManager.localPlayer.role = "commander";
+      buildLocalAstronaut("#67e8f9", "commander", defaultModel);
     }
-
-    function populateDossierForm() {
-      if (!currentAstronaut) return;
-      const cInput = document.getElementById("dossier-callsign");
-      const tSelect = document.getElementById("dossier-title");
-      const dMissions = document.getElementById("dossier-missions");
-      const dVictories = document.getElementById("dossier-victories");
-      const dTasks = document.getElementById("dossier-tasks");
-
-      if (cInput) cInput.value = currentAstronaut.callsign || currentAstronaut.username;
-      if (tSelect) tSelect.value = currentAstronaut.flight_title || "Commander";
-      if (dMissions) dMissions.textContent = currentAstronaut.games_played || 0;
-      if (dVictories) dVictories.textContent = currentAstronaut.games_won || 0;
-      if (dTasks) dTasks.textContent = currentAstronaut.tasks_completed || 0;
-
-      dossierSelectedColor = currentAstronaut.suit_color || "#67e8f9";
-      document.querySelectorAll("#dossier-color-swatches .lobby-color-btn").forEach(b => {
-        b.classList.toggle("active", b.getAttribute("data-color") === dossierSelectedColor);
-      });
-    }
-
-    if (formLogin) {
-      formLogin.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const username = document.getElementById("login-username").value.trim();
-        const password = document.getElementById("login-password").value;
-        try {
-          const res = await fetch("/api/auth/login", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, password })
-          });
-          const data = await res.json();
-          if (data.success && data.user) {
-            const credential = { ...data.user, token: data.token };
-            localStorage.setItem("nasa_astronaut_credential", JSON.stringify(credential));
-            applyAstronautProfile(credential);
-            showAuthBanner("NASA Flight Credential Authenticated. Welcome aboard!", false);
-            setTimeout(() => { if (modalAuth) modalAuth.style.display = "none"; }, 1000);
-          } else {
-            showAuthBanner(data.error || "Authentication failed.", true);
-          }
-        } catch (err) {
-          showAuthBanner("Server communication error: " + err.message, true);
-        }
-      });
-    }
-
-    if (formRegister) {
-      formRegister.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const username = document.getElementById("reg-username").value.trim();
-        const callsign = document.getElementById("reg-callsign").value.trim();
-        const password = document.getElementById("reg-password").value;
-        const flightTitle = document.getElementById("reg-title").value;
-        try {
-          const res = await fetch("/api/auth/register", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, password, callsign, flightTitle, suitColor: regSelectedColor })
-          });
-          const data = await res.json();
-          if (data.success && data.user) {
-            const credential = { ...data.user, token: data.token };
-            localStorage.setItem("nasa_astronaut_credential", JSON.stringify(credential));
-            applyAstronautProfile(credential);
-            showAuthBanner("Flight Credential Issued! Welcome to the Astronaut Corps.", false);
-            setTimeout(() => { if (modalAuth) modalAuth.style.display = "none"; }, 1000);
-          } else {
-            showAuthBanner(data.error || "Registration failed.", true);
-          }
-        } catch (err) {
-          showAuthBanner("Server communication error: " + err.message, true);
-        }
-      });
-    }
-
-    if (formReset) {
-      formReset.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const username = document.getElementById("reset-username").value.trim();
-        const currentPassword = document.getElementById("reset-current-password").value;
-        const newPassword = document.getElementById("reset-password").value;
-        try {
-          const res = await fetch("/api/auth/reset-password", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, currentPassword, newPassword })
-          });
-          const data = await res.json();
-          if (data.success && data.user) {
-            const credential = { ...data.user, token: data.token };
-            localStorage.setItem("nasa_astronaut_credential", JSON.stringify(credential));
-            applyAstronautProfile(credential);
-            showAuthBanner(data.message || "Password reset successfully.", false);
-            setTimeout(() => { if (modalAuth) modalAuth.style.display = "none"; }, 1000);
-          } else {
-            showAuthBanner(data.error || "Password reset failed.", true);
-          }
-        } catch (err) {
-          showAuthBanner("Server communication error: " + err.message, true);
-        }
-      });
-    }
-
-    if (formDossier) {
-      formDossier.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        if (!currentAstronaut) return;
-        const callsign = document.getElementById("dossier-callsign").value.trim();
-        const flightTitle = document.getElementById("dossier-title").value;
-        try {
-          const normalizedPreferredRole = window.InterfellasRoles
-            ? window.InterfellasRoles.normalizeRole(flightTitle, "commander")
-            : "commander";
-          const res = await fetch("/api/auth/update-profile", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${currentAstronaut.token || ""}`
-            },
-            body: JSON.stringify({
-              callsign,
-              flightTitle,
-              suitColor: dossierSelectedColor,
-              preferredRole: normalizedPreferredRole
-            })
-          });
-          const data = await res.json();
-          if (data.success && data.user) {
-            const credential = { ...data.user, token: currentAstronaut.token };
-            localStorage.setItem("nasa_astronaut_credential", JSON.stringify(credential));
-            applyAstronautProfile(credential);
-            if (window.netManager.roomId) {
-              window.netManager.customizeAstronaut(callsign, dossierSelectedColor, null, null, null, null, { explicitRole: false });
-            }
-            showAuthBanner("Flight Dossier updated successfully.", false);
-            setTimeout(() => { if (modalAuth) modalAuth.style.display = "none"; }, 1000);
-          } else {
-            showAuthBanner(data.error || "Update failed.", true);
-          }
-        } catch (err) {
-          showAuthBanner("Server communication error: " + err.message, true);
-        }
-      });
-    }
-
-    const doLogout = () => {
-      const stored = localStorage.getItem("nasa_astronaut_credential");
-      let token = null;
-      try {
-        token = stored ? JSON.parse(stored).token : null;
-      } catch (e) {}
-      if (token) {
-        fetch("/api/auth/logout", {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${token}` }
-        }).catch(() => {});
-      }
-      localStorage.removeItem("nasa_astronaut_credential");
-      if (window.netManager && typeof window.netManager.setAuthToken === "function") {
-        window.netManager.setAuthToken(null);
-      }
-      if (window.netManager) window.netManager.explicitRoleSelected = false;
-      applyAstronautProfile(null);
-      if (modalAuth) modalAuth.style.display = "none";
-    };
-    if (btnAuthLogout) btnAuthLogout.addEventListener("click", doLogout);
-    if (btnDossierLogout) btnDossierLogout.addEventListener("click", doLogout);
 
     try {
-      const stored = localStorage.getItem("nasa_astronaut_credential");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        applyAstronautProfile(parsed);
-        if (parsed.token) {
-          fetch("/api/auth/me", {
-            headers: { "Authorization": `Bearer ${parsed.token}` }
-          })
-            .then(r => r.json())
-            .then(data => {
-              if (data.success && data.user) {
-                const credential = { ...data.user, token: parsed.token };
-                localStorage.setItem("nasa_astronaut_credential", JSON.stringify(credential));
-                applyAstronautProfile(credential);
-              } else {
-                localStorage.removeItem("nasa_astronaut_credential");
-                if (window.netManager && typeof window.netManager.setAuthToken === "function") {
-                  window.netManager.setAuthToken(null);
-                }
-                applyAstronautProfile(null);
-              }
-            }).catch(() => {});
-        }
-      } else {
-        applyAstronautProfile(null);
-      }
-    } catch (e) {
-      applyAstronautProfile(null);
-    }
+      localStorage.removeItem("nasa_astronaut_credential");
+    } catch (e) {}
+    applyAstronautProfile(null);
 
     if (inputName) {
-      if (!currentAstronaut) inputName.value = window.netManager.localPlayer.name;
+      inputName.value = window.netManager.localPlayer.name;
       inputName.addEventListener("input", (e) => {
-        window.netManager.localPlayer.name = e.target.value;
+        const val = e.target.value;
+        window.netManager.localPlayer.name = val;
+        try {
+          if (val && val.trim()) localStorage.setItem("interfellas_name", val.trim());
+        } catch (err) {}
       });
     }
 
@@ -1302,7 +971,7 @@
         const name = inputName ? inputName.value.trim() : (currentAstronaut ? currentAstronaut.callsign : "Commander");
         const color = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.color)
           || (currentAstronaut ? currentAstronaut.suit_color : "#67e8f9");
-        window.netManager.createRoom(name, color, null, { explicitRole: false });
+        window.netManager.createRoom(name, color, null, { explicitRole: false, isPublic: false });
       });
     }
 
@@ -1325,7 +994,7 @@
         const name = inputName ? inputName.value.trim() : (currentAstronaut ? currentAstronaut.callsign : "Crew");
         const color = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.color)
           || (currentAstronaut ? currentAstronaut.suit_color : "#67e8f9");
-        window.netManager.quickPlay(name, color, null, { explicitRole: false, opsMode: "iss_expedition" });
+        window.netManager.startSolo(name, color, null, { opsMode: "iss_expedition" });
       });
     }
 
@@ -2131,14 +1800,24 @@
 
     // Network Callbacks
     window.netManager.on("room_created", (data) => {
+      const isSolo = !!(data.solo || (data.room && data.room.isSolo));
       screenMenu.style.display = "none";
+      syncLocalRigWithServer();
+      updateLocalBadge();
+
+      // Single-player missions skip the staging deck and launch immediately.
+      if (isSolo) {
+        screenLobby.style.display = "none";
+        screenGame.style.display = "none";
+        window.netManager.startGame();
+        return;
+      }
+
       screenLobby.style.display = "flex";
       screenGame.style.display = "none";
       if (lobbyRoomCode) lobbyRoomCode.textContent = data.roomId;
-      syncLocalRigWithServer();
       updateLobbySlots(data.room.players, data.hostId, data.room.status);
       renderLobbyMission(data.room.mission);
-      updateLocalBadge();
     });
 
     window.netManager.on("room_joined", (data) => {
@@ -2168,8 +1847,13 @@
       }
       const hudRoom = document.getElementById("hud-room-code");
       if (hudRoom) {
-        hudRoom.textContent = data.roomId || "------";
-        hudRoom.title = data.roomId ? `Expedition Room: ${data.roomId}` : "";
+        if (data.isSolo) {
+          hudRoom.textContent = "SOLO";
+          hudRoom.title = "Single-player expedition";
+        } else {
+          hudRoom.textContent = data.roomId || "------";
+          hudRoom.title = data.roomId ? `Expedition Room: ${data.roomId}` : "";
+        }
       }
       updateLocalBadge();
       if (window.gameplay) {

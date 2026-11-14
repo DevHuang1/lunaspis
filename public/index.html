@@ -90,13 +90,6 @@
       </div>
       <div class="title-top-actions">
         <button class="title-chip-btn" id="btn-open-hangar-menu">3D HANGAR</button>
-        <div id="auth-status-bar" class="title-auth-pill">
-          <span id="auth-status-icon" class="auth-status-dot"></span>
-          <span id="auth-status-title" class="auth-status-title">GUEST</span>
-          <span id="auth-status-desc" class="auth-status-desc" style="display:none;">Local session</span>
-          <button id="btn-open-auth" class="btn-auth-action">SIGN IN</button>
-          <button id="btn-auth-logout" class="btn-auth-action btn-danger-outline" style="display:none;">OUT</button>
-        </div>
       </div>
     </header>
 
@@ -105,7 +98,7 @@
       <div class="title-eyebrow">EXPEDITION 72 &middot; LOW EARTH ORBIT &middot; 418 KM</div>
       <h1 class="title-display">LUNASPIS</h1>
       <p class="title-premise">
-        Six-compartment orbital transit craft. Stabilize station systems, coordinate crew, and align lunar descent.
+        Explore the orbital station, coordinate your crew, and plan the mission beyond Earth.
       </p>
 
       <div class="title-callsign-row">
@@ -114,13 +107,13 @@
       </div>
 
       <div class="title-cta-row">
-        <button class="btn-title-primary" id="btn-quick-play">ENTER MISSION</button>
-        <button class="btn-title-secondary" id="btn-host-game">HOST CREW</button>
+        <button class="btn-title-primary" id="btn-quick-play" title="Launch a single-player mission — no crew code required">ENTER MISSION</button>
+        <button class="btn-title-secondary" id="btn-host-game" title="Create a crew room and receive an expedition code to share">HOST CREW</button>
         <button class="btn-title-secondary btn-title-shuttle" id="btn-shuttle-ops" title="Launch Shuttle Flight Ops (Launch, Orbit &amp; Runway 15 Landing)">SHUTTLE OPS</button>
       </div>
 
       <div class="title-join-row">
-        <input type="text" id="input-join-code" class="title-code-input" placeholder="EXPEDITION CODE" maxlength="8" />
+        <input type="text" id="input-join-code" class="title-code-input" placeholder="CREW EXPEDITION CODE" maxlength="8" />
         <button class="btn-title-join" id="btn-join-game">JOIN</button>
       </div>
 
@@ -140,9 +133,9 @@
   <div class="app-screen" id="screen-lobby">
     <div class="lobby-top-bar">
       <div class="room-code-badge">
-        <span class="field-label" style="margin:0;">EXPEDITION</span>
+        <span class="field-label" style="margin:0;">EXPEDITION CODE</span>
         <span class="room-code-text" id="lobby-room-code">------</span>
-        <button class="btn-copy" id="btn-copy-invite">COPY LINK</button>
+        <button class="btn-copy" id="btn-copy-invite" title="Copy an invite link containing this expedition code">COPY LINK</button>
       </div>
       <div class="lobby-top-actions">
         <button id="btn-lobby-voice" class="btn-lobby-voice">
@@ -442,7 +435,7 @@
   </div>
 
   <div id="launch-countdown-banner">
-    LUNASPIS TRANSIT CRAFT — SYSTEMS ONLINE
+    ISS INTERIOR — SYSTEMS ONLINE
   </div>
 
   <!-- ========================================================================
@@ -657,155 +650,6 @@
     </div>
   </div>
 
-  <!-- ========================================================================
-       FLIGHT CREDENTIALS MODAL
-       ======================================================================== -->
-  <div id="modal-auth" class="settings-modal-overlay">
-    <div class="settings-modal-card auth-modal-card">
-      <div class="settings-modal-header">
-        <span class="settings-modal-title">LUNASPIS // FLIGHT CREDENTIALS</span>
-        <button id="btn-close-auth" class="settings-close-btn">&times;</button>
-      </div>
-
-      <div class="auth-tabs-row">
-        <button id="tab-auth-login" class="auth-tab-btn active">SIGN IN</button>
-        <button id="tab-auth-register" class="auth-tab-btn">REGISTER</button>
-        <button id="tab-auth-reset" class="auth-tab-btn">RESET</button>
-        <button id="tab-auth-dossier" class="auth-tab-btn" style="display:none;">DOSSIER</button>
-      </div>
-
-      <div id="auth-msg-banner" class="auth-msg-banner" style="display:none;"></div>
-
-      <div class="settings-modal-body" style="padding-top:14px;">
-        <form id="form-auth-login" class="auth-form-panel">
-          <div class="settings-group">
-            <label class="settings-label">USERNAME</label>
-            <input type="text" id="login-username" class="input-styled" placeholder="Enter username..." required autocomplete="username" />
-          </div>
-          <div class="settings-group">
-            <label class="settings-label">PASSWORD</label>
-            <input type="password" id="login-password" class="input-styled" placeholder="Enter password..." required autocomplete="current-password" />
-          </div>
-          <button type="submit" class="btn-primary" style="margin-top:8px;">AUTHENTICATE</button>
-          <div class="auth-links-row">
-            <span>New crew? <a href="#" id="link-goto-register">Register</a></span>
-            <span>&middot;</span>
-            <a href="#" id="link-goto-reset">Reset Password</a>
-          </div>
-        </form>
-
-        <form id="form-auth-register" class="auth-form-panel" style="display:none;">
-          <div class="settings-group">
-            <label class="settings-label">USERNAME</label>
-            <input type="text" id="reg-username" class="input-styled" placeholder="e.g. voss" required minlength="3" autocomplete="username" />
-          </div>
-          <div class="settings-group">
-            <label class="settings-label">CALLSIGN</label>
-            <input type="text" id="reg-callsign" class="input-styled" placeholder="e.g. CDR. Voss" required maxlength="16" />
-          </div>
-          <div class="settings-group">
-            <label class="settings-label">PASSWORD</label>
-            <input type="password" id="reg-password" class="input-styled" placeholder="Minimum 8 characters..." required minlength="8" autocomplete="new-password" />
-          </div>
-          <div class="settings-group">
-            <label class="settings-label">SPECIALIZATION</label>
-            <select id="reg-title" class="settings-select">
-              <option value="Commander">Commander (CMD) — Launch Authority, Docking Pilot &amp; Sim</option>
-              <option value="Flight Engineer">Flight Engineer (ENG) — Pad Arm, RCS, Power &amp; Hull</option>
-              <option value="Science Officer">Science Officer (SCI) — Boresight, Life Support &amp; Lab</option>
-              <option value="Payload Specialist">Payload Specialist (SCI) — Science &amp; ECLSS Ops</option>
-            </select>
-          </div>
-          <div class="settings-group">
-            <label class="settings-label">SUIT ACCENT</label>
-            <div class="color-swatches" id="reg-color-swatches">
-              <button type="button" class="lobby-color-btn active" data-color="#67e8f9" style="background:#67e8f9;"></button>
-              <button type="button" class="lobby-color-btn" data-color="#d0a15c" style="background:#d0a15c;"></button>
-              <button type="button" class="lobby-color-btn" data-color="#7fb8a6" style="background:#7fb8a6;"></button>
-              <button type="button" class="lobby-color-btn" data-color="#c08a8a" style="background:#c08a8a;"></button>
-              <button type="button" class="lobby-color-btn" data-color="#9a8fc4" style="background:#9a8fc4;"></button>
-              <button type="button" class="lobby-color-btn" data-color="#ece7dc" style="background:#ece7dc;"></button>
-            </div>
-          </div>
-          <button type="submit" class="btn-primary" style="margin-top:8px;">ISSUE CREDENTIAL</button>
-          <div class="auth-links-row">
-            <span>Already registered? <a href="#" id="link-goto-login-from-reg">Sign In</a></span>
-            <span>&middot;</span>
-            <a href="#" id="link-goto-reset-from-reg">Reset Password</a>
-          </div>
-        </form>
-
-        <form id="form-auth-reset" class="auth-form-panel" style="display:none;">
-          <div class="settings-group">
-            <label class="settings-label">USERNAME</label>
-            <input type="text" id="reset-username" class="input-styled" placeholder="Enter username..." required autocomplete="username" />
-          </div>
-          <div class="settings-group">
-            <label class="settings-label">CURRENT PASSWORD</label>
-            <input type="password" id="reset-current-password" class="input-styled" placeholder="Enter current password..." required autocomplete="current-password" />
-          </div>
-          <div class="settings-group">
-            <label class="settings-label">NEW PASSWORD</label>
-            <input type="password" id="reset-password" class="input-styled" placeholder="Minimum 8 characters..." required minlength="8" autocomplete="new-password" />
-          </div>
-          <button type="submit" class="btn-primary" style="margin-top:8px;">RESET PASSWORD</button>
-          <div class="auth-links-row">
-            <a href="#" id="link-goto-login-from-reset">Back to Sign In</a>
-          </div>
-        </form>
-
-        <form id="form-auth-dossier" class="auth-form-panel" style="display:none;">
-          <div class="dossier-stat-grid">
-            <div class="dossier-stat-box">
-              <span class="dossier-stat-num" id="dossier-missions">0</span>
-              <span class="dossier-stat-lbl">EXPEDITIONS</span>
-            </div>
-            <div class="dossier-stat-box">
-              <span class="dossier-stat-num" id="dossier-victories">0</span>
-              <span class="dossier-stat-lbl">COMPLETED</span>
-            </div>
-            <div class="dossier-stat-box">
-              <span class="dossier-stat-num" id="dossier-tasks">0</span>
-              <span class="dossier-stat-lbl">REPAIRS</span>
-            </div>
-          </div>
-
-          <div class="settings-group" style="margin-top:12px;">
-            <label class="settings-label">CALLSIGN</label>
-            <input type="text" id="dossier-callsign" class="input-styled" maxlength="16" />
-          </div>
-
-          <div class="settings-group">
-            <label class="settings-label">RANK</label>
-            <select id="dossier-title" class="settings-select">
-              <option value="Commander">Commander (CMD) — Launch, Docking Pilot &amp; Command</option>
-              <option value="Flight Engineer">Flight Engineer (ENG) — Pad Arm, RCS, Power &amp; Hull</option>
-              <option value="Science Officer">Science Officer (SCI) — Boresight, Life Support &amp; Lab</option>
-              <option value="Payload Specialist">Payload Specialist (SCI) — Science &amp; ECLSS Ops</option>
-            </select>
-          </div>
-
-          <div class="settings-group">
-            <label class="settings-label">SUIT ACCENT</label>
-            <div class="color-swatches" id="dossier-color-swatches">
-              <button type="button" class="lobby-color-btn" data-color="#67e8f9" style="background:#67e8f9;"></button>
-              <button type="button" class="lobby-color-btn" data-color="#d0a15c" style="background:#d0a15c;"></button>
-              <button type="button" class="lobby-color-btn" data-color="#7fb8a6" style="background:#7fb8a6;"></button>
-              <button type="button" class="lobby-color-btn" data-color="#c08a8a" style="background:#c08a8a;"></button>
-              <button type="button" class="lobby-color-btn" data-color="#9a8fc4" style="background:#9a8fc4;"></button>
-              <button type="button" class="lobby-color-btn" data-color="#ece7dc" style="background:#ece7dc;"></button>
-            </div>
-          </div>
-
-          <div style="display:flex;gap:10px;margin-top:10px;">
-            <button type="submit" class="btn-primary" style="flex:1;">SAVE DOSSIER</button>
-            <button type="button" id="btn-dossier-logout" class="btn-secondary btn-danger-outline" style="width:110px;">SIGN OUT</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-
   <!-- NOTIFICATION TOAST -->
   <div id="action-toast">NOTIFICATION</div>
 
@@ -813,7 +657,7 @@
   <script src="js/core/cinematic_pass.js?v=4.3.2"></script>
   <script src="js/core/audio_synth.js?v=4.0.0"></script>
   <script src="js/core/glb_manager.js?v=4.2.3"></script>
-  <script src="js/core/network.js?v=4.6.0"></script>
+  <script src="js/core/network.js?v=4.6.1"></script>
   <script src="js/core/voice.js?v=4.4.0"></script>
 
   <!-- 3D World & Environments (Space Center LC-39A, Launch, Docking, Ship Interior, ISS Showcase & Earth) -->
@@ -828,9 +672,9 @@
   <script src="js/world/space_center/utilities.js?v=4.9.0"></script>
   <script src="js/world/space_center/site.js?v=4.9.0"></script>
   <script src="js/world/space_center.js?v=5.0.1"></script>
-  <script src="js/world/launch_cutscene.js?v=4.9.0"></script>
+  <script src="js/world/launch_cutscene.js?v=4.9.1"></script>
   <script src="js/world/docking_simulator.js?v=4.8.0"></script>
-  <script src="js/world/ship_interior.js?v=4.6.3"></script>
+  <script src="js/world/ship_interior.js?v=4.6.8"></script>
   <script src="js/world/mission_viz.js?v=1.1.0"></script>
   <script src="js/world/solar_system.js?v=1.0.0"></script>
   <script src="js/world/vr_mode.js?v=1.1.0"></script>
@@ -844,8 +688,8 @@
   <script src="js/game/shuttle_game.js?v=1.0.0"></script>
 
   <!-- Mission Simulation & Main Loop -->
-  <script src="js/game/gameplay.js?v=4.9.0"></script>
-  <script src="js/game/main.js?v=5.0.3"></script>
+  <script src="js/game/gameplay.js?v=4.9.2"></script>
+  <script src="js/game/main.js?v=5.0.4"></script>
 
 </body>
 </html>

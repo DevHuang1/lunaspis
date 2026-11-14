@@ -673,7 +673,7 @@
           : null;
         const selectedBusId = (designTelem && designTelem.bus && designTelem.bus.glbId) || window.glbManager.selectedStationModelId;
         const hasCatalogBus = selectedBusId && window.glbManager.catalog && window.glbManager.catalog[selectedBusId];
-        const targetModelKey = hasCatalogBus ? selectedBusId : "assets/Satellite.glb";
+        const targetModelKey = hasCatalogBus ? window.glbManager.catalog[selectedBusId].file : "assets/Satellite.glb";
         const targetScale = hasCatalogBus ? 1.85 : 0.95;
 
         window.glbManager.loadGLB(targetModelKey).then((entry) => {

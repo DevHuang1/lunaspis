@@ -1,149 +1,92 @@
 /**
- * ============================================================================
- * LUNASPIS / SPACESHIP 3D MODULAR TRANSIT CRAFT, MINIMAP & LUNAR SCENE
- * ============================================================================
- * Pure Vanilla Three.js port of the SpaceShip (Lunaspis — Orbital / Mission Lab)
- * 3D ship architecture (no Next.js / React required):
- * 1. Procedural Canvas Textures (interior-textures.ts & label-texture.ts):
- *    - Riveted aluminum panel walls with louver vents & base grime
- *    - Non-slip treaded metallic deck floor tiles with corner bolts
- *    - Clean grid ceiling panels, woven stowage bag fabric, diagonal hazard stripes
- *    - Deep-space starfield with galactic band
- * 2. Modular Interior Kit (Kit.tsx & FaultBeacon.tsx):
- *    - PanelWall with top/bottom trims, warm accent strip, blue Handrails & Conduits
- *    - DoorFrame with hazard threshold, RoomSign plaque & pulsing fault status light
- *    - CeilingLights (3 per room) with dynamic fault pulsing
- *    - FloorDetails (inset amber guide lines & center runner)
- *    - ISPR Racks (LAB-A/B, PWR-A/B, ECLSS-A/B, LDR-A/B, HUB-A2/A4) with status LEDs
- *    - Crew Lockers, Fabric StowageBags & Command Deck CupolaWindow with 3D Earth
- *    - World-space FaultBeacons (floating octahedron, pulsing ring & light beam)
- * 3. 6 Interconnected Rooms & Props (ShipInterior.tsx & level.ts):
- *    - Transit Hub [8x8], Command Deck [8x7.8], Power Bay [7.8x8],
- *      Life Support [7.8x8], Hull Access [8x6.8], Lander Bay [9x8.2]
- *    - Central HoloTable with counter-rotating torus rings & wireframe icosahedron
- *    - 5 Station Consoles with live READY/FAULT billboard labels
- * 4. Exact Collision Engine (collision.ts):
- *    - Walkable room/corridor rects, solid circles & solid equipment rack rects
- *    - Camera line-of-sight clearance check (isCameraClear)
- * 5. Live SVG Ship Minimap (Minimap.tsx) with friendly crew markers & 3D Lunar Landing Scene (MoonLandingScene.tsx)
- * 6. Anamorphic SunFlare (SunFlare.tsx) & 27-Part ISS Reference Showcase (ISSModel.tsx)
+ * Constructed ISS interior, station navigation, mission workstations,
+ * crew map, sun flare, and lunar landing scene. The station is a simplified
+ * single-level interpretation of the credited ISS structural reference.
  */
 
 (function (window) {
   "use strict";
 
-  const WALL_HEIGHT = 3.2;
-  const DOOR_WIDTH = 2.4;
-  const DOOR_HEIGHT = 2.35;
-  const WALL_THICKNESS = 0.16;
-  const ISS_INTERIOR_MODEL_URL = "models/iss/international_space_station.glb";
-  const ISS_INTERIOR_MODEL_SCALE = 0.55;
 
-  // Approximate passages through the scan, in station coordinates. The scan
-  // contains holes and photogrammetry spikes, so it is not a collision mesh.
+  // The constructed station and its collision map share these module volumes.
+  // The connected layout is informed by Stephen Mack’s ISS interior reference.
   const ISS_WALK_ZONES = [
     { xMin: -1.2, xMax: 1.2, zMin: 0.3, zMax: 7.2 },
     { xMin: -5.0, xMax: 1.5, zMin: 6.3, zMax: 12.2 },
-    { xMin: -7.5, xMax: 2.1, zMin: -5.3, zMax: 1.0 },
+    { xMin: -9.5, xMax: -4.5, zMin: 7.0, zMax: 10.0 },
+    { xMin: -2.0, xMax: 2.1, zMin: -5.3, zMax: 1.0 },
+    { xMin: -7.5, xMax: -1.5, zMin: -5.3, zMax: -2.3 },
     { xMin: 1.5, xMax: 12.0, zMin: -5.3, zMax: -2.3 },
     { xMin: 1.2, xMax: 11.5, zMin: 6.0, zMax: 10.2 },
-    { xMin: -1.2, xMax: 2.0, zMin: 11.0, zMax: 40.0 }
+    { xMin: -1.2, xMax: 2.0, zMin: 11.0, zMax: 49.0 }
   ];
   const ISS_STATION_LAYOUT = {
-    hub: { position: [-2.5, 1.02, 0], workPosition: [-1.4, 0, 0.5] },
-    command: { position: [-0.8, 0.92, -3.5], workPosition: [0, 0, -3.5] },
-    power: { position: [-5.5, 0.92, -3.8], workPosition: [-4.2, 0, -3.8] },
-    "life-support": { position: [8, 0.92, -3.5], workPosition: [7, 0, -3.5] },
-    hull: { position: [8, 0.92, 8], workPosition: [7, 0, 8] },
-    lander: { position: [0, 0.92, 25], workPosition: [1, 0, 24] }
+    hub: { position: [-1.6, 1.02, 2], workPosition: [0, 0, 2] },
+    command: { position: [-0.8, 0.92, -5.5], workPosition: [0, 0, -3.5] },
+    power: { position: [-5.5, 0.92, -5.5], workPosition: [-4.6, 0, -3.8] },
+    "life-support": { position: [8, 0.92, -5.5], workPosition: [7, 0, -3.5] },
+    hull: { position: [8, 0.92, 10.5], workPosition: [7.5, 0, 8.7] },
+    lander: { position: [1.6, 0.92, 25], workPosition: [0, 0, 24] }
   };
+  const ISS_TASK_WORK_POSITIONS = {
+    task_science: [6.3, 0, -3.5],
+    task_lss: [8.9, 0, -3.5]
+  };
+  const ISS_HATCHES = [
+    { axis: "z", at: -0.4, center: 0, halfWidth: 1.55 },
+    { axis: "z", at: 6.6, center: 0, halfWidth: 1.55 },
+    { axis: "z", at: 12, center: 0, halfWidth: 1.55 },
+    { axis: "z", at: 23, center: 0, halfWidth: 1.55 },
+    { axis: "z", at: 33, center: 0, halfWidth: 1.55 },
+    { axis: "z", at: 46.5, center: 0, halfWidth: 1.55 },
+    { axis: "x", at: 3.5, center: -3.8, halfWidth: 2 },
+    { axis: "x", at: 3.5, center: 8, halfWidth: 2 },
+    { axis: "x", at: -3.2, center: -3.8, halfWidth: 2 },
+    { axis: "x", at: -4.5, center: 8.5, halfWidth: 2 },
+    { axis: "x", at: -7.2, center: 8.5, halfWidth: 2 }
+  ];
+  // Two open pressure-hatch leaves fold back against the side of the node.
+  // These slim volumes also keep bodies and cameras from passing through them.
+  const ISS_HATCH_LEAVES = [
+    { x: -1.42, zMin: -2.32, zMax: -0.4 },
+    { x: -1.42, zMin: 4.68, zMax: 6.6 }
+  ];
+  // Simplified plan-view representation of the pressurized module sequence.
+  // Harmony connects Destiny to the Columbus and Kibo laboratories.
+  const ISS_MODULES = [
+    { name: "HARMONY", x: 0, z: -3.5 },
+    { name: "COLUMBUS", x: -4.8, z: -3.8 },
+    { name: "KIBO", x: 7.5, z: -3.8 },
+    { name: "DESTINY", x: 0, z: 3.2 },
+    { name: "UNITY", x: -0.5, z: 8.8 },
+    { name: "QUEST", x: -7.0, z: 8.5 },
+    { name: "TRANQUILITY", x: 6.5, z: 8.1 },
+    { name: "CUPOLA", x: 10.3, z: 8.1 },
+    { name: "ZARYA", x: 0.4, z: 18 },
+    { name: "ZVEZDA", x: 0.4, z: 41 }
+  ];
 
-  const METAL = 0x2f353b;
   const METAL_LIGHT = 0x5b636a;
-  const WARM_LIGHT = 0xffe6c2;
-  const HANDRAIL = 0x3f6075;
-  const PANEL = 0xd4d6d7;
 
   // ============================================================================
   // 1. LEVEL DEFINITIONS: ROOMS, STATIONS, DOORS & WALKABLE ZONES (level.ts)
   // ============================================================================
+  // Mission IDs remain stable for saves and multiplayer; labels now refer to
+  // the station modules that contain those workstations.
   const ROOMS = [
-    {
-      id: "hub",
-      label: "Transit Hub",
-      shortLabel: "HUB",
-      description: "Central spine, mission table, and pressure bulkheads.",
-      center: [0, 0],
-      size: [8, 8],
-      color: "#67e8f9",
-      doors: ["north", "south", "east", "west"]
-    },
-    {
-      id: "command",
-      label: "Command Deck",
-      shortLabel: "CMD",
-      description: "Flight plan, mission clock, and transit telemetry.",
-      center: [0, -8.3],
-      size: [8, 7.8],
-      color: "#38bdf8",
-      doors: ["south"]
-    },
-    {
-      id: "power",
-      label: "Power Bay",
-      shortLabel: "PWR",
-      description: "Solar bus relays, battery banks, and manual reroute panel.",
-      center: [-8.3, 0],
-      size: [7.8, 8],
-      color: "#fbbf24",
-      doors: ["east"]
-    },
-    {
-      id: "life-support",
-      label: "Life Support",
-      shortLabel: "LSS",
-      description: "Scrubbers, oxygen reserves, and cabin atmosphere controls.",
-      center: [8.3, 0],
-      size: [7.8, 8],
-      color: "#34d399",
-      doors: ["west"]
-    },
-    {
-      id: "hull",
-      label: "Hull Access",
-      shortLabel: "HULL",
-      description: "Pressure seals, breach lockers, and the lander airlock.",
-      center: [0, 7.8],
-      size: [8, 6.8],
-      color: "#fb7185",
-      doors: ["north", "south"]
-    },
-    {
-      id: "lander",
-      label: "Lander Bay",
-      shortLabel: "LDR",
-      description: "Three-seat cockpit and the final descent alignment station.",
-      center: [0, 15.9],
-      size: [9, 8.2],
-      color: "#a78bfa",
-      doors: ["north"]
-    }
+    { id: "hub", label: "Destiny Laboratory", shortLabel: "HUB", center: [0, 2], size: [2.4, 7], color: "#67e8f9" },
+    { id: "command", label: "Harmony", shortLabel: "CMD", center: [0, -3.5], size: [4, 4], color: "#38bdf8" },
+    { id: "power", label: "Columbus Laboratory", shortLabel: "PWR", center: [-4.8, -3.8], size: [5, 3], color: "#fbbf24" },
+    { id: "life-support", label: "Kibo Laboratory", shortLabel: "LSS", center: [7.5, -3.8], size: [9, 3], color: "#34d399" },
+    { id: "hull", label: "Tranquility", shortLabel: "HULL", center: [6.5, 8], size: [9, 4], color: "#fb7185" },
+    { id: "lander", label: "Zarya and Zvezda", shortLabel: "LDR", center: [0.4, 30], size: [3.2, 38], color: "#a78bfa" }
   ];
-
-  const ROOM_BY_ID = new Map(ROOMS.map((r) => [r.id, r]));
-
-  const CONNECTORS = [
-    { id: "hub-command", center: [0, -4.35], width: 2.4, depth: 0.6 },
-    { id: "hub-power", center: [-4.35, 0], width: 0.6, depth: 2.4 },
-    { id: "hub-life", center: [4.35, 0], width: 0.6, depth: 2.4 },
-    { id: "hub-hull", center: [0, 4.35], width: 2.4, depth: 0.6 },
-    { id: "hull-lander", center: [0, 11.5], width: 2.8, depth: 0.9 }
-  ];
+  const ROOM_BY_ID = new Map(ROOMS.map((room) => [room.id, room]));
 
   const STATIONS = {
     hub: {
       id: "hub",
-      label: "Mission Table",
+      label: "Mission Workstation",
       shortLabel: "MISSION",
       room: "hub",
       position: [0, 1.02, 0],
@@ -208,107 +151,6 @@
       description: "Three-axis descent alignment and touchdown authority."
     }
   };
-
-  const ROOM_ADJACENCY = {
-    hub: ["command", "power", "life-support", "hull"],
-    command: ["hub"],
-    power: ["hub"],
-    "life-support": ["hub"],
-    hull: ["hub", "lander"],
-    lander: ["hull"]
-  };
-
-  const DOOR_POINTS = {
-    "hub-command": [0, -4.35],
-    "hub-power": [-4.35, 0],
-    "hub-life-support": [4.35, 0],
-    "hub-hull": [0, 4.35],
-    "hull-lander": [0, 11.5]
-  };
-
-  // Walkable zones (with 0.18m wall thickness inset)
-  const WALK_ZONES = [
-    ...ROOMS.map((room) => ({
-      xMin: room.center[0] - room.size[0] / 2 + 0.18,
-      xMax: room.center[0] + room.size[0] / 2 - 0.18,
-      zMin: room.center[1] - room.size[1] / 2 + 0.18,
-      zMax: room.center[1] + room.size[1] / 2 - 0.18
-    })),
-    { xMin: -1.15, xMax: 1.15, zMin: -4.65, zMax: -3.75 },
-    { xMin: -4.65, xMax: -3.75, zMin: -1.15, zMax: 1.15 },
-    { xMin: 3.75, xMax: 4.65, zMin: -1.15, zMax: 1.15 },
-    { xMin: -1.15, xMax: 1.15, zMin: 3.75, zMax: 4.65 },
-    { xMin: -1.35, xMax: 1.35, zMin: 11.0, zMax: 12.0 }
-  ];
-
-  // Solid collision circles & rects from collision.ts
-  const SOLID_CIRCLES = [
-    { x: STATIONS.hub.position[0], z: STATIONS.hub.position[2], radius: 1.35 },
-    ...Object.values(STATIONS)
-      .filter((s) => s.id !== "hub")
-      .map((s) => ({ x: s.position[0], z: s.position[2], radius: 1.05 }))
-  ];
-
-  const SOLID_RECTS = [
-    // hub racks
-    { x: -3.54, z: -1.55, halfX: 0.3, halfZ: 0.56 },
-    { x: -3.54, z: 1.55, halfX: 0.3, halfZ: 0.56 },
-    // hub lockers
-    { x: 3.54, z: 1.75, halfX: 0.3, halfZ: 0.78 },
-    { x: 3.54, z: -1.75, halfX: 0.3, halfZ: 0.78 },
-    // command racks
-    ...[-6.9, -8.5, -10.1].flatMap((z) => [
-      { x: -3.54, z, halfX: 0.3, halfZ: 0.56 },
-      { x: 3.54, z, halfX: 0.3, halfZ: 0.56 }
-    ]),
-    // power bay racks
-    { x: -8.3, z: -3.54, halfX: 0.56, halfZ: 0.3 },
-    { x: -8.3, z: 3.54, halfX: 0.56, halfZ: 0.3 },
-    // life support racks
-    { x: 8.3, z: -3.54, halfX: 0.56, halfZ: 0.3 },
-    { x: 8.3, z: 3.54, halfX: 0.56, halfZ: 0.3 },
-    // lander racks
-    { x: -4.0, z: 13.4, halfX: 0.3, halfZ: 0.56 },
-    { x: 4.0, z: 13.4, halfX: 0.3, halfZ: 0.56 }
-  ];
-
-  function roomAtPosition(x, z) {
-    const match = ROOMS.find((room) => {
-      const halfW = room.size[0] / 2;
-      const halfD = room.size[1] / 2;
-      return (
-        x >= room.center[0] - halfW &&
-        x <= room.center[0] + halfW &&
-        z >= room.center[1] - halfD &&
-        z <= room.center[1] + halfD
-      );
-    });
-    return match ? match.id : "hub";
-  }
-
-  function roomPath(from, to) {
-    if (from === to) return [from];
-    const queue = [[from]];
-    const visited = new Set([from]);
-    while (queue.length > 0) {
-      const path = queue.shift();
-      const current = path[path.length - 1];
-      const neighbors = ROOM_ADJACENCY[current] || [];
-      for (let i = 0; i < neighbors.length; i++) {
-        const next = neighbors[i];
-        if (visited.has(next)) continue;
-        const nextPath = [...path, next];
-        if (next === to) return nextPath;
-        visited.add(next);
-        queue.push(nextPath);
-      }
-    }
-    return [from, to];
-  }
-
-  function getDoorPoint(a, b) {
-    return DOOR_POINTS[`${a}-${b}`] || DOOR_POINTS[`${b}-${a}`] || null;
-  }
 
   // ============================================================================
   // 2. PROCEDURAL CANVAS TEXTURES (interior-textures.ts & label-texture.ts)
@@ -420,54 +262,37 @@
     return applyTextureEncoding(tex, 8);
   }
 
-  function createFloorTexture() {
-    const width = 512, height = 512;
-    const { element, context } = makeCanvas(width, height);
-    context.fillStyle = "#3c4247";
-    context.fillRect(0, 0, width, height);
-    addNoise(context, width, height, 6000);
-
-    const size = 128;
-    for (let row = 0; row < 4; row++) {
-      for (let column = 0; column < 4; column++) {
-        const x = column * size + 3;
-        const y = row * size + 3;
-        const w = size - 6;
-        const h = size - 6;
-        const shade = 56 + ((row + column) % 3) * 4;
-        context.fillStyle = `rgb(${shade},${shade + 4},${shade + 7})`;
-        context.fillRect(x, y, w, h);
-        context.strokeStyle = "rgba(16,20,23,0.75)";
-        context.lineWidth = 3;
-        context.strokeRect(x, y, w, h);
-
-        context.strokeStyle = "rgba(120,130,138,0.16)";
-        context.lineWidth = 2;
-        for (let line = -h; line < w; line += 24) {
-          context.beginPath();
-          context.moveTo(x + line, y + h);
-          context.lineTo(x + line + h, y);
-          context.stroke();
-        }
-
-        [
-          [x + 16, y + 16],
-          [x + w - 16, y + 16],
-          [x + 16, y + h - 16],
-          [x + w - 16, y + h - 16]
-        ].forEach(([bx, by]) => {
-          context.beginPath();
-          context.arc(bx, by, 4, 0, Math.PI * 2);
-          context.fillStyle = "#242a2e";
-          context.fill();
-        });
-      }
+  function createISSDeckTexture() {
+    const { element, context } = makeCanvas(512, 512);
+    // The deck in a walking interpretation is a field of removable utility
+    // covers, with narrow retaining tracks rather than decorative floor tiles.
+    context.fillStyle = "#747f80";
+    context.fillRect(0, 0, 512, 512);
+    context.fillStyle = "#c5c9c6";
+    context.fillRect(7, 7, 498, 498);
+    context.fillStyle = "#d6d9d4";
+    context.fillRect(18, 18, 476, 476);
+    context.strokeStyle = "rgba(81,97,99,0.42)";
+    context.lineWidth = 2;
+    context.strokeRect(18, 18, 476, 476);
+    context.strokeStyle = "rgba(255,255,255,0.44)";
+    context.beginPath(); context.moveTo(23, 487); context.lineTo(23, 23); context.lineTo(487, 23); context.stroke();
+    context.fillStyle = "#aeb7b4";
+    context.fillRect(45, 43, 118, 15);
+    context.fillStyle = "#596b6d";
+    context.font = "12px monospace";
+    context.fillText("DECK / ACCESS", 48, 55);
+    [[28, 28], [484, 28], [28, 484], [484, 484], [256, 28], [256, 484]].forEach(([x, y]) => {
+      context.beginPath(); context.arc(x, y, 4, 0, Math.PI * 2); context.fillStyle = "#728182"; context.fill();
+      context.strokeStyle = "#d1d9d6"; context.lineWidth = 1; context.stroke();
+    });
+    context.strokeStyle = "rgba(74,84,83,0.12)";
+    for (let line = 0; line < 24; line++) {
+      const x = 64 + (line * 79) % 374, y = 78 + (line * 53) % 360;
+      context.beginPath(); context.moveTo(x, y); context.lineTo(x + 5 + line % 7, y + 1); context.stroke();
     }
-
-    const tex = new window.THREE.CanvasTexture(element);
-    tex.wrapS = window.THREE.RepeatWrapping;
-    tex.wrapT = window.THREE.RepeatWrapping;
-    return applyTextureEncoding(tex, 8);
+    const texture = new window.THREE.CanvasTexture(element);
+    return applyTextureEncoding(texture, 8);
   }
 
   function createCeilingTexture() {
@@ -498,14 +323,41 @@
     return applyTextureEncoding(tex, 8);
   }
 
+  function createCornerPanelTexture() {
+    const { element, context } = makeCanvas(512, 256);
+    context.fillStyle = "#bec7c3";
+    context.fillRect(0, 0, 512, 256);
+    addNoise(context, 512, 256, 1800);
+    context.fillStyle = "#9daaa7";
+    context.fillRect(0, 15, 512, 9);
+    context.fillRect(0, 231, 512, 9);
+    context.fillStyle = "#d1d7d2";
+    context.fillRect(32, 36, 448, 184);
+    context.strokeStyle = "#879997";
+    context.lineWidth = 3;
+    context.strokeRect(32, 36, 448, 184);
+    [70, 442].forEach((x) => {
+      context.fillStyle = "#9baaa6";
+      context.fillRect(x - 13, 38, 26, 180);
+      context.fillStyle = "#687b7d";
+      [60, 196].forEach((y) => { context.beginPath(); context.arc(x, y, 5, 0, Math.PI * 2); context.fill(); });
+    });
+    context.strokeStyle = "rgba(81, 97, 96, 0.23)";
+    context.lineWidth = 2;
+    context.beginPath(); context.moveTo(119, 69); context.lineTo(392, 69); context.stroke();
+    context.beginPath(); context.moveTo(119, 185); context.lineTo(392, 185); context.stroke();
+    const texture = new window.THREE.CanvasTexture(element);
+    return applyTextureEncoding(texture, 8);
+  }
+
   function createFabricTexture() {
     const width = 128, height = 128;
     const { element, context } = makeCanvas(width, height);
-    context.fillStyle = "#b9ac96";
+    context.fillStyle = "#e1e1dc";
     context.fillRect(0, 0, width, height);
     addNoise(context, width, height, 3000);
 
-    context.strokeStyle = "rgba(84,74,60,0.12)";
+    context.strokeStyle = "rgba(82,89,91,0.10)";
     context.lineWidth = 1;
     for (let line = 0; line < width; line += 4) {
       context.beginPath();
@@ -526,67 +378,29 @@
     return applyTextureEncoding(tex, 4);
   }
 
-  function createHazardTexture() {
-    const width = 512, height = 128;
-    const { element, context } = makeCanvas(width, height);
-    context.fillStyle = "#1c1e20";
-    context.fillRect(0, 0, width, height);
-    context.fillStyle = "#d8a044";
-    for (let i = -height; i < width + height; i += 96) {
-      context.beginPath();
-      context.moveTo(i, height);
-      context.lineTo(i + 48, 0);
-      context.lineTo(i + 96, 0);
-      context.lineTo(i + 48, height);
-      context.closePath();
-      context.fill();
-    }
-    const tex = new window.THREE.CanvasTexture(element);
-    tex.wrapS = window.THREE.RepeatWrapping;
-    tex.wrapT = window.THREE.RepeatWrapping;
-    return applyTextureEncoding(tex, 4);
-  }
-
-  function createStarTexture() {
-    const width = 1024, height = 512;
-    const { element, context } = makeCanvas(width, height);
-    context.fillStyle = "#020307";
-    context.fillRect(0, 0, width, height);
-
-    const band = context.createLinearGradient(0, height * 0.2, width, height * 0.8);
-    band.addColorStop(0, "rgba(30,44,70,0)");
-    band.addColorStop(0.45, "rgba(64,86,120,0.16)");
-    band.addColorStop(0.55, "rgba(90,110,150,0.12)");
-    band.addColorStop(1, "rgba(30,44,70,0)");
-    context.fillStyle = band;
-    context.fillRect(0, 0, width, height);
-
-    for (let i = 0; i < 1600; i++) {
-      const x = Math.random() * width;
-      const y = Math.random() * height;
-      const r = Math.random() * 1.4 + 0.2;
-      const alpha = Math.random() * 0.8 + 0.15;
-      context.beginPath();
-      context.arc(x, y, r, 0, Math.PI * 2);
-      context.fillStyle = `rgba(235,242,255,${alpha})`;
-      context.fill();
-    }
-
-    const tex = new window.THREE.CanvasTexture(element);
-    return applyTextureEncoding(tex, 4);
-  }
-
   let cachedInteriorTextures = null;
+  let fabricImage = null;
+  const fabricTextureClones = [];
   function getInteriorTextures() {
     if (cachedInteriorTextures) return cachedInteriorTextures;
     cachedInteriorTextures = {
       wall: createWallTexture(),
-      floor: createFloorTexture(),
       ceiling: createCeilingTexture(),
-      fabric: createFabricTexture(),
-      hazard: createHazardTexture(),
-      stars: createStarTexture()
+      corner: createCornerPanelTexture(),
+      fabric: createFabricTexture()
     };
+    // Keep the procedural canvas visible while the detailed material loads or
+    // if it is unavailable. Existing clones must share the loaded image too.
+    new window.THREE.TextureLoader().load("textures/iss/insulation_albedo.jpg", (texture) => {
+      fabricImage = texture.image;
+      [cachedInteriorTextures.fabric, ...fabricTextureClones].forEach((target) => {
+        target.image = fabricImage;
+        target.needsUpdate = true;
+      });
+      texture.dispose();
+    }, undefined, (error) => {
+      console.warn("ISS insulation texture unavailable; keeping procedural fabric:", error);
+    });
     return cachedInteriorTextures;
   }
 
@@ -596,6 +410,10 @@
     clone.wrapT = window.THREE.RepeatWrapping;
     clone.repeat.set(repeatX, repeatY);
     applyTextureEncoding(clone, base.anisotropy || 8);
+    if (cachedInteriorTextures && base === cachedInteriorTextures.fabric) {
+      if (fabricImage) clone.image = fabricImage;
+      fabricTextureClones.push(clone);
+    }
     return clone;
   }
 
@@ -627,35 +445,71 @@
     return applyTextureEncoding(tex, 4);
   }
 
+  function createConsoleScreenTexture(station) {
+    const { element, context } = makeCanvas(512, 288);
+    context.fillStyle = "#101d29";
+    context.fillRect(0, 0, 512, 288);
+    context.fillStyle = "#315a71";
+    context.fillRect(0, 0, 512, 34);
+    context.fillStyle = "#e0eaeb";
+    context.font = "bold 18px monospace";
+    context.fillText(String(station.shortLabel).toUpperCase(), 12, 24);
+    context.font = "12px monospace";
+    context.fillStyle = "#abc5ca";
+    context.fillText("SYSTEM MONITOR  /  ISS", 12, 57);
+    context.strokeStyle = "#365664";
+    context.lineWidth = 1;
+    for (let y = 82; y < 244; y += 32) {
+      context.beginPath(); context.moveTo(18, y); context.lineTo(330, y); context.stroke();
+    }
+    context.strokeStyle = "#7cb9bd";
+    context.lineWidth = 3;
+    context.beginPath();
+    [182, 169, 177, 145, 152, 135, 153, 125, 138, 117, 131].forEach((y, index) => {
+      if (index === 0) context.moveTo(20, y);
+      else context.lineTo(20 + index * 30, y);
+    });
+    context.stroke();
+    context.fillStyle = "#b5d0d0";
+    ["DATA LINK", "PRESSURE", "THERMAL", "POWER"].forEach((label, index) => {
+      const y = 97 + index * 44;
+      context.fillText(label, 357, y);
+      context.fillStyle = index === 0 ? "#70bba8" : "#8baab1";
+      context.fillRect(357, y + 8, 100 - index * 11, 5);
+      context.fillStyle = "#b5d0d0";
+    });
+    return applyTextureEncoding(new window.THREE.CanvasTexture(element), 4);
+  }
+
+  function createConsoleKeysTexture() {
+    const { element, context } = makeCanvas(512, 112);
+    context.fillStyle = "#39494d";
+    context.fillRect(0, 0, 512, 112);
+    context.fillStyle = "#93a19f";
+    for (let row = 0; row < 3; row++) {
+      for (let column = 0; column < 14; column++) {
+        context.fillRect(10 + column * 35, 8 + row * 32, 27, 23);
+      }
+    }
+    context.fillStyle = "#d6dbd5";
+    context.fillRect(172, 82, 142, 20);
+    return applyTextureEncoding(new window.THREE.CanvasTexture(element), 4);
+  }
+
   function createSignTexture(short, label) {
     const { element, context } = makeCanvas(512, 128);
-    context.fillStyle = "#0d1117";
+    context.fillStyle = "#e3e5df";
     context.fillRect(0, 0, 512, 128);
-    context.strokeStyle = "#7b858d";
+    context.strokeStyle = "#738188";
     context.lineWidth = 4;
     context.strokeRect(6, 6, 500, 116);
-    context.fillStyle = "#d8cbb4";
+    context.fillStyle = "#243c4b";
     context.font = "600 54px ui-monospace, SFMono-Regular, Menlo, monospace";
     context.textAlign = "center";
     context.fillText(short, 256, 62);
-    context.fillStyle = "#8e969d";
+    context.fillStyle = "#53646c";
     context.font = "400 22px ui-monospace, SFMono-Regular, Menlo, monospace";
     context.fillText(String(label).toUpperCase(), 256, 96);
-    const tex = new window.THREE.CanvasTexture(element);
-    return applyTextureEncoding(tex, 4);
-  }
-
-  function createRackPlateTexture(text) {
-    const { element, context } = makeCanvas(256, 64);
-    context.fillStyle = "#141a20";
-    context.fillRect(0, 0, 256, 64);
-    context.strokeStyle = "#7d8890";
-    context.lineWidth = 3;
-    context.strokeRect(3, 3, 250, 58);
-    context.fillStyle = "#d8cbb4";
-    context.font = "600 26px ui-monospace, SFMono-Regular, Menlo, monospace";
-    context.textAlign = "center";
-    context.fillText(String(text).slice(0, 16), 128, 41);
     const tex = new window.THREE.CanvasTexture(element);
     return applyTextureEncoding(tex, 4);
   }
@@ -663,971 +517,384 @@
   // ============================================================================
   // 3. MODULAR INTERIOR KIT BUILDERS (Kit.tsx & FaultBeacon.tsx)
   // ============================================================================
-  function buildHandrail(position, length, axis) {
+  let payloadAtlasState = null;
+  function getPayloadAtlasState() {
+    if (payloadAtlasState) return payloadAtlasState;
     const THREE = window.THREE;
-    const g = new THREE.Group();
-    g.position.set(position[0], position[1], position[2]);
-
-    const bar = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.035, 0.035, length, 10),
-      new THREE.MeshStandardMaterial({ color: HANDRAIL, roughness: 0.35, metalness: 0.7 })
-    );
-    if (axis === "x") bar.rotation.set(0, 0, Math.PI / 2);
-    else bar.rotation.set(Math.PI / 2, 0, 0);
-    g.add(bar);
-
-    const bracketMat = new THREE.MeshStandardMaterial({ color: METAL_LIGHT, roughness: 0.5, metalness: 0.6 });
-    [-0.32, 0.32].forEach((offset) => {
-      const b = new THREE.Mesh(
-        new THREE.BoxGeometry(axis === "x" ? 0.05 : 0.16, 0.05, axis === "x" ? 0.16 : 0.05),
-        bracketMat
-      );
-      if (axis === "x") b.position.set(length * offset, 0, 0);
-      else b.position.set(0, 0, length * offset);
-      g.add(b);
-    });
-    return g;
-  }
-
-  function buildConduit(position, length, axis) {
-    const THREE = window.THREE;
-    const g = new THREE.Group();
-    g.position.set(position[0], position[1], position[2]);
-
-    [-0.1, 0, 0.1].forEach((offset, index) => {
-      const m = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.022, 0.022, length, 8),
-        new THREE.MeshStandardMaterial({
-          color: index === 1 ? 0x7a5a3a : 0x1d2226,
-          roughness: 0.7,
-          metalness: 0.3
-        })
-      );
-      m.position.set(axis === "x" ? 0 : offset, index * 0.02, axis === "x" ? offset : 0);
-      if (axis === "x") m.rotation.set(0, 0, Math.PI / 2);
-      else m.rotation.set(Math.PI / 2, 0, 0);
-      g.add(m);
-    });
-    return g;
-  }
-
-  function buildPanelWall(box, roomCenter) {
-    const THREE = window.THREE;
-    const textures = getInteriorTextures();
-    const [sx, sy, sz] = box.size;
-    const thinX = sx <= sz;
-    const length = thinX ? sz : sx;
-    const height = sy;
-    const thickness = thinX ? sx : sz;
-
-    const map = createTiledTexture(textures.wall, Math.max(1, length / 3.2), Math.max(1, height / 2.4));
-    const trims = [
-      { y: box.position[1] - sy / 2 + 0.035 },
-      { y: box.position[1] + sy / 2 - 0.035 }
-    ];
-    const roomSide = thinX
-      ? Math.sign(roomCenter[0] - box.position[0]) || 1
-      : Math.sign(roomCenter[1] - box.position[2]) || 1;
-    const railOffset = thickness / 2 + 0.13;
-    const railLength = Math.max(0, length - 0.9);
-    const showRail = height > 2.4 && length > 1.6;
-
-    const g = new THREE.Group();
-    const wallMesh = new THREE.Mesh(
-      new THREE.BoxGeometry(sx, sy, sz),
-      new THREE.MeshStandardMaterial({
-        map,
-        color: PANEL,
-        roughness: 0.62,
-        metalness: 0.14
-      })
-    );
-    wallMesh.position.set(box.position[0], box.position[1], box.position[2]);
-    g.add(wallMesh);
-
-    const trimMat = new THREE.MeshStandardMaterial({ color: METAL_LIGHT, roughness: 0.45, metalness: 0.7 });
-    trims.forEach((trim) => {
-      const tm = new THREE.Mesh(
-        new THREE.BoxGeometry(
-          thinX ? thickness + 0.05 : length + 0.04,
-          0.07,
-          thinX ? length + 0.04 : thickness + 0.05
-        ),
-        trimMat
-      );
-      tm.position.set(box.position[0], trim.y, box.position[2]);
-      g.add(tm);
-    });
-
-    if (height > 2.4) {
-      const strip = new THREE.Mesh(
-        new THREE.BoxGeometry(
-          thinX ? thickness + 0.03 : length,
-          0.035,
-          thinX ? length : thickness + 0.03
-        ),
-        new THREE.MeshStandardMaterial({
-          color: 0xb9b0a0,
-          emissive: 0x6b6357,
-          emissiveIntensity: 0.12,
-          roughness: 0.5
-        })
-      );
-      strip.position.set(box.position[0], 2.55, box.position[2]);
-      g.add(strip);
-    }
-
-    if (showRail) {
-      const railPos = thinX
-        ? [box.position[0] + roomSide * railOffset, 1.02, box.position[2]]
-        : [box.position[0], 1.02, box.position[2] + roomSide * railOffset];
-      g.add(buildHandrail(railPos, railLength, thinX ? "z" : "x"));
-    }
-
-    if (showRail && length > 2.4) {
-      const condPos = thinX
-        ? [box.position[0] + roomSide * (thickness / 2 + 0.07), 2.78, box.position[2]]
-        : [box.position[0], 2.78, box.position[2] + roomSide * (thickness / 2 + 0.07)];
-      g.add(buildConduit(condPos, length - 0.4, thinX ? "z" : "x"));
-    }
-
-    return g;
-  }
-
-  function buildDoorFrame(room, side) {
-    const THREE = window.THREE;
-    const [cx, cz] = room.center;
-    const [width, depth] = room.size;
-    const northSouth = side === "north" || side === "south";
-    const wallZ = side === "north" ? cz - depth / 2 : cz + depth / 2;
-    const wallX = side === "west" ? cx - width / 2 : cx + width / 2;
-    const inward = northSouth ? (side === "north" ? 1 : -1) : (side === "west" ? 1 : -1);
-
-    const signPosition = northSouth
-      ? [cx, 2.62, wallZ + inward * 0.11]
-      : [wallX + inward * 0.11, 2.62, cz];
-    const signRotation = northSouth
-      ? side === "north" ? [0, 0, 0] : [0, Math.PI, 0]
-      : side === "west" ? [0, Math.PI / 2, 0] : [0, -Math.PI / 2, 0];
-
-    const postOffset = DOOR_WIDTH / 2 + 0.08;
-    const posts = northSouth
-      ? [
-          [cx - postOffset, 0, wallZ],
-          [cx + postOffset, 0, wallZ]
-        ]
-      : [
-          [wallX, 0, cz - postOffset],
-          [wallX, 0, cz + postOffset]
-        ];
-
-    const g = new THREE.Group();
-    const metalMat = new THREE.MeshStandardMaterial({ color: METAL, roughness: 0.4, metalness: 0.72 });
-
-    posts.forEach((post) => {
-      const pm = new THREE.Mesh(
-        new THREE.BoxGeometry(
-          northSouth ? 0.11 : 0.26,
-          DOOR_HEIGHT + 0.12,
-          northSouth ? 0.26 : 0.11
-        ),
-        metalMat
-      );
-      pm.position.set(post[0], (DOOR_HEIGHT + 0.12) / 2, post[2]);
-      g.add(pm);
-    });
-
-    const lintel = new THREE.Mesh(
-      new THREE.BoxGeometry(
-        northSouth ? DOOR_WIDTH + 0.32 : 0.26,
-        0.12,
-        northSouth ? 0.26 : DOOR_WIDTH + 0.32
-      ),
-      metalMat
-    );
-    lintel.position.set(northSouth ? cx : wallX, DOOR_HEIGHT + 0.06, northSouth ? wallZ : cz);
-    g.add(lintel);
-
-    const hazardPlane = new THREE.Mesh(
-      new THREE.PlaneGeometry(northSouth ? DOOR_WIDTH : 0.34, northSouth ? 0.34 : DOOR_WIDTH),
-      new THREE.MeshStandardMaterial({
-        map: getInteriorTextures().hazard,
-        roughness: 0.7,
-        metalness: 0.15,
-        polygonOffset: true,
-        polygonOffsetFactor: -1
-      })
-    );
-    hazardPlane.position.set(northSouth ? cx : wallX, 0.02, northSouth ? wallZ : cz);
-    hazardPlane.rotation.set(-Math.PI / 2, 0, 0);
-    g.add(hazardPlane);
-
-    const statusMat = new THREE.MeshStandardMaterial({
-      color: 0x6ee7b7,
-      emissive: 0x34d399,
-      emissiveIntensity: 1.6
-    });
-    const statusLamp = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.05, 0.16), statusMat);
-    statusLamp.position.set(northSouth ? cx : wallX, DOOR_HEIGHT + 0.2, northSouth ? wallZ : cz);
-    g.add(statusLamp);
-
-    const signTex = createSignTexture(room.shortLabel, room.label);
-    const signMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(1.1, 0.28),
-      new THREE.MeshBasicMaterial({ map: signTex, transparent: true })
-    );
-    signMesh.position.set(signPosition[0], signPosition[1], signPosition[2]);
-    signMesh.rotation.set(signRotation[0], signRotation[1], signRotation[2]);
-    g.add(signMesh);
-
-    return { group: g, statusMat };
-  }
-
-  function buildCeilingLights(center) {
-    const THREE = window.THREE;
-    const g = new THREE.Group();
-    const offsets = [-2.1, 0, 2.1];
-    const housingMat = new THREE.MeshStandardMaterial({ color: METAL, roughness: 0.45, metalness: 0.7 });
-    const diffuserMats = [];
-
-    offsets.forEach((offset) => {
-      const fg = new THREE.Group();
-      fg.position.set(center[0] + offset, WALL_HEIGHT - 0.05, center[1]);
-
-      const housing = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.07, 0.66), housingMat);
-      fg.add(housing);
-
-      const diffMat = new THREE.MeshStandardMaterial({
-        color: WARM_LIGHT,
-        emissive: WARM_LIGHT,
-        emissiveIntensity: 0.75
+    const state = {
+      materials: Array.from({ length: 4 }, () => new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.88, metalness: 0.06 })),
+      surfaces: [],
+      fallbacks: [],
+      loaded: false
+    };
+    payloadAtlasState = state;
+    new THREE.TextureLoader().load("textures/iss/payload_racks_v1.png", (atlas) => {
+      applyTextureEncoding(atlas, 8);
+      state.materials.forEach((material, index) => {
+        // Small inset prevents the adjacent rack panel bleeding into the UVs.
+        const texture = atlas.clone();
+        texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+        texture.repeat.set(0.492, 0.492);
+        texture.offset.set((index % 2) * 0.5 + 0.004, (index < 2 ? 0.5 : 0) + 0.004);
+        applyTextureEncoding(texture, 8);
+        material.map = texture;
+        material.needsUpdate = true;
       });
-      diffuserMats.push(diffMat);
-      const diff = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.02, 0.52), diffMat);
-      diff.position.set(0, -0.045, 0);
-      fg.add(diff);
-      g.add(fg);
+      state.loaded = true;
+      state.surfaces.forEach((surface) => { surface.visible = true; });
+      state.fallbacks.forEach((surface) => { surface.visible = false; });
+      state.surfaces.length = 0;
+      state.fallbacks.length = 0;
+    }, undefined, (error) => {
+      console.warn("ISS equipment textures unavailable; keeping modeled rack surfaces:", error);
+      state.surfaces.length = 0;
+      state.fallbacks.length = 0;
     });
-
-    const light = new THREE.PointLight(WARM_LIGHT, 2.0, 9, 1.7);
-    light.position.set(center[0], WALL_HEIGHT - 0.35, center[1]);
-    g.add(light);
-
-    const runner = new THREE.Mesh(
-      new THREE.BoxGeometry(0.05, 0.02, 3.8),
-      new THREE.MeshStandardMaterial({
-        color: 0xb9b0a0,
-        emissive: 0x6b6357,
-        emissiveIntensity: 0.12
-      })
-    );
-    runner.position.set(center[0], WALL_HEIGHT - 0.02, center[1]);
-    g.add(runner);
-
-    return { group: g, light, diffuserMats };
+    return state;
   }
 
-  function buildFloorDetails(room) {
-    const THREE = window.THREE;
-    const [cx, cz] = room.center;
-    const [width, depth] = room.size;
-    const inset = 0.42;
-    const length = 0.05;
-
-    const g = new THREE.Group();
-    g.position.set(cx, 0.015, cz);
-
-    const lineMat = new THREE.MeshStandardMaterial({
-      color: 0xd8b06a,
-      emissive: 0x8a5a24,
-      emissiveIntensity: 0.25,
-      roughness: 0.6
-    });
-
-    [
-      { position: [0, 0, -depth / 2 + inset], size: [width - inset * 2, length] },
-      { position: [0, 0, depth / 2 - inset], size: [width - inset * 2, length] },
-      { position: [-width / 2 + inset, 0, 0], size: [length, depth - inset * 2] },
-      { position: [width / 2 - inset, 0, 0], size: [length, depth - inset * 2] }
-    ].forEach((line) => {
-      const m = new THREE.Mesh(new THREE.BoxGeometry(line.size[0], 0.012, line.size[1]), lineMat);
-      m.position.set(line.position[0], 0, line.position[2]);
-      g.add(m);
-    });
-
-    const centerStrip = new THREE.Mesh(
-      new THREE.BoxGeometry(0.08, 0.01, depth * 0.55),
-      new THREE.MeshStandardMaterial({
-        color: 0xb9b0a0,
-        emissive: 0x5b5346,
-        emissiveIntensity: 0.12,
-        roughness: 0.55
-      })
-    );
-    centerStrip.position.set(0, 0.005, 0);
-    g.add(centerStrip);
-
-    return g;
-  }
-
-  function buildRack({ position, rotation = [0, 0, 0], label, accent }) {
+  let interiorKitMaterials = null;
+  function getInteriorKitMaterials() {
+    if (interiorKitMaterials) return interiorKitMaterials;
     const THREE = window.THREE;
     const textures = getInteriorTextures();
-    const map = createTiledTexture(textures.wall, 1.1, 1.9);
-
-    const g = new THREE.Group();
-    g.position.set(position[0], position[1], position[2]);
-    g.rotation.set(rotation[0], rotation[1], rotation[2]);
-
-    const body = new THREE.Mesh(
-      new THREE.BoxGeometry(1.0, 1.9, 0.46),
-      new THREE.MeshStandardMaterial({ map, color: 0xc9ccce, roughness: 0.58, metalness: 0.22 })
-    );
-    body.position.set(0, 0.95, 0);
-    g.add(body);
-
-    const face = new THREE.Mesh(
-      new THREE.BoxGeometry(0.88, 1.72, 0.03),
-      new THREE.MeshStandardMaterial({ color: 0x1a2229, roughness: 0.5, metalness: 0.42 })
-    );
-    face.position.set(0, 0.95, 0.24);
-    g.add(face);
-
-    const slotMat = new THREE.MeshStandardMaterial({ color: 0x4d5a63, roughness: 0.6, metalness: 0.4 });
-    [0.45, 0.78, 1.12, 1.45].forEach((y) => {
-      const s = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.035, 0.02), slotMat);
-      s.position.set(0, y, 0.265);
-      g.add(s);
-    });
-
-    const accentPanel = new THREE.Mesh(
-      new THREE.BoxGeometry(0.28, 0.18, 0.015),
-      new THREE.MeshStandardMaterial({
-        color: accent,
-        emissive: accent,
-        emissiveIntensity: 0.9
-      })
-    );
-    accentPanel.position.set(0.22, 1.46, 0.27);
-    g.add(accentPanel);
-
-    [0.3, 0.24, 0.18].forEach((_, index) => {
-      const c = index === 0 ? 0x6ee7b7 : index === 1 ? 0xf5b942 : 0xff6b6b;
-      const em = index === 0 ? 0x34d399 : index === 1 ? 0xe0a63a : 0xfb7185;
-      const led = new THREE.Mesh(
-        new THREE.BoxGeometry(0.05, 0.05, 0.015),
-        new THREE.MeshStandardMaterial({ color: c, emissive: em, emissiveIntensity: 1.2 })
-      );
-      led.position.set(-0.32 + index * 0.1, 0.42, 0.275);
-      g.add(led);
-    });
-
-    const handleMat = new THREE.MeshStandardMaterial({ color: METAL_LIGHT, roughness: 0.4, metalness: 0.7 });
-    [-0.42, 0.42].forEach((x) => {
-      const h = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.34, 0.05), handleMat);
-      h.position.set(x, 1.55, 0.28);
-      g.add(h);
-    });
-
-    const plateTex = createRackPlateTexture(label);
-    const plate = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.42, 0.1),
-      new THREE.MeshBasicMaterial({ map: plateTex, transparent: true })
-    );
-    plate.position.set(0, 1.82, 0.27);
-    g.add(plate);
-
-    return g;
+    const bagMap = createTiledTexture(textures.fabric, 1, 1);
+    const blueBagMap = createTiledTexture(textures.fabric, 1, 1);
+    const ivoryBagMap = createTiledTexture(textures.fabric, 1, 1);
+    interiorKitMaterials = {
+      rack: new THREE.MeshStandardMaterial({ map: createTiledTexture(textures.wall, 1.1, 1.9), color: 0xc9ccce, roughness: 0.58, metalness: 0.22 }),
+      rackFallback: new THREE.MeshStandardMaterial({ map: createTiledTexture(textures.wall, 1, 2), color: 0xdce0df, roughness: 0.7 }),
+      handle: new THREE.MeshStandardMaterial({ color: METAL_LIGHT, roughness: 0.4, metalness: 0.7 }),
+      bag: new THREE.MeshStandardMaterial({ map: bagMap, bumpMap: bagMap, bumpScale: 0.001, color: 0xf1f1ec, roughness: 0.94, metalness: 0.02 }),
+      bagBlue: new THREE.MeshStandardMaterial({ map: blueBagMap, bumpMap: blueBagMap, bumpScale: 0.001, color: 0x546b79, roughness: 0.94, metalness: 0.02 }),
+      bagIvory: new THREE.MeshStandardMaterial({ map: ivoryBagMap, bumpMap: ivoryBagMap, bumpScale: 0.001, color: 0xd4d0be, roughness: 0.94, metalness: 0.02 }),
+      strap: new THREE.MeshStandardMaterial({ color: 0x345876, roughness: 0.85 })
+    };
+    return interiorKitMaterials;
   }
 
-  function buildLocker({ position, rotation = [0, 0, 0], accent }) {
+  function createSoftStowageGeometry() {
     const THREE = window.THREE;
-    const textures = getInteriorTextures();
-    const map = createTiledTexture(textures.wall, 1.6, 2.2);
-
-    const g = new THREE.Group();
-    g.position.set(position[0], position[1], position[2]);
-    g.rotation.set(rotation[0], rotation[1], rotation[2]);
-
-    const body = new THREE.Mesh(
-      new THREE.BoxGeometry(1.5, 1.96, 0.5),
-      new THREE.MeshStandardMaterial({ map, color: 0xc3c7c9, roughness: 0.6, metalness: 0.24 })
-    );
-    body.position.set(0, 0.98, 0);
-    g.add(body);
-
-    const door = new THREE.Mesh(
-      new THREE.BoxGeometry(1.36, 1.8, 0.02),
-      new THREE.MeshStandardMaterial({ color: 0xb7bbbd, roughness: 0.5, metalness: 0.3 })
-    );
-    door.position.set(0, 0.98, 0.26);
-    g.add(door);
-
-    const dividerMat = new THREE.MeshStandardMaterial({ color: 0x5e686f, roughness: 0.6, metalness: 0.35 });
-    [0.45, 0.75, 1.05, 1.35].forEach((y) => {
-      const d = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.025, 0.015), dividerMat);
-      d.position.set(0, y, 0.275);
-      g.add(d);
-    });
-
-    const handleMat = new THREE.MeshStandardMaterial({ color: METAL_LIGHT, roughness: 0.4, metalness: 0.7 });
-    [-0.36, 0.36].forEach((x) => {
-      const h = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.22, 0.04), handleMat);
-      h.position.set(x, 1.0, 0.29);
-      g.add(h);
-    });
-
-    const topAccent = new THREE.Mesh(
-      new THREE.BoxGeometry(1.1, 0.05, 0.02),
-      new THREE.MeshStandardMaterial({ color: accent, emissive: accent, emissiveIntensity: 0.8 })
-    );
-    topAccent.position.set(0, 1.94, 0.26);
-    g.add(topAccent);
-
-    return g;
+    const geometry = new THREE.BoxGeometry(0.62, 0.44, 0.42, 4, 4, 4);
+    const positions = geometry.getAttribute("position");
+    const normals = geometry.getAttribute("normal");
+    const radius = 0.055, half = [0.31, 0.22, 0.21];
+    for (let index = 0; index < positions.count; index++) {
+      const point = [positions.getX(index), positions.getY(index), positions.getZ(index)];
+      const core = point.map((value, axis) => Math.max(-half[axis] + radius, Math.min(half[axis] - radius, value)));
+      const normal = new THREE.Vector3(point[0] - core[0], point[1] - core[1], point[2] - core[2]).normalize();
+      positions.setXYZ(index, core[0] + normal.x * radius, core[1] + normal.y * radius, core[2] + normal.z * radius);
+      normals.setXYZ(index, normal.x, normal.y, normal.z);
+    }
+    positions.needsUpdate = true;
+    normals.needsUpdate = true;
+    return geometry;
   }
 
-  function buildStowageBag({ position, rotation = [0, 0, 0], scale = 1 }) {
-    const THREE = window.THREE;
-    const textures = getInteriorTextures();
-    const map = createTiledTexture(textures.fabric, 2, 2);
-
-    const g = new THREE.Group();
-    g.position.set(position[0], position[1], position[2]);
-    g.rotation.set(rotation[0], rotation[1], rotation[2]);
-    g.scale.setScalar(scale);
-
-    const bag = new THREE.Mesh(
-      new THREE.BoxGeometry(0.62, 0.44, 0.42),
-      new THREE.MeshStandardMaterial({ map, color: 0xb9ac96, roughness: 0.94, metalness: 0.02 })
-    );
-    bag.position.set(0, 0.22, 0);
-    g.add(bag);
-
-    const strapMat = new THREE.MeshStandardMaterial({ color: 0x4b4338, roughness: 0.85 });
-    [-0.18, 0.18].forEach((z) => {
-      const s = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.46, 0.04), strapMat);
-      s.position.set(0, 0.22, z);
-      g.add(s);
-    });
-
-    const topHandle = new THREE.Mesh(
-      new THREE.BoxGeometry(0.24, 0.03, 0.16),
-      new THREE.MeshStandardMaterial({ color: 0x3d3a33, roughness: 0.8 })
-    );
-    topHandle.position.set(0, 0.45, 0);
-    g.add(topHandle);
-
-    return g;
-  }
-
-  function buildCupolaWindow(position, width = 4.4, height = 1.85) {
-    const THREE = window.THREE;
-    const g = new THREE.Group();
-    g.position.set(position[0], position[1], position[2]);
-
-    // The real photorealistic Earth is visible through this window from the
-    // exterior scene, so no separate low-resolution Earth proxy is added here.
-
-    // Optical glass pane
-    const glass = new THREE.Mesh(
-      new THREE.PlaneGeometry(width, height),
-      new THREE.MeshPhysicalMaterial({
-        color: 0xa9d2e0,
-        transparent: true,
-        opacity: 0.1,
-        roughness: 0.06,
-        metalness: 0.05,
-        depthWrite: false
-      })
-    );
-    glass.position.set(0, 0, 0.01);
-    g.add(glass);
-
-    const frameMat = new THREE.MeshStandardMaterial({ color: METAL, roughness: 0.38, metalness: 0.75 });
-    [
-      { position: [0, height / 2 + 0.08, 0.04], size: [width + 0.32, 0.16, 0.16] },
-      { position: [0, -height / 2 - 0.08, 0.04], size: [width + 0.32, 0.16, 0.16] },
-      { position: [-width / 2 - 0.08, 0, 0.04], size: [0.16, height + 0.32, 0.16] },
-      { position: [width / 2 + 0.08, 0, 0.04], size: [0.16, height + 0.32, 0.16] }
-    ].forEach((f) => {
-      const fm = new THREE.Mesh(new THREE.BoxGeometry(f.size[0], f.size[1], f.size[2]), frameMat);
-      fm.position.set(f.position[0], f.position[1], f.position[2]);
-      g.add(fm);
-    });
-
-    const mullionMat = new THREE.MeshStandardMaterial({ color: METAL_LIGHT, roughness: 0.4, metalness: 0.7 });
-    [-width / 6, width / 6].forEach((mx) => {
-      const mm = new THREE.Mesh(new THREE.BoxGeometry(0.08, height, 0.1), mullionMat);
-      mm.position.set(mx, 0, 0.045);
-      g.add(mm);
-    });
-
-    const boltMat = new THREE.MeshStandardMaterial({ color: 0x8b949b, roughness: 0.4, metalness: 0.8 });
-    [
-      [-width / 2 - 0.08, height / 2 + 0.08],
-      [width / 2 + 0.08, height / 2 + 0.08],
-      [-width / 2 - 0.08, -height / 2 - 0.08],
-      [width / 2 + 0.08, -height / 2 - 0.08]
-    ].forEach(([bx, by]) => {
-      const bm = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.05, 10), boltMat);
-      bm.position.set(bx, by, 0.13);
-      bm.rotation.set(Math.PI / 2, 0, 0);
-      g.add(bm);
-    });
-
-    const sill = new THREE.Mesh(
-      new THREE.BoxGeometry(width + 0.5, 0.12, 0.36),
-      new THREE.MeshStandardMaterial({ color: METAL_LIGHT, roughness: 0.42, metalness: 0.7 })
-    );
-    sill.position.set(0, -height / 2 - 0.2, 0.16);
-    g.add(sill);
-
-    const winLight = new THREE.PointLight(0x8fc7ff, 1.4, 4, 2);
-    winLight.position.set(0, 0, -0.6);
-    g.add(winLight);
-
-    return { group: g };
-  }
-
-  function buildFaultBeacon(position, color) {
+  function buildEquipmentFixtures(racks, bags) {
     const THREE = window.THREE;
     const group = new THREE.Group();
-    group.position.set(position[0], position[1], position[2]);
+    const materials = getInteriorKitMaterials();
+    const atlas = getPayloadAtlasState();
+    const parent = new THREE.Object3D();
+    const local = new THREE.Object3D();
+    const matrix = new THREE.Matrix4();
+    const setInstance = (mesh, index, spec, position, scale = [1, 1, 1]) => {
+      parent.position.set(...spec.position);
+      parent.rotation.set(...(spec.rotation || [0, 0, 0]));
+      parent.scale.setScalar(spec.scale || 1);
+      parent.updateMatrix();
+      local.position.set(...position);
+      local.rotation.set(0, 0, 0);
+      local.scale.set(...scale);
+      local.updateMatrix();
+      matrix.multiplyMatrices(parent.matrix, local.matrix);
+      mesh.setMatrixAt(index, matrix);
+    };
+    const finish = (mesh) => {
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.frustumCulled = false;
+      group.add(mesh);
+      return mesh;
+    };
+    if (racks.length) {
+      const bodies = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1.9, 0.46), materials.rack, racks.length);
+      const fallback = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.86, 1.7), materials.rackFallback, racks.length);
+      const handles = new THREE.InstancedMesh(new THREE.BoxGeometry(0.05, 0.34, 0.05), materials.handle, racks.length * 2);
+      const panels = [[], [], [], []];
+      racks.forEach((rack, index) => {
+        setInstance(bodies, index, rack, [0, 0.95, 0]);
+        setInstance(fallback, index, rack, [0, 0.96, 0.24]);
+        [-0.42, 0.42].forEach((x, side) => setInstance(handles, index * 2 + side, rack, [x, 1.55, 0.27]));
+        const variant = Array.from(String(rack.label)).reduce((sum, char) => sum + char.charCodeAt(0), 0) % 4;
+        [0, 1].forEach((row) => panels[(variant + row) % 4].push({ rack, row }));
+      });
+      finish(bodies);
+      finish(handles);
+      fallback.visible = !atlas.loaded;
+      if (!atlas.loaded) atlas.fallbacks.push(fallback);
+      finish(fallback);
+      const panelGeometry = new THREE.PlaneGeometry(0.82, 0.82);
+      panels.forEach((items, variant) => {
+        if (!items.length) return;
+        const mesh = new THREE.InstancedMesh(panelGeometry, atlas.materials[variant], items.length);
+        items.forEach(({ rack, row }, index) => setInstance(mesh, index, rack, [0, 0.55 + row * 0.83, 0.245]));
+        mesh.visible = atlas.loaded;
+        if (!atlas.loaded) atlas.surfaces.push(mesh);
+        finish(mesh);
+      });
+    }
+    if (bags.length) {
+      const bagGroups = [[], [], []];
+      const straps = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), materials.strap, bags.length * 7);
+      bags.forEach((bag, index) => {
+        const seed = Math.abs(Math.round(bag.position[0] * 79 + bag.position[2] * 31));
+        bagGroups[seed % 11 === 0 ? 1 : seed % 7 === 0 ? 2 : 0].push(bag);
+        const offset = bag.offset || 0;
+        let strip = 0;
+        [-0.218, 0.218].forEach((z) => {
+          [-0.19, 0.19].forEach((x) => {
+            setInstance(straps, index * 7 + strip++, bag, [x, 0.22, z + offset], [0.035, 0.44, 0.018]);
+          });
+          setInstance(straps, index * 7 + strip++, bag, [0, 0.22, z + offset], [0.62, 0.034, 0.018]);
+        });
+        setInstance(straps, index * 7 + strip, bag, [0, 0.45, offset], [0.24, 0.03, 0.16]);
+      });
+      const bagGeometry = createSoftStowageGeometry();
+      [materials.bag, materials.bagBlue, materials.bagIvory].forEach((material, variant) => {
+        if (!bagGroups[variant].length) return;
+        const bodies = new THREE.InstancedMesh(bagGeometry, material, bagGroups[variant].length);
+        bagGroups[variant].forEach((bag, index) => setInstance(bodies, index, bag, [0, 0.22, bag.offset || 0]));
+        finish(bodies);
+      });
+      finish(straps);
+    }
+    return group;
+  }
 
-    const diamond = new THREE.Mesh(
-      new THREE.OctahedronGeometry(0.09, 0),
-      new THREE.MeshBasicMaterial({
-        color,
-        transparent: true,
-        opacity: 0.9,
-        depthTest: false
-      })
-    );
-    diamond.renderOrder = 12;
-    group.add(diamond);
+  // Small equipment cases project from selected rack faces. Keeping them in
+  // a few instanced batches gives the cabin actual depth without making the
+  // number of draw calls depend on the number of fitted workstations.
+  function buildRackElectronics(fixtures) {
+    const THREE = window.THREE;
+    const group = new THREE.Group();
+    const selected = fixtures.filter((fixture, index) => index % 3 === 1);
+    if (!selected.length) return group;
+    const parent = new THREE.Object3D(), local = new THREE.Object3D(), matrix = new THREE.Matrix4();
+    const setPart = (mesh, index, fixture, position, scale = [1, 1, 1]) => {
+      parent.position.set(fixture.x, 0, fixture.z);
+      parent.rotation.set(0, fixture.rotation, 0);
+      parent.updateMatrix();
+      local.position.set(...position);
+      local.rotation.set(0, 0, 0);
+      local.scale.set(...scale);
+      local.updateMatrix();
+      matrix.multiplyMatrices(parent.matrix, local.matrix);
+      mesh.setMatrixAt(index, matrix);
+    };
+    const finish = (mesh) => {
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.frustumCulled = false;
+      group.add(mesh);
+    };
+    const backing = new THREE.InstancedMesh(new THREE.BoxGeometry(0.63, 0.48, 0.075),
+      new THREE.MeshStandardMaterial({ color: 0xa6b0ad, roughness: 0.68, metalness: 0.26 }), selected.length);
+    const bezel = new THREE.InstancedMesh(new THREE.BoxGeometry(0.51, 0.32, 0.075),
+      new THREE.MeshStandardMaterial({ color: 0x263036, roughness: 0.65, metalness: 0.16 }), selected.length);
+    const controls = new THREE.InstancedMesh(new THREE.BoxGeometry(0.46, 0.06, 0.025),
+      new THREE.MeshStandardMaterial({ color: 0x596568, roughness: 0.65, metalness: 0.2 }), selected.length);
+    const indicators = new THREE.InstancedMesh(new THREE.BoxGeometry(0.018, 0.012, 0.01),
+      new THREE.MeshBasicMaterial({ color: 0xa2c7a4 }), selected.length * 3);
+    const screenGroups = [[], [], []];
+    selected.forEach((fixture, index) => {
+      const height = 1.15 + (index % 3) * 0.19;
+      const size = 0.86 + (index % 3) * 0.07;
+      setPart(backing, index, fixture, [0, height, 0.28], [size, size, 1]);
+      setPart(bezel, index, fixture, [0, height + 0.025, 0.35], [size, size, 1]);
+      setPart(controls, index, fixture, [0, height - 0.17 * size, 0.35], [size, size, 1]);
+      for (let led = 0; led < 3; led++) {
+        setPart(indicators, index * 3 + led, fixture, [-0.12 + led * 0.08, height - 0.17 * size, 0.37]);
+      }
+      screenGroups[index % screenGroups.length].push({ fixture, height, size });
+    });
+    finish(backing); finish(bezel); finish(controls); finish(indicators);
+    const screenGeometry = new THREE.PlaneGeometry(0.44, 0.245);
+    const screenMaterials = [
+      new THREE.MeshBasicMaterial({ map: createConsoleScreenTexture({ shortLabel: "SYSTEM" }) }),
+      new THREE.MeshStandardMaterial({ color: 0x111a1f, metalness: 0.35, roughness: 0.3 }),
+      new THREE.MeshBasicMaterial({ map: createConsoleScreenTexture({ shortLabel: "PAYLOAD" }) })
+    ];
+    screenGroups.forEach((items, variant) => {
+      if (!items.length) return;
+      const screen = new THREE.InstancedMesh(screenGeometry, screenMaterials[variant], items.length);
+      items.forEach(({ fixture, height, size }, index) => {
+        setPart(screen, index, fixture, [0, height + 0.025, 0.39], [size, size, 1]);
+      });
+      finish(screen);
+    });
+    return group;
+  }
 
-    const ring = new THREE.Mesh(
-      new THREE.RingGeometry(0.18, 0.22, 32),
-      new THREE.MeshBasicMaterial({
-        color,
-        transparent: true,
-        opacity: 0.55,
-        side: THREE.DoubleSide,
-        depthTest: false,
-        depthWrite: false
-      })
-    );
-    ring.rotation.set(Math.PI / 2, 0, 0);
-    ring.renderOrder = 12;
-    group.add(ring);
+  function buildEquipmentCables(surfaces, ceilings) {
+    const THREE = window.THREE;
+    const group = new THREE.Group();
+    const hash = (surface) => Math.abs(Math.round(surface.x * 97 + surface.z * 47 + surface.rotation * 53));
+    const point = (x, y, z) => new THREE.Vector3(x, y, z);
+    const coils = [point(-0.32, 0.76, 0.07), point(-0.14, 0.48, 0.14)];
+    for (let index = 0; index <= 16; index++) {
+      const angle = index * Math.PI * 2.3 / 16;
+      coils.push(point(0.04 + Math.cos(angle) * 0.16, 0.05 + Math.sin(angle) * 0.17, 0.15 + index * 0.001));
+    }
+    coils.push(point(0.31, -0.52, 0.08));
+    const wires = [
+      { color: 0xd9dbd4, radius: 0.008, points: [point(-0.42, 0.8, 0.06), point(-0.25, 0.56, 0.14), point(0.1, 0.39, 0.2), point(0.29, -0.15, 0.17), point(-0.08, -0.7, 0.07)] },
+      { color: 0x2d383e, radius: 0.006, points: [point(0.35, 0.78, 0.06), point(0.22, 0.45, 0.16), point(-0.2, 0.16, 0.21), point(-0.17, -0.4, 0.13), point(0.2, -0.74, 0.07)] },
+      { color: 0xbfc5c1, radius: 0.006, points: coils },
+      { color: 0x647e8a, radius: 0.007, points: [point(-0.34, -0.7, 0.07), point(-0.16, -0.4, 0.15), point(0.18, -0.33, 0.22), point(0.3, 0.26, 0.17), point(0.09, 0.77, 0.07)] },
+      { color: 0xb18b62, radius: 0.005, points: [point(0.38, -0.77, 0.07), point(0.2, -0.35, 0.13), point(-0.28, -0.1, 0.19), point(-0.26, 0.42, 0.14), point(-0.38, 0.72, 0.07)] }
+    ];
+    wires.forEach((wire, variant) => {
+      const mounts = surfaces.filter((surface) => (hash(surface) + variant * 7) % 5 < 3);
+      if (!mounts.length) return;
+      const curve = new THREE.CatmullRomCurve3(wire.points);
+      const geometry = new THREE.TubeGeometry(curve, variant === 2 ? 32 : 18, wire.radius, 5, false);
+      const mesh = new THREE.InstancedMesh(geometry, new THREE.MeshStandardMaterial({ color: wire.color, roughness: 0.72, metalness: 0.08 }), mounts.length);
+      const transform = new THREE.Object3D();
+      mounts.forEach((surface, index) => {
+        const seed = hash(surface) + variant * 31;
+        transform.position.set(surface.x + Math.sin(surface.rotation) * 0.14,
+          1.4 + ((seed % 5) - 2) * 0.045, surface.z + Math.cos(surface.rotation) * 0.14);
+        transform.rotation.set(0, surface.rotation, ((seed % 7) - 3) * 0.045);
+        transform.scale.set(0.82 + (seed % 4) * 0.08, 0.83 + (seed % 3) * 0.08, 1);
+        transform.updateMatrix();
+        mesh.setMatrixAt(index, transform.matrix);
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.frustumCulled = false;
+      group.add(mesh);
+    });
 
-    const beam = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.006, 0.006, 1.8, 6),
-      new THREE.MeshBasicMaterial({
-        color,
-        transparent: true,
-        opacity: 0.08,
-        depthTest: false,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending
-      })
-    );
-    beam.position.set(0, -1.1, 0);
-    beam.renderOrder = 11;
-    group.add(beam);
+    // A few loose overhead cable runs interrupt the repeated ceiling panels;
+    // all hang above the crew and camera clearance envelope.
+    const overhead = ceilings.filter(([x, , z]) => {
+      if (Math.abs(Math.round(x * 7 + z * 11)) % 5 >= 2) return false;
+      return !ISS_HATCHES.some((hatch) => {
+        const forward = hatch.axis === "z" ? z : x;
+        const cross = hatch.axis === "z" ? x : z;
+        return Math.abs(forward - hatch.at) < 1 && Math.abs(cross - hatch.center) < hatch.halfWidth + 0.5;
+      });
+    });
+    const anchors = new THREE.InstancedMesh(new THREE.BoxGeometry(0.045, 0.025, 0.045),
+      new THREE.MeshStandardMaterial({ color: 0x65777d, roughness: 0.65, metalness: 0.25 }), overhead.length * 6);
+    const anchorParent = new THREE.Object3D(), anchorLocal = new THREE.Object3D(), anchorMatrix = new THREE.Matrix4();
+    [0xcfd2cb, 0x36434a, 0x7993a0].forEach((color, variant) => {
+      const curve = new THREE.CatmullRomCurve3([
+        point(-0.46, 0, -0.3 + variant * 0.1), point(-0.22, -0.05 - variant * 0.01, -0.1),
+        point(0.13, -0.08, 0.2), point(0.42, 0, 0.37 - variant * 0.1)
+      ]);
+      const mesh = new THREE.InstancedMesh(new THREE.TubeGeometry(curve, 16, 0.006 + variant * 0.001, 5, false),
+        new THREE.MeshStandardMaterial({ color, roughness: 0.75 }), overhead.length);
+      const transform = new THREE.Object3D();
+      overhead.forEach(([x, , z], index) => {
+        transform.position.set(x, 2.76, z);
+        transform.rotation.y = (Math.abs(Math.round(x * 13 + z * 17)) % 4) * Math.PI / 2;
+        transform.updateMatrix();
+        mesh.setMatrixAt(index, transform.matrix);
+        anchorParent.position.copy(transform.position);
+        anchorParent.rotation.copy(transform.rotation);
+        anchorParent.updateMatrix();
+        [[-0.46, 0, -0.3 + variant * 0.1], [0.42, 0, 0.37 - variant * 0.1]].forEach((position, endpoint) => {
+          anchorLocal.position.set(...position);
+          anchorLocal.updateMatrix();
+          anchorMatrix.multiplyMatrices(anchorParent.matrix, anchorLocal.matrix);
+          anchors.setMatrixAt(variant * overhead.length * 2 + index * 2 + endpoint, anchorMatrix);
+        });
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.frustumCulled = false;
+      group.add(mesh);
+    });
+    anchors.instanceMatrix.needsUpdate = true;
+    anchors.frustumCulled = false;
+    group.add(anchors);
+    return group;
+  }
 
-    return { group, ring, baseY: position[1] };
+  function buildScienceGlovebox(position) {
+    const THREE = window.THREE;
+    const g = new THREE.Group();
+    g.position.set(...position);
+    g.rotation.y = Math.PI / 2;
+    const housing = new THREE.MeshStandardMaterial({ color: 0xd4d8d6, metalness: 0.18, roughness: 0.68 });
+    const dark = new THREE.MeshStandardMaterial({ color: 0x263c49, metalness: 0.3, roughness: 0.45 });
+    const trim = new THREE.MeshStandardMaterial({ color: 0x5c6f78, metalness: 0.55, roughness: 0.4 });
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.94, 1.86, 0.4), housing);
+    body.position.y = 0.93;
+    g.add(body);
+    const chamber = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.62, 0.06), dark);
+    chamber.position.set(0, 1.26, 0.22);
+    g.add(chamber);
+    const glass = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.52),
+      new THREE.MeshStandardMaterial({ color: 0x7595a0, metalness: 0.2, roughness: 0.18, transparent: true, opacity: 0.45 }));
+    glass.position.set(0, 1.26, 0.26);
+    g.add(glass);
+    [-0.22, 0.22].forEach((x) => {
+      const port = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.025, 8, 20), trim);
+      port.position.set(x, 1.13, 0.29);
+      g.add(port);
+      const opening = new THREE.Mesh(new THREE.CircleGeometry(0.10, 20), dark);
+      opening.position.set(x, 1.13, 0.275);
+      g.add(opening);
+    });
+    const control = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.28, 0.035), trim);
+    control.position.set(0, 0.67, 0.23);
+    g.add(control);
+    const display = new THREE.Mesh(new THREE.PlaneGeometry(0.26, 0.14),
+      new THREE.MeshBasicMaterial({ map: createConsoleScreenTexture({ shortLabel: "GLOVEBOX" }) }));
+    display.position.set(-0.16, 0.67, 0.25);
+    g.add(display);
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.1),
+      new THREE.MeshBasicMaterial({ map: createSignTexture("MSG", "MICROGRAVITY SCIENCE GLOVEBOX") }));
+    sign.position.set(0, 1.72, 0.205);
+    g.add(sign);
+    return g;
+  }
+
+  function buildAirlockPanel(position) {
+    const THREE = window.THREE;
+    const g = new THREE.Group();
+    g.position.set(...position);
+    const housing = new THREE.MeshStandardMaterial({ color: 0xb9c4c5, roughness: 0.72, metalness: 0.2 });
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.76, 1.2, 0.18), housing);
+    body.position.y = 1.12;
+    g.add(body);
+    const atlas = getPayloadAtlasState();
+    const equipment = new THREE.Mesh(new THREE.PlaneGeometry(0.68, 0.92), atlas.materials[3]);
+    equipment.position.set(0, 1.1, 0.095);
+    equipment.visible = atlas.loaded;
+    if (!atlas.loaded) atlas.surfaces.push(equipment);
+    g.add(equipment);
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.38, 0.085),
+      new THREE.MeshBasicMaterial({ map: createSignTexture("QUEST", "AIRLOCK EQUIPMENT") }));
+    sign.position.set(0, 1.63, 0.1);
+    g.add(sign);
+    [0x416b84, 0xe4e5df].forEach((color, index) => {
+      const x = -0.19 + index * 0.3;
+      const curve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(x, 1.43, 0.12),
+        new THREE.Vector3(x + 0.1, 1.18, 0.16),
+        new THREE.Vector3(x + 0.04, 0.91, 0.16),
+        new THREE.Vector3(x + 0.14, 0.72, 0.12)
+      ]);
+      g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 18, 0.012, 6, false),
+        new THREE.MeshStandardMaterial({ color, roughness: 0.7 })));
+    });
+    return g;
   }
 
   // ============================================================================
   // 4. ROOM WALLS, CONSOLES, HOLOTABLE & ROOM PROPS (ShipInterior.tsx)
   // ============================================================================
-  function computeRoomWallBoxes(room) {
-    const [cx, cz] = room.center;
-    const [width, depth] = room.size;
-    const boxes = [];
-    const halfW = width / 2;
-    const halfD = depth / 2;
-
-    const fullWall = (side) => {
-      if (side === "north" || side === "south") {
-        const z = side === "north" ? cz - halfD : cz + halfD;
-        boxes.push({
-          key: `${room.id}-${side}`,
-          position: [cx, WALL_HEIGHT / 2, z],
-          size: [width, WALL_HEIGHT, WALL_THICKNESS]
-        });
-        return;
-      }
-      const x = side === "west" ? cx - halfW : cx + halfW;
-      boxes.push({
-        key: `${room.id}-${side}`,
-        position: [x, WALL_HEIGHT / 2, cz],
-        size: [WALL_THICKNESS, WALL_HEIGHT, depth]
-      });
-    };
-
-    const doorWall = (side) => {
-      const lintelHeight = WALL_HEIGHT - DOOR_HEIGHT;
-      const lintelY = DOOR_HEIGHT + lintelHeight / 2;
-
-      if (side === "north" || side === "south") {
-        const z = side === "north" ? cz - halfD : cz + halfD;
-        const segment = (width - DOOR_WIDTH) / 2;
-        const offset = (width + DOOR_WIDTH) / 4;
-        boxes.push({
-          key: `${room.id}-${side}-left`,
-          position: [cx - offset, WALL_HEIGHT / 2, z],
-          size: [segment, WALL_HEIGHT, WALL_THICKNESS]
-        });
-        boxes.push({
-          key: `${room.id}-${side}-right`,
-          position: [cx + offset, WALL_HEIGHT / 2, z],
-          size: [segment, WALL_HEIGHT, WALL_THICKNESS]
-        });
-        boxes.push({
-          key: `${room.id}-${side}-lintel`,
-          position: [cx, lintelY, z],
-          size: [DOOR_WIDTH, lintelHeight, WALL_THICKNESS]
-        });
-        return;
-      }
-
-      const x = side === "west" ? cx - halfW : cx + halfW;
-      const segment = (depth - DOOR_WIDTH) / 2;
-      const offset = (depth + DOOR_WIDTH) / 4;
-      boxes.push({
-        key: `${room.id}-${side}-north`,
-        position: [x, WALL_HEIGHT / 2, cz - offset],
-        size: [WALL_THICKNESS, WALL_HEIGHT, segment]
-      });
-      boxes.push({
-        key: `${room.id}-${side}-south`,
-        position: [x, WALL_HEIGHT / 2, cz + offset],
-        size: [WALL_THICKNESS, WALL_HEIGHT, segment]
-      });
-      boxes.push({
-        key: `${room.id}-${side}-lintel`,
-        position: [x, lintelY, cz],
-        size: [WALL_THICKNESS, lintelHeight, DOOR_WIDTH]
-      });
-    };
-
-    const windowWall = () => {
-      const z = cz - halfD;
-      const windowWidth = 4.4;
-      const windowBottom = 1.05;
-      const windowTop = 2.9;
-      const sideWidth = (width - windowWidth) / 2;
-
-      boxes.push({
-        key: `${room.id}-north-left`,
-        position: [cx - windowWidth / 2 - sideWidth / 2, WALL_HEIGHT / 2, z],
-        size: [sideWidth, WALL_HEIGHT, WALL_THICKNESS]
-      });
-      boxes.push({
-        key: `${room.id}-north-right`,
-        position: [cx + windowWidth / 2 + sideWidth / 2, WALL_HEIGHT / 2, z],
-        size: [sideWidth, WALL_HEIGHT, WALL_THICKNESS]
-      });
-      boxes.push({
-        key: `${room.id}-north-bottom`,
-        position: [cx, windowBottom / 2, z],
-        size: [windowWidth, windowBottom, WALL_THICKNESS]
-      });
-      boxes.push({
-        key: `${room.id}-north-top`,
-        position: [cx, (windowTop + WALL_HEIGHT) / 2, z],
-        size: [windowWidth, WALL_HEIGHT - windowTop, WALL_THICKNESS]
-      });
-    };
-
-    ["north", "south", "east", "west"].forEach((side) => {
-      if (room.id === "command" && side === "north") {
-        windowWall();
-        return;
-      }
-      if (room.doors.includes(side)) {
-        doorWall(side);
-      } else {
-        fullWall(side);
-      }
-    });
-
-    return boxes;
-  }
-
-  function buildConnector(connector) {
-    const THREE = window.THREE;
-    const { center, width, depth } = connector;
-    const horizontal = width > depth;
-    const textures = getInteriorTextures();
-    const floorMap = createTiledTexture(textures.floor, Math.max(1, width / 2.4), Math.max(1, depth / 2.4));
-    const ceilingMap = createTiledTexture(textures.ceiling, Math.max(1, width / 3), Math.max(1, depth / 3));
-
-    const g = new THREE.Group();
-    const floor = new THREE.Mesh(
-      new THREE.BoxGeometry(width, 0.14, depth),
-      new THREE.MeshStandardMaterial({ map: floorMap, color: 0xa2a7ab, roughness: 0.72, metalness: 0.34 })
-    );
-    floor.position.set(center[0], -0.07, center[1]);
-    g.add(floor);
-
-    const ceiling = new THREE.Mesh(
-      new THREE.BoxGeometry(width, 0.08, depth),
-      new THREE.MeshStandardMaterial({ map: ceilingMap, color: 0xd5d7d6, roughness: 0.7, metalness: 0.12 })
-    );
-    ceiling.position.set(center[0], WALL_HEIGHT + 0.04, center[1]);
-    g.add(ceiling);
-
-    const sideWallMat = new THREE.MeshStandardMaterial({ color: 0x3a4147, roughness: 0.62, metalness: 0.3 });
-    if (horizontal) {
-      [-width / 2, width / 2].forEach((dx) => {
-        const w = new THREE.Mesh(new THREE.BoxGeometry(0.12, WALL_HEIGHT, depth), sideWallMat);
-        w.position.set(center[0] + dx, WALL_HEIGHT / 2, center[1]);
-        g.add(w);
-      });
-    } else {
-      [-depth / 2, depth / 2].forEach((dz) => {
-        const w = new THREE.Mesh(new THREE.BoxGeometry(width, WALL_HEIGHT, 0.12), sideWallMat);
-        w.position.set(center[0], WALL_HEIGHT / 2, center[1] + dz);
-        g.add(w);
-      });
-    }
-
-    return g;
-  }
-
-  function buildRoomProps(roomId) {
-    const THREE = window.THREE;
-    const g = new THREE.Group();
-
-    if (roomId === "command") {
-      [-6.9, -8.5, -10.1].forEach((z) => {
-        g.add(buildRack({ position: [-3.54, 0, z], rotation: [0, Math.PI / 2, 0], label: "LAB-A", accent: "#7f9fb8" }));
-        g.add(buildRack({ position: [3.54, 0, z], rotation: [0, -Math.PI / 2, 0], label: "LAB-B", accent: "#7f9fb8" }));
-      });
-      g.add(buildStowageBag({ position: [-2.8, 0, -7.1], rotation: [0, 0.35, 0], scale: 0.9 }));
-      g.add(buildStowageBag({ position: [2.8, 0, -9.4], rotation: [0, -0.3, 0], scale: 0.9 }));
-      [-3.25, 3.25].forEach((x) => {
-        const sideConsole = new THREE.Mesh(
-          new THREE.BoxGeometry(0.85, 0.9, 0.7),
-          new THREE.MeshStandardMaterial({ color: 0x152232, roughness: 0.55, metalness: 0.5 })
-        );
-        sideConsole.position.set(x, 0.52, -10.2);
-        g.add(sideConsole);
-      });
-      return g;
-    }
-
-    if (roomId === "power") {
-      g.add(buildRack({ position: [-8.3, 0, -3.54], label: "PWR-A", accent: "#c9a05a" }));
-      g.add(buildRack({ position: [-8.3, 0, 3.54], rotation: [0, Math.PI, 0], label: "PWR-B", accent: "#c9a05a" }));
-      g.add(buildStowageBag({ position: [-6.6, 0, 2.9], rotation: [0, 0.4, 0], scale: 0.9 }));
-      [-2.6, 2.6].forEach((z) => {
-        const bg = new THREE.Group();
-        bg.position.set(-11.75, 0, z);
-        const bank = new THREE.Mesh(
-          new THREE.BoxGeometry(0.72, 1.56, 1.35),
-          new THREE.MeshStandardMaterial({ color: 0x18212a, roughness: 0.52, metalness: 0.55 })
-        );
-        bank.position.set(0, 0.78, 0);
-        bg.add(bank);
-        [0.35, 0.78, 1.21].forEach((y) => {
-          const bar = new THREE.Mesh(
-            new THREE.BoxGeometry(0.03, 0.06, 0.95),
-            new THREE.MeshStandardMaterial({ color: 0xfbbf24, emissive: 0xfbbf24, emissiveIntensity: 0.75 })
-          );
-          bar.position.set(0.38, y, 0);
-          bg.add(bar);
-        });
-        g.add(bg);
-      });
-      [-2.2, 0, 2.2].forEach((z) => {
-        const pipe = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.06, 0.06, 1.4, 8),
-          new THREE.MeshStandardMaterial({ color: 0x0e1822, metalness: 0.6, roughness: 0.45 })
-        );
-        pipe.position.set(-10.6, 0.16, z);
-        pipe.rotation.set(0, 0, Math.PI / 2);
-        g.add(pipe);
-      });
-      return g;
-    }
-
-    if (roomId === "life-support") {
-      g.add(buildRack({ position: [8.3, 0, -3.54], label: "ECLSS-A", accent: "#7fb8a6" }));
-      g.add(buildRack({ position: [8.3, 0, 3.54], rotation: [0, Math.PI, 0], label: "ECLSS-B", accent: "#7fb8a6" }));
-      g.add(buildStowageBag({ position: [6.6, 0, -3.0], rotation: [0, -0.35, 0], scale: 0.9 }));
-      [-2.45, 2.45].forEach((z) => {
-        const tg = new THREE.Group();
-        tg.position.set(11.45, 0, z);
-        const cyl = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.56, 0.56, 2.1, 16),
-          new THREE.MeshStandardMaterial({ color: 0x17302b, roughness: 0.48, metalness: 0.5 })
-        );
-        cyl.position.set(0, 1.05, 0);
-        tg.add(cyl);
-        [0.45, 0.95, 1.45].forEach((y) => {
-          const ring = new THREE.Mesh(
-            new THREE.TorusGeometry(0.57, 0.025, 6, 24),
-            new THREE.MeshStandardMaterial({ color: 0x34d399, emissive: 0x34d399, emissiveIntensity: 0.9 })
-          );
-          ring.position.set(0, y, 0);
-          tg.add(ring);
-        });
-        g.add(tg);
-      });
-      const floorPipe = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.07, 0.07, 2.7, 8),
-        new THREE.MeshStandardMaterial({ color: 0x0e1822, metalness: 0.6, roughness: 0.45 })
-      );
-      floorPipe.position.set(10.3, 0.18, 0);
-      floorPipe.rotation.set(0, 0, Math.PI / 2);
-      g.add(floorPipe);
-      return g;
-    }
-
-    if (roomId === "hull") {
-      [-3.35, 3.35].forEach((x) => {
-        [6.4, 9.3].forEach((z) => {
-          const unit = new THREE.Mesh(
-            new THREE.BoxGeometry(0.78, 1.56, 1.25),
-            new THREE.MeshStandardMaterial({ color: 0x21161b, roughness: 0.55, metalness: 0.5 })
-          );
-          unit.position.set(x, 0.78, z);
-          g.add(unit);
-
-          const stripe = new THREE.Mesh(
-            new THREE.BoxGeometry(0.02, 0.16, 1.0),
-            new THREE.MeshStandardMaterial({ color: 0xfb7185, emissive: 0xfb7185, emissiveIntensity: 1.05 })
-          );
-          stripe.position.set(x + (x < 0 ? 0.4 : -0.4), 0.86, z);
-          g.add(stripe);
-        });
-      });
-      const threshold = new THREE.Mesh(
-        new THREE.BoxGeometry(2.4, 0.03, 0.08),
-        new THREE.MeshStandardMaterial({ color: 0xfb7185, emissive: 0xfb7185, emissiveIntensity: 0.9 })
-      );
-      threshold.position.set(0, 0.03, 11.15);
-      g.add(threshold);
-      return g;
-    }
-
-    if (roomId === "lander") {
-      g.add(buildRack({ position: [-4.0, 0, 13.4], rotation: [0, Math.PI / 2, 0], label: "LDR-A", accent: "#9a8fc4" }));
-      g.add(buildRack({ position: [4.0, 0, 13.4], rotation: [0, -Math.PI / 2, 0], label: "LDR-B", accent: "#9a8fc4" }));
-      g.add(buildStowageBag({ position: [-3.2, 0, 15.4], rotation: [0, 0.35, 0], scale: 0.9 }));
-
-      const pad = new THREE.Mesh(
-        new THREE.CylinderGeometry(3.15, 3.15, 0.06, 28),
-        new THREE.MeshStandardMaterial({ color: 0x0c1521, roughness: 0.65, metalness: 0.45 })
-      );
-      pad.position.set(0, 0.03, 16.05);
-      g.add(pad);
-
-      const padRing = new THREE.Mesh(
-        new THREE.TorusGeometry(3.3, 0.035, 8, 48),
-        new THREE.MeshStandardMaterial({ color: 0xa78bfa, emissive: 0xa78bfa, emissiveIntensity: 0.9 })
-      );
-      padRing.position.set(0, 0.06, 16.05);
-      padRing.rotation.set(Math.PI / 2, 0, 0);
-      g.add(padRing);
-
-      [-2.15, 2.15].forEach((x) => {
-        const sg = new THREE.Group();
-        sg.position.set(x, 0, 17.1);
-        sg.rotation.set(0, x < 0 ? 0.42 : -0.42, 0);
-
-        const base = new THREE.Mesh(
-          new THREE.BoxGeometry(0.92, 0.72, 0.8),
-          new THREE.MeshStandardMaterial({ color: 0x171326, roughness: 0.55, metalness: 0.5 })
-        );
-        base.position.set(0, 0.42, 0);
-        sg.add(base);
-
-        const bezel = new THREE.Mesh(
-          new THREE.BoxGeometry(0.82, 0.62, 0.1),
-          new THREE.MeshStandardMaterial({ color: 0x070c17, roughness: 0.3, metalness: 0.55 })
-        );
-        bezel.position.set(0, 0.88, -0.08);
-        sg.add(bezel);
-
-        const scr = new THREE.Mesh(
-          new THREE.BoxGeometry(0.58, 0.36, 0.02),
-          new THREE.MeshStandardMaterial({
-            color: 0xa78bfa,
-            emissive: 0xa78bfa,
-            emissiveIntensity: 0.55,
-            transparent: true,
-            opacity: 0.6
-          })
-        );
-        scr.position.set(0, 0.88, -0.02);
-        sg.add(scr);
-        g.add(sg);
-      });
-
-      const viewportFrame = new THREE.Mesh(
-        new THREE.BoxGeometry(6.1, 2.25, 0.08),
-        new THREE.MeshStandardMaterial({ color: 0x07101c, roughness: 0.28, metalness: 0.6 })
-      );
-      viewportFrame.position.set(0, 2.02, 19.9);
-      g.add(viewportFrame);
-
-      const viewportGlass = new THREE.Mesh(
-        new THREE.BoxGeometry(5.7, 1.9, 0.02),
-        new THREE.MeshStandardMaterial({
-          color: 0x16264b,
-          emissive: 0x1d4ed8,
-          emissiveIntensity: 0.5,
-          transparent: true,
-          opacity: 0.72
-        })
-      );
-      viewportGlass.position.set(0, 2.02, 19.84);
-      g.add(viewportGlass);
-
-      const moonSphere = new THREE.Mesh(
-        new THREE.SphereGeometry(0.62, 24, 18),
-        new THREE.MeshStandardMaterial({
-          color: 0xcbd5e1,
-          emissive: 0x94a3b8,
-          emissiveIntensity: 0.35,
-          roughness: 0.9,
-          metalness: 0.05
-        })
-      );
-      moonSphere.position.set(0, 2.06, 19.72);
-      g.add(moonSphere);
-
-      const moonOrbit = new THREE.Mesh(
-        new THREE.TorusGeometry(0.85, 0.012, 6, 48),
-        new THREE.MeshBasicMaterial({ color: 0xa78bfa, transparent: true, opacity: 0.7 })
-      );
-      moonOrbit.position.set(0, 2.06, 19.62);
-      moonOrbit.rotation.set(Math.PI / 2, 0, 0);
-      g.add(moonOrbit);
-
-      const landerLight = new THREE.PointLight(0xa78bfa, 2.4, 6, 1.8);
-      landerLight.position.set(0, 2.2, 18.5);
-      g.add(landerLight);
-      return g;
-    }
-
-    // Hub props
-    g.add(buildRack({ position: [-3.54, 0, -1.55], rotation: [0, Math.PI / 2, 0], label: "HUB-A2", accent: "#7fa8b8" }));
-    g.add(buildRack({ position: [-3.54, 0, 1.55], rotation: [0, Math.PI / 2, 0], label: "HUB-A4", accent: "#7fa8b8" }));
-    g.add(buildLocker({ position: [3.54, 0, 1.75], rotation: [0, -Math.PI / 2, 0], accent: "#7fa8b8" }));
-    g.add(buildLocker({ position: [3.54, 0, -1.75], rotation: [0, -Math.PI / 2, 0], accent: "#7fa8b8" }));
-    g.add(buildStowageBag({ position: [-2.95, 0, 0.55], rotation: [0, 0.35, 0] }));
-    g.add(buildStowageBag({ position: [2.95, 0, 0.2], rotation: [0, -0.25, 0], scale: 0.9 }));
-    g.add(buildStowageBag({ position: [2.65, 0, 2.7], rotation: [0, 0.5, 0], scale: 0.8 }));
-    return g;
-  }
-
   // ============================================================================
   // 5. ANAMORPHIC SUN FLARE (SunFlare.tsx)
   // ============================================================================
@@ -1953,28 +1220,18 @@
       this.scene = null;
       this.group = null;
       this.activeRoomId = "hub";
+      this.activeModule = "DESTINY";
       this.isInteriorActive = true;
       this.isMoonLandingActive = false;
 
       // Dynamic animated elements
-      this.holoRingGroup = null;
-      this.holoCoreMesh = null;
-      this.stationEntries = {}; // stationId -> { station, indicatorMat1, indicatorMat2, labelMat, beacon }
-      this.roomVisuals = {}; // roomId -> { doorFrames, ceilingLights }
+      this.stationEntries = {}; // stationId -> workstation materials and fault state
       this.moonLanding = null;
       this.sunFlare = null;
-      this.roomShellGroup = null;
       this.stationInteractionGroup = null;
-      this.legacyPropsGroup = null;
       this.issInteriorModelGroup = null;
       this.issInteriorModel = null;
-      this.issInteriorBacking = null;
-      this.issInteriorModelPromise = null;
-      this.issInteriorLoadProgress = -1;
-      this.fallbackStationLayout = Object.fromEntries(Object.entries(STATIONS).map(([id, station]) => [id, {
-        position: station.position.slice(), workPosition: station.workPosition.slice()
-      }]));
-      this.fallbackTaskPositions = null;
+      this.savedExteriorLights = null;
 
       // UI Overlays
       this.hudPill = null;
@@ -1994,36 +1251,27 @@
       const interiorGroup = this.group;
 
       // Interior lighting matching SpaceShip/src/components/game/ShipInterior.tsx
-      this.group.add(new THREE.AmbientLight(0xffffff, 0.38));
-      this.group.add(new THREE.HemisphereLight(0xcfd9e2, 0x0a0f16, 0.6));
-      const dirLight = new THREE.DirectionalLight(0xffe9cf, 0.32);
+      this.group.add(new THREE.AmbientLight(0xffffff, 0.27));
+      this.group.add(new THREE.HemisphereLight(0xcfd9e2, 0x0a0f16, 0.43));
+      const dirLight = new THREE.DirectionalLight(0xffe9cf, 0.18);
       dirLight.position.set(5, 8, 3);
       this.group.add(dirLight);
 
-      this.roomShellGroup = new THREE.Group();
-      this.roomShellGroup.name = "ISS_Interior_Procedural_Fallback";
       this.stationInteractionGroup = new THREE.Group();
       this.stationInteractionGroup.name = "ISS_Interior_Mission_Stations";
-      this.legacyPropsGroup = new THREE.Group();
-      this.legacyPropsGroup.name = "ISS_Interior_Procedural_Props";
       this.issInteriorModelGroup = new THREE.Group();
-      this.issInteriorModelGroup.name = "ISS_Interior_Stephen_Mack_Model";
-      this.issInteriorModelGroup.visible = false;
-      interiorGroup.add(this.roomShellGroup);
+      this.issInteriorModelGroup.name = "ISS_Interior_Constructed";
+      this.issInteriorModelGroup.visible = true;
       interiorGroup.add(this.stationInteractionGroup);
-      interiorGroup.add(this.legacyPropsGroup);
       interiorGroup.add(this.issInteriorModelGroup);
 
-      this.group = this.roomShellGroup;
-      this._buildAllRoomsAndConnectors();
-
       this.group = this.stationInteractionGroup;
-      this._buildHoloTable();
-      this._buildStationConsoles();
-
-      this.group = this.legacyPropsGroup;
-      this._buildAllRoomProps();
+      this._buildISSStationConsoles();
       this.group = interiorGroup;
+      // Keep this compatibility property for the movement and camera code.
+      // It now points to a constructed scene, never an imported GLB.
+      this.issInteriorModel = this._buildISSInterior();
+      this.issInteriorModelGroup.add(this.issInteriorModel);
 
       // Build Moon Landing Scene & SunFlare in main scene
       this.moonLanding = buildMoonLandingScene();
@@ -2035,8 +1283,9 @@
       // Build HUD compartment banner & live SVG Ship Minimap
       this._buildInteractiveHUD();
       this._buildMinimapDOM();
+      this._applyISSStationLayout();
 
-      console.log("🛸 [SpaceShip] 6-room Lunaspis modular transit craft, friendly crew map & lunar landing scene online.");
+      console.log("🛰️ [ISS Interior] Constructed station modules and mission stations online.");
     }
 
     _setInteriorTitle(text) {
@@ -2044,135 +1293,53 @@
       if (titleEl) titleEl.textContent = text;
     }
 
-    _ensureISSInteriorModel() {
-      if (this.issInteriorModel) return Promise.resolve(this.issInteriorModel);
-      if (this.issInteriorModelPromise) return this.issInteriorModelPromise;
-      if (!window.glbManager || typeof window.glbManager.loadGLB !== "function") {
-        return Promise.reject(new Error("The GLB manager is not available."));
-      }
-
-      this.issInteriorLoadProgress = -1;
-      this._setInteriorTitle("LOADING ISS INTERIOR · 0%");
-      this.issInteriorModelPromise = window.glbManager.loadGLB(
-        ISS_INTERIOR_MODEL_URL,
-        (percent) => {
-          if (percent === this.issInteriorLoadProgress) return;
-          this.issInteriorLoadProgress = percent;
-          if (this.isInteriorActive && !this.isMoonLandingActive) {
-            this._setInteriorTitle(`LOADING ISS INTERIOR · ${percent}%`);
-          }
-        }
-      ).then(() => {
-        const THREE = window.THREE;
-        const model = window.glbManager.instantiateModel(ISS_INTERIOR_MODEL_URL, {
-          scale: ISS_INTERIOR_MODEL_SCALE,
-          center: false,
-          castShadow: false,
-          receiveShadow: false,
-          enhancePBR: false
-        });
-        model.name = "Stephen_Mack_ISS_Interior_CC_BY_4_0";
-
-        // Anchor using Node 1, then place the crew spawn in Destiny's clearer
-        // corridor. Its scan includes incomplete surfaces and stray polygons.
-        const nodeOneBounds = new THREE.Box3();
-        model.updateMatrixWorld(true);
-        model.traverse((object) => {
-          if (!object.isMesh) return;
-          const materials = Array.isArray(object.material) ? object.material : [object.material];
-          if (!materials.some((material) => /NODE1_and_QUEST_FINAL/i.test(material && material.name || ""))) return;
-          nodeOneBounds.union(new THREE.Box3().setFromObject(object));
-        });
-        const referenceBounds = nodeOneBounds.isEmpty()
-          ? new THREE.Box3().setFromObject(model)
-          : nodeOneBounds;
-        const referenceCenter = new THREE.Vector3();
-        referenceBounds.getCenter(referenceCenter);
-        // A half-unit downward adjustment keeps the astronaut's view within
-        // the photographed corridor instead of beneath its uneven floor scan.
-        model.position.set(-referenceCenter.x - 1.8, -referenceBounds.min.y - 0.5, -referenceCenter.z + 9.3);
-
-        model.traverse((object) => {
-          if (!object.isMesh) return;
-          object.castShadow = false;
-          object.receiveShadow = false;
-          // The scan's photographs already contain lighting. Display their
-          // original colors without applying scene lighting a second time.
-          const convert = (material) => {
-            if (!material || !material.map) return material;
-            if (window.renderer && window.renderer.capabilities) {
-              material.map.anisotropy = Math.min(8, window.renderer.capabilities.getMaxAnisotropy());
-            }
-            return new THREE.MeshBasicMaterial({
-              map: material.map, color: material.color, side: material.side,
-              transparent: material.transparent, opacity: material.opacity,
-              alphaTest: material.alphaTest, depthWrite: material.depthWrite,
-              toneMapped: false
-            });
-          };
-          object.material = Array.isArray(object.material) ? object.material.map(convert) : convert(object.material);
-        });
-        this.issInteriorModelGroup.add(model);
-        this.issInteriorBacking = this._buildISSInteriorBacking();
-        this.issInteriorModelGroup.add(this.issInteriorBacking);
-        model.updateMatrixWorld(true);
-        this.issInteriorModel = model;
-        this._applyISSStationLayout();
-        this._placeCrewOnISSWalkway();
-
-        if (this.roomShellGroup) this.roomShellGroup.visible = false;
-        if (this.legacyPropsGroup) this.legacyPropsGroup.visible = false;
-        this.issInteriorModelGroup.visible = this.isInteriorActive && !this.isMoonLandingActive;
-        if (this.isInteriorActive && !this.isMoonLandingActive) {
-          this._setInteriorTitle("INTERNATIONAL SPACE STATION · INTERIOR");
-        }
-        console.log("🛰️ [ISS Interior] Stephen Mack's Sketchfab interior loaded (CC BY 4.0).");
-        return model;
-      }).catch((error) => {
-        this.issInteriorModelPromise = null;
-        if (this.issInteriorModelGroup && this.issInteriorModel) this.issInteriorModelGroup.remove(this.issInteriorModel);
-        if (this.issInteriorModelGroup && this.issInteriorBacking) this.issInteriorModelGroup.remove(this.issInteriorBacking);
-        this.issInteriorModel = null;
-        this.issInteriorBacking = null;
-        this._restoreFallbackStationLayout();
-        if (this.roomShellGroup) this.roomShellGroup.visible = true;
-        if (this.legacyPropsGroup) this.legacyPropsGroup.visible = true;
-        if (this.issInteriorModelGroup) this.issInteriorModelGroup.visible = false;
-        if (this.isInteriorActive && !this.isMoonLandingActive) {
-          this._setInteriorTitle("ISS INTERIOR MODEL UNAVAILABLE · CURRENT INTERIOR ACTIVE");
-        }
-        console.warn("Could not load the ISS interior model; using the procedural interior:", error);
-        throw error;
-      });
-
-      return this.issInteriorModelPromise;
-    }
-
-    _buildISSInteriorBacking() {
+    _buildISSInterior() {
       const THREE = window.THREE;
       const group = new THREE.Group();
-      group.name = "ISS_Interior_Gap_Backing";
-      const step = 0.5;
+      group.name = "ISS_Interior_Constructed_Modules";
+      const step = 1.0;
       const cells = new Set();
       const key = (x, z) => `${x},${z}`;
-      for (let x = -17; x <= 25; x++) {
-        for (let z = -13; z <= 81; z++) {
+      for (let x = -11; x <= 12; x++) {
+        for (let z = -7; z <= 49; z++) {
           const cx = (x + 0.5) * step, cz = (z + 0.5) * step;
           if (ISS_WALK_ZONES.some((zone) => cx >= zone.xMin - 0.5 && cx <= zone.xMax + 0.5 && cz >= zone.zMin - 0.5 && cz <= zone.zMax + 0.5)) {
             cells.add(key(x, z));
           }
         }
       }
-      const floors = [], ceilings = [], eastWest = [], northSouth = [];
+      const floors = [], ceilings = [], eastWest = [], northSouth = [], wallFixtures = [], wallSurfaces = [], chamferX = [], chamferZ = [];
       cells.forEach((cell) => {
         const [x, z] = cell.split(",").map(Number);
         const cx = (x + 0.5) * step, cz = (z + 0.5) * step;
         floors.push([cx, -0.09, cz]);
         ceilings.push([cx, 2.85, cz]);
-        if (!cells.has(key(x - 1, z))) eastWest.push([cx - step / 2, 1.38, cz]);
-        if (!cells.has(key(x + 1, z))) eastWest.push([cx + step / 2, 1.38, cz]);
-        if (!cells.has(key(x, z - 1))) northSouth.push([cx, 1.38, cz - step / 2]);
-        if (!cells.has(key(x, z + 1))) northSouth.push([cx, 1.38, cz + step / 2]);
+        if (!cells.has(key(x - 1, z))) {
+          eastWest.push([cx - step / 2, 1.38, cz]);
+          chamferX.push({ x: cx - step / 2 + 0.19, z: cz, inward: 1 });
+          wallSurfaces.push({ x: cx - step / 2 + 0.05, z: cz, rotation: Math.PI / 2 });
+          if ((z + 100) % 3 === 0) wallFixtures.push({ x: cx - step / 2 - 0.05, z: cz, rotation: Math.PI / 2 });
+        }
+        // The outer end of Tranquility has an observation opening. Its
+        // collision boundary remains inside the glazing.
+        if (!cells.has(key(x + 1, z)) && !(cx + step / 2 === 12 && cz >= 7 && cz < 9)) {
+          eastWest.push([cx + step / 2, 1.38, cz]);
+          chamferX.push({ x: cx + step / 2 - 0.19, z: cz, inward: -1 });
+          wallSurfaces.push({ x: cx + step / 2 - 0.05, z: cz, rotation: -Math.PI / 2 });
+          if ((z + 100) % 3 === 1) wallFixtures.push({ x: cx + step / 2 + 0.05, z: cz, rotation: -Math.PI / 2 });
+        }
+        if (!cells.has(key(x, z - 1))) {
+          northSouth.push([cx, 1.38, cz - step / 2]);
+          chamferZ.push({ x: cx, z: cz - step / 2 + 0.19, inward: 1 });
+          wallSurfaces.push({ x: cx, z: cz - step / 2 + 0.05, rotation: 0 });
+          if ((x + 100) % 3 === 0) wallFixtures.push({ x: cx, z: cz - step / 2 - 0.05, rotation: 0 });
+        }
+        if (!cells.has(key(x, z + 1))) {
+          northSouth.push([cx, 1.38, cz + step / 2]);
+          chamferZ.push({ x: cx, z: cz + step / 2 - 0.19, inward: -1 });
+          wallSurfaces.push({ x: cx, z: cz + step / 2 - 0.05, rotation: Math.PI });
+          if ((x + 100) % 3 === 1) wallFixtures.push({ x: cx, z: cz + step / 2 + 0.05, rotation: Math.PI });
+        }
       });
       const textures = getInteriorTextures();
       const makePanels = (size, positions, color, map) => {
@@ -2191,57 +1358,526 @@
         mesh.frustumCulled = false;
         group.add(mesh);
       };
-      makePanels([step, 0.12, step], floors, 0xaeb7ba, textures.floor);
+      makePanels([step, 0.12, step], floors, 0xd0d6d7, createISSDeckTexture());
+      const deckTracks = floors.filter(([x, , z]) => Math.abs(Math.round(z - 0.5)) % 3 === 1);
+      makePanels([step * 0.94, 0.018, 0.035], deckTracks.map(([x, , z]) => [x, -0.022, z]), 0x405c6c, null);
       makePanels([step, 0.12, step], ceilings, 0xb8c2c5, textures.ceiling);
-      makePanels([0.08, 2.9, step], eastWest, 0xb8c2c5, textures.wall);
-      makePanels([step, 2.9, 0.08], northSouth, 0xb8c2c5, textures.wall);
+      makePanels([0.08, 2.9, step], eastWest, 0xaab6bc, textures.wall);
+      makePanels([step, 2.9, 0.08], northSouth, 0xaab6bc, textures.wall);
+
+      // Sloped panels soften the box-shaped collision shell into a modular
+      // pressure-vessel interior while staying outside the walkable center.
+      const addChamfers = (segments, alongX) => {
+        const geometry = new THREE.BoxGeometry(alongX ? 0.55 : step, 0.08, alongX ? step : 0.55);
+        const material = new THREE.MeshStandardMaterial({ map: textures.corner, color: 0xb9c4bf, roughness: 0.78, metalness: 0.16 });
+        const mesh = new THREE.InstancedMesh(geometry, material, segments.length * 2);
+        const transform = new THREE.Object3D();
+        segments.forEach((segment, index) => {
+          [0.25, 2.55].forEach((height, layer) => {
+            transform.position.set(segment.x, height, segment.z);
+            transform.rotation.set(alongX ? 0 : segment.inward * (layer ? -1 : 1) * Math.PI / 4, 0,
+              alongX ? segment.inward * (layer ? 1 : -1) * Math.PI / 4 : 0);
+            transform.updateMatrix();
+            mesh.setMatrixAt(index * 2 + layer, transform.matrix);
+          });
+        });
+        mesh.instanceMatrix.needsUpdate = true;
+        mesh.frustumCulled = false;
+        group.add(mesh);
+      };
+      addChamfers(chamferX, true);
+      addChamfers(chamferZ, false);
+      const cornerRuns = [...chamferX.map((segment) => ({ ...segment, alongX: true })),
+        ...chamferZ.map((segment) => ({ ...segment, alongX: false }))];
+      const cornerPipes = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.018, 0.018, 0.96, 6),
+        new THREE.MeshStandardMaterial({ color: 0x667f86, roughness: 0.58, metalness: 0.36 }), cornerRuns.length * 2);
+      const cornerTransform = new THREE.Object3D();
+      cornerRuns.forEach((segment, index) => {
+        [0.31, 2.50].forEach((height, layer) => {
+          cornerTransform.position.set(segment.x + (segment.alongX ? segment.inward * 0.08 : 0), height,
+            segment.z + (segment.alongX ? 0 : segment.inward * 0.08));
+          cornerTransform.rotation.set(segment.alongX ? Math.PI / 2 : 0, 0, segment.alongX ? 0 : Math.PI / 2);
+          cornerTransform.updateMatrix();
+          cornerPipes.setMatrixAt(index * 2 + layer, cornerTransform.matrix);
+        });
+      });
+      cornerPipes.instanceMatrix.needsUpdate = true;
+      cornerPipes.frustumCulled = false;
+      group.add(cornerPipes);
+
+      // Rails and structural seams follow the same outer boundary as the
+      // collision volumes, leaving junctions open between connected modules.
+      const handrails = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.026, 0.026, step * 0.96, 8),
+        new THREE.MeshStandardMaterial({ color: 0x48758d, roughness: 0.54, metalness: 0.38 }), wallSurfaces.length * 2);
+      const railTransform = new THREE.Object3D();
+      wallSurfaces.forEach((surface, index) => {
+        [0.95, 2.28].forEach((height, row) => {
+          railTransform.position.set(surface.x + Math.sin(surface.rotation) * 0.13, height,
+            surface.z + Math.cos(surface.rotation) * 0.13);
+          railTransform.rotation.set(0, surface.rotation, Math.PI / 2);
+          railTransform.updateMatrix();
+          handrails.setMatrixAt(index * 2 + row, railTransform.matrix);
+        });
+      });
+      handrails.instanceMatrix.needsUpdate = true;
+      handrails.frustumCulled = false;
+      group.add(handrails);
+
+      // ISS labs use the perimeter for equipment and cargo on all sides.
+      // Instancing the photographic rack variants keeps the dense treatment
+      // affordable and leaves the modelled fixtures and handrails in front.
+      const atlas = getPayloadAtlasState();
+      const surfaceGroups = [[], [], [], []];
+      wallSurfaces.forEach((surface, index) => {
+        if (index % 7 === 0) return; // leave a few structural panels visible
+        const hash = Math.abs(Math.round(surface.x * 17 + surface.z * 29 + surface.rotation * 13));
+        [0, 1].forEach((row) => {
+          // Zarya and Zvezda carry more fabric stowage and systems hardware
+          // than the US laboratory racks at the other end of the station.
+          const variant = surface.z > 12 ? 2 + ((hash + row) % 2) : (hash + row) % surfaceGroups.length;
+          surfaceGroups[variant].push({ ...surface, y: 0.88 + row * 1.04, depth: 0.07 + ((hash + row) % 4) * 0.045 });
+        });
+      });
+      // Shallow, individually fitted payload drawers sit over the pressure
+      // shell. Their varied depths give the photographic faces real edges.
+      const fittedPanels = surfaceGroups.flat();
+      const panelBodies = new THREE.InstancedMesh(new THREE.BoxGeometry(0.92, 1.03, 1),
+        new THREE.MeshStandardMaterial({ color: 0x9ca9a8, roughness: 0.78, metalness: 0.2 }), fittedPanels.length);
+      const panelTransform = new THREE.Object3D();
+      fittedPanels.forEach((surface, index) => {
+        panelTransform.position.set(surface.x + Math.sin(surface.rotation) * surface.depth / 2, surface.y,
+          surface.z + Math.cos(surface.rotation) * surface.depth / 2);
+        panelTransform.rotation.set(0, surface.rotation, 0);
+        panelTransform.scale.set(1, 1, surface.depth);
+        panelTransform.updateMatrix();
+        panelBodies.setMatrixAt(index, panelTransform.matrix);
+      });
+      panelBodies.instanceMatrix.needsUpdate = true;
+      panelBodies.frustumCulled = false;
+      group.add(panelBodies);
+      const rackUprights = wallSurfaces.filter((surface, index) => index % 2 === 0);
+      const rackRails = new THREE.InstancedMesh(new THREE.BoxGeometry(0.035, 2.18, 0.055),
+        new THREE.MeshStandardMaterial({ color: 0x6c8185, roughness: 0.55, metalness: 0.35 }), rackUprights.length);
+      const uprightTransform = new THREE.Object3D();
+      rackUprights.forEach((surface, index) => {
+        const across = -0.46, outward = 0.24;
+        uprightTransform.position.set(surface.x + Math.cos(surface.rotation) * across + Math.sin(surface.rotation) * outward, 1.4,
+          surface.z - Math.sin(surface.rotation) * across + Math.cos(surface.rotation) * outward);
+        uprightTransform.rotation.set(0, surface.rotation, 0);
+        uprightTransform.updateMatrix();
+        rackRails.setMatrixAt(index, uprightTransform.matrix);
+      });
+      rackRails.instanceMatrix.needsUpdate = true;
+      rackRails.frustumCulled = false;
+      group.add(rackRails);
+      const surfaceGeometry = new THREE.PlaneGeometry(0.88, 0.99);
+      surfaceGroups.forEach((surfaces, variant) => {
+        if (!surfaces.length) return;
+        const mesh = new THREE.InstancedMesh(surfaceGeometry, atlas.materials[variant], surfaces.length);
+        const transform = new THREE.Object3D();
+        surfaces.forEach((surface, index) => {
+          transform.position.set(surface.x + Math.sin(surface.rotation) * (surface.depth + 0.006), surface.y,
+            surface.z + Math.cos(surface.rotation) * (surface.depth + 0.006));
+          transform.rotation.set(0, surface.rotation, 0);
+          transform.updateMatrix();
+          mesh.setMatrixAt(index, transform.matrix);
+        });
+        mesh.instanceMatrix.needsUpdate = true;
+        mesh.frustumCulled = false;
+        mesh.visible = atlas.loaded;
+        if (!atlas.loaded) atlas.surfaces.push(mesh);
+        group.add(mesh);
+      });
+
+      // Overhead equipment is normal aboard the ISS; a clear center aisle and
+      // the existing light fixtures keep it navigable in this walking version.
+      const overheadGroups = [[], [], [], []];
+      ceilings.forEach(([x, , z], index) => {
+        if (index % 9 === 0) return;
+        const hash = Math.abs(Math.round(x * 11 + z * 7));
+        overheadGroups[z > 12 ? 2 + (hash % 2) : hash % overheadGroups.length].push([x, z]);
+      });
+      const overheadGeometry = new THREE.PlaneGeometry(0.9, 0.9);
+      overheadGroups.forEach((surfaces, variant) => {
+        if (!surfaces.length) return;
+        const mesh = new THREE.InstancedMesh(overheadGeometry, atlas.materials[variant], surfaces.length);
+        const transform = new THREE.Object3D();
+        surfaces.forEach(([x, z], index) => {
+          transform.position.set(x, 2.78, z);
+          transform.rotation.set(Math.PI / 2, 0, 0);
+          transform.updateMatrix();
+          mesh.setMatrixAt(index, transform.matrix);
+        });
+        mesh.instanceMatrix.needsUpdate = true;
+        mesh.frustumCulled = false;
+        mesh.visible = atlas.loaded;
+        if (!atlas.loaded) atlas.surfaces.push(mesh);
+        group.add(mesh);
+      });
+
+      group.add(buildEquipmentCables(wallSurfaces.filter((surface, index) => index % 7 !== 0), ceilings));
+
+      // Instrument racks and strapped cargo line the perimeter on every side,
+      // with their backs inside the wall so the center route stays clear.
+      const rackFixtures = [], bagFixtures = [];
+      wallFixtures.forEach((fixture, index) => {
+        rackFixtures.push({ position: [fixture.x, 0, fixture.z], rotation: [0, fixture.rotation, 0], label: `ISPR-${String(index + 1).padStart(2, "0")}` });
+        if (index % 2 === 0) {
+          bagFixtures.push({ position: [fixture.x, 1.88, fixture.z], rotation: [0, fixture.rotation, 0], scale: 0.7, offset: 0.22 });
+        }
+        if (fixture.z > 12 && index % 3 !== 1) {
+          bagFixtures.push({ position: [fixture.x, 0.67, fixture.z], rotation: [0, fixture.rotation, 0], scale: 0.88, offset: 0.22 });
+          if (index % 3 === 0) bagFixtures.push({ position: [fixture.x, 1.15, fixture.z], rotation: [0, fixture.rotation, 0], scale: 0.75, offset: 0.22 });
+        }
+      });
+      wallSurfaces.forEach((surface, index) => {
+        const seed = Math.abs(Math.round(surface.x * 41 + surface.z * 73 + surface.rotation * 17));
+        if (index % 7 === 0 || seed % 4 !== 0) return;
+        const nearConsole = Object.values(ISS_STATION_LAYOUT).some(({ position }) =>
+          Math.hypot(surface.x - position[0], surface.z - position[2]) < 0.95
+        );
+        if (nearConsole) return;
+        bagFixtures.push({
+          position: [surface.x, 0.45 + (seed % 3) * 0.48, surface.z],
+          rotation: [0, surface.rotation, ((seed % 5) - 2) * 0.035],
+          scale: 0.72 + (seed % 3) * 0.07,
+          offset: 0.26
+        });
+      });
+
+      const rimMat = new THREE.MeshStandardMaterial({ color: 0x76858e, metalness: 0.58, roughness: 0.38 });
+      const innerRimMat = new THREE.MeshStandardMaterial({ color: 0xd2dce0, metalness: 0.25, roughness: 0.5 });
+      const statusMat = new THREE.MeshStandardMaterial({ color: 0x65e6ba, emissive: 0x28b68a, emissiveIntensity: 0.8 });
+      const hatch = (x, z, alongX, code, label) => {
+        const portal = new THREE.Group();
+        portal.position.set(x, 1.08, z);
+        if (alongX) portal.rotation.y = Math.PI / 2;
+        const halfWidth = alongX ? 2 : 1.55;
+        const shell = new THREE.Shape();
+        shell.moveTo(-halfWidth, -1.08);
+        shell.lineTo(halfWidth, -1.08);
+        shell.lineTo(halfWidth, 1.77);
+        shell.lineTo(-halfWidth, 1.77);
+        shell.closePath();
+        const opening = new THREE.Path();
+        opening.absarc(0, 0, 1.08, 0, Math.PI * 2, true);
+        shell.holes.push(opening);
+        const pressureWall = new THREE.Mesh(new THREE.ShapeGeometry(shell, 32),
+          new THREE.MeshStandardMaterial({ color: 0xb9c5c8, roughness: 0.68, metalness: 0.18, side: THREE.DoubleSide }));
+        pressureWall.position.z = -0.04;
+        portal.add(pressureWall);
+        const outer = new THREE.Mesh(new THREE.TorusGeometry(1.18, 0.085, 8, 32), rimMat);
+        const inner = new THREE.Mesh(new THREE.TorusGeometry(1.06, 0.035, 8, 32), innerRimMat);
+        portal.add(outer, inner);
+        const gasket = new THREE.Mesh(new THREE.TorusGeometry(1.095, 0.025, 8, 32),
+          new THREE.MeshStandardMaterial({ color: 0x273d49, roughness: 0.75 }));
+        gasket.position.z = 0.075;
+        portal.add(gasket);
+        const boltGeometry = new THREE.SphereGeometry(0.027, 6, 4);
+        const boltMaterial = new THREE.MeshStandardMaterial({ color: 0x465962, metalness: 0.65, roughness: 0.35 });
+        const bolts = new THREE.InstancedMesh(boltGeometry, boltMaterial, 12);
+        const hatchTransform = new THREE.Object3D();
+        for (let index = 0; index < 12; index++) {
+          const angle = index * Math.PI / 6;
+          hatchTransform.position.set(Math.cos(angle) * 1.22, Math.sin(angle) * 1.22, 0.08);
+          hatchTransform.updateMatrix();
+          bolts.setMatrixAt(index, hatchTransform.matrix);
+        }
+        bolts.instanceMatrix.needsUpdate = true;
+        bolts.frustumCulled = false;
+        portal.add(bolts);
+        const latches = new THREE.InstancedMesh(new THREE.BoxGeometry(0.14, 0.07, 0.10),
+          new THREE.MeshStandardMaterial({ color: 0x566970, roughness: 0.52, metalness: 0.42 }), 8);
+        for (let index = 0; index < 8; index++) {
+          const angle = Math.PI / 8 + index * Math.PI / 4;
+          hatchTransform.position.set(Math.cos(angle) * 1.22, Math.sin(angle) * 1.22, 0.08);
+          hatchTransform.rotation.set(0, 0, angle);
+          hatchTransform.updateMatrix();
+          latches.setMatrixAt(index, hatchTransform.matrix);
+        }
+        latches.instanceMatrix.needsUpdate = true;
+        latches.frustumCulled = false;
+        portal.add(latches);
+        hatchTransform.rotation.set(0, 0, 0);
+        const bulkheadMat = new THREE.MeshStandardMaterial({ color: 0xa8b8bf, metalness: 0.25, roughness: 0.6 });
+        const jambs = new THREE.InstancedMesh(new THREE.BoxGeometry(0.25, 2.55, 0.24), bulkheadMat, 2);
+        const grips = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.035, 0.035, 1.05, 8),
+          new THREE.MeshStandardMaterial({ color: 0x4e7c94, roughness: 0.54, metalness: 0.35 }), 2);
+        [-1.33, 1.33].forEach((side, index) => {
+          hatchTransform.position.set(side, 0.02, 0);
+          hatchTransform.updateMatrix();
+          jambs.setMatrixAt(index, hatchTransform.matrix);
+          hatchTransform.position.set(side, 0.05, 0.17);
+          hatchTransform.updateMatrix();
+          grips.setMatrixAt(index, hatchTransform.matrix);
+        });
+        jambs.instanceMatrix.needsUpdate = true;
+        grips.instanceMatrix.needsUpdate = true;
+        jambs.frustumCulled = false;
+        grips.frustumCulled = false;
+        portal.add(jambs, grips);
+        const header = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.18, 0.24), bulkheadMat);
+        header.position.set(0, 1.25, 0);
+        portal.add(header);
+        const indicator = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.07, 0.07), statusMat);
+        indicator.position.set(0.86, 0.9, 0);
+        portal.add(indicator);
+        const signMaterial = new THREE.MeshBasicMaterial({ map: createSignTexture(code, label), transparent: true });
+        const signs = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.78, 0.16), signMaterial, 2);
+        [0.14, -0.14].forEach((depth, index) => {
+          hatchTransform.position.set(0, 1.25, depth);
+          hatchTransform.rotation.set(0, index ? Math.PI : 0, 0);
+          hatchTransform.updateMatrix();
+          signs.setMatrixAt(index, hatchTransform.matrix);
+        });
+        signs.instanceMatrix.needsUpdate = true;
+        signs.frustumCulled = false;
+        portal.add(signs);
+        if (!alongX && (code === "NODE 1" || code === "NODE 2")) {
+          const leaf = new THREE.Group();
+          leaf.position.set(-1.42, 0, -0.95);
+          leaf.rotation.y = Math.PI / 2;
+          const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.92, 0.92, 0.075, 32),
+            new THREE.MeshStandardMaterial({ color: 0xb7c2bf, roughness: 0.62, metalness: 0.25 }));
+          plate.rotation.x = Math.PI / 2;
+          leaf.add(plate);
+          const seal = new THREE.Mesh(new THREE.TorusGeometry(0.86, 0.04, 8, 32), rimMat);
+          seal.position.z = 0.045;
+          leaf.add(seal);
+          const windowRim = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.025, 8, 24), rimMat);
+          windowRim.position.set(0, 0.18, 0.05);
+          leaf.add(windowRim);
+          const windowGlass = new THREE.Mesh(new THREE.CircleGeometry(0.16, 24),
+            new THREE.MeshStandardMaterial({ color: 0x263c45, roughness: 0.22, metalness: 0.4 }));
+          windowGlass.position.set(0, 0.18, 0.055);
+          leaf.add(windowGlass);
+          const handle = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.045, 0.08),
+            new THREE.MeshStandardMaterial({ color: 0x526c79, roughness: 0.5, metalness: 0.5 }));
+          handle.position.set(0, -0.3, 0.08);
+          leaf.add(handle);
+          const caution = new THREE.Mesh(new THREE.PlaneGeometry(0.28, 0.08),
+            new THREE.MeshBasicMaterial({ map: createSignTexture("HATCH", "PRESSURE SEAL") }));
+          caution.position.set(0, -0.57, 0.05);
+          leaf.add(caution);
+          portal.add(leaf);
+        }
+        group.add(portal);
+      };
+      hatch(0, -0.4, false, "NODE 2", "HARMONY");
+      hatch(0, 6.6, false, "NODE 1", "UNITY");
+      hatch(0, 12, false, "FGB", "ZARYA");
+      hatch(0, 23, false, "FGB", "ZARYA TRANSFER");
+      hatch(0, 33, false, "SM", "ZVEZDA");
+      hatch(0, 46.5, false, "AFT", "DOCKING PORT");
+      hatch(3.5, -3.8, true, "LAB", "KIBO");
+      hatch(3.5, 8, true, "NODE 3", "TRANQUILITY");
+      hatch(-3.2, -3.8, true, "LAB", "COLUMBUS");
+      hatch(-4.5, 8.5, true, "AIRLOCK", "QUEST");
+      hatch(-7.2, 8.5, true, "QUEST", "CREW LOCK");
+
+      const modulePlacard = (text, description, position, rotation) => {
+        const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.28),
+          new THREE.MeshBasicMaterial({ map: createSignTexture(text, description), transparent: true, side: THREE.DoubleSide }));
+        sign.position.set(...position);
+        sign.rotation.y = rotation;
+        group.add(sign);
+      };
+      modulePlacard("NASA", "DESTINY LABORATORY", [-1.48, 2.35, 4], Math.PI / 2);
+      modulePlacard("ESA", "COLUMBUS LABORATORY", [-4.7, 2.35, -5.45], 0);
+      modulePlacard("JAXA", "KIBO LABORATORY", [7, 2.35, -5.45], 0);
+      modulePlacard("NODE 1", "UNITY", [-3.7, 2.35, 11.45], Math.PI);
+      modulePlacard("QUEST", "EQUIPMENT LOCK", [-6, 2.35, 6.55], 0);
+      modulePlacard("NODE 3", "TRANQUILITY", [5, 2.35, 10.45], Math.PI);
+      modulePlacard("FGB", "ZARYA", [1.48, 2.35, 18], -Math.PI / 2);
+      modulePlacard("SM", "ZVEZDA", [1.48, 2.35, 40], -Math.PI / 2);
+
+      // Radial ports in the reference connect downward to other modules.
+      // They are represented as closed deck hatches in the walking layout.
+      const radialPort = (z, name) => {
+        const hatchGroup = new THREE.Group();
+        hatchGroup.position.set(0, -0.005, z);
+        const cover = new THREE.Mesh(new THREE.CircleGeometry(0.57, 32),
+          new THREE.MeshStandardMaterial({ color: 0x9eafb4, roughness: 0.72, metalness: 0.25 }));
+        cover.rotation.x = -Math.PI / 2;
+        hatchGroup.add(cover);
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(0.57, 0.035, 8, 32), rimMat);
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.y = 0.012;
+        hatchGroup.add(ring);
+        const label = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.13),
+          new THREE.MeshBasicMaterial({ map: createSignTexture(name, "RADIAL PORT") }));
+        label.rotation.x = -Math.PI / 2;
+        label.position.y = 0.02;
+        hatchGroup.add(label);
+        group.add(hatchGroup);
+      };
+      radialPort(18, "RASSVET");
+      radialPort(32, "NAUKA");
+
+      // Cupola-inspired seven-pane observation window at the end of the
+      // Tranquility branch. A separate view sphere supplies the Earth vista.
+      const cupola = new THREE.Group();
+      cupola.name = "Cupola_Observation_Window";
+      cupola.position.set(11.96, 1.45, 8);
+      cupola.rotation.y = -Math.PI / 2;
+      const windowFrame = new THREE.MeshStandardMaterial({ color: 0x687c88, metalness: 0.55, roughness: 0.4 });
+      const glass = new THREE.MeshBasicMaterial({ color: 0xaacde1, transparent: true, opacity: 0.12, depthWrite: false, side: THREE.DoubleSide });
+      const cupolaPanel = new THREE.Shape();
+      cupolaPanel.moveTo(-1, -1.45);
+      cupolaPanel.lineTo(1, -1.45);
+      cupolaPanel.lineTo(1, 1.45);
+      cupolaPanel.lineTo(-1, 1.45);
+      cupolaPanel.closePath();
+      const centerHole = new THREE.Path();
+      centerHole.absarc(0, 0, 0.35, 0, Math.PI * 2, true);
+      cupolaPanel.holes.push(centerHole);
+      const sideWindows = [];
+      for (let index = 0; index < 6; index++) {
+        const start = index * Math.PI / 3 + 0.055;
+        const end = (index + 1) * Math.PI / 3 - 0.055;
+        const point = (radius, angle) => new THREE.Vector2(Math.cos(angle) * radius, Math.sin(angle) * radius);
+        const corners = [point(0.46, start), point(0.96, start), point(0.96, end), point(0.46, end)];
+        sideWindows.push(corners);
+        const hole = new THREE.Path();
+        corners.slice().reverse().forEach((corner, cornerIndex) => {
+          if (cornerIndex === 0) hole.moveTo(corner.x, corner.y);
+          else hole.lineTo(corner.x, corner.y);
+        });
+        hole.closePath();
+        cupolaPanel.holes.push(hole);
+      }
+      const windowPanel = new THREE.Mesh(new THREE.ShapeGeometry(cupolaPanel, 32),
+        new THREE.MeshStandardMaterial({ color: 0xa8b9c0, roughness: 0.6, metalness: 0.25, side: THREE.DoubleSide }));
+      windowPanel.position.z = -0.025;
+      cupola.add(windowPanel);
+      const centerRim = new THREE.Mesh(new THREE.TorusGeometry(0.37, 0.045, 8, 32), windowFrame);
+      centerRim.position.z = -0.35;
+      cupola.add(centerRim);
+      const centerGlass = new THREE.Mesh(new THREE.CircleGeometry(0.35, 32), glass);
+      centerGlass.position.z = -0.35;
+      cupola.add(centerGlass);
+      sideWindows.forEach((corners) => {
+        // The central pane sits farther outside the module, giving the six
+        // side panes the sloped profile of the observation cupola.
+        const vertices = corners.map((corner, index) => new THREE.Vector3(corner.x, corner.y, index === 0 || index === 3 ? -0.35 : 0));
+        const paneGeometry = new THREE.BufferGeometry();
+        paneGeometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices.flatMap((point) => [point.x, point.y, point.z]), 3));
+        paneGeometry.setIndex([0, 1, 2, 0, 2, 3]);
+        paneGeometry.computeVertexNormals();
+        const pane = new THREE.Mesh(paneGeometry, glass);
+        cupola.add(pane);
+        vertices.forEach((start, index) => {
+          const end = vertices[(index + 1) % vertices.length];
+          const direction = new THREE.Vector3().subVectors(end, start);
+          const frame = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, direction.length(), 8), windowFrame);
+          frame.position.copy(start).add(end).multiplyScalar(0.5);
+          frame.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize());
+          cupola.add(frame);
+        });
+      });
+      const windowSign = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.16), new THREE.MeshBasicMaterial({ map: createSignTexture("CUPOLA", "EARTH OBSERVATION"), transparent: true, side: THREE.DoubleSide }));
+      windowSign.position.set(0, 1.2, 0.02);
+      cupola.add(windowSign);
+      group.add(cupola);
+      const earthTexture = new THREE.TextureLoader().load("textures/earth/earth_day_4096.jpg");
+      earthTexture.encoding = THREE.sRGBEncoding;
+      const earth = new THREE.Mesh(new THREE.SphereGeometry(14, 64, 48), new THREE.MeshBasicMaterial({ map: earthTexture }));
+      earth.position.set(27.5, 1.1, 8);
+      earth.rotation.y = 1.4;
+      group.add(earth);
+      const cloudTexture = new THREE.TextureLoader().load("textures/earth/earth_clouds_2048.png");
+      cloudTexture.encoding = THREE.sRGBEncoding;
+      const clouds = new THREE.Mesh(new THREE.SphereGeometry(14.03, 64, 48),
+        new THREE.MeshBasicMaterial({ map: cloudTexture, transparent: true, opacity: 0.72, depthWrite: false }));
+      clouds.position.copy(earth.position);
+      clouds.rotation.y = earth.rotation.y;
+      group.add(clouds);
+
+      // Equipment is mounted outside the walkable center line so astronauts
+      // and the third-person camera can move through the same clear passage.
+      const rackZ = [2.8, 5, 14.5, 17.5, 20.5, 23.5, 27, 30, 34, 37, 40, 43, 47];
+      rackZ.forEach((z, index) => {
+        [-1, 1].forEach((side) => {
+          rackFixtures.push({
+            position: [side * 1.55, 0, z],
+            rotation: [0, side < 0 ? Math.PI / 2 : -Math.PI / 2, 0],
+            label: `${side < 0 ? "SYS" : "EXP"}-${String(index + 1).padStart(2, "0")}`
+          });
+          if (index % 2 === 0) {
+            bagFixtures.push({ position: [side * 1.57, 1.88, z], rotation: [0, side < 0 ? Math.PI / 2 : -Math.PI / 2, 0], scale: 0.65, offset: 0.05 });
+          }
+        });
+      });
+      [-5.8, -4.4, 4.8, 6.4, 8, 9.6].forEach((x, index) => {
+        rackFixtures.push({ position: [x, 0, -5.45], label: `LAB-${index + 1}` });
+        bagFixtures.push({ position: [x, 1.88, -5.46], scale: 0.65, offset: 0.18 });
+      });
+      [4.8, 6.4, 8, 9.6].forEach((x, index) => {
+        rackFixtures.push({ position: [x, 0, 10.35], rotation: [0, Math.PI, 0], label: `CREW-${index + 1}` });
+      });
+      group.add(buildEquipmentFixtures(rackFixtures, bagFixtures));
+      group.add(buildRackElectronics(wallFixtures));
+      group.add(buildScienceGlovebox([-1.72, 0, 4.15]));
+      group.add(buildAirlockPanel([-5.9, 0, 6.65]));
+      group.add(buildAirlockPanel([-8.2, 0, 6.65]));
+
+      // Bundled conduits run along the module ceiling, as in the reference,
+      // while leaving the hatch centers and the walking path clear.
+      [0x467b91, 0xd9b66e, 0xd7e0e1].forEach((color, index) => {
+        [-1, 1].forEach((side) => {
+          const conduit = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.025, 0.025, 48, 8),
+            new THREE.MeshStandardMaterial({ color, roughness: 0.48, metalness: 0.3 })
+          );
+          conduit.rotation.x = Math.PI / 2;
+          conduit.position.set(side * (0.68 + index * 0.08), 2.66, 24.5);
+          group.add(conduit);
+        });
+      });
+
+      const lightMat = new THREE.MeshStandardMaterial({ color: 0xeaf5ff, emissive: 0xd5eaff, emissiveIntensity: 0.85 });
+      const lightHousing = new THREE.MeshStandardMaterial({ color: 0x56646d, roughness: 0.5, metalness: 0.3 });
+      const lightPositions = [
+        [0, 2.76, -3.5, false], [0, 2.76, 2.5, false], [0, 2.76, 8.5, false],
+        [0, 2.76, 15, false], [0, 2.76, 22, false], [0, 2.76, 29, false],
+        [0, 2.76, 36, false], [0, 2.76, 43, false], [0, 2.76, 48, false],
+        [-4.5, 2.76, -3.8, true], [7, 2.76, -3.8, true], [7, 2.76, 8, true]
+      ];
+      lightPositions.forEach(([x, y, z, alongX]) => {
+        [-1, 1].forEach((side) => {
+          const housing = new THREE.Mesh(new THREE.BoxGeometry(alongX ? 1.25 : 0.18, 0.06, alongX ? 0.18 : 1.25), lightHousing);
+          housing.position.set(x + (alongX ? 0 : side * 1.02), y, z + (alongX ? side * 1.02 : 0));
+          group.add(housing);
+          const diffuser = new THREE.Mesh(new THREE.BoxGeometry(alongX ? 1.12 : 0.12, 0.025, alongX ? 0.12 : 1.12), lightMat);
+          diffuser.position.set(housing.position.x, y - 0.045, housing.position.z);
+          group.add(diffuser);
+        });
+        const light = new THREE.PointLight(0xe4f3ff, 0.9, 6.5, 1.7);
+        light.position.set(x, y - 0.3, z);
+        group.add(light);
+      });
       return group;
     }
 
     _applyISSStationLayout() {
-      if (window.gameplay && Array.isArray(window.gameplay.tasks) && !this.fallbackTaskPositions) {
-        this.fallbackTaskPositions = window.gameplay.tasks.map((task) => task.pos.slice());
-      }
       Object.entries(ISS_STATION_LAYOUT).forEach(([id, layout]) => {
         const station = STATIONS[id];
         station.position = layout.position.slice();
         station.workPosition = layout.workPosition.slice();
-        const object = this.stationInteractionGroup.getObjectByName(id === "hub" ? "Hub_HoloTable" : `Console_${id}`);
+        const object = this.stationInteractionGroup.getObjectByName(`Console_${id}`);
         if (object) {
           object.position.set(layout.position[0], 0, layout.position[2]);
-          object.scale.setScalar(0.55);
+          object.rotation.y = Math.atan2(layout.workPosition[0] - layout.position[0], layout.workPosition[2] - layout.position[2]);
+          object.scale.setScalar(1);
         }
-        const entry = this.stationEntries[id];
-        if (entry && entry.beacon) entry.beacon.group.position.set(layout.position[0], entry.beacon.baseY, layout.position[2]);
       });
       if (window.gameplay && Array.isArray(window.gameplay.tasks)) {
         window.gameplay.tasks.forEach((task) => {
           const layout = ISS_STATION_LAYOUT[task.stationId];
-          if (layout) task.pos = layout.workPosition.slice();
+          if (layout) task.pos = (ISS_TASK_WORK_POSITIONS[task.id] || layout.workPosition).slice();
         });
       }
       this._updateMinimapDOM();
-    }
-
-    _restoreFallbackStationLayout() {
-      Object.entries(this.fallbackStationLayout).forEach(([id, layout]) => {
-        const station = STATIONS[id];
-        station.position = layout.position.slice();
-        station.workPosition = layout.workPosition.slice();
-        const object = this.stationInteractionGroup && this.stationInteractionGroup.getObjectByName(id === "hub" ? "Hub_HoloTable" : `Console_${id}`);
-        if (object) {
-          object.position.set(layout.position[0], 0, layout.position[2]);
-          object.scale.setScalar(1);
-        }
-        const entry = this.stationEntries[id];
-        if (entry && entry.beacon) entry.beacon.group.position.set(layout.position[0], entry.beacon.baseY, layout.position[2]);
-      });
-      if (this.fallbackTaskPositions && window.gameplay && Array.isArray(window.gameplay.tasks)) {
-        window.gameplay.tasks.forEach((task, index) => {
-          if (this.fallbackTaskPositions[index]) task.pos = this.fallbackTaskPositions[index].slice();
-        });
-      }
-      this.fallbackTaskPositions = null;
     }
 
     _placeCrewOnISSWalkway() {
@@ -2257,267 +1893,44 @@
       crew.position.set(target.x, 0, target.z);
     }
 
-    _buildAllRoomsAndConnectors() {
+    _buildISSStationConsoles() {
       const THREE = window.THREE;
-      const textures = getInteriorTextures();
-
-      ROOMS.forEach((room) => {
-        const rg = new THREE.Group();
-        rg.name = `Room_${room.id}`;
-        const [cx, cz] = room.center;
-        const [width, depth] = room.size;
-
-        const floorMap = createTiledTexture(textures.floor, Math.max(1, width / 2.4), Math.max(1, depth / 2.4));
-        const ceilingMap = createTiledTexture(textures.ceiling, Math.max(1, width / 3), Math.max(1, depth / 3));
-
-        const floor = new THREE.Mesh(
-          new THREE.BoxGeometry(width, 0.14, depth),
-          new THREE.MeshStandardMaterial({ map: floorMap, color: 0xa2a7ab, roughness: 0.72, metalness: 0.34 })
-        );
-        floor.position.set(cx, -0.07, cz);
-        rg.add(floor);
-
-        const ceiling = new THREE.Mesh(
-          new THREE.BoxGeometry(width, 0.08, depth),
-          new THREE.MeshStandardMaterial({ map: ceilingMap, color: 0xd5d7d6, roughness: 0.7, metalness: 0.12 })
-        );
-        ceiling.position.set(cx, WALL_HEIGHT + 0.04, cz);
-        rg.add(ceiling);
-
-        const wallBoxes = computeRoomWallBoxes(room);
-        wallBoxes.forEach((box) => {
-          rg.add(buildPanelWall(box, room.center));
+      const keysMaterial = new THREE.MeshBasicMaterial({ map: createConsoleKeysTexture() });
+      Object.values(STATIONS).forEach((station) => {
+        const unit = new THREE.Group();
+        unit.name = `Console_${station.id}`;
+        const mount = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.88, 0.2),
+          new THREE.MeshStandardMaterial({ color: 0x8d9b9e, roughness: 0.7, metalness: 0.28 }));
+        mount.position.set(0, 1.18, -0.15);
+        unit.add(mount);
+        const shell = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.82, 0.22),
+          new THREE.MeshStandardMaterial({ color: 0xc0c8c6, roughness: 0.68, metalness: 0.2 }));
+        shell.position.y = 1.18;
+        unit.add(shell);
+        const bezel = new THREE.Mesh(new THREE.BoxGeometry(0.61, 0.38, 0.06),
+          new THREE.MeshStandardMaterial({ color: 0x192834, roughness: 0.48, metalness: 0.25 }));
+        bezel.position.set(0, 1.25, 0.13);
+        unit.add(bezel);
+        const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.48, 0.29),
+          new THREE.MeshBasicMaterial({ map: createConsoleScreenTexture(station) }));
+        screen.position.set(0, 1.25, 0.165);
+        unit.add(screen);
+        const indicatorMat1 = new THREE.MeshStandardMaterial({ color: 0xfb7185, emissive: 0xfb7185, emissiveIntensity: 0.9 });
+        const indicatorMat2 = new THREE.MeshStandardMaterial({ color: 0xfb7185, emissive: 0xfb7185, emissiveIntensity: 0.9 });
+        [indicatorMat1, indicatorMat2].forEach((material, index) => {
+          const indicator = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.025, 0.02), material);
+          indicator.position.set(-0.15 + index * 0.30, 1.01, 0.125);
+          unit.add(indicator);
         });
-
-        const doorFrames = [];
-        room.doors.forEach((side) => {
-          const df = buildDoorFrame(room, side);
-          rg.add(df.group);
-          doorFrames.push(df);
-        });
-
-        const ceilingLights = buildCeilingLights(room.center);
-        rg.add(ceilingLights.group);
-
-        rg.add(buildFloorDetails(room));
-
-        if (room.id === "command") {
-          const cupola = buildCupolaWindow([cx, 1.975, cz - depth / 2 + 0.02]);
-          rg.add(cupola.group);
-        }
-
-        this.roomVisuals[room.id] = { doorFrames, ceilingLights, hasFault: false };
-        this.group.add(rg);
-      });
-
-      CONNECTORS.forEach((conn) => {
-        this.group.add(buildConnector(conn));
-      });
-    }
-
-    _buildHoloTable() {
-      const THREE = window.THREE;
-      const g = new THREE.Group();
-      g.name = "Hub_HoloTable";
-      g.position.set(STATIONS.hub.position[0], 0, STATIONS.hub.position[2]);
-
-      const pedestal = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.95, 1.12, 0.68, 20),
-        new THREE.MeshStandardMaterial({ color: 0x111d2b, roughness: 0.52, metalness: 0.55 })
-      );
-      pedestal.position.set(0, 0.34, 0);
-      g.add(pedestal);
-
-      const rim = new THREE.Mesh(
-        new THREE.CylinderGeometry(1.18, 1.18, 0.08, 24),
-        new THREE.MeshStandardMaterial({
-          color: 0x263a40,
-          emissive: 0x3a7a8a,
-          emissiveIntensity: 0.2,
-          roughness: 0.32,
-          metalness: 0.4
-        })
-      );
-      rim.position.set(0, 0.73, 0);
-      g.add(rim);
-
-      this.holoRingGroup = new THREE.Group();
-      this.holoRingGroup.position.set(0, 1.06, 0);
-
-      const t1 = new THREE.Mesh(
-        new THREE.TorusGeometry(1.22, 0.025, 8, 56),
-        new THREE.MeshStandardMaterial({ color: 0x8fc7d4, emissive: 0x5f8f9c, emissiveIntensity: 0.45 })
-      );
-      t1.rotation.set(Math.PI / 2, 0, 0);
-      this.holoRingGroup.add(t1);
-
-      const t2 = new THREE.Mesh(
-        new THREE.TorusGeometry(0.9, 0.018, 8, 48),
-        new THREE.MeshStandardMaterial({ color: 0x8fc7d4, emissive: 0x5f8f9c, emissiveIntensity: 0.35 })
-      );
-      t2.rotation.set(Math.PI / 2.8, 0.4, 0);
-      this.holoRingGroup.add(t2);
-      g.add(this.holoRingGroup);
-
-      this.holoCoreMesh = new THREE.Mesh(
-        new THREE.IcosahedronGeometry(0.42, 1),
-        new THREE.MeshBasicMaterial({ color: 0x8fc7d4, wireframe: true, transparent: true, opacity: 0.22 })
-      );
-      this.holoCoreMesh.position.set(0, 1.22, 0);
-      g.add(this.holoCoreMesh);
-
-      const pt = new THREE.PointLight(0x8fc7d4, 1.1, 5.2, 1.8);
-      pt.position.set(0, 1.35, 0);
-      g.add(pt);
-
-      this.group.add(g);
-    }
-
-    _buildStationConsoles() {
-      const THREE = window.THREE;
-      Object.values(STATIONS)
-        .filter((s) => s.id !== "hub")
-        .forEach((station) => {
-          const rotation =
-            station.id === "power"
-              ? Math.PI / 2
-              : station.id === "life-support"
-                ? -Math.PI / 2
-                : station.id === "hull" || station.id === "lander"
-                  ? Math.PI
-                  : 0;
-
-          const cg = new THREE.Group();
-          cg.name = `Console_${station.id}`;
-          cg.position.set(station.position[0], 0, station.position[2]);
-          cg.rotation.set(0, rotation, 0);
-
-          const base = new THREE.Mesh(
-            new THREE.BoxGeometry(2.9, 0.12, 1.1),
-            new THREE.MeshStandardMaterial({ color: 0x0b1520, roughness: 0.6, metalness: 0.55 })
-          );
-          base.position.set(0, 0.06, 0);
-          cg.add(base);
-
-          const body = new THREE.Mesh(
-            new THREE.BoxGeometry(2.4, 0.84, 0.68),
-            new THREE.MeshStandardMaterial({ color: 0x152232, roughness: 0.55, metalness: 0.48 })
-          );
-          body.position.set(0, 0.48, 0);
-          cg.add(body);
-
-          const deskTop = new THREE.Mesh(
-            new THREE.BoxGeometry(2.65, 0.12, 0.94),
-            new THREE.MeshStandardMaterial({ color: 0x1a2a3c, roughness: 0.48, metalness: 0.5 })
-          );
-          deskTop.position.set(0, 0.92, 0.05);
-          cg.add(deskTop);
-
-          const monitorBezel = new THREE.Mesh(
-            new THREE.BoxGeometry(2.3, 0.78, 0.08),
-            new THREE.MeshStandardMaterial({ color: 0x07111d, roughness: 0.3, metalness: 0.6 })
-          );
-          monitorBezel.position.set(0, 1.34, 0.3);
-          monitorBezel.rotation.set(-0.18, 0, 0);
-          cg.add(monitorBezel);
-
-          const monitorScreen = new THREE.Mesh(
-            new THREE.BoxGeometry(2.02, 0.52, 0.02),
-            new THREE.MeshStandardMaterial({
-              color: station.color,
-              emissive: station.color,
-              emissiveIntensity: 0.62,
-              transparent: true,
-              opacity: 0.62,
-              roughness: 0.25
-            })
-          );
-          monitorScreen.position.set(0, 1.34, 0.35);
-          monitorScreen.rotation.set(-0.18, 0, 0);
-          cg.add(monitorScreen);
-
-          const leftBar = new THREE.Mesh(
-            new THREE.BoxGeometry(0.36, 0.08, 0.02),
-            new THREE.MeshStandardMaterial({ color: 0xd8f6ff, emissive: 0x9ae6ff, emissiveIntensity: 1.2 })
-          );
-          leftBar.position.set(-0.72, 1.34, 0.37);
-          leftBar.rotation.set(-0.18, 0, 0);
-          cg.add(leftBar);
-
-          const indicatorMat1 = new THREE.MeshStandardMaterial({
-            color: 0xfb7185,
-            emissive: 0xfb7185,
-            emissiveIntensity: 1.2
-          });
-          const rightBar = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.08, 0.02), indicatorMat1);
-          rightBar.position.set(0.72, 1.34, 0.37);
-          rightBar.rotation.set(-0.18, 0, 0);
-          cg.add(rightBar);
-
-          const keyStrip = new THREE.Mesh(
-            new THREE.BoxGeometry(1.5, 0.05, 0.16),
-            new THREE.MeshStandardMaterial({ color: station.color, emissive: station.color, emissiveIntensity: 0.55 })
-          );
-          keyStrip.position.set(0, 1.06, 0.5);
-          cg.add(keyStrip);
-
-          const leftBlock = new THREE.Mesh(
-            new THREE.BoxGeometry(0.18, 0.1, 0.18),
-            new THREE.MeshStandardMaterial({ color: 0x203247, metalness: 0.6, roughness: 0.4 })
-          );
-          leftBlock.position.set(-1.02, 0.98, 0.48);
-          cg.add(leftBlock);
-
-          const indicatorMat2 = new THREE.MeshStandardMaterial({
-            color: 0xfb7185,
-            emissive: 0xfb7185,
-            emissiveIntensity: 1.4
-          });
-          const rightBlock = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.1, 0.18), indicatorMat2);
-          rightBlock.position.set(1.02, 0.98, 0.48);
-          cg.add(rightBlock);
-
-          const pt = new THREE.PointLight(station.color, 1.8, 4.2, 2);
-          pt.position.set(0, 1.55, 0.6);
-          cg.add(pt);
-
-          // Billboard Station Label Sprite
-          const labelTex = createStationLabelTexture({
-            text: station.shortLabel,
-            subtext: "FAULT",
-            accent: "#e08080"
-          });
-          const labelSpriteMat = new THREE.SpriteMaterial({
-            map: labelTex,
-            transparent: true,
-            depthWrite: false
-          });
-          const labelSprite = new THREE.Sprite(labelSpriteMat);
-          labelSprite.scale.set(0.92, 0.23, 1);
-          labelSprite.position.set(0, 2.38, 0);
-          labelSprite.renderOrder = 6;
-          cg.add(labelSprite);
-
-          this.group.add(cg);
-
-          // Fault Beacon above console
-          const beacon = buildFaultBeacon([station.position[0], 2.45, station.position[2]], station.color);
-          this.group.add(beacon.group);
-
-          this.stationEntries[station.id] = {
-            station,
-            indicatorMat1,
-            indicatorMat2,
-            labelSpriteMat,
-            beacon,
-            hasFault: true
-          };
-        });
-    }
-
-    _buildAllRoomProps() {
-      ROOMS.forEach((room) => {
-        this.group.add(buildRoomProps(room.id));
+        const labelSpriteMat = new THREE.MeshBasicMaterial({ map: createStationLabelTexture({ text: station.shortLabel, subtext: "FAULT", accent: "#e08080" }), transparent: true });
+        const label = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.105), labelSpriteMat);
+        label.position.set(0, 1.53, 0.115);
+        unit.add(label);
+        const keyboard = new THREE.Mesh(new THREE.PlaneGeometry(0.50, 0.11), keysMaterial);
+        keyboard.position.set(0, 0.90, 0.115);
+        unit.add(keyboard);
+        this.group.add(unit);
+        this.stationEntries[station.id] = { station, indicatorMat1, indicatorMat2, labelSpriteMat, hasFault: true };
       });
     }
 
@@ -2526,12 +1939,10 @@
     // ============================================================================
     syncStationFaults(tasks = []) {
       const faultStations = new Set();
-      const faultRooms = new Set();
 
       tasks.forEach((t) => {
         if (!t.completed && t.stationId && STATIONS[t.stationId]) {
           faultStations.add(t.stationId);
-          faultRooms.add(STATIONS[t.stationId].room);
         }
       });
 
@@ -2545,8 +1956,6 @@
           entry.indicatorMat1.emissive.setHex(hasFault ? 0xfb7185 : 0x6ee7b7);
           entry.indicatorMat2.color.setHex(cHex);
           entry.indicatorMat2.emissive.setHex(cHex);
-          entry.beacon.group.visible = hasFault;
-
           const nextTex = createStationLabelTexture({
             text: entry.station.shortLabel,
             subtext: hasFault ? "FAULT" : "READY",
@@ -2555,23 +1964,6 @@
           if (entry.labelSpriteMat.map) entry.labelSpriteMat.map.dispose();
           entry.labelSpriteMat.map = nextTex;
           entry.labelSpriteMat.needsUpdate = true;
-        }
-      });
-
-      Object.keys(this.roomVisuals).forEach((roomId) => {
-        const rv = this.roomVisuals[roomId];
-        const hasFault = faultRooms.has(roomId);
-        if (rv.hasFault !== hasFault) {
-          rv.hasFault = hasFault;
-          rv.doorFrames.forEach((df) => {
-            df.statusMat.color.setHex(hasFault ? 0xff5c5c : 0x6ee7b7);
-            df.statusMat.emissive.setHex(hasFault ? 0xff3b3b : 0x34d399);
-          });
-          rv.ceilingLights.light.color.setHex(hasFault ? 0xff6b5b : WARM_LIGHT);
-          rv.ceilingLights.diffuserMats.forEach((dm) => {
-            dm.color.setHex(hasFault ? 0xff9b8a : WARM_LIGHT);
-            dm.emissive.setHex(hasFault ? 0xff5b4a : WARM_LIGHT);
-          });
         }
       });
 
@@ -2589,8 +1981,8 @@
       this.hudPill.id = "ship-interior-hud";
       this.hudPill.innerHTML = `
         <span style="width:6px;height:6px;border-radius:2px;background:#2563eb;flex-shrink:0;"></span>
-        <span style="font-size:10px;font-weight:700;letter-spacing:1.6px;color:#f8fafc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="ship-room-title">ISS INTERIOR · LOADS ON ENTRY</span>
-        <a href="https://sketchfab.com/3d-models/international-space-station-2256c89a089b4ec895bb658b18fa7bbb" target="_blank" rel="noopener noreferrer" title="Original ISS interior model by Stephen Mack on Sketchfab, licensed CC BY 4.0. Scaled and repositioned at runtime for Lunaspis." style="font-size:8px;font-weight:700;letter-spacing:0.6px;color:#a5f3fc;text-decoration:underline;white-space:nowrap;">SKETCHFAB · STEPHEN MACK · CC BY 4.0</a>
+        <span style="font-size:10px;font-weight:700;letter-spacing:1.6px;color:#f8fafc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="ship-room-title">INTERNATIONAL SPACE STATION · INTERIOR</span>
+        <a href="https://sketchfab.com/3d-models/international-space-station-2256c89a089b4ec895bb658b18fa7bbb" target="_blank" rel="noopener noreferrer" title="Structural reference: International Space Station by Stephen Mack on Sketchfab, CC BY 4.0. Interior rebuilt for Lunaspis." style="font-size:8px;font-weight:700;letter-spacing:0.6px;color:#a5f3fc;text-decoration:underline;white-space:nowrap;">REFERENCE · STEPHEN MACK · CC BY 4.0</a>
         <button id="btn-return-space-center" style="background:rgba(15,23,42,0.88);border:1px solid rgba(148,163,184,0.28);color:#e2e8f0;font-size:9px;font-weight:700;letter-spacing:1.2px;padding:4px 9px;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;" title="Return the whole crew to Kennedy Space Center LC-39A [G]">
           PAD LC-39A [G]
         </button>
@@ -2711,70 +2103,23 @@
       const pingValid = activePing && (Date.now() - (activePing.at || 0) < 20000);
       const pingRoomCode = pingValid ? String(activePing.roomId || "").toUpperCase() : "";
 
-      const connections = [
-        [0, 1],
-        [0, 2],
-        [0, 3],
-        [0, 4],
-        [4, 5]
-      ];
-
       let faultCount = 0;
       Object.values(this.stationEntries).forEach((e) => {
         if (e.hasFault) faultCount++;
       });
 
-      const linesSvg = this.issInteriorModel ? "" : connections
-        .map(([from, to]) => {
-          const a = ROOMS[from];
-          const b = ROOMS[to];
-          return `<line x1="${a.center[0]}" y1="${a.center[1]}" x2="${b.center[0]}" y2="${b.center[1]}" stroke="rgba(148,163,184,0.22)" stroke-width="0.35" />`;
-        })
-        .join("");
-
-      const roomsSvg = this.issInteriorModel ? ISS_WALK_ZONES.map((zone) =>
+      const linesSvg = "";
+      const roomsSvg = ISS_WALK_ZONES.map((zone) =>
         `<rect x="${zone.xMin}" y="${zone.zMin}" width="${zone.xMax - zone.xMin}" height="${zone.zMax - zone.zMin}" fill="rgba(103,232,249,0.08)" stroke="rgba(148,163,184,0.3)" stroke-width="0.2" />`
-      ).join("") + Object.values(STATIONS).map((station) =>
-        `<text x="${station.workPosition[0]}" y="${station.workPosition[2]}" text-anchor="middle" fill="#f8fafc" font-size="1.1">${station.shortLabel}</text>`
-      ).join("") : ROOMS.map((room) => {
-        const stEntry = Object.values(this.stationEntries).find(
-          (e) => e.station.room === room.id
-        );
-        const fault = stEntry
-          ? (mission ? !completedSet.has(stEntry.station.taskId) : stEntry.hasFault)
-          : false;
-        const isPinged = pingRoomCode && room.shortLabel.toUpperCase() === pingRoomCode;
-        const color = stEntry ? stEntry.station.color : "#f8fafc";
-        const active = includeLocal && curRoomObj.shortLabel === room.shortLabel;
-        const fill = isPinged
-          ? "rgba(37, 99, 235, 0.28)"
-          : fault
-            ? `${color}20`
-            : active
-              ? "rgba(248,250,252,0.12)"
-              : "rgba(255,255,255,0.025)";
-        const stroke = isPinged
-          ? "#38bdf8"
-          : fault
-            ? `${color}99`
-            : active
-              ? "rgba(248,250,252,0.55)"
-              : "rgba(148,163,184,0.2)";
-        const textFill = isPinged ? "#93c5fd" : (fault ? color : "rgba(248,250,252,0.68)");
-
-        return `
-          <g>
-            <rect x="${room.center[0] - room.size[0] / 2}" y="${room.center[1] - room.size[1] / 2}" width="${room.size[0]}" height="${room.size[1]}" fill="${fill}" stroke="${stroke}" stroke-width="${isPinged ? 0.5 : 0.3}" />
-            <text x="${room.center[0]}" y="${room.center[1] + 0.8}" text-anchor="middle" fill="${textFill}" font-size="2.1" letter-spacing="0.2">${room.shortLabel}</text>
-          </g>
-        `;
-      }).join("");
+      ).join("") + ISS_MODULES.map((module) =>
+        `<text x="${module.x}" y="${module.z}" text-anchor="middle" fill="#f8fafc" font-size="0.8">${module.name}</text>`
+      ).join("");
 
       const stationsSvg = Object.values(STATIONS)
         .map((st) => {
           const done = completedSet.has(st.taskId);
           const fault = !done;
-          return `<circle cx="${st.position[0]}" cy="${st.position[2]}" r="${fault ? 0.85 : 0.55}" fill="${fault ? st.color : "rgba(248,250,252,0.45)"}" />`;
+          return `<circle cx="${st.position[0]}" cy="${st.position[2]}" r="${fault ? 0.38 : 0.28}" fill="${fault ? st.color : "rgba(248,250,252,0.45)"}" />`;
         })
         .join("");
 
@@ -2788,9 +2133,7 @@
         if (!rp || rp.team === "ground") return;
         const pos = rp.curPos || rp.targetPos;
         if (!pos || !Number.isFinite(pos[0]) || !Number.isFinite(pos[2])) return;
-        if (this.issInteriorModel
-          ? (pos[0] < -9 || pos[0] > 14 || pos[2] < -6.5 || pos[2] > 41.5)
-          : (pos[0] < -13.2 || pos[0] > 13.2 || pos[2] < -13.2 || pos[2] > 21.2)) return;
+        if (pos[0] < -10.5 || pos[0] > 14 || pos[2] < -6.5 || pos[2] > 50.5) return;
         const color = /^#[0-9a-fA-F]{6}$/.test(rp.color) ? rp.color : "#38bdf8";
         const rawName = String(rp.name || `Crew ${index + 1}`).slice(0, 12);
         const roleMeta = window.InterfellasRoles ? window.InterfellasRoles.getRoleMeta(rp.role) : null;
@@ -2830,11 +2173,11 @@
         : "";
 
       return {
-        curRoomLabel: curRoomObj.shortLabel,
+        curRoomLabel: this.activeModule || curRoomObj.shortLabel,
         faultCount,
         pingRoomCode,
         svgHtml: `
-          <svg viewBox="${this.issInteriorModel ? "-9 -6.5 23 48" : "-13.5 -13.5 27 35"}" style="height:${svgHeight}px;width:100%;display:block;">
+          <svg viewBox="-10.5 -6.5 24.5 57" style="height:${svgHeight}px;width:100%;display:block;">
             ${linesSvg}
             ${roomsSvg}
             ${stationsSvg}
@@ -2878,34 +2221,28 @@
     // 11. REAL-TIME PHYSICAL COLLISION & CAMERA CLEARANCE ENGINE (collision.ts)
     // ============================================================================
     isWalkable(x, z) {
-      const zones = this.issInteriorModel ? ISS_WALK_ZONES : WALK_ZONES;
-      return zones.some(
+      return ISS_WALK_ZONES.some(
         (zone) => x >= zone.xMin && x <= zone.xMax && z >= zone.zMin && z <= zone.zMax
       );
     }
 
     isSolid(x, z, margin = 0) {
-      if (this.issInteriorModel) {
-        return Object.values(STATIONS).some((station) =>
-          Math.hypot(x - station.position[0], z - station.position[2]) < 0.4 + margin
-        );
-      }
-      for (let i = 0; i < SOLID_CIRCLES.length; i++) {
-        const c = SOLID_CIRCLES[i];
-        if (Math.hypot(x - c.x, z - c.z) < c.radius + margin) return true;
-      }
-      for (let i = 0; i < SOLID_RECTS.length; i++) {
-        const r = SOLID_RECTS[i];
-        if (Math.abs(x - r.x) < r.halfX + margin && Math.abs(z - r.z) < r.halfZ + margin) {
-          return true;
-        }
-      }
-      return false;
+      if (Object.values(STATIONS).some((station) =>
+        Math.hypot(x - station.position[0], z - station.position[2]) < 0.4 + margin
+      )) return true;
+      if (ISS_HATCH_LEAVES.some((leaf) => Math.abs(x - leaf.x) < 0.08 + margin &&
+        z >= leaf.zMin - margin && z <= leaf.zMax + margin)) return true;
+      return ISS_HATCHES.some((hatch) => {
+        const forward = hatch.axis === "z" ? z : x;
+        const cross = hatch.axis === "z" ? x : z;
+        const offset = Math.abs(cross - hatch.center);
+        return Math.abs(forward - hatch.at) < 0.12 + margin &&
+          offset > 1.06 - margin && offset < hatch.halfWidth + margin;
+      });
     }
 
     canStandAt(x, z, radius = 0.26) {
       if (!this.isWalkable(x, z) || this.isSolid(x, z, radius)) return false;
-      if (!this.issInteriorModel) return true;
       for (let i = 0; i < 8; i++) {
         const angle = i * Math.PI / 4;
         if (!this.isWalkable(x + Math.cos(angle) * radius, z + Math.sin(angle) * radius)) return false;
@@ -2918,7 +2255,6 @@
     }
 
     cameraClearFraction(origin, destination) {
-      if (!this.issInteriorModel) return 1;
       const dx = destination.x - origin.x;
       const dz = destination.z - origin.z;
       const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / 0.1));
@@ -2948,21 +2284,19 @@
     }
 
     _updateActiveRoom(x, z) {
-      const nextRoomId = this.issInteriorModel
-        ? Object.values(STATIONS).reduce((nearest, station) =>
+      const module = ISS_MODULES.reduce((nearest, current) =>
+        Math.hypot(x - current.x, z - current.z) < Math.hypot(x - nearest.x, z - nearest.z) ? current : nearest
+      );
+      if (module.name !== this.activeModule) {
+        this.activeModule = module.name;
+        this._setInteriorTitle(`ISS · ${module.name}`);
+      }
+      const nextRoomId = Object.values(STATIONS).reduce((nearest, station) =>
           Math.hypot(x - station.workPosition[0], z - station.workPosition[2]) <
           Math.hypot(x - nearest.workPosition[0], z - nearest.workPosition[2]) ? station : nearest
-        ).room
-        : roomAtPosition(x, z);
+        ).room;
       if (nextRoomId !== this.activeRoomId) {
         this.activeRoomId = nextRoomId;
-        const match = ROOM_BY_ID.get(nextRoomId);
-        const titleEl = document.getElementById("ship-room-title");
-        if (titleEl && match) {
-          titleEl.textContent = this.issInteriorModel
-            ? "INTERNATIONAL SPACE STATION · INTERIOR"
-            : `LUNASPIS TRANSIT CRAFT • ${match.label.toUpperCase()}`;
-        }
       }
     }
 
@@ -2977,9 +2311,22 @@
       return this.toggleMoonLandingScene(false);
     }
 
+    _suppressExteriorLights(suppress) {
+      if (suppress) {
+        if (this.savedExteriorLights) return;
+        this.savedExteriorLights = [window.ambLight, window.hemiLight, window.sunLight, window.earthShineLight]
+          .filter(Boolean).map((light) => ({ light, visible: light.visible }));
+        this.savedExteriorLights.forEach(({ light }) => { light.visible = false; });
+      } else if (this.savedExteriorLights) {
+        this.savedExteriorLights.forEach(({ light, visible }) => { light.visible = visible; });
+        this.savedExteriorLights = null;
+      }
+    }
+
     toggleMoonLandingScene(forceState) {
       const next = typeof forceState === "boolean" ? forceState : !this.isMoonLandingActive;
       this.isMoonLandingActive = next;
+      this._suppressExteriorLights(!next && this.isInteriorActive);
 
       if (this.moonLanding && this.moonLanding.root) {
         this.moonLanding.root.visible = next;
@@ -2997,13 +2344,6 @@
         window.localCrew.group.visible = !next;
       }
 
-      if (this.issInteriorModel) {
-        if (this.roomShellGroup) this.roomShellGroup.visible = false;
-        if (this.legacyPropsGroup) this.legacyPropsGroup.visible = false;
-      } else {
-        if (this.roomShellGroup) this.roomShellGroup.visible = true;
-        if (this.legacyPropsGroup) this.legacyPropsGroup.visible = true;
-      }
       if (this.issInteriorModelGroup) {
         this.issInteriorModelGroup.visible = Boolean(this.issInteriorModel && this.isInteriorActive && !next);
       }
@@ -3012,9 +2352,7 @@
       if (titleEl) {
         titleEl.textContent = next
           ? "MARE TRANQUILLITATIS • LUNAR TOUCHDOWN"
-          : this.issInteriorModel
-            ? "INTERNATIONAL SPACE STATION · INTERIOR"
-            : `LUNASPIS TRANSIT CRAFT • ${(ROOM_BY_ID.get(this.activeRoomId)?.label || "TRANSIT HUB").toUpperCase()}`;
+          : `ISS · ${(ROOM_BY_ID.get(this.activeRoomId)?.label || "DESTINY LABORATORY").toUpperCase()}`;
       }
       return this.isMoonLandingActive;
     }
@@ -3046,62 +2384,6 @@
 
       if (!this.isInteriorActive) return;
 
-      // Sync Transit Hub HoloTable orbit tilt & accent color with live missionDesign.orbitId
-      const orbitId = window.gameplay && window.gameplay.missionDesign && window.gameplay.missionDesign.orbitId;
-      if (orbitId && orbitId !== this._lastHoloOrbitId && (this.holoRingGroup || this.holoCoreMesh)) {
-        this._lastHoloOrbitId = orbitId;
-        const holoTheme = {
-          leo_400: { color: 0x38bdf8, tilt: 0.35, scaleZ: 1.0 },
-          iss_cubesat_418: { color: 0x34d399, tilt: 0.42, scaleZ: 1.0 },
-          sso_705: { color: 0xfacc15, tilt: 1.38, scaleZ: 1.0 },
-          gto_heo: { color: 0xfb923c, tilt: 0.72, scaleZ: 1.38 },
-          lunar_polar_100: { color: 0xc4b5fd, tilt: 1.28, scaleZ: 1.25 },
-          sun_earth_l2: { color: 0xf472b6, tilt: 0.12, scaleZ: 1.32 }
-        }[orbitId] || { color: 0x38bdf8, tilt: 0.35, scaleZ: 1.0 };
-
-        if (this.holoRingGroup) {
-          this.holoRingGroup.rotation.x = holoTheme.tilt;
-          this.holoRingGroup.scale.set(1, 1, holoTheme.scaleZ);
-          this.holoRingGroup.traverse((obj) => {
-            if (obj.material && obj.material.color) {
-              obj.material.color.setHex(holoTheme.color);
-            }
-          });
-        }
-        if (this.holoCoreMesh && this.holoCoreMesh.material && this.holoCoreMesh.material.color) {
-          this.holoCoreMesh.material.color.setHex(holoTheme.color);
-          if (this.holoCoreMesh.material.emissive) {
-            this.holoCoreMesh.material.emissive.setHex(holoTheme.color);
-          }
-        }
-      }
-
-      // Spin HoloTable rings & icosahedron core
-      if (this.holoRingGroup) {
-        this.holoRingGroup.rotation.y = t * 0.45;
-      }
-      if (this.holoCoreMesh) {
-        this.holoCoreMesh.rotation.y = -t * 0.3;
-        this.holoCoreMesh.rotation.x = t * 0.12;
-      }
-
-      // Animate Fault Beacons & Pulsing Ceiling Lights
-      Object.values(this.stationEntries).forEach((entry) => {
-        if (entry.beacon && entry.beacon.group.visible) {
-          entry.beacon.group.position.y = entry.beacon.baseY + Math.sin(t * 2.2) * 0.07;
-          entry.beacon.group.rotation.y = t * 0.7;
-          entry.beacon.ring.scale.setScalar(1 + Math.sin(t * 3.2) * 0.16);
-        }
-      });
-
-      Object.values(this.roomVisuals).forEach((rv) => {
-        if (rv.ceilingLights && rv.ceilingLights.light) {
-          rv.ceilingLights.light.intensity = rv.hasFault
-            ? 1.2 + Math.sin(t * 5) * 0.8
-            : 2.4;
-        }
-      });
-
       // Update Minimap player marker
       if (window.localCrew && window.localCrew.group) {
         const p = window.localCrew.group.position;
@@ -3116,6 +2398,7 @@
     show() {
       this.isInteriorActive = true;
       this.isMoonLandingActive = false;
+      this._suppressExteriorLights(true);
       document.body.classList.add("interior-active");
       document.body.classList.remove("ground-mode-active");
       if (this.moonLanding && this.moonLanding.root) this.moonLanding.root.visible = false;
@@ -3123,16 +2406,9 @@
       if (window.issGroup) window.issGroup.visible = false;
       if (this.group) this.group.visible = true;
       if (this.issInteriorModel) {
-        if (this.roomShellGroup) this.roomShellGroup.visible = false;
-        if (this.legacyPropsGroup) this.legacyPropsGroup.visible = false;
         if (this.issInteriorModelGroup) this.issInteriorModelGroup.visible = true;
         this._placeCrewOnISSWalkway();
         this._setInteriorTitle("INTERNATIONAL SPACE STATION · INTERIOR");
-      } else {
-        if (this.roomShellGroup) this.roomShellGroup.visible = true;
-        if (this.legacyPropsGroup) this.legacyPropsGroup.visible = true;
-        if (this.issInteriorModelGroup) this.issInteriorModelGroup.visible = false;
-        this._ensureISSInteriorModel().catch(() => {});
       }
       if (this.hudPill) this.hudPill.style.display = window.isGameStarted ? "flex" : "none";
       if (this.minimapEl) this.minimapEl.style.display = window.isGameStarted ? "block" : "none";
@@ -3140,6 +2416,7 @@
 
     hide() {
       this.isInteriorActive = false;
+      this._suppressExteriorLights(false);
       document.body.classList.remove("interior-active");
       if (this.group) this.group.visible = false;
       if (this.hudPill) this.hudPill.style.display = "none";

@@ -715,7 +715,7 @@
 
   class GameplayEngine {
     constructor() {
-      // Retain exact 7 task IDs and station coordinates for 100% server & 6-room map compatibility
+      // Stable task IDs preserve mission and multiplayer compatibility.
       this.tasks = [
         {
           id: "task_antenna",
@@ -723,8 +723,8 @@
           stationId: "hub",
           code: "HUB",
           name: "1. Mission Objective, Scenario & Team Roles",
-          location: "Transit Hub [HUB]",
-          pos: [0.0, 0.0, 1.5],
+          location: "Destiny Laboratory [HUB]",
+          pos: [0, 0.0, 2],
           role: "commander",
           resource: "budget",
           requires: [],
@@ -736,8 +736,8 @@
           stationId: "command",
           code: "CMD",
           name: "2. Orbit & Launch Vehicle Compatibility",
-          location: "Command Deck [CMD]",
-          pos: [0.0, 0.0, -9.5],
+          location: "Harmony [CMD]",
+          pos: [0.0, 0.0, -3.5],
           role: "commander",
           resource: "mass",
           requires: ["task_antenna"],
@@ -749,8 +749,8 @@
           stationId: "power",
           code: "PWR",
           name: "3. Spacecraft Bus, Solar/RTG & Battery Sizing",
-          location: "Power Bay [PWR]",
-          pos: [-9.5, 0.0, 0.0],
+          location: "Columbus Laboratory [PWR]",
+          pos: [-4.6, 0.0, -3.8],
           role: "engineer",
           resource: "power",
           requires: ["task_antenna"],
@@ -762,8 +762,8 @@
           stationId: "life-support",
           code: "SCI",
           name: "4. Scientific Instruments & Payload Trade-Offs",
-          location: "Science Lab [SCI]",
-          pos: [8.5, 0.0, -2.2],
+          location: "Kibo Laboratory [SCI]",
+          pos: [6.3, 0.0, -3.5],
           role: "scientist",
           resource: "data",
           requires: ["task_antenna"],
@@ -775,8 +775,8 @@
           stationId: "life-support",
           code: "LSS",
           name: "5. Thermal Rejection, Radiation & ECLSS",
-          location: "Life Support [LSS]",
-          pos: [9.5, 0.0, 0.0],
+          location: "Kibo Laboratory [LSS]",
+          pos: [8.9, 0.0, -3.5],
           role: "scientist",
           resource: "lifetime",
           requires: ["task_wires", "task_science"],
@@ -788,8 +788,8 @@
           stationId: "hull",
           code: "HULL",
           name: "6. Comms Link Budget & Propulsion Delta-V",
-          location: "Engineering Bay [ENG]",
-          pos: [0.0, 0.0, 9.1],
+          location: "Tranquility [ENG]",
+          pos: [7.5, 0.0, 8.7],
           role: "engineer",
           resource: "comms",
           requires: ["task_nav", "task_wires"],
@@ -801,8 +801,8 @@
           stationId: "lander",
           code: "LDR",
           name: "7. Full Mission Simulation & Evaluation Report",
-          location: "Simulation Deck [SIM]",
-          pos: [0.0, 0.0, 17.4],
+          location: "Zarya [SIM]",
+          pos: [0, 0.0, 24.0],
           role: "all",
           resource: "science",
           requires: ["task_hull", "task_lss"],
@@ -1501,6 +1501,7 @@
     // CML 1-4 readiness, 4 Mission Segments (Launch/Space/Ground/User), & Option A Comparison
     _renderLiveTradeoffStrip(options = {}) {
       const t = this.evaluateMissionDesign();
+      const mission = this.getMissionState();
       this.telemetry = t;
       this._activeRenderCallback = typeof options.onRerender === "function" ? options.onRerender : null;
 

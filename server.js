@@ -566,6 +566,13 @@ const MISSION_CATALOG = {
     badge: "SMALLSAT / CSLI",
     summary: "Design a mass-constrained university CubeSat from ConOps through ISS/rideshare deployment and 5-year deorbit compliance."
   },
+  bionutrients_2: {
+    id: "bionutrients_2",
+    name: "BioNutrients-2 ISS Nutrient Production",
+    code: "BIONUTRIENTS-2",
+    badge: "ISS BIO / SMD",
+    summary: "Launch soft-stowed FEP production bags on Cygnus NG-18, hydrate yeast from ISS PWD, incubate at 30°C (+6h shake) for ≥3 µg/mL beta-carotene, freeze in MELFI (-80°C), and slash mass (<250g) & volume (<300mL)."
+  },
   sandbox: {
     id: "sandbox",
     name: "Open Engineering Sandbox (Custom Mission)",
@@ -591,7 +598,11 @@ const MISSION_DESIGN_KEYS = new Set([
   "propulsionId",
   "wavelengthId",
   "disposalId",
-  "cubesatFormId"
+  "cubesatFormId",
+  "bioOrganismId",
+  "bioBagId",
+  "bioProtocolId",
+  "bioThermalId"
 ]);
 
 
@@ -1283,6 +1294,7 @@ function serializeRoom(room) {
     mode: room.mode || GAME_MODE,
     maxPlayers: room.maxPlayers || MAX_PLAYERS,
     status: room.status,
+    isSolo: !!room.isSolo,
     players: Object.values(room.players).map(serializePlayer),
     roles: room.roles,
     roleInfo: ROLE_INFO,
@@ -1398,7 +1410,10 @@ io.on("connection", (socket) => {
 
     const roomId = generateRoomCode();
     const opsMode = VALID_OPS_MODES.has(data.opsMode) ? data.opsMode : "iss_expedition";
-    const room = createNewRoom(roomId, socket.id, data.isPublic !== false, opsMode);
+    const isSolo = data.solo === true;
+    const isPublic = isSolo ? false : data.isPublic !== false;
+    const room = createNewRoom(roomId, socket.id, isPublic, opsMode);
+    room.isSolo = isSolo;
     rooms[roomId] = room;
     currentRoomId = roomId;
     socket.join(roomId);
@@ -1437,7 +1452,7 @@ io.on("connection", (socket) => {
     console.log(`[ROOM] Created 6-player co-op room ${roomId} by ${player.name} (${playerRole}, user: ${userId}, socket: ${socket.id})`);
 
     // Persist authenticated profiles only; guest identities stay session-only.
-    await db.upsertGameRoom(roomId, userId, "lobby", 7, data.isPublic !== false);
+    await db.upsertGameRoom(roomId, userId, "lobby", 7, isPublic);
     if (socket.isAuthenticated) {
       await db.getOrCreateUser(userId, player.name, player.color, player.role);
       await db.upsertRoomMember(roomId, userId, socket.id, player);
@@ -1447,6 +1462,7 @@ io.on("connection", (socket) => {
       success: true,
       roomId: roomId,
       hostId: socket.id,
+      solo: isSolo,
       player: player,
       room: serializeRoom(room)
     };
@@ -1470,6 +1486,13 @@ io.on("connection", (socket) => {
 
     if (!targetRoom) {
       const err = { success: false, message: `Room "${targetCode}" does not exist. Check the code and try again!` };
+      if (typeof callback === "function") callback(err);
+      socket.emit("join_error", err);
+      return;
+    }
+
+    if (targetRoom.isSolo) {
+      const err = { success: false, message: "This expedition is a single-player mission and is not accepting crew." };
       if (typeof callback === "function") callback(err);
       socket.emit("join_error", err);
       return;
@@ -1594,6 +1617,7 @@ io.on("connection", (socket) => {
     const openRooms = Object.values(rooms)
       .filter((room) =>
         room.isPublic &&
+        !room.isSolo &&
         (room.status === "lobby" || room.status === "playing") &&
         ((room.mission && room.mission.opsMode) || "iss_expedition") === requestedMode &&
         Object.keys(room.players).length > 0 &&

@@ -216,6 +216,7 @@
       this.socketId = null;
       this.roomId = null;
       this.isHost = false;
+      this.isSoloRoom = false;
       this.userId = null;
       this.authToken = this.readStoredToken();
       this.userProfile = null;
@@ -297,14 +298,7 @@
     }
 
     readStoredToken() {
-      try {
-        const raw = localStorage.getItem("nasa_astronaut_credential");
-        if (!raw) return null;
-        const parsed = JSON.parse(raw);
-        return typeof parsed.token === "string" ? parsed.token : null;
-      } catch (e) {
-        return null;
-      }
+      return null;
     }
 
     setAuthToken(token) {
@@ -415,6 +409,7 @@
       const applyAuthoritativeRoomMembership = (data) => {
         this.roomId = data.roomId;
         this.isHost = data.hostId === this.socketId;
+        this.isSoloRoom = !!(data.solo || (data.room && data.room.isSolo));
         this.roomState = data.room || this.roomState;
         this.mission = (data.room && data.room.mission) || data.mission || this.mission || null;
         if (data.player) {
@@ -482,6 +477,7 @@
       this.socket.on("room_update", (data) => {
         this.roomState = data;
         this.isHost = data.hostId === this.socketId;
+        this.isSoloRoom = !!data.isSolo;
         if (data.mission) this.mission = data.mission;
 
         // Update remote players list
@@ -689,6 +685,7 @@
           this.roomState = data.room;
           this.mission = data.room.mission || null;
           this.isHost = data.room.hostId === this.socketId;
+          this.isSoloRoom = !!data.room.isSolo;
         }
         this.emitEvent("lobby_returned", data);
       });
@@ -790,6 +787,7 @@
         role: normalized,
         explicitRole: explicit,
         team: this.localPlayer.team,
+        isPublic: opts.isPublic !== false,
         opsMode: opts.opsMode || undefined
       });
     }
@@ -832,6 +830,27 @@
       });
     }
 
+    startSolo(playerName, suitColor, role, explicitOrOpts) {
+      if (playerName) {
+        this.localPlayer.name = playerName;
+        localStorage.setItem("interfellas_name", playerName);
+      }
+      const opts = (explicitOrOpts && typeof explicitOrOpts === "object") ? explicitOrOpts : {};
+      const normalized = normalizeRole(role || this.localPlayer.role, "commander");
+      this.localPlayer.role = normalized;
+      this.localPlayer.team = getTeamForRole(normalized);
+      this.socket.emit("create_room", {
+        playerName: this.localPlayer.name,
+        suitColor: suitColor || this.localPlayer.color,
+        role: normalized,
+        explicitRole: false,
+        team: this.localPlayer.team,
+        solo: true,
+        isPublic: false,
+        opsMode: opts.opsMode || "iss_expedition"
+      });
+    }
+
     sendEmote(emoteId) {
       if (!this.connected || !this.roomId) return;
       this.socket.emit("player_emote", {
@@ -856,6 +875,7 @@
       this.snapshot = null;
       this.snapshot = null;
       this.isHost = false;
+      this.isSoloRoom = false;
       this.remotePlayers = {};
       this.lastSentState = null;
       this.wasMoving = false;
