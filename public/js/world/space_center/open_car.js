@@ -7,6 +7,9 @@
  *
  * - Open cockpit (no roof): seats, dashboard, windshield frame, roll bar.
  * - WASD / arrows / mobile D-pad: throttle, reverse and steering.
+ * - SHIFT / mobile BOOST button: boost to ~101 km/h.
+ * - SPACE / mobile brake button: brake at low speed, handbrake-drift while turning fast.
+ * - C / HUD camera button: toggle chase camera and cockpit first-person view.
  * - Space or the on-screen button: brake. [E] or the prompt button: exit.
  * - Uses the Space Center site collider volumes so it cannot drive through the
  *   pad hardstand, VAB walls, LCC, crawler or utility buildings.
@@ -19,7 +22,9 @@
   const FALLBACK_CAR_SPAWN = { x: 38, y: 0.08, z: 197, yaw: 0.15 };
   const CAR_RADIUS = 1.35;
   const MAX_FORWARD_SPEED = 16.5; // m/s (~59 km/h)
+  const MAX_BOOST_SPEED = 28.0; // m/s (~101 km/h) with SHIFT / mobile BOOST
   const MAX_REVERSE_SPEED = 6.5;
+  const BOOST_ACCELERATION = 15.5;
   const WHEEL_RADIUS = 0.44;
   const WHEELBASE = 2.85;
 
@@ -39,6 +44,9 @@
       this.hud = null;
       this.speedEl = null;
       this.statusEl = null;
+      this.stateEl = null;
+      this.camBtn = null;
+      this.boostBtn = null;
 
       this.isDriving = false;
       this.speed = 0;
@@ -46,6 +54,17 @@
       this.spawn = Object.assign({}, FALLBACK_CAR_SPAWN);
       this.yaw = this.spawn.yaw;
       this.brakeHeld = false;
+      this.boostHeld = false;
+      this.boosting = false;
+      this.drifting = false;
+      this.firstPerson = false;
+      this.lookYaw = 0;
+      this.lookPitch = 0;
+      this._lookDragging = false;
+      this._lookLastX = 0;
+      this._lookLastY = 0;
+      this._camHead = null;
+      this._camDir = null;
       this.keys = Object.create(null);
       this._keysBound = false;
       this._camInitialised = false;
@@ -646,6 +665,7 @@
             align-items: center;
             justify-content: center;
             gap: 8px;
+            flex-wrap: wrap;
           }
           #open-car-hud .oc-btn {
             pointer-events: auto;
@@ -673,6 +693,29 @@
             background: rgba(127, 29, 29, 0.8);
             color: #fecaca;
           }
+          #open-car-hud .oc-btn-boost {
+            border-color: rgba(103, 232, 249, 0.55);
+            background: rgba(8, 47, 73, 0.85);
+            color: #a5f3fc;
+          }
+          #open-car-hud .oc-btn.is-active,
+          #open-car-hud .oc-btn-boost:active {
+            border-color: #fde68a;
+            background: rgba(251, 191, 36, 0.24);
+            color: #fef3c7;
+            box-shadow: 0 0 14px rgba(251, 191, 36, 0.35);
+          }
+          #open-car-hud .oc-state {
+            margin-top: 5px;
+            font-size: 9px;
+            font-weight: 800;
+            letter-spacing: 1.6px;
+            color: #94a3b8;
+            min-height: 11px;
+          }
+          #open-car-hud .oc-state.is-drift { color: #fbbf24; text-shadow: 0 0 10px rgba(251, 191, 36, 0.5); }
+          #open-car-hud .oc-state.is-boost { color: #67e8f9; text-shadow: 0 0 10px rgba(103, 232, 249, 0.55); }
+          #open-car-hud .oc-state.is-brake { color: #f87171; }
           #open-car-hud .oc-speed {
             display: flex;
             flex-direction: column;
@@ -722,10 +765,13 @@
             <div class="oc-row">
               <button type="button" class="oc-btn oc-btn-primary oc-near-only" id="open-car-action">E · DRIVE</button>
               <button type="button" class="oc-btn oc-btn-primary oc-drive-only" id="open-car-exit">E · EXIT</button>
+              <button type="button" class="oc-btn oc-btn-boost oc-drive-only" id="open-car-boost">HOLD · BOOST</button>
+              <button type="button" class="oc-btn oc-drive-only" id="open-car-cam">CAM · 3RD</button>
               <button type="button" class="oc-btn oc-btn-brake oc-drive-only" id="open-car-brake">HOLD · BRAKE</button>
               <div class="oc-speed oc-drive-only"><span id="open-car-speed">0</span><small>KM/H</small></div>
             </div>
-            <div class="oc-hint oc-drive-only">W/S THROTTLE · A/D STEER · SPACE BRAKE</div>
+            <div class="oc-state oc-drive-only" id="open-car-state">CRUISE</div>
+            <div class="oc-hint oc-drive-only">W/S THROTTLE · A/D STEER · SHIFT BOOST · SPACE HANDBRAKE/DRIFT · C VIEW</div>
             <div class="oc-hint oc-near-only">WALK UP AND PRESS [E] OR TAP TO DRIVE</div>
           </div>
         `;
@@ -735,12 +781,27 @@
 
       this.speedEl = document.getElementById("open-car-speed");
       this.statusEl = document.querySelector("#open-car-hud .oc-title");
+      this.stateEl = document.getElementById("open-car-state");
+      this.camBtn = document.getElementById("open-car-cam");
+      this.boostBtn = document.getElementById("open-car-boost");
 
       const action = document.getElementById("open-car-action");
       const exit = document.getElementById("open-car-exit");
       const brake = document.getElementById("open-car-brake");
+      const boost = document.getElementById("open-car-boost");
+      const cam = document.getElementById("open-car-cam");
       if (action) action.addEventListener("click", (e) => { e.preventDefault(); e.currentTarget.blur(); this.enter(); });
       if (exit) exit.addEventListener("click", (e) => { e.preventDefault(); e.currentTarget.blur(); this.exit(); });
+      if (cam) cam.addEventListener("click", (e) => { e.preventDefault(); e.currentTarget.blur(); this.toggleCamera(); });
+      if (boost) {
+        const press = (e) => { e.preventDefault(); if (e.currentTarget) e.currentTarget.blur(); this.boostHeld = true; };
+        const release = (e) => { if (e) e.preventDefault(); this.boostHeld = false; };
+        boost.addEventListener("pointerdown", press);
+        boost.addEventListener("pointerup", release);
+        boost.addEventListener("pointercancel", release);
+        boost.addEventListener("pointerleave", release);
+        boost.addEventListener("contextmenu", (e) => e.preventDefault());
+      }
       if (brake) {
         const press = (e) => { e.preventDefault(); if (e.currentTarget) e.currentTarget.blur(); this.brakeHeld = true; };
         const release = (e) => { if (e) e.preventDefault(); this.brakeHeld = false; };
@@ -784,7 +845,15 @@
           return;
         }
 
-        if (this.isDriving && (e.code === "Space" || e.code === "KeyW" || e.code === "KeyA" || e.code === "KeyS" || e.code === "KeyD" ||
+        if (this.isDriving && (e.code === "KeyC" || e.key === "c" || e.key === "C") && !e.repeat) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          this.toggleCamera();
+          return;
+        }
+
+        if (this.isDriving && (e.code === "Space" || e.code === "ShiftLeft" || e.code === "ShiftRight" ||
+            e.code === "KeyW" || e.code === "KeyA" || e.code === "KeyS" || e.code === "KeyD" ||
             e.code === "ArrowUp" || e.code === "ArrowDown" || e.code === "ArrowLeft" || e.code === "ArrowRight")) {
           e.preventDefault();
         }
@@ -798,7 +867,32 @@
       window.addEventListener("blur", () => {
         this.keys = Object.create(null);
         this.brakeHeld = false;
+        this.boostHeld = false;
+        this._lookDragging = false;
       });
+
+      // First-person cockpit look: drag anywhere outside the car HUD.
+      const canLook = () => !!(this.isDriving && this.firstPerson && !this._uiBlocked());
+      window.addEventListener("pointerdown", (e) => {
+        if (!canLook()) return;
+        if (e.button !== undefined && e.button !== 0) return;
+        const target = e.target;
+        if (target && target.closest && target.closest("#open-car-hud, #mobile-joystick-zone, #virtual-dpad, #hud-voice-panel, #btn-proximity-use, .hud-checklist-panel, button, input, textarea, select, a")) return;
+        this._lookDragging = true;
+        this._lookLastX = e.clientX;
+        this._lookLastY = e.clientY;
+      });
+      window.addEventListener("pointermove", (e) => {
+        if (!this._lookDragging || !canLook()) return;
+        const dx = e.clientX - this._lookLastX;
+        const dy = e.clientY - this._lookLastY;
+        this._lookLastX = e.clientX;
+        this._lookLastY = e.clientY;
+        this.lookYaw -= dx * 0.0034;
+        this.lookPitch = Math.max(-0.42, Math.min(0.42, this.lookPitch - dy * 0.0034));
+      });
+      window.addEventListener("pointerup", () => { this._lookDragging = false; });
+      window.addEventListener("pointercancel", () => { this._lookDragging = false; });
     }
 
     _uiBlocked() {
@@ -843,6 +937,27 @@
       return Math.hypot(crew.x - car.x, crew.z - car.z) <= 4.2;
     }
 
+    toggleCamera() {
+      if (!this.isDriving) return;
+      this.firstPerson = !this.firstPerson;
+      this.lookYaw = 0;
+      this.lookPitch = 0;
+      this._lookDragging = false;
+      this._camInitialised = false;
+      if (this.driver) this.driver.visible = !this.firstPerson;
+      if (this.camBtn) {
+        this.camBtn.textContent = this.firstPerson ? "CAM · 1ST" : "CAM · 3RD";
+        this.camBtn.classList.toggle("is-active", this.firstPerson);
+      }
+      if (window.spaceAudio && typeof window.spaceAudio.playClick === "function") {
+        window.spaceAudio.playClick();
+      }
+      if (window.gameplay && typeof window.gameplay.showToast === "function") {
+        window.gameplay.showToast(this.firstPerson ? "COCKPIT VIEW · DRAG TO LOOK · C TO SWITCH" : "CHASE VIEW · C TO SWITCH");
+      }
+      this._updateHud();
+    }
+
     // =========================================================================
     // ENTER / EXIT
     // =========================================================================
@@ -852,6 +967,12 @@
       this.speed = 0;
       this.steer = 0;
       this.brakeHeld = false;
+      this.boostHeld = false;
+      this.boosting = false;
+      this.drifting = false;
+      this.lookYaw = 0;
+      this.lookPitch = 0;
+      this._lookDragging = false;
       this.keys = Object.create(null);
       this._camInitialised = false;
 
@@ -861,7 +982,7 @@
       }
 
       this._applyDriverSuit();
-      if (this.driver) this.driver.visible = true;
+      if (this.driver) this.driver.visible = !this.firstPerson;
       if (this.label) this.label.visible = false;
 
       // A flight-crew member stepping out of the gantry uses the ground-level
@@ -879,7 +1000,7 @@
         window.spaceAudio.playClick();
       }
       if (window.gameplay && typeof window.gameplay.showToast === "function") {
-        window.gameplay.showToast("NASA OPEN CAR READY · W/S THROTTLE · A/D STEER · SPACE BRAKE · [E] EXIT");
+        window.gameplay.showToast("NASA OPEN CAR READY · W/S THROTTLE · A/D STEER · SHIFT BOOST · SPACE DRIFT/BRAKE · C VIEW · [E] EXIT");
       }
       this._syncLocalCrewPose();
       this._updateHud();
@@ -893,6 +1014,10 @@
       this.speed = 0;
       this.steer = 0;
       this.brakeHeld = false;
+      this.boostHeld = false;
+      this.boosting = false;
+      this.drifting = false;
+      this._lookDragging = false;
       this.keys = Object.create(null);
       this._camInitialised = false;
 
@@ -931,6 +1056,10 @@
       this.speed = 0;
       this.steer = 0;
       this.brakeHeld = false;
+      this.boostHeld = false;
+      this.boosting = false;
+      this.drifting = false;
+      this._lookDragging = false;
       this.keys = Object.create(null);
       this._camInitialised = false;
       if (this.driver) this.driver.visible = false;
@@ -998,15 +1127,30 @@
       const left = this._key("KeyA", "ArrowLeft", "a", "virtualMoveLeft") ? 1 : 0;
       const right = this._key("KeyD", "ArrowRight", "d", "virtualMoveRight") ? 1 : 0;
       const braking = this.brakeHeld || this._key("Space", " ");
+      const boostHeld = this.boostHeld || this._key("ShiftLeft", "ShiftRight", "shift");
       const joyActive = !!window.virtualJoyActive;
       const joyY = joyActive ? Math.max(-1, Math.min(1, window.virtualJoyY || 0)) : 0;
       const joyX = joyActive ? Math.max(-1, Math.min(1, window.virtualJoyX || 0)) : 0;
 
       const throttle = Math.max(-1, Math.min(1, (forward - reverse) + joyY));
       const previousSpeed = this.speed;
+      const speedAbs = Math.abs(this.speed);
+      // The chase camera sits behind the car and looks along +Z, so world +X
+      // appears on the LEFT of the screen. Invert the input here so D / right
+      // stick actually turns the car to the viewer's right.
+      const steerInput = Math.max(-1, Math.min(1, (left - right) - joyX));
+      const driftRequested = braking && speedAbs > 5.0 && Math.abs(steerInput) > 0.12;
+      const drifting = driftRequested && Math.abs(this.speed) > 3.0;
+      const boosting = boostHeld && throttle > 0 && this.speed >= -0.1;
+      this.boosting = boosting;
+      this.drifting = drifting;
 
       if (throttle > 0) {
-        this.speed += 8.2 * delta;
+        if (boosting) {
+          this.speed += BOOST_ACCELERATION * delta;
+        } else if (this.speed < MAX_FORWARD_SPEED) {
+          this.speed += 8.2 * delta;
+        }
       } else if (throttle < 0) {
         this.speed -= 5.8 * delta;
       } else {
@@ -1016,28 +1160,44 @@
       }
 
       if (braking) {
-        const brakeForce = 18 * delta;
+        // A straight-line handbrake stops the car quickly. Holding it through a
+        // fast turn only scrubs speed, which lets the rear step out into a slide.
+        const brakeForce = (drifting ? 4.2 : 18) * delta;
         if (Math.abs(this.speed) <= brakeForce) this.speed = 0;
         else this.speed -= Math.sign(this.speed) * brakeForce;
       }
 
-      this.speed = Math.max(-MAX_REVERSE_SPEED, Math.min(MAX_FORWARD_SPEED, this.speed));
+      // Boost raises the ceiling; releasing SHIFT lets the car coast back to
+      // the normal top speed naturally instead of snapping down instantly.
+      if (!boosting && this.speed > MAX_FORWARD_SPEED) {
+        this.speed -= (this.speed - MAX_FORWARD_SPEED) * Math.min(1, delta * 2.2);
+      }
+      this.speed = Math.max(-MAX_REVERSE_SPEED, Math.min(MAX_BOOST_SPEED, this.speed));
 
-      // Steering authority shrinks a little at high speed for stable arcs.
-      const maxSteer = 0.54 - Math.min(0.36, Math.abs(this.speed) * 0.022);
-      // The chase camera sits behind the car and looks along +Z, so world +X
-      // appears on the LEFT of the screen. Invert the input here so D / right
-      // stick actually turns the car to the viewer's right.
-      const steerInput = Math.max(-1, Math.min(1, (left - right) - joyX));
+      // Drifting gives sharper steering authority without turning the car into
+      // an uncontrollable top; normal high-speed arcs keep the stable angle.
+      const maxSteer = drifting
+        ? 0.42 - Math.min(0.09, Math.abs(this.speed) * 0.0055)
+        : 0.54 - Math.min(0.36, Math.abs(this.speed) * 0.022);
       const steerTarget = steerInput * maxSteer;
-      this.steer += (steerTarget - this.steer) * Math.min(1, delta * 7.5);
+      this.steer += (steerTarget - this.steer) * Math.min(1, delta * (drifting ? 10.5 : 7.5));
 
       if (Math.abs(this.speed) > 0.015) {
-        this.yaw += (this.speed / WHEELBASE) * Math.tan(this.steer) * delta;
+        const rawYawRate = (this.speed / WHEELBASE) * Math.tan(this.steer);
+        const yawRate = rawYawRate * (drifting ? 1.2 : 1.0);
+        const yawCap = drifting ? 2.4 : 3.6;
+        this.yaw += Math.max(-yawCap, Math.min(yawCap, yawRate)) * delta;
       }
 
-      const dx = Math.sin(this.yaw) * this.speed * delta;
-      const dz = Math.cos(this.yaw) * this.speed * delta;
+      // Lateral slide: while the handbrake is held in a turn, the car keeps
+      // travelling partly toward the outside of the corner instead of snapping
+      // exactly to its new heading.
+      const lateralSpeed = drifting ? this.speed * this.steer * 0.65 : 0;
+      this.lateralSpeed = lateralSpeed;
+      const rightX = -Math.cos(this.yaw);
+      const rightZ = Math.sin(this.yaw);
+      const dx = Math.sin(this.yaw) * this.speed * delta + rightX * lateralSpeed * delta;
+      const dz = Math.cos(this.yaw) * this.speed * delta + rightZ * lateralSpeed * delta;
       const px = this.group.position.x;
       const pz = this.group.position.z;
       const nx = px + dx;
@@ -1113,7 +1273,7 @@
           : { pitch: 0, roll: 0 };
       const accel = (this.speed - previousSpeed) / Math.max(0.001, delta);
       const dynPitch = Math.max(-0.045, Math.min(0.045, -accel * 0.0032));
-      const dynRoll = (this.steer * Math.abs(this.speed) / MAX_FORWARD_SPEED) * 0.1;
+      const dynRoll = (this.steer * Math.abs(this.speed) / MAX_FORWARD_SPEED) * (drifting ? 0.19 : 0.1);
       const targetPitch = slope.pitch + dynPitch;
       const targetRoll = slope.roll + dynRoll;
       this._bodyPitch += (targetPitch - this._bodyPitch) * Math.min(1, delta * 9);
@@ -1137,6 +1297,9 @@
     }
 
     _idle(delta) {
+      this.boosting = false;
+      this.drifting = false;
+      this.lateralSpeed = 0;
       const terrain = window.SpaceCenterModules && window.SpaceCenterModules.terrain;
       if (terrain && this.group) {
         const targetY = terrain.getSurfaceHeightAt(
@@ -1225,9 +1388,47 @@
     // =========================================================================
     updateCamera(camera) {
       if (!camera || !this.group) return;
+      const T = window.THREE;
       const p = this.group.position;
-      const distance = 7.4;
-      const height = 3.35;
+
+      if (this.firstPerson) {
+        if (this.driver) this.driver.visible = false;
+        if (!this._camHead && T) {
+          this._camHead = new T.Vector3();
+          this._camDir = new T.Vector3();
+        }
+        if (!this._camHead) return;
+        // Driver eye position in body space, so suspension pitch/roll moves the view.
+        this._camHead.set(-0.44, 1.63, -0.18);
+        if (this.body) this.body.localToWorld(this._camHead);
+        const bob = Math.sin(performance.now() * 0.012) * Math.min(0.015, Math.abs(this.speed) * 0.0011);
+        this._camHead.y += bob;
+        const pitch = Math.max(-0.6, Math.min(0.6, this.lookPitch - this._bodyPitch * 0.45));
+        const yaw = this.yaw + this.lookYaw;
+        if (!this._camInitialised) {
+          camera.position.copy(this._camHead);
+          this._camInitialised = true;
+        } else {
+          const blend = 1 - Math.exp(-Math.max(0.001, this._lastDelta) * 28);
+          camera.position.lerp(this._camHead, blend);
+        }
+        this._camDir.set(
+          Math.sin(yaw) * Math.cos(pitch),
+          Math.sin(pitch),
+          Math.cos(yaw) * Math.cos(pitch)
+        );
+        camera.lookAt(
+          camera.position.x + this._camDir.x,
+          camera.position.y + this._camDir.y,
+          camera.position.z + this._camDir.z
+        );
+        return;
+      }
+
+      if (this.driver && this.isDriving) this.driver.visible = true;
+      const speedRatio = Math.min(1, Math.abs(this.speed) / MAX_BOOST_SPEED);
+      const distance = 7.4 + speedRatio * 1.0 + (this.boosting ? 0.6 : 0);
+      const height = 3.35 + speedRatio * 0.2;
       const desiredX = p.x - Math.sin(this.yaw) * distance;
       const desiredZ = p.z - Math.cos(this.yaw) * distance;
       const terrain = window.SpaceCenterModules && window.SpaceCenterModules.terrain;
@@ -1243,10 +1444,11 @@
         camera.position.y += (desiredY - camera.position.y) * blend;
         camera.position.z += (desiredZ - camera.position.z) * blend;
       }
+      const lookAhead = 2.6 + speedRatio * 1.8;
       camera.lookAt(
-        p.x + Math.sin(this.yaw) * 2.6,
+        p.x + Math.sin(this.yaw) * lookAhead,
         p.y + 1.25 + Math.sin(-this._bodyPitch) * 1.4,
-        p.z + Math.cos(this.yaw) * 2.6
+        p.z + Math.cos(this.yaw) * lookAhead
       );
     }
 
@@ -1293,6 +1495,21 @@
         this.statusEl.textContent = this.isDriving
           ? "LAUNCH CENTER · NASA ROAMING CAR · DRIVING"
           : "LAUNCH CENTER · NASA ROAMING CAR";
+      }
+      if (this.stateEl) {
+        const braking = this.brakeHeld || this._key("Space", " ");
+        const state = this.drifting ? "DRIFT" : this.boosting ? "BOOST" : braking ? "BRAKE" : "CRUISE";
+        this.stateEl.textContent = state;
+        this.stateEl.classList.toggle("is-drift", state === "DRIFT");
+        this.stateEl.classList.toggle("is-boost", state === "BOOST");
+        this.stateEl.classList.toggle("is-brake", state === "BRAKE");
+      }
+      if (this.camBtn) {
+        this.camBtn.textContent = this.firstPerson ? "CAM · 1ST" : "CAM · 3RD";
+        this.camBtn.classList.toggle("is-active", this.firstPerson);
+      }
+      if (this.boostBtn) {
+        this.boostBtn.classList.toggle("is-active", this.boosting || this.boostHeld);
       }
       this._stackAboveGroundHud();
     }

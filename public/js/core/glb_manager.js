@@ -1147,7 +1147,8 @@
               rig.activeClipName = desiredClip;
             }
             if (rig.activeClipName === "walk" && rig.actions["walk"] && !emoteClip) {
-              rig.actions["walk"].timeScale = isEva ? 0.75 : (isSprinting ? 2.05 : 1.15);
+              // Default locomotion is a true run; Shift is the faster sprint.
+              rig.actions["walk"].timeScale = isEva ? 0.75 : (isSprinting ? 2.05 : 1.45);
             } else if (emoteClip && rig.actions[emoteClip]) {
               rig.actions[emoteClip].timeScale = emoteSpeed;
             }
@@ -1155,18 +1156,18 @@
             modelContainer.position.y = 0;
             modelContainer.rotation.x = 0;
             modelContainer.rotation.z = 0;
-            // A small forward lean sells the extra stride length while sprinting.
-            if (isSprinting && isMoving && !floating && !emoteClip) {
-              modelContainer.rotation.x = 0.075;
+            // Forward lean separates the run and sprint silhouettes.
+            if (isMoving && !floating && !emoteClip) {
+              modelContainer.rotation.x = isSprinting ? 0.075 : 0.035;
             }
           } else {
             // Procedural bobbing for static GLB models without skeletal clips
             if (isMoving) {
-              rig.walkTime += delta * (isSprinting ? 13.5 : (isEva ? 3.0 : 8.5));
-              const bob = Math.abs(Math.sin(rig.walkTime)) * (isSprinting ? 0.055 : 0.04);
+              rig.walkTime += delta * (isSprinting ? 13.5 : (isEva ? 3.0 : 10.2));
+              const bob = Math.abs(Math.sin(rig.walkTime)) * (isSprinting ? 0.055 : 0.045);
               modelContainer.position.y = isEva ? Math.sin(rig.walkTime * 0.5) * 0.05 : bob;
-              modelContainer.rotation.x = isEva ? 0.14 : (isSprinting ? 0.1 : 0.05);
-              modelContainer.rotation.z = Math.sin(rig.walkTime * 0.5) * (isSprinting ? 0.045 : 0.03);
+              modelContainer.rotation.x = isEva ? 0.14 : (isSprinting ? 0.1 : 0.065);
+              modelContainer.rotation.z = Math.sin(rig.walkTime * 0.5) * (isSprinting ? 0.045 : 0.032);
             } else {
               rig.walkTime += delta * 1.8;
               modelContainer.position.y = Math.sin(rig.walkTime) * 0.015;
