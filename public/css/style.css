@@ -3648,6 +3648,39 @@ body.telemetry-collapsed #space-center-ground-hud {
   color: #fbbf24;
 }
 
+.sc-btn-elv {
+  border-color: rgba(250, 204, 21, 0.55);
+  background: rgba(45, 36, 12, 0.85);
+  color: #facc15;
+}
+.sc-btn-elv:hover {
+  border-color: rgba(250, 204, 21, 0.95);
+  background: rgba(70, 56, 16, 0.95);
+  color: #ffffff;
+}
+
+.sc-btn-gantry {
+  border-color: rgba(52, 211, 153, 0.55);
+  background: rgba(12, 45, 30, 0.85);
+  color: #34d399;
+}
+.sc-btn-gantry:hover {
+  border-color: rgba(52, 211, 153, 0.95);
+  background: rgba(18, 65, 42, 0.95);
+  color: #ffffff;
+}
+
+.sc-btn-top {
+  border-color: rgba(56, 189, 248, 0.55);
+  background: rgba(12, 36, 52, 0.85);
+  color: #38bdf8;
+}
+.sc-btn-top:hover {
+  border-color: rgba(56, 189, 248, 0.95);
+  background: rgba(18, 54, 80, 0.95);
+  color: #ffffff;
+}
+
 .sc-btn-plan {
   border-color: rgba(167, 139, 250, 0.35);
 }

@@ -61,6 +61,8 @@
       this.floodlights = [];
       this.whiteRoomDoor = null;
       this.openCar = null;              // Drivable open-top NASA ground car
+      this.rssGroup = null;
+      this.goxVentArm = null;
 
       // Elevator system
       this.elevatorCab = null;          // THREE.Group — the moving cabin
@@ -140,6 +142,7 @@
       this._buildCoastalTerrain();
       this._buildLaunchPad39A();
       this._buildLaunchTowerAndBoardingDock();
+      this._buildRotatingServiceStructure();
       this._buildWaterDelugeSystem();
       this._buildLaunchStack();
       this._buildBoardingGuidance();
@@ -394,7 +397,7 @@
     }
 
     // ── Elevator interaction ─────────────────────────────────────────────────
-    _handleElevatorKey() {
+    _handleElevatorKey(targetFloor) {
       if (!this.elevatorCab || !this._elevatorConfig) return;
       const cfg = this._elevatorConfig;
 
@@ -402,47 +405,153 @@
       // towerGroup is at padGroup(-34, 19.8, 0); padGroup is at scene origin.
       const elevWorldX = -34 + cfg.x;
       const elevWorldZ = 0  + cfg.z;
-      const gantryY    = 64.1; // world Y of gantry deck
-      const groundY    = 19.8; // world Y of pad ground level
 
-      // Current player world position
-      const cam = this.camera;
-      if (!cam) return;
-      const px = cam.position.x;
-      const pz = cam.position.z;
-      const py = cam.position.y;
+      // Current player world position (support both localCrew and camera)
+      const crewPos = (window.localCrew && window.localCrew.group) ? window.localCrew.group.position : (this.camera ? this.camera.position : null);
+      if (!crewPos) return;
+      const px = crewPos.x;
+      const pz = crewPos.z;
+      const py = crewPos.y;
 
       const groundDist = Math.sqrt((px - elevWorldX) ** 2 + (pz - elevWorldZ) ** 2);
-      const atGround   = py < groundY + 5  && groundDist < 7;
-      const atGantry   = py >= groundY - 2 && groundDist < 10;
+      const isNearElevator = groundDist < 24.0;
 
       if (this.elevatorMoving) {
-        // Pressing G while moving: cancel / stop (player teleports to nearest floor)
-        this.elevatorMoving = false;
-        this.elevatorRidingPlayer = false;
+        if (window.gameplay && typeof window.gameplay.showToast === "function") {
+          window.gameplay.showToast("🛗 ELEVATOR IN TRANSIT — Please hold on...");
+        }
         return;
       }
 
-      if (atGround) {
-        // Call elevator down (if needed) then ride up
-        this.elevatorTargetY = cfg.top;
+      if (!isNearElevator && !this.elevatorRidingPlayer) {
+        // Exit site tour if active
+        this.siteTourActive = false;
+        if (targetFloor === undefined || targetFloor === null) {
+          // Fast travel directly to the Pad 39A Ground Elevator Lobby (world y = 12.5m)
+          if (window.localCrew && window.localCrew.group) {
+            window.localCrew.group.position.set(-41.0, 12.5, -4.0);
+            window.localCrew.group.rotation.y = -Math.PI / 2;
+          }
+          if (typeof window.setCameraYawPitch === "function") {
+            window.setCameraYawPitch(-Math.PI / 2, 0.0);
+          }
+          if (window.spaceAudio && typeof window.spaceAudio.playAirlockCycle === "function") {
+            window.spaceAudio.playAirlockCycle();
+          }
+          if (window.gameplay && typeof window.gameplay.showToast === "function") {
+            window.gameplay.showToast("🛗 ARRIVED AT GROUND ELEVATOR LOBBY — Press [3] for Top Deck, [2] for Gantry");
+          }
+          this._renderGroundHUD();
+          return;
+        } else {
+          // Explicit destination requested from afar: move inside cab at ground level and proceed!
+          if (window.localCrew && window.localCrew.group) {
+            window.localCrew.group.position.set(-42.2, 12.5, -4.0);
+          }
+        }
+      }
+
+      // Exit site tour if active when operating the elevator
+      if (this.siteTourActive) {
+        this.siteTourActive = false;
+        this._renderGroundHUD();
+      }
+
+      // Determine current floor
+      const atGround = py < 35.0;
+      const atTop    = py >= 85.0;
+      const atGantry = !atGround && !atTop;
+
+      if (window.spaceAudio && typeof window.spaceAudio.playAirlockCycle === "function") {
+        window.spaceAudio.playAirlockCycle();
+      }
+
+      // Normalize explicit floor requests
+      const reqGround = targetFloor === 1 || targetFloor === 0 || targetFloor === "ground";
+      const reqGantry = targetFloor === 2 || targetFloor === 44 || targetFloor === "gantry";
+      const reqTop    = targetFloor === 3 || targetFloor === 88 || targetFloor === "top";
+
+      if (reqTop) {
+        this.elevatorTargetY = cfg.top !== undefined ? cfg.top : 88.0;
         this.elevatorMoving  = true;
         this.elevatorRidingPlayer = true;
+        if (window.localCrew && window.localCrew.group) {
+          window.localCrew.group.position.set(-42.2, py, -4.0);
+        }
         if (window.gameplay && typeof window.gameplay.showToast === "function") {
-          window.gameplay.showToast("🛗 ELEVATOR: Going up to Boarding Bridge Level — stand clear of doors");
+          window.gameplay.showToast("🛗 ELEVATOR: Ascending to Tower Top Observation Deck (88m / 300 FT)");
+        }
+        return;
+      }
+
+      if (reqGantry) {
+        this.elevatorTargetY = cfg.gantry !== undefined ? cfg.gantry : 44.0;
+        this.elevatorMoving  = true;
+        this.elevatorRidingPlayer = true;
+        if (window.localCrew && window.localCrew.group) {
+          window.localCrew.group.position.set(-42.2, py, -4.0);
+        }
+        if (window.gameplay && typeof window.gameplay.showToast === "function") {
+          window.gameplay.showToast("🛗 ELEVATOR: In transit to Spacecraft Boarding Bridge (44m) — Walk to White Room to board");
+        }
+        return;
+      }
+
+      if (reqGround) {
+        this.elevatorTargetY = cfg.bottom !== undefined ? cfg.bottom : -7.3;
+        this.elevatorMoving  = true;
+        this.elevatorRidingPlayer = true;
+        if (window.localCrew && window.localCrew.group) {
+          window.localCrew.group.position.set(-42.2, py, -4.0);
+        }
+        if (window.gameplay && typeof window.gameplay.showToast === "function") {
+          window.gameplay.showToast("🛗 ELEVATOR: Descending to Pad Ground Level (0m)");
+        }
+        return;
+      }
+
+      // Unspecified target floor (general toggle via [G] or [E])
+      if (atGround) {
+        // From Ground: ride up to Gantry Level to board the spacecraft!
+        this.elevatorTargetY = cfg.gantry !== undefined ? cfg.gantry : 44.0;
+        this.elevatorMoving  = true;
+        this.elevatorRidingPlayer = true;
+        if (window.localCrew && window.localCrew.group) {
+          window.localCrew.group.position.set(-42.2, 12.5, -4.0);
+        }
+        if (window.gameplay && typeof window.gameplay.showToast === "function") {
+          window.gameplay.showToast("🛗 ELEVATOR: Ascending to Boarding Bridge Level (44m) — Walk to White Room to board spacecraft");
         }
       } else if (atGantry) {
-        // Send elevator back down
-        this.elevatorTargetY = cfg.bottom;
+        // From Gantry: ride to Top Deck if cab is already at Gantry, otherwise to Ground
+        if (Math.abs(this.elevatorY - 44.0) < 4.0) {
+          this.elevatorTargetY = cfg.top !== undefined ? cfg.top : 88.0;
+          this.elevatorMoving  = true;
+          this.elevatorRidingPlayer = true;
+          if (window.localCrew && window.localCrew.group) {
+            window.localCrew.group.position.set(-42.2, 64.1, -4.0);
+          }
+          if (window.gameplay && typeof window.gameplay.showToast === "function") {
+            window.gameplay.showToast("🛗 ELEVATOR: Ascending to Tower Top Observation Deck (88m / 300 FT)");
+          }
+        } else {
+          this.elevatorTargetY = cfg.bottom !== undefined ? cfg.bottom : -7.3;
+          this.elevatorMoving  = true;
+          this.elevatorRidingPlayer = false;
+          if (window.gameplay && typeof window.gameplay.showToast === "function") {
+            window.gameplay.showToast("🛗 ELEVATOR CALLED: In transit to Ground Level...");
+          }
+        }
+      } else if (atTop) {
+        // From Top Deck: ride back down to Gantry for spacecraft boarding!
+        this.elevatorTargetY = cfg.gantry !== undefined ? cfg.gantry : 44.0;
         this.elevatorMoving  = true;
         this.elevatorRidingPlayer = true;
-        if (window.gameplay && typeof window.gameplay.showToast === "function") {
-          window.gameplay.showToast("🛗 ELEVATOR: Descending to Ground Level");
+        if (window.localCrew && window.localCrew.group) {
+          window.localCrew.group.position.set(-42.2, 108.1, -4.0);
         }
-      } else {
-        // Too far — hint
         if (window.gameplay && typeof window.gameplay.showToast === "function") {
-          window.gameplay.showToast("🛗 Walk to the ELEVATOR on the west side of the tower, then press [G]");
+          window.gameplay.showToast("🛗 ELEVATOR: Descending to Gantry Level (44m) for Spacecraft Boarding");
         }
       }
     }
@@ -1007,18 +1116,162 @@
       this.padGroup.add(mlp);
 
       // MLP deck perimeter yellow safety rails & umbilical riser cabinets.
-      const railGeoX = new THREE.BoxGeometry(49.2, 1.15, 0.32);
+      // Front railing is split to leave a 5m open doorway at x in [-14.5, -9.5] for the access stairs!
       const railGeoZ = new THREE.BoxGeometry(0.32, 1.15, 40.6);
       const railMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.5, metalness: 0.35 });
-      const railFwd = new THREE.Mesh(railGeoX, railMat);
-      railFwd.position.set(0, 20.38, 20.34);
-      const railAft = new THREE.Mesh(railGeoX, railMat);
+      const railFwdEast = new THREE.Mesh(new THREE.BoxGeometry(34.0, 1.15, 0.32), railMat);
+      railFwdEast.position.set(7.5, 20.38, 20.34);
+      const railFwdWest = new THREE.Mesh(new THREE.BoxGeometry(10.0, 1.15, 0.32), railMat);
+      railFwdWest.position.set(-19.5, 20.38, 20.34);
+      const railAft = new THREE.Mesh(new THREE.BoxGeometry(49.2, 1.15, 0.32), railMat);
       railAft.position.set(0, 20.38, -20.34);
       const railEast = new THREE.Mesh(railGeoZ, railMat);
       railEast.position.set(24.34, 20.38, 0);
       const railWest = new THREE.Mesh(railGeoZ, railMat);
       railWest.position.set(-24.34, 20.38, 0);
-      this.padGroup.add(railFwd, railAft, railEast, railWest);
+      this.padGroup.add(railFwdEast, railFwdWest, railAft, railEast, railWest);
+
+      // ── Realistic Industrial Steel Stairway & Caged Safety Ladder ─────────
+      // Connects Pad Hardstand (y=12.5, z=32.0) to Mobile Launcher Platform Deck (y=19.8, z=20.5)
+      // Height rise = 7.3m, run = 11.5m, slope length = 13.62m, slope angle = +0.56586 rad
+      const stairAngle = 0.56586; // Positive rotation around X pitches south end DOWN to ground and north end UP to deck
+      const stringerMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.6, metalness: 0.65 });
+      const treadMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.75, metalness: 0.45 });
+      const noseMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.45, metalness: 0.4 });
+      const stairPostMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.5, metalness: 0.5 });
+      const stairRailMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.45, metalness: 0.4 });
+      const footingMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.9, metalness: 0.1 });
+
+      const stairGrp = new THREE.Group();
+      stairGrp.name = "MLP_AccessStairway";
+      this.padGroup.add(stairGrp);
+
+      // 1. Dual heavy structural channel stringers (left & right sides of the stairway)
+      [-13.8, -10.2].forEach((sx) => {
+        const stringer = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.45, 13.62), stringerMat);
+        stringer.position.set(sx, 16.15, 26.25);
+        stringer.rotation.x = stairAngle;
+        stringer.castShadow = true;
+        stringer.receiveShadow = true;
+        stairGrp.add(stringer);
+      });
+
+      // 2. 24 horizontal individual steel grating steps with safety yellow nosings
+      const stepCount = 24;
+      for (let i = 0; i < stepCount; i++) {
+        const t = (i + 0.5) / stepCount;
+        const sz = 32.0 - t * 11.5;
+        const sy = 12.5 + t * 7.3;
+
+        // Step grating tread (flat horizontal box)
+        const step = new THREE.Mesh(new THREE.BoxGeometry(3.35, 0.08, 0.52), treadMat);
+        step.position.set(-12.0, sy, sz);
+        step.receiveShadow = true;
+        stairGrp.add(step);
+
+        // Safety yellow non-slip nosing on front edge of each step
+        const nose = new THREE.Mesh(new THREE.BoxGeometry(3.35, 0.082, 0.05), noseMat);
+        nose.position.set(-12.0, sy + 0.002, sz + 0.25);
+        stairGrp.add(nose);
+      }
+
+      // 3. Vertical structural support pillars resting on concrete footings on pad hardstand
+      [0.25, 0.5, 0.75].forEach((t) => {
+        const sz = 32.0 - t * 11.5;
+        const sy = 12.5 + t * 7.3;
+        const pillarH = sy - 12.5;
+        [-13.8, -10.2].forEach((sx) => {
+          // Steel pillar
+          this._makeBeam(stairGrp, 0.18, pillarH, 0.18, sx, 12.5 + pillarH / 2, sz, stringerMat);
+          // Concrete footing
+          const footing = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.35, 0.55), footingMat);
+          footing.position.set(sx, 12.5 + 0.175, sz);
+          footing.receiveShadow = true;
+          stairGrp.add(footing);
+        });
+      });
+
+      // 4. Continuous OSHA dual-rail safety handrails on both sides (left & right)
+      [-13.92, -10.08].forEach((sx) => {
+        // Top handrail (1.1m above stringer)
+        const topRail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 13.62), stairRailMat);
+        topRail.position.set(sx, 17.25, 26.25);
+        topRail.rotation.x = stairAngle;
+        stairGrp.add(topRail);
+
+        // Mid safety rail (0.55m above stringer)
+        const midRail = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 13.62), stairRailMat);
+        midRail.position.set(sx, 16.7, 26.25);
+        midRail.rotation.x = stairAngle;
+        stairGrp.add(midRail);
+
+        // Safety toe-board / kick-plate along bottom of rail
+        const toeBoard = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.14, 13.62), stringerMat);
+        toeBoard.position.set(sx, 16.22, 26.25);
+        toeBoard.rotation.x = stairAngle;
+        stairGrp.add(toeBoard);
+
+        // Vertical stanchion posts every ~1.6m along the stair run
+        for (let i = 0; i <= 8; i++) {
+          const t = i / 8;
+          const sz = 32.0 - t * 11.5;
+          const sy = 12.5 + t * 7.3;
+          this._makeBeam(stairGrp, 0.08, 1.25, 0.08, sx, sy + 0.62, sz, stairPostMat);
+        }
+      });
+
+      // 5. Top landing transition platform at MLP deck level (y=19.8, z=20.0)
+      const topLanding = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.22, 1.4), treadMat);
+      topLanding.position.set(-12.0, 19.8, 19.8);
+      topLanding.receiveShadow = true;
+      stairGrp.add(topLanding);
+
+      // 6. Authentic Caged Vertical Service Ladder on south wall of MLP (at x=-15.5)
+      const ladderGrp = new THREE.Group();
+      ladderGrp.name = "MLP_CagedLadder";
+      this.padGroup.add(ladderGrp);
+
+      const ladderMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.45, metalness: 0.5 });
+      // Side rails spanning from ground y=12.5 to 1.1m above MLP deck y=20.9
+      [-15.8, -15.2].forEach((lx) => {
+        this._makeBeam(ladderGrp, 0.06, 8.4, 0.06, lx, 12.5 + 4.2, 20.65, ladderMat);
+      });
+      // Horizontal rungs every 0.3m
+      for (let ry = 12.8; ry <= 19.8; ry += 0.3) {
+        this._makeBeam(ladderGrp, 0.6, 0.04, 0.04, -15.5, ry, 20.65, ladderMat);
+      }
+      // Safety cage hoops every 1.2m from y=15.0 up to 20.9
+      const cageGeo = new THREE.CylinderGeometry(0.48, 0.48, 0.04, 16, 1, true, 0, Math.PI);
+      for (let cy = 15.0; cy <= 20.6; cy += 1.2) {
+        const hoop = new THREE.Mesh(cageGeo, ladderMat);
+        hoop.position.set(-15.5, cy, 21.0);
+        hoop.rotation.x = Math.PI / 2;
+        ladderGrp.add(hoop);
+      }
+      // Vertical safety cage straps
+      [-0.45, 0, 0.45].forEach((offset) => {
+        this._makeBeam(ladderGrp, 0.03, 5.8, 0.03, -15.5 + offset, 17.9, 21.45, ladderMat);
+      });
+
+      // 7. High-visibility directional entrance sign at base of stairway
+      const signCanvas = document.createElement("canvas");
+      signCanvas.width = 512; signCanvas.height = 128;
+      const sctx = signCanvas.getContext("2d");
+      sctx.fillStyle = "#0f172a"; sctx.fillRect(0, 0, 512, 128);
+      sctx.strokeStyle = "#facc15"; sctx.lineWidth = 6; sctx.strokeRect(4, 4, 504, 120);
+      sctx.fillStyle = "#38bdf8"; sctx.font = "bold 26px Arial"; sctx.textAlign = "center";
+      sctx.fillText("PAD 39A MOBILE LAUNCHER ACCESS", 256, 44);
+      sctx.fillStyle = "#facc15"; sctx.font = "bold 20px Arial";
+      sctx.fillText("STAIRWAY & CAGED LADDER TO MLP DECK", 256, 82);
+      sctx.fillStyle = "#34d399"; sctx.font = "bold 16px Arial";
+      sctx.fillText("🛗 FOR TOWER TOP & ORBITER, TAKE FSS ELEVATOR", 256, 110);
+      const signMesh = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 1.05),
+        new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(signCanvas), transparent: true }));
+      signMesh.position.set(-12.0, 14.8, 32.3);
+      stairGrp.add(signMesh);
+      // Sign stanchion posts
+      this._makeBeam(stairGrp, 0.08, 2.4, 0.08, -14.0, 13.7, 32.28, stairPostMat);
+      this._makeBeam(stairGrp, 0.08, 2.4, 0.08, -10.0, 13.7, 32.28, stairPostMat);
 
       // Single non-overlapping pad identification stencil ("39A").
       const markCanvas = document.createElement("canvas");
@@ -1256,130 +1509,218 @@
       });
 
       // ════════════════════════════════════════════════════════════════════════
-      // ── FUNCTIONAL ELEVATOR SYSTEM ──────────────────────────────────────────
-      // Elevator shaft on the west face of the tower.
-      // Shaft centre: X=-9, Z=4 in towerGroup space.
-      // Rides from Y=0 (ground) to Y=44 (gantry deck).
+      // ── FULL-HEIGHT 3-STOP ELEVATOR SYSTEM ──────────────────────────────────
+      // Connects Ground Level (-7.3m in towerGroup / world y=12.5m on Pad 39A)
+      // -> Spacecraft Boarding Gantry (44m) -> Tower Top Observation Deck (88m)
+      // Shaft centre: X = -8.2, Z = -4.0 (aligned with Gantry Deck walkway)
       // ════════════════════════════════════════════════════════════════════════
-      const ELV_X = -9, ELV_Z = 4;
-      const ELV_BOTTOM = 0, ELV_TOP = 44;
+      const ELV_X = -8.2, ELV_Z = -4.0;
+      const ELV_BOTTOM = -7.3, ELV_GANTRY = 44.0, ELV_TOP = 88.0;
 
-      // Shaft rails (two vertical I-beams)
+      // Shaft rails (two vertical heavy I-beams spanning from Ground -7.3m up to Top 88m: total height 95.3m)
       const shaftMat = new THREE.MeshStandardMaterial({ color: 0x37474f, roughness: 0.6, metalness: 0.75 });
-      this._makeBeam(this.towerGroup, 0.3, towerHeight, 0.3, ELV_X - 1.2, towerHeight / 2, ELV_Z, shaftMat);
-      this._makeBeam(this.towerGroup, 0.3, towerHeight, 0.3, ELV_X + 1.2, towerHeight / 2, ELV_Z, shaftMat);
-      // Shaft cross ties
-      for (let y = 8; y <= towerHeight; y += 8) {
-        this._makeBeam(this.towerGroup, 2.6, 0.18, 0.18, ELV_X, y, ELV_Z, shaftMat);
+      const shaftTotalHeight = towerHeight + 7.3; // 95.3m
+      const shaftCenterY = (-7.3 + towerHeight) / 2; // 40.35m
+      this._makeBeam(this.towerGroup, 0.35, shaftTotalHeight, 0.35, ELV_X - 1.5, shaftCenterY, ELV_Z, shaftMat);
+      this._makeBeam(this.towerGroup, 0.35, shaftTotalHeight, 0.35, ELV_X + 1.5, shaftCenterY, ELV_Z, shaftMat);
+      // Shaft cross ties every 8m from ground to top
+      for (let y = -7.3; y <= towerHeight; y += 8) {
+        this._makeBeam(this.towerGroup, 3.2, 0.22, 0.22, ELV_X, y, ELV_Z, shaftMat);
+        this._makeBeam(this.towerGroup, 0.22, 0.22, 2.8, ELV_X, y, ELV_Z - 1.4, shaftMat);
+        this._makeBeam(this.towerGroup, 0.22, 0.22, 2.8, ELV_X, y, ELV_Z + 1.4, shaftMat);
       }
 
-      // Elevator cabin (animated group)
+      // ── Elevator Cabin (Animated Group) ──
       this.elevatorCab = new THREE.Group();
       this.elevatorCab.name = "ElevatorCab";
       this.elevatorCab.position.set(ELV_X, ELV_BOTTOM, ELV_Z);
       this.towerGroup.add(this.elevatorCab);
 
-      // Cabin walls — steel + glass
-      const cabSteel = new THREE.MeshStandardMaterial({ color: 0x546e7a, roughness: 0.5, metalness: 0.75 });
+      const cabSteel = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.45, metalness: 0.75 });
       const cabGlass = new THREE.MeshStandardMaterial({
-        color: 0x80deea, roughness: 0.1, metalness: 0.0,
-        transparent: true, opacity: 0.42, side: THREE.DoubleSide
+        color: 0x80deea, roughness: 0.08, metalness: 0.1,
+        transparent: true, opacity: 0.45, side: THREE.DoubleSide
       });
-      // Floor
-      const cabFloor = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.12, 2.4), cabSteel);
-      cabFloor.position.set(0, 0.06, 0);
+      // Floor (3.0m x 2.8m)
+      const cabFloor = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.16, 2.8), cabSteel);
+      cabFloor.position.set(0, 0.08, 0);
       this.elevatorCab.add(cabFloor);
       // Ceiling
-      const cabCeil = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.12, 2.4), cabSteel);
-      cabCeil.position.set(0, 2.5, 0);
+      const cabCeil = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.16, 2.8), cabSteel);
+      cabCeil.position.set(0, 2.7, 0);
       this.elevatorCab.add(cabCeil);
-      // Back wall (steel)
-      const cabBack = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.4, 0.12), cabSteel);
-      cabBack.position.set(0, 1.25, -1.2);
+      // Back wall (west face)
+      const cabBack = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.6, 2.8), cabSteel);
+      cabBack.position.set(-1.44, 1.35, 0);
       this.elevatorCab.add(cabBack);
-      // Side walls (glass)
-      [-1.3, 1.3].forEach(x => {
-        const sw = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.4, 2.4), cabGlass);
-        sw.position.set(x, 1.25, 0);
+      // Side walls (glass on north & south sides)
+      [-1.34, 1.34].forEach(z => {
+        const sw = new THREE.Mesh(new THREE.BoxGeometry(2.8, 2.6, 0.08), cabGlass);
+        sw.position.set(0, 1.35, z);
         this.elevatorCab.add(sw);
       });
-      // Front glass (facing tower exterior)
-      const cabFront = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.4, 0.08), cabGlass);
-      cabFront.position.set(0, 1.25, 1.2);
-      this.elevatorCab.add(cabFront);
-      // Corner pillars
-      [[-1.25, -1.1], [1.25, -1.1], [-1.25, 1.1], [1.25, 1.1]].forEach(([px, pz]) => {
-        const cp = new THREE.Mesh(new THREE.BoxGeometry(0.14, 2.65, 0.14), cabSteel);
-        cp.position.set(px, 1.25, pz);
+      // Corner structural pillars
+      [[-1.4, -1.3], [-1.4, 1.3], [1.4, -1.3], [1.4, 1.3]].forEach(([px, pz]) => {
+        const cp = new THREE.Mesh(new THREE.BoxGeometry(0.16, 2.7, 0.16), cabSteel);
+        cp.position.set(px, 1.35, pz);
         this.elevatorCab.add(cp);
       });
       // Interior ambient light inside cab (emissive strip covers mobile).
       if (!window.isMobileDevice) {
-        const cabLight = new THREE.PointLight(0xfff5e0, 0.9, 6);
-        cabLight.position.set(0, 2.2, 0);
+        const cabLight = new THREE.PointLight(0xfff7ed, 1.2, 8);
+        cabLight.position.set(0, 2.4, 0);
         this.elevatorCab.add(cabLight);
       }
-      // Cabin status strip (green = at gantry, amber = moving, red = at ground)
+
+      // Status indicator strip (green = arrived, amber = moving)
       this._elevatorLightMat = new THREE.MeshStandardMaterial({
-        color: 0x34d399, emissive: 0x34d399, emissiveIntensity: 2.0
+        color: 0x34d399, emissive: 0x34d399, emissiveIntensity: 2.2
       });
-      const cabStatus = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.08, 0.08), this._elevatorLightMat);
-      cabStatus.position.set(0, 2.45, -1.14);
+      const cabStatus = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 2.4), this._elevatorLightMat);
+      cabStatus.position.set(-1.38, 2.55, 0);
       this.elevatorCab.add(cabStatus);
 
-      // ── Ground-level call panel ──
-      const callPanelGroup = new THREE.Group();
-      callPanelGroup.name = "ElevatorCallPanel";
-      callPanelGroup.position.set(ELV_X - 1.6, 2.0, ELV_Z + 1.6);
-      this.towerGroup.add(callPanelGroup);
-      const cpBase = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.2, 0.12),
-        new THREE.MeshStandardMaterial({ color: 0x1c2a35, roughness: 0.45, metalness: 0.65 }));
-      cpBase.position.set(0, 0, 0);
-      callPanelGroup.add(cpBase);
-      // Up button
-      const btnMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xfacc15, emissiveIntensity: 1.5 });
-      const btn = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.08, 12), btnMat);
-      btn.rotation.x = Math.PI / 2;
-      btn.position.set(0, 0.2, 0.08);
-      callPanelGroup.add(btn);
-      // "ELEVATOR" text texture label
-      const lblCanvas = document.createElement("canvas");
-      lblCanvas.width = 256; lblCanvas.height = 96;
-      const lblCtx = lblCanvas.getContext("2d");
-      lblCtx.fillStyle = "#0f172a";
-      lblCtx.fillRect(0, 0, 256, 96);
-      lblCtx.fillStyle = "#fbbf24";
-      lblCtx.font = "bold 28px Arial";
-      lblCtx.textAlign = "center";
-      lblCtx.fillText("ELEVATOR", 128, 36);
-      lblCtx.fillStyle = "#94a3b8";
-      lblCtx.font = "18px Arial";
-      lblCtx.fillText("[G] Call / Ride", 128, 68);
-      const lblTex = new THREE.CanvasTexture(lblCanvas);
-      const lbl = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.26), new THREE.MeshBasicMaterial({ map: lblTex, transparent: true }));
-      lbl.position.set(0, -0.28, 0.07);
-      callPanelGroup.add(lbl);
+      // ── Connecting Catwalks at Every Floor ──
+      const bridgeDeckMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.72, metalness: 0.35 });
+      const bridgeRailMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.5, metalness: 0.4 });
 
-      // ── Gantry-level call panel (same design, at top) ──
-      const callPanelTop = callPanelGroup.clone();
-      callPanelTop.name = "ElevatorCallPanelTop";
-      callPanelTop.position.set(ELV_X - 1.6, ELV_TOP + 2.0, ELV_Z + 1.6);
-      this.towerGroup.add(callPanelTop);
+      // 1. Ground Level Landing Platform (y = -7.3m in towerGroup, world y = 12.5m on Pad Hardstand)
+      const groundPlatform = new THREE.Mesh(new THREE.BoxGeometry(6.4, 0.25, 6.4), bridgeDeckMat);
+      groundPlatform.position.set(ELV_X - 0.8, -7.3 + 0.12, ELV_Z);
+      groundPlatform.receiveShadow = true;
+      this.towerGroup.add(groundPlatform);
+
+      // Concrete foundation plinth beneath the ground platform
+      const fdnMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.85, metalness: 0.1 });
+      const fdnMesh = new THREE.Mesh(new THREE.BoxGeometry(6.8, 0.4, 6.8), fdnMat);
+      fdnMesh.position.set(ELV_X - 0.8, -7.3 - 0.2, ELV_Z);
+      this.towerGroup.add(fdnMesh);
+
+      // Safety railings (enclosing north and west, leaving south and east open for easy entrance)
+      this._makeBeam(this.towerGroup, 6.4, 0.1, 0.1, ELV_X - 0.8, -7.3 + 1.2, ELV_Z - 3.2, bridgeRailMat);
+      this._makeBeam(this.towerGroup, 0.1, 0.1, 6.4, ELV_X - 4.0, -7.3 + 1.2, ELV_Z, bridgeRailMat);
+
+      // Weather canopy / entrance awning
+      const canopyMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.55, metalness: 0.5 });
+      const canopy = new THREE.Mesh(new THREE.BoxGeometry(6.4, 0.2, 5.2), canopyMat);
+      canopy.position.set(ELV_X - 0.8, -7.3 + 3.6, ELV_Z + 0.6);
+      this.towerGroup.add(canopy);
+      this._makeBeam(this.towerGroup, 0.16, 3.6, 0.16, ELV_X + 2.3, -7.3 + 1.8, ELV_Z + 3.1, canopyMat);
+      this._makeBeam(this.towerGroup, 0.16, 3.6, 0.16, ELV_X - 3.9, -7.3 + 1.8, ELV_Z + 3.1, canopyMat);
+
+      // Downward spotlight at entrance
+      if (!window.isMobileDevice) {
+        const groundLight = new THREE.PointLight(0xffedd5, 1.4, 12);
+        groundLight.position.set(ELV_X, -7.3 + 3.2, ELV_Z);
+        this.towerGroup.add(groundLight);
+      }
+
+      // Ground Entrance Header Sign: "🛗 FIXED SERVICE STRUCTURE ELEVATOR"
+      const groundSignCanvas = document.createElement("canvas");
+      groundSignCanvas.width = 512; groundSignCanvas.height = 128;
+      const gsCtx = groundSignCanvas.getContext("2d");
+      gsCtx.fillStyle = "#0f172a";
+      gsCtx.fillRect(0, 0, 512, 128);
+      gsCtx.strokeStyle = "#38bdf8";
+      gsCtx.lineWidth = 6;
+      gsCtx.strokeRect(4, 4, 504, 120);
+      gsCtx.fillStyle = "#38bdf8";
+      gsCtx.font = "bold 30px Arial";
+      gsCtx.textAlign = "center";
+      gsCtx.fillText("🛗 FSS ELEVATOR · GROUND ENTRANCE", 256, 44);
+      gsCtx.fillStyle = "#fbbf24";
+      gsCtx.font = "bold 22px Arial";
+      gsCtx.fillText("[1] GROUND · [2] GANTRY (44m) · [3/T] TOP DECK (88m)", 256, 82);
+      gsCtx.fillStyle = "#34d399";
+      gsCtx.font = "bold 18px Arial";
+      gsCtx.fillText("STEP INSIDE OR PRESS [3] / [T] TO REACH TOP DECK", 256, 110);
+      const gsTex = new THREE.CanvasTexture(groundSignCanvas);
+      const groundSignMesh = new THREE.Mesh(new THREE.PlaneGeometry(4.4, 1.1), new THREE.MeshBasicMaterial({ map: gsTex, transparent: true }));
+      groundSignMesh.position.set(ELV_X - 0.8, -7.3 + 3.2, ELV_Z + 3.22);
+      this.towerGroup.add(groundSignMesh);
+
+      // 2. Gantry Level Catwalk Bridge (y = 44m -> leads straight to Orbiter Access Arm & White Room!)
+      const gantryBridge = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.35, 3.6), bridgeDeckMat);
+      gantryBridge.position.set(-7.2, ELV_GANTRY, ELV_Z);
+      gantryBridge.castShadow = true;
+      gantryBridge.receiveShadow = true;
+      this.towerGroup.add(gantryBridge);
+
+      // Bridge side railings
+      this._makeBeam(this.towerGroup, 2.4, 0.1, 0.1, -7.2, ELV_GANTRY + 1.15, ELV_Z + 1.8, bridgeRailMat);
+      this._makeBeam(this.towerGroup, 2.4, 0.1, 0.1, -7.2, ELV_GANTRY + 1.15, ELV_Z - 1.8, bridgeRailMat);
+
+      // 3. Tower Top Observation Bridge (y = 88m -> leads to top crane & lightning mast deck)
+      const topBridge = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.35, 3.6), bridgeDeckMat);
+      topBridge.position.set(-7.2, ELV_TOP, ELV_Z);
+      topBridge.castShadow = true;
+      topBridge.receiveShadow = true;
+      this.towerGroup.add(topBridge);
+
+      this._makeBeam(this.towerGroup, 2.4, 0.1, 0.1, -7.2, ELV_TOP + 1.15, ELV_Z + 1.8, bridgeRailMat);
+      this._makeBeam(this.towerGroup, 2.4, 0.1, 0.1, -7.2, ELV_TOP + 1.15, ELV_Z - 1.8, bridgeRailMat);
+
+      // ── Call Stations at Ground, Gantry, and Top ──
+      const createCallStation = (yPos, labelText) => {
+        const grp = new THREE.Group();
+        grp.position.set(ELV_X - 1.6, yPos + 1.8, ELV_Z - 1.5);
+        this.towerGroup.add(grp);
+
+        const base = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.3, 0.15),
+          new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.45, metalness: 0.65 }));
+        grp.add(base);
+
+        const btn = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.08, 12),
+          new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xfacc15, emissiveIntensity: 1.8 }));
+        btn.rotation.x = Math.PI / 2;
+        btn.position.set(0, 0.22, 0.08);
+        grp.add(btn);
+
+        const canvas = document.createElement("canvas");
+        canvas.width = 256; canvas.height = 128;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#0f172a";
+        ctx.fillRect(0, 0, 256, 128);
+        ctx.fillStyle = "#38bdf8";
+        ctx.font = "bold 26px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("🛗 ELEVATOR", 128, 38);
+        ctx.fillStyle = "#facc15";
+        ctx.font = "bold 20px Arial";
+        ctx.fillText(labelText, 128, 72);
+        ctx.fillStyle = "#94a3b8";
+        ctx.font = "16px Arial";
+        ctx.fillText("[E] / [G] CALL & RIDE", 128, 104);
+        const tex = new THREE.CanvasTexture(canvas);
+        const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.65, 0.35), new THREE.MeshBasicMaterial({ map: tex, transparent: true }));
+        sign.position.set(0, -0.32, 0.08);
+        grp.add(sign);
+        return grp;
+      };
+
+      createCallStation(ELV_BOTTOM, "1: GROUND (PAD 39A)");
+      createCallStation(ELV_GANTRY, "2: GANTRY (44m)");
+      createCallStation(ELV_TOP,    "3: TOWER TOP (88m)");
+      createCallStation(ELV_TOP,    "3: TOWER TOP (88m)");
 
       // Store elevator config for update() / key handler
-      this._elevatorConfig = { x: ELV_X, z: ELV_Z, bottom: ELV_BOTTOM, top: ELV_TOP };
+      this._elevatorConfig = { x: ELV_X, z: ELV_Z, bottom: ELV_BOTTOM, gantry: ELV_GANTRY, top: ELV_TOP };
       this.elevatorY = ELV_BOTTOM;
       this.elevatorTargetY = ELV_BOTTOM;
 
-      // ── [G] key → call elevator / ride ──
+      // ── Keydown listener for [G] and [T] ──
       if (!this._elevatorKeyBound) {
         this._elevatorKeyBound = true;
         window.addEventListener("keydown", (ev) => {
           if (!window.isGameStarted || !this.isGroundMode) return;
-          if (ev.code !== "KeyG") return;
           if (ev.target && (ev.target.tagName === "INPUT" || ev.target.tagName === "TEXTAREA")) return;
-          ev.preventDefault();
-          this._handleElevatorKey();
+          if (ev.code === "KeyG") {
+            ev.preventDefault();
+            this._handleElevatorKey();
+          } else if (ev.code === "KeyT" && this.camera && Math.abs(this.camera.position.y - 64.1) < 8) {
+            ev.preventDefault();
+            this._handleElevatorKey("top");
+          }
         });
       }
 
@@ -1435,12 +1776,14 @@
       this._makeBeam(this.towerGroup, 0.26, 0.26, 17.6, 9.0, 41.0, -4.0, darkSteelMat, 0, 0, 0);
 
       // Safety railings around the open sides of the gantry deck (corner-trimmed).
+      // West railing is split around z = -4.0 to leave a clear 3.6m doorway for the elevator bridge!
       const railMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.55, metalness: 0.35 });
       const railPostMat = new THREE.MeshStandardMaterial({ color: 0x9aa8b3, roughness: 0.55, metalness: 0.45 });
       const railSegments = [
         { x: 1.5, z: 4.92, sx: 15.88, sz: 0.12, rotY: 0 },
         { x: 1.5, z: -12.92, sx: 15.88, sz: 0.12, rotY: 0 },
-        { x: -6.42, z: -4.0, sx: 0.12, sz: 17.72, rotY: 0 },
+        { x: -6.42, z: 1.35, sx: 0.12, sz: 7.1, rotY: 0 },
+        { x: -6.42, z: -9.35, sx: 0.12, sz: 7.1, rotY: 0 },
         { x: 9.42, z: -10.8, sx: 0.12, sz: 4.12, rotY: 0 },
         { x: 9.42, z: 2.8, sx: 0.12, sz: 4.32, rotY: 0 }
       ];
@@ -1455,7 +1798,9 @@
       }
       for (let i = 0; i < 18; i++) {
         const z = -12.8 + i * 0.98;
-        this._makeBeam(this.towerGroup, 0.08, 1.35, 0.08, -6.4, 44.7, z, railPostMat);
+        if (z < -5.8 || z > -2.2) {
+          this._makeBeam(this.towerGroup, 0.08, 1.35, 0.08, -6.4, 44.7, z, railPostMat);
+        }
       }
 
       // Boarding Dock Control Console on Gantry Deck.
@@ -1585,49 +1930,556 @@
       sign.position.set(6.32, 53.0, -1.0);
       this.towerGroup.add(sign);
 
-      // Hammerhead crane at the top of the tower.
-      const craneMast = new THREE.Mesh(new THREE.BoxGeometry(2.2, 14, 2.2), darkSteelMat);
-      craneMast.position.set(0, 95, 0);
-      this.towerGroup.add(craneMast);
+      // ════════════════════════════════════════════════════════════════════════
+      // ── GASEOUS OXYGEN (GOX) VENT ARM & BEANIE CAP (LEVEL 300) ──────────────
+      // Recreates the iconic heated vent hood covering the External Tank apex:
+      // Spans from tower face (x=6) to ET nose cone (x=34) at y=52.0 in tower space.
+      // ════════════════════════════════════════════════════════════════════════
+      this.goxVentArm = new THREE.Group();
+      this.goxVentArm.name = "GOX_VentArm_BeanieCap";
+      this.goxVentArm.position.set(6.0, 52.0, 0);
+      this.towerGroup.add(this.goxVentArm);
 
+      const armReach = 28.0; // reaches from tower face (x=6) to ET apex (x=34)
+      const goxMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.52, metalness: 0.5 });
+      const ductMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.4, metalness: 0.35 });
+      const beanieOuterMat = new THREE.MeshStandardMaterial({ color: 0x8a99a8, roughness: 0.55, metalness: 0.45 });
+      const beanieRimMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.65, metalness: 0.2 });
+
+      // Main triangular truss boom
+      // Upper chord
+      this._makeBeam(this.goxVentArm, armReach, 0.22, 0.22, armReach / 2, 1.2, 0, goxMat);
+      // Lower twin chords
+      this._makeBeam(this.goxVentArm, armReach, 0.22, 0.22, armReach / 2, -1.2, -0.9, goxMat);
+      this._makeBeam(this.goxVentArm, armReach, 0.22, 0.22, armReach / 2, -1.2, 0.9, goxMat);
+
+      // Diagonal lattice braces along the boom
+      for (let bx = 0; bx < armReach - 2; bx += 3.2) {
+        this._makeBeam(this.goxVentArm, 3.4, 0.12, 0.12, bx + 1.6, 0, -0.45, goxMat, 0.65, 0, 0);
+        this._makeBeam(this.goxVentArm, 3.4, 0.12, 0.12, bx + 1.6, 0, 0.45, goxMat, -0.65, 0, 0);
+        this._makeBeam(this.goxVentArm, 0.12, 0.12, 1.8, bx, -1.2, 0, goxMat);
+      }
+
+      // Large insulated cryogenic vent ducts (twin flex pipes running down arm)
+      for (const dz of [-0.45, 0.45]) {
+        const duct = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, armReach - 1, 14), ductMat);
+        duct.rotation.z = Math.PI / 2;
+        duct.position.set((armReach - 1) / 2, 0.3, dz);
+        this.goxVentArm.add(duct);
+      }
+
+      // ── THE BEANIE CAP (Vent Hood over ET apex) ──
+      // Conical / oval heated hood enveloping the orange nose cone of the ET
+      const beanieGroup = new THREE.Group();
+      beanieGroup.position.set(armReach, 0, 0);
+      this.goxVentArm.add(beanieGroup);
+
+      // Upper hood cone
+      const hoodTop = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.8, 2.6, 2.4, 24, 1, true),
+        beanieOuterMat
+      );
+      hoodTop.position.set(0, 0.8, 0);
+      beanieGroup.add(hoodTop);
+
+      // Lower insulated flare / seal skirt
+      const hoodSkirt = new THREE.Mesh(
+        new THREE.CylinderGeometry(2.6, 2.85, 0.9, 24),
+        beanieRimMat
+      );
+      hoodSkirt.position.set(0, -0.85, 0);
+      beanieGroup.add(hoodSkirt);
+
+      // Hood crown cap & exhaust port
+      const hoodCrown = new THREE.Mesh(
+        new THREE.SphereGeometry(0.85, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2),
+        beanieOuterMat
+      );
+      hoodCrown.position.set(0, 2.0, 0);
+      beanieGroup.add(hoodCrown);
+
+      // Duct elbow connectors into the beanie cap
+      for (const dz of [-0.65, 0.65]) {
+        const elbow = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 1.6, 12), ductMat);
+        elbow.rotation.x = dz > 0 ? 0.4 : -0.4;
+        elbow.position.set(-0.4, 1.5, dz);
+        beanieGroup.add(elbow);
+      }
+
+      // Cryogenic vapor wisps venting gently from underneath the beanie cap
+      const vaporGeo = new THREE.RingGeometry(2.6, 3.4, 20);
+      vaporGeo.rotateX(-Math.PI / 2);
+      const vaporMat = new THREE.MeshBasicMaterial({
+        color: 0xf1f5f9,
+        transparent: true,
+        opacity: 0.35,
+        depthWrite: false,
+        side: THREE.DoubleSide
+      });
+      const vaporRing = new THREE.Mesh(vaporGeo, vaporMat);
+      vaporRing.position.set(0, -1.35, 0);
+      beanieGroup.add(vaporRing);
+
+      // ════════════════════════════════════════════════════════════════════════
+      // ── 195-FT LEVEL EMERGENCY EGRESS PORCH & SLIDEWIRE SYSTEM ──────────────
+      // Egress porch on the west face with yellow escape baskets & guide cables
+      // ════════════════════════════════════════════════════════════════════════
+      const egressY = 56.0;
+      const egressPorch = new THREE.Group();
+      egressPorch.name = "EmergencyEgressPorch";
+      egressPorch.position.set(-half - 3.5, egressY, 0);
+      this.towerGroup.add(egressPorch);
+
+      // Extended platform deck (7m x 6m)
+      const epDeck = new THREE.Mesh(new THREE.BoxGeometry(7.0, 0.3, 6.0), deckMat);
+      egressPorch.add(epDeck);
+
+      // Yellow safety railing & gate
+      const epRailMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.5, metalness: 0.4 });
+      this._makeBeam(egressPorch, 7.0, 0.1, 0.1, 0, 1.15, 3.0, epRailMat);
+      this._makeBeam(egressPorch, 7.0, 0.1, 0.1, 0, 1.15, -3.0, epRailMat);
+      this._makeBeam(egressPorch, 0.1, 0.1, 6.0, -3.5, 1.15, 0, epRailMat);
+      for (let ex = -3.2; ex <= 3.2; ex += 1.6) {
+        this._makeBeam(egressPorch, 0.08, 1.2, 0.08, ex, 0.6, 3.0, epRailMat);
+        this._makeBeam(egressPorch, 0.08, 1.2, 0.08, ex, 0.6, -3.0, epRailMat);
+      }
+
+      // Overhead slidewire track beam
+      this._makeBeam(egressPorch, 6.5, 0.25, 0.25, -0.5, 3.2, 0, darkSteelMat);
+
+      // Suspended emergency escape baskets (3x yellow basket cars)
+      for (const bz of [-1.8, 0, 1.8]) {
+        const basket = new THREE.Group();
+        basket.position.set(-2.8, 1.5, bz);
+        egressPorch.add(basket);
+
+        // Basket cage (yellow steel mesh)
+        const bBody = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.4, 1.2), epRailMat);
+        basket.add(bBody);
+        const bInterior = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.2, 1.0), darkSteelMat);
+        basket.add(bInterior);
+
+        // Trolley hanger & pulleys to overhead wire
+        this._makeBeam(basket, 0.08, 1.6, 0.08, 0, 1.4, 0, darkSteelMat);
+        const pulley = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.12, 10), darkSteelMat);
+        pulley.rotation.z = Math.PI / 2;
+        pulley.position.set(0, 2.2, 0);
+        basket.add(pulley);
+
+        // Slidewire cable stretching down towards ground shelter
+        this._makeBeam(this.towerGroup, 35, 0.05, 0.05, -half - 20, egressY - 14, bz, steelMat, 0.65, 0, 0);
+      }
+
+      // ════════════════════════════════════════════════════════════════════════
+      // ── ELEVATOR MACHINERY PENTHOUSE (TOP WEST FACE) ─────────────────────────
+      // Two-story enclosed corrugated machine house with louvers & railings
+      // ════════════════════════════════════════════════════════════════════════
+      const phHouse = new THREE.Mesh(
+        new THREE.BoxGeometry(5.2, 8.0, 5.8),
+        new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.68, metalness: 0.35 })
+      );
+      phHouse.position.set(-half - 3.0, 88.0, 4.0);
+      phHouse.castShadow = true;
+      this.towerGroup.add(phHouse);
+
+      // Ventilation louver panel on penthouse exterior
+      const louver = new THREE.Mesh(
+        new THREE.PlaneGeometry(2.4, 2.0),
+        new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.7, metalness: 0.5 })
+      );
+      louver.rotation.y = -Math.PI / 2;
+      louver.position.set(-half - 5.62, 88.0, 4.0);
+      this.towerGroup.add(louver);
+
+      // Penthouse roof railing
+      this._makeBeam(this.towerGroup, 5.2, 0.08, 0.08, -half - 3.0, 92.5, 6.9, epRailMat);
+      this._makeBeam(this.towerGroup, 5.2, 0.08, 0.08, -half - 3.0, 92.5, 1.1, epRailMat);
+
+      // ════════════════════════════════════════════════════════════════════════
+      // ── PYRAMIDAL DERRICK BASE & TALL FIBERGLASS LIGHTNING SPIRE ────────────
+      // Matches the authentic peak of the NASA FSS in the reference photo:
+      // 1. Four-legged pyramidal structural lattice from y=88 to y=100
+      // 2. Slender white fiberglass mast spire from y=100 to y=128
+      // 3. Dual red aviation beacons, warning bands, and catenary grounding wires
+      // ════════════════════════════════════════════════════════════════════════
+      const pyrBaseY = 88.0, pyrTopY = 100.0;
+      const pyrBaseHalf = 5.8, pyrTopHalf = 1.8;
+      const pyrColMat = new THREE.MeshStandardMaterial({ color: 0x8b98a4, roughness: 0.5, metalness: 0.6 });
+
+      // Four corner sloping lattice legs
+      const legPairs = [
+        [-pyrBaseHalf, -pyrBaseHalf, -pyrTopHalf, -pyrTopHalf],
+        [pyrBaseHalf, -pyrBaseHalf, pyrTopHalf, -pyrTopHalf],
+        [-pyrBaseHalf, pyrBaseHalf, -pyrTopHalf, pyrTopHalf],
+        [pyrBaseHalf, pyrBaseHalf, pyrTopHalf, pyrTopHalf]
+      ];
+      legPairs.forEach(([bx, bz, tx, tz]) => {
+        this._makeBeam(this.towerGroup, 0.42, 0.42, Math.hypot(bx - tx, pyrTopY - pyrBaseY, bz - tz),
+          (bx + tx) / 2, (pyrBaseY + pyrTopY) / 2, (bz + tz) / 2, pyrColMat,
+          Math.atan2(bz - tz, pyrTopY - pyrBaseY), 0, Math.atan2(bx - tx, pyrTopY - pyrBaseY));
+      });
+
+      // Solid observation deck platform floor at y = 88.0m (under lightning spire)
+      const topDeckPlatform = new THREE.Mesh(new THREE.BoxGeometry(11.6, 0.45, 11.6), deckMat);
+      topDeckPlatform.position.set(0, pyrBaseY, 0);
+      topDeckPlatform.receiveShadow = true;
+      this.towerGroup.add(topDeckPlatform);
+
+      // Top Deck perimeter safety railings (with open gap on west side at z = -4.0 where elevator bridge connects)
+      const topRailMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.45, metalness: 0.5 });
+      this._makeBeam(this.towerGroup, 11.6, 0.1, 0.1, 0, pyrBaseY + 1.15, 5.7, topRailMat);
+      this._makeBeam(this.towerGroup, 11.6, 0.1, 0.1, 0, pyrBaseY + 1.15, -5.7, topRailMat);
+      this._makeBeam(this.towerGroup, 0.1, 0.1, 11.6, 5.7, pyrBaseY + 1.15, 0, topRailMat);
+      this._makeBeam(this.towerGroup, 0.1, 0.1, 7.8, -5.7, pyrBaseY + 1.15, 1.8, topRailMat);
+      this._makeBeam(this.towerGroup, 0.1, 0.1, 3.6, -5.7, pyrBaseY + 1.15, -7.6, topRailMat);
+
+      // Observation Binoculars & Weather Station on East railing overlooking Space Shuttle orbiter & Atlantic Ocean
+      const binoGrp = new THREE.Group();
+      binoGrp.position.set(5.5, pyrBaseY, 0);
+      const binoPole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 1.35, 12),
+        new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.4, metalness: 0.7 }));
+      binoPole.position.y = 0.68;
+      binoGrp.add(binoPole);
+      const binoHead = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.22, 0.35),
+        new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3, metalness: 0.8 }));
+      binoHead.position.set(0, 1.4, 0);
+      binoGrp.add(binoHead);
+      [-0.1, 0.1].forEach(oz => {
+        const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.25, 12),
+          new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.2, metalness: 0.9 }));
+        lens.rotation.z = Math.PI / 2;
+        lens.position.set(0.18, 1.4, oz);
+        binoGrp.add(lens);
+      });
+      this.towerGroup.add(binoGrp);
+
+      // Authentic NASA Top Deck Plaque
+      const tdSignCanvas = document.createElement("canvas");
+      tdSignCanvas.width = 512; tdSignCanvas.height = 128;
+      const tctx = tdSignCanvas.getContext("2d");
+      tctx.fillStyle = "#0f172a"; tctx.fillRect(0, 0, 512, 128);
+      tctx.strokeStyle = "#38bdf8"; tctx.lineWidth = 6; tctx.strokeRect(4, 4, 504, 120);
+      tctx.fillStyle = "#38bdf8"; tctx.font = "bold 26px Arial"; tctx.textAlign = "center";
+      tctx.fillText("NASA KSC · FSS APEX OBSERVATION DECK", 256, 44);
+      tctx.fillStyle = "#facc15"; tctx.font = "bold 22px Arial";
+      tctx.fillText("ELEVATION 300 FT (88m) · LIGHTNING MAST ZONE", 256, 88);
+      const tdSignMesh = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 0.9),
+        new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(tdSignCanvas), transparent: true }));
+      tdSignMesh.rotation.y = Math.PI / 2;
+      tdSignMesh.position.set(-5.6, pyrBaseY + 1.8, -4.0);
+      this.towerGroup.add(tdSignMesh);
+
+      // Deck Corner Floodlights aimed at lightning spire and launch mount
+      if (!window.isMobileDevice) {
+        [[-5.2, -5.2], [5.2, -5.2], [-5.2, 5.2], [5.2, 5.2]].forEach(([lx, lz]) => {
+          const light = new THREE.SpotLight(0xfffbeb, 0.85, 90, Math.PI / 4, 0.45);
+          light.position.set(lx, pyrBaseY + 1.2, lz);
+          light.target.position.set(0, pyrTopY + 14, 0);
+          this.towerGroup.add(light);
+          this.towerGroup.add(light.target);
+        });
+      }
+
+      // Pyramidal horizontal tie frames & X-braces
+      [pyrBaseY + 4.0, pyrBaseY + 8.0, pyrTopY].forEach((fy) => {
+        const factor = (fy - pyrBaseY) / (pyrTopY - pyrBaseY);
+        const curHalf = pyrBaseHalf + (pyrTopHalf - pyrBaseHalf) * factor;
+        this._makeBeam(this.towerGroup, curHalf * 2, 0.22, 0.22, 0, fy, -curHalf, pyrColMat);
+        this._makeBeam(this.towerGroup, curHalf * 2, 0.22, 0.22, 0, fy, curHalf, pyrColMat);
+        this._makeBeam(this.towerGroup, 0.22, 0.22, curHalf * 2, -curHalf, fy, 0, pyrColMat);
+        this._makeBeam(this.towerGroup, 0.22, 0.22, curHalf * 2, curHalf, fy, 0, pyrColMat);
+      });
+
+      // Hammerhead crane on top deck
       const jibMat = new THREE.MeshStandardMaterial({ color: 0x8b98a4, roughness: 0.52, metalness: 0.55 });
-      this._makeBeam(this.towerGroup, 38, 0.9, 1.2, 8, 101.5, 0, jibMat);
-      this._makeBeam(this.towerGroup, 0.7, 5.0, 0.7, -8.0, 98.2, 0, darkSteelMat);
-      const counterweight = new THREE.Mesh(new THREE.BoxGeometry(4.5, 3.2, 3.2), deckMat);
-      counterweight.position.set(-10.5, 98.0, 0);
+      this._makeBeam(this.towerGroup, 34, 0.85, 1.1, 7, pyrBaseY + 2.5, 0, jibMat);
+      const counterweight = new THREE.Mesh(new THREE.BoxGeometry(4.2, 3.0, 3.0), deckMat);
+      counterweight.position.set(-9.5, pyrBaseY + 2.2, 0);
       this.towerGroup.add(counterweight);
 
-      const craneCab = new THREE.Mesh(new THREE.BoxGeometry(3.2, 2.8, 3.0), jibMat);
-      craneCab.position.set(1.2, 98.4, 1.8);
+      const craneCab = new THREE.Mesh(new THREE.BoxGeometry(3.0, 2.6, 2.8), jibMat);
+      craneCab.position.set(1.2, pyrBaseY + 2.4, 1.8);
       this.towerGroup.add(craneCab);
 
-      const hookCable = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 16, 6), darkSteelMat);
-      hookCable.position.set(20, 93.5, 0);
+      const hookCable = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 14, 6), darkSteelMat);
+      hookCable.position.set(18, pyrBaseY - 3.5, 0);
       this.towerGroup.add(hookCable);
-      const hookBlock = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.6, 1.0), steelMat);
-      hookBlock.position.set(20, 85.0, 0);
+      const hookBlock = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.5, 0.9), steelMat);
+      hookBlock.position.set(18, pyrBaseY - 11.0, 0);
       this.towerGroup.add(hookBlock);
 
-      // Lightning mast / beacon above the crane.
-      const mast = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.18, 0.55, 30, 10),
-        new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.85, roughness: 0.35 })
-      );
-      mast.position.set(0, 118, 0);
-      this.towerGroup.add(mast);
+      // ── TALL SLENDER WHITE FIBERGLASS LIGHTNING MAST SPIRE ──
+      // Rises from pyrTopY (y=100m) to y=128m (28m high!)
+      const spireHeight = 28.0;
+      const spireMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.35, metalness: 0.15 });
+      const warnOrangeMat = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.45, metalness: 0.2 });
 
+      const lightningSpire = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.18, 0.65, spireHeight, 16),
+        spireMat
+      );
+      lightningSpire.position.set(0, pyrTopY + spireHeight / 2, 0);
+      lightningSpire.castShadow = true;
+      this.towerGroup.add(lightningSpire);
+
+      // Aviation warning orange bands on the spire
+      [pyrTopY + 8.0, pyrTopY + 17.0].forEach((wy) => {
+        const band = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.42, 0.46, 2.2, 16),
+          warnOrangeMat
+        );
+        band.position.set(0, wy, 0);
+        this.towerGroup.add(band);
+      });
+
+      // Stainless steel lightning finial rod at the very tip (reaching y=130m)
+      const finialRod = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.04, 0.12, 3.2, 8),
+        new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.2, metalness: 0.9 })
+      );
+      finialRod.position.set(0, pyrTopY + spireHeight + 1.6, 0);
+      this.towerGroup.add(finialRod);
+
+      // Dual red aviation obstruction beacons (pulsing)
       const beaconMat = new THREE.MeshStandardMaterial({
         color: 0xef4444,
         emissive: 0xef4444,
-        emissiveIntensity: 2.0
+        emissiveIntensity: 2.4
       });
-      const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 8), beaconMat);
-      beacon.position.set(0, 133.4, 0);
-      this.towerGroup.add(beacon);
+      [-0.45, 0.45].forEach((bx) => {
+        const beaconSphere = new THREE.Mesh(new THREE.SphereGeometry(0.38, 12, 8), beaconMat);
+        beaconSphere.position.set(bx, pyrTopY + spireHeight + 0.4, 0);
+        this.towerGroup.add(beaconSphere);
+      });
 
-      this.beaconLight = new THREE.PointLight(0xef4444, 2.0, 120);
-      this.beaconLight.position.set(0, 128, 0);
+      this.beaconLight = new THREE.PointLight(0xef4444, 2.5, 140);
+      this.beaconLight.position.set(0, pyrTopY + spireHeight + 0.5, 0);
       this.towerGroup.add(this.beaconLight);
+
+      // Catenary grounding guy wires sloping down from mast to tower corners
+      [-pyrBaseHalf, pyrBaseHalf].forEach((gx) => {
+        [-pyrBaseHalf, pyrBaseHalf].forEach((gz) => {
+          this._makeBeam(this.towerGroup, Math.hypot(gx, 22, gz), 0.06, 0.06,
+            gx / 2, pyrTopY + 4, gz / 2, darkSteelMat,
+            Math.atan2(gz, 22), 0, Math.atan2(gx, 22));
+        });
+      });
+    }
+
+    // ============================================================================
+    // 3b. ROTATING SERVICE STRUCTURE (RSS) — LC-39A
+    // ============================================================================
+    // Recreates the massive movable structure adjacent to the FSS:
+    // 1. Massive cylindrical Hinge Column & pivot bearing at (x = -18, z = 16)
+    // 2. Triangular tubular space-frame bridge truss connecting hinge to PCR
+    // 3. Payload Changeout Room (PCR): 5-story cleanroom body with corrugated
+    //    industrial siding, multi-tier railed access galleries, and payload bay seals
+    // 4. Twin OMPS hypergolic propellant tanks with hemispherical dome tops on roof
+    // 5. Circular ground rail track and 8-wheel drive trucks with hydraulic jacks
+    // 6. High-intensity floodlight arrays and industrial pipe risers
+    _buildRotatingServiceStructure() {
+      const THREE = window.THREE;
+      this.rssGroup = new THREE.Group();
+      this.rssGroup.name = "RotatingServiceStructure_RSS";
+      this.padGroup.add(this.rssGroup);
+
+      const rssSteelMat = new THREE.MeshStandardMaterial({ color: 0x828f9d, roughness: 0.58, metalness: 0.42 });
+      const rssDarkMat  = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.65, metalness: 0.55 });
+      const rssTubularMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.52, metalness: 0.48 });
+      const rssYellowMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.5, metalness: 0.35 });
+      const domeMat = new THREE.MeshStandardMaterial({ color: 0xcfd8dc, roughness: 0.28, metalness: 0.72 });
+      const corrugatedMat = new THREE.MeshStandardMaterial({ color: 0x8a99a8, roughness: 0.62, metalness: 0.38 });
+
+      // ── 1. Hinge Column (Pivot Mast) at (x = -18, y = 19.8, z = 16) ──
+      const hingeX = -18, hingeZ = 16, hingeBaseY = 19.8, hingeHeight = 36;
+      const hingeCol = new THREE.Mesh(
+        new THREE.CylinderGeometry(1.6, 1.8, hingeHeight, 24),
+        rssSteelMat
+      );
+      hingeCol.position.set(hingeX, hingeBaseY + hingeHeight / 2, hingeZ);
+      hingeCol.castShadow = true;
+      hingeCol.receiveShadow = true;
+      this.rssGroup.add(hingeCol);
+
+      // Flange rings on the hinge column
+      for (let y = 4; y < hingeHeight; y += 8) {
+        const ring = new THREE.Mesh(
+          new THREE.CylinderGeometry(1.85, 1.85, 0.6, 24),
+          rssDarkMat
+        );
+        ring.position.set(hingeX, hingeBaseY + y, hingeZ);
+        this.rssGroup.add(ring);
+      }
+
+      // Diagonal anchor braces at base of hinge column
+      for (let i = 0; i < 4; i++) {
+        const ang = (i / 4) * Math.PI * 2 + Math.PI / 4;
+        const footX = hingeX + Math.cos(ang) * 6.5;
+        const footZ = hingeZ + Math.sin(ang) * 6.5;
+        this._makeBeam(this.rssGroup, 7.8, 0.5, 0.5, (hingeX + footX) / 2, hingeBaseY + 4.5, (hingeZ + footZ) / 2, rssSteelMat,
+          Math.atan2(hingeZ - footZ, 9), 0, Math.atan2(hingeX - footX, 9));
+      }
+
+      // ── 2. Triangular Tubular Bridge Truss ──
+      // Spans from hinge column to the Payload Changeout Room (PCR)
+      const pcrOriginX = 5.0, pcrOriginZ = 16.0;
+      const trussSpan = Math.hypot(pcrOriginX - hingeX, pcrOriginZ - hingeZ);
+      const trussYaw = Math.atan2(pcrOriginZ - hingeZ, pcrOriginX - hingeX);
+
+      // Upper and lower tubular chords
+      for (const yOff of [10, 20, 30]) {
+        for (const zOff of [-4, 4]) {
+          this._makeBeam(this.rssGroup, trussSpan - 2, 0.65, 0.65,
+            (hingeX + pcrOriginX) / 2, hingeBaseY + yOff, (hingeZ + pcrOriginZ) / 2 + zOff,
+            rssTubularMat, 0, -trussYaw, 0);
+        }
+        // Diagonal cross-bracing along the tubular bridge
+        for (let s = 0; s < 4; s++) {
+          const t1 = s / 4;
+          const t2 = (s + 1) / 4;
+          const bx1 = hingeX + (pcrOriginX - hingeX) * t1;
+          const bx2 = hingeX + (pcrOriginX - hingeX) * t2;
+          this._makeBeam(this.rssGroup, 6.2, 0.35, 0.35, (bx1 + bx2) / 2, hingeBaseY + yOff, hingeZ, rssTubularMat, 0.5, -trussYaw, 0);
+          this._makeBeam(this.rssGroup, 6.2, 0.35, 0.35, (bx1 + bx2) / 2, hingeBaseY + yOff, hingeZ, rssTubularMat, -0.5, -trussYaw, 0);
+        }
+      }
+
+      // ── 3. Payload Changeout Room (PCR) ──
+      // Multi-story cleanroom body: width 15m (X), height 28m (Y), depth 20m (Z)
+      const pcrW = 15.0, pcrH = 28.0, pcrD = 20.0;
+      const pcrY = hingeBaseY + 3.0 + pcrH / 2; // base at 22.8, top at 50.8
+      const pcrBody = new THREE.Mesh(
+        new THREE.BoxGeometry(pcrW, pcrH, pcrD),
+        corrugatedMat
+      );
+      pcrBody.position.set(pcrOriginX, pcrY, pcrOriginZ);
+      pcrBody.castShadow = true;
+      pcrBody.receiveShadow = true;
+      this.rssGroup.add(pcrBody);
+
+      // Vertical corrugated ribs / stiffener columns on PCR exterior
+      for (let gx = -pcrW / 2 + 1; gx <= pcrW / 2 - 1; gx += 2.2) {
+        this._makeBeam(this.rssGroup, 0.32, pcrH + 0.4, 0.45, pcrOriginX + gx, pcrY, pcrOriginZ + pcrD / 2 + 0.2, rssDarkMat);
+        this._makeBeam(this.rssGroup, 0.32, pcrH + 0.4, 0.45, pcrOriginX + gx, pcrY, pcrOriginZ - pcrD / 2 - 0.2, rssDarkMat);
+      }
+      for (let gz = -pcrD / 2 + 1; gz <= pcrD / 2 - 1; gz += 2.4) {
+        this._makeBeam(this.rssGroup, 0.45, pcrH + 0.4, 0.32, pcrOriginX + pcrW / 2 + 0.2, pcrY, pcrOriginZ + gz, rssDarkMat);
+      }
+
+      // Weather seal bellows facing the orbiter cargo bay (-X face)
+      const sealMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(0.8, pcrH * 0.75, pcrD * 0.7),
+        new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.9, metalness: 0.1 })
+      );
+      sealMesh.position.set(pcrOriginX - pcrW / 2 - 0.4, pcrY - 2.0, pcrOriginZ);
+      this.rssGroup.add(sealMesh);
+
+      // ── 4. Exterior Access Galleries & Catwalks with Yellow Railings ──
+      [hingeBaseY + 9, hingeBaseY + 18, hingeBaseY + 27].forEach((platY) => {
+        // Catwalk floors wrapping around North & East faces
+        const catN = new THREE.Mesh(new THREE.BoxGeometry(pcrW + 2.4, 0.25, 2.0), rssDarkMat);
+        catN.position.set(pcrOriginX, platY, pcrOriginZ + pcrD / 2 + 1.0);
+        this.rssGroup.add(catN);
+
+        const catE = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.25, pcrD + 2.4), rssDarkMat);
+        catE.position.set(pcrOriginX + pcrW / 2 + 1.0, platY, pcrOriginZ);
+        this.rssGroup.add(catE);
+
+        // Yellow safety handrails
+        this._makeBeam(this.rssGroup, pcrW + 2.4, 0.1, 0.1, pcrOriginX, platY + 1.15, pcrOriginZ + pcrD / 2 + 2.0, rssYellowMat);
+        this._makeBeam(this.rssGroup, 0.1, 0.1, pcrD + 2.4, pcrOriginX + pcrW / 2 + 2.0, platY + 1.15, pcrOriginZ, rssYellowMat);
+        // Rail stanchions
+        for (let rx = -pcrW / 2; rx <= pcrW / 2; rx += 2.8) {
+          this._makeBeam(this.rssGroup, 0.08, 1.2, 0.08, pcrOriginX + rx, platY + 0.6, pcrOriginZ + pcrD / 2 + 2.0, rssYellowMat);
+        }
+      });
+
+      // ── 5. OMPS Hypergolic Propellant Tanks & Domes on Roof ──
+      // Two prominent hemispherical dome-capped cylindrical tanks on PCR roof (World Y = 50.8)
+      const roofY = pcrY + pcrH / 2; // Y = 50.8
+      [
+        { x: pcrOriginX - 3.2, z: pcrOriginZ - 2.5 },
+        { x: pcrOriginX + 3.2, z: pcrOriginZ - 2.5 }
+      ].forEach((tankPos) => {
+        // Cylindrical tank body
+        const tankCyl = new THREE.Mesh(
+          new THREE.CylinderGeometry(2.1, 2.1, 4.8, 24),
+          domeMat
+        );
+        tankCyl.position.set(tankPos.x, roofY + 2.4, tankPos.z);
+        tankCyl.castShadow = true;
+        this.rssGroup.add(tankCyl);
+
+        // Smooth hemispherical dome top
+        const domeTop = new THREE.Mesh(
+          new THREE.SphereGeometry(2.1, 24, 14, 0, Math.PI * 2, 0, Math.PI / 2),
+          domeMat
+        );
+        domeTop.position.set(tankPos.x, roofY + 4.8, tankPos.z);
+        domeTop.castShadow = true;
+        this.rssGroup.add(domeTop);
+
+        // Small top vent cap
+        const ventCap = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.3, 0.35, 0.6, 12),
+          rssDarkMat
+        );
+        ventCap.position.set(tankPos.x, roofY + 7.1, tankPos.z);
+        this.rssGroup.add(ventCap);
+      });
+
+      // Roof perimeter safety railing
+      this._makeBeam(this.rssGroup, pcrW, 0.1, 0.1, pcrOriginX, roofY + 1.15, pcrOriginZ + pcrD / 2, rssYellowMat);
+      this._makeBeam(this.rssGroup, pcrW, 0.1, 0.1, pcrOriginX, roofY + 1.15, pcrOriginZ - pcrD / 2, rssYellowMat);
+      this._makeBeam(this.rssGroup, 0.1, 0.1, pcrD, pcrOriginX + pcrW / 2, roofY + 1.15, pcrOriginZ, rssYellowMat);
+      this._makeBeam(this.rssGroup, 0.1, 0.1, pcrD, pcrOriginX - pcrW / 2, roofY + 1.15, pcrOriginZ, rssYellowMat);
+
+      // ── 6. Circular Ground Track & Mechanical Drive Trucks ──
+      // Curved rail on pad hardstand following swing arc
+      const railRadius = 24.0;
+      const railGeo = new THREE.RingGeometry(railRadius - 0.4, railRadius + 0.4, 32, 1, Math.PI * 0.15, Math.PI * 0.45);
+      railGeo.rotateX(-Math.PI / 2);
+      const railMesh = new THREE.Mesh(railGeo, rssDarkMat);
+      railMesh.position.set(hingeX, hingeBaseY + 0.12, hingeZ);
+      this.rssGroup.add(railMesh);
+
+      // 4 heavy drive trucks at base of PCR
+      [
+        { x: pcrOriginX - 5.5, z: pcrOriginZ - 7.5 },
+        { x: pcrOriginX + 5.5, z: pcrOriginZ - 7.5 },
+        { x: pcrOriginX - 5.5, z: pcrOriginZ + 7.5 },
+        { x: pcrOriginX + 5.5, z: pcrOriginZ + 7.5 }
+      ].forEach((tp) => {
+        const truck = new THREE.Mesh(new THREE.BoxGeometry(3.6, 1.4, 2.2), rssDarkMat);
+        truck.position.set(tp.x, hingeBaseY + 1.1, tp.z);
+        this.rssGroup.add(truck);
+        // Steel wheels
+        [-1.1, 1.1].forEach((wx) => {
+          const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.35, 14), rssSteelMat);
+          wheel.rotation.z = Math.PI / 2;
+          wheel.position.set(tp.x + wx, hingeBaseY + 0.55, tp.z);
+          this.rssGroup.add(wheel);
+        });
+        // Hydraulic leveling jack
+        const jack = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 1.6, 12), rssTubularMat);
+        jack.position.set(tp.x, hingeBaseY + 2.2, tp.z);
+        this.rssGroup.add(jack);
+      });
+
+      // ── 7. High-Intensity Floodlight Banks Facing the Shuttle Stack ──
+      const floodMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        emissive: 0xffedd5,
+        emissiveIntensity: 2.2
+      });
+      [hingeBaseY + 16, hingeBaseY + 28, hingeBaseY + 40].forEach((ly) => {
+        const fixture = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.2, 3.2), rssDarkMat);
+        fixture.position.set(pcrOriginX - pcrW / 2 - 0.25, ly, pcrOriginZ);
+        this.rssGroup.add(fixture);
+        const bulb = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.9, 2.9), floodMat);
+        bulb.position.set(pcrOriginX - pcrW / 2 - 0.46, ly, pcrOriginZ);
+        this.rssGroup.add(bulb);
+      });
     }
 
     // ============================================================================
@@ -2321,6 +3173,29 @@
       this._renderGroundHUD();
     }
 
+    _getSiteTourElevation(x, z) {
+      // 1. Mobile Launcher Platform (MLP) deck
+      if (x >= -24.5 && x <= 24.5 && z >= -20.5 && z <= 20.5) {
+        return 19.8;
+      }
+      // 2. South Access Stairway to MLP (x in [-15.5, -8.5], z in [20.5, 32.0])
+      if (x >= -15.5 && x <= -8.5 && z >= 20.5 && z <= 32.0) {
+        const t = Math.max(0, Math.min(1, (32.0 - z) / (32.0 - 20.5)));
+        return 12.5 + t * 7.3;
+      }
+      // 3. Pad 39A elevated hardstand octagonal surface (including ground elevator at x=-42.2, z=-4.0)
+      if (z >= -45.0 && z <= 61.0 && x >= -65.0 && x <= 55.0) {
+        return 12.5;
+      }
+      // 4. Crawlerway approach ramp from south apron (z=186, y=0.2) to Pad top (z=61, y=12.5)
+      if (z > 61.0 && z <= 186.0 && Math.abs(x) <= 18.0) {
+        const t = Math.max(0, Math.min(1, (186.0 - z) / (186.0 - 61.0)));
+        return 0.2 + t * 12.3;
+      }
+      // 5. Default ground level everywhere else
+      return 0.2;
+    }
+
     _resolveSiteTourCollision(currentPos, proposedPos) {
       const THREE = window.THREE;
       const radius = 0.45;
@@ -2353,6 +3228,8 @@
       let nz = Math.max(bounds.minZ, Math.min(bounds.maxZ, proposedPos.z));
       const blocked = (x, z) => {
         for (const box of boxes) {
+          // Never block crawlerway ramp or pad approach in fallback collider loop
+          if (box.name && (box.name.toLowerCase().includes("ramp") || box.name.toLowerCase().includes("berm"))) continue;
           if (box.rotated) {
             const dx = x - box.cx;
             const dz = z - box.cz;
@@ -2373,6 +3250,7 @@
           }
         }
         for (const circle of circles) {
+          if (circle.name && (circle.name.toLowerCase().includes("berm") || circle.name.toLowerCase().includes("ramp"))) continue;
           if (Math.hypot(x - circle.x, z - circle.z) < circle.r + radius) return true;
         }
         return false;
@@ -2388,7 +3266,9 @@
           nz = currentPos.z;
         }
       }
-      return new THREE.Vector3(nx, 0.2, nz);
+
+      const targetY = this._getSiteTourElevation(nx, nz);
+      return new THREE.Vector3(nx, targetY, nz);
     }
 
     // ============================================================================
@@ -2399,24 +3279,63 @@
       if (this.siteTourActive || this._isLocalGroundCrew()) {
         return this._resolveSiteTourCollision(currentPos, proposedPos);
       }
-      // Gantry level Y = 64.1m
-      const y = 64.1;
+
+      // If riding the elevator while in transit, lock position inside the moving cabin
+      if (this.elevatorMoving && this.elevatorRidingPlayer) {
+        return new THREE.Vector3(-42.2, 19.8 + this.elevatorY, -4.0);
+      }
+
+      const py = currentPos.y;
       const nx = proposedPos.x;
       const nz = proposedPos.z;
       const px = currentPos.x;
       const pz = currentPos.z;
 
+      // ── LEVEL 1: PAD GROUND & MLP LEVEL (py < 35m) ──
+      if (py < 35.0) {
+        // A. On MLP deck (if entered from top of stairway or already on deck)
+        if (nx >= -24.5 && nx <= 24.5 && nz >= -20.5 && nz <= 20.5 && py > 16.0) {
+          return new THREE.Vector3(nx, 19.8, nz);
+        }
+        // B. On the South Access Stairway
+        if (nx >= -15.5 && nx <= -8.5 && nz >= 20.5 && nz <= 32.0) {
+          const t = Math.max(0, Math.min(1, (32.0 - nz) / (32.0 - 20.5)));
+          return new THREE.Vector3(nx, 12.5 + t * 7.3, nz);
+        }
+        // C. Pad 39A Hardstand ground surface (including elevator base at x=-42.2, z=-4.0)
+        const clampedX = Math.max(-65.0, Math.min(55.0, nx));
+        const clampedZ = Math.max(-45.0, Math.min(61.0, nz));
+        return new THREE.Vector3(clampedX, 12.5, clampedZ);
+      }
+
+      // ── LEVEL 3: TOWER TOP OBSERVATION DECK (py >= 85m) ──
+      if (py >= 85.0) {
+        const topY = 108.1;
+        const inTopDeck = nx >= -39.8 && nx <= -28.2 && nz >= -5.8 && nz <= 5.8;
+        const inTopBridge = nx >= -43.6 && nx <= -39.8 && nz >= -5.8 && nz <= -2.2;
+        if (inTopDeck || inTopBridge) {
+          return new THREE.Vector3(nx, topY, nz);
+        }
+        if (nz >= -5.8 && nz <= -2.2) {
+          const cx = Math.max(-43.6, Math.min(-28.2, nx));
+          const cz = Math.max(-5.8, Math.min(-2.2, nz));
+          return new THREE.Vector3(cx, topY, cz);
+        }
+        const cx = Math.max(-39.8, Math.min(-28.2, nx));
+        const cz = Math.max(-5.8, Math.min(5.8, nz));
+        return new THREE.Vector3(cx, topY, cz);
+      }
+
+      // ── LEVEL 2: GANTRY LEVEL (35m <= py < 85m) ──
+      const y = 64.1;
       // Walkable Zone 1: Tower Gantry Staging Deck
-      // (world x: -40.2 to -24.8, z: -12.7 to 4.7)
       const inGantry = nx >= -40.2 && nx <= -24.8 && nz >= -12.7 && nz <= 4.7;
-      // Walkable Zone 2: Boarding Bridge / White Room when Dock is Extended
-      // (world x: -25.5 to -3.6, z: -8.8 to -5.6)
+      // Walkable Zone 2: Elevator bridge & cabin west of gantry deck
+      const inElevBridge = nx >= -43.6 && nx <= -40.0 && nz >= -5.8 && nz <= -2.2;
+      // Walkable Zone 3: Boarding Bridge / White Room when Dock is Extended
       const inBridge = this.dockLocked && nx >= -25.5 && nx <= -3.6 && nz >= -8.8 && nz <= -5.6;
 
-      // Already standing on the access arm: clamp both axes to the bridge
-      // footprint. Without this, stepping toward the side edge made the old
-      // code fall through to the deck clamp and snap the player several
-      // metres back to x = -24.8.
+      // Already standing on the access arm: clamp both axes to the bridge corridor
       const wasOnBridge = this.dockLocked &&
         px >= -25.5 && px <= -3.6 && pz >= -8.8 && pz <= -5.6;
       if (wasOnBridge) {
@@ -2425,15 +3344,20 @@
         return new THREE.Vector3(armX, y, armZ);
       }
 
-      if (inGantry || inBridge) {
+      if (inGantry || inElevBridge || inBridge) {
         // Boarding is a deliberate [E]/[B] action at the hatch. Walking the
         // bridge must stay reversible so the crew can inspect the ship or walk
         // back to the tower without being trapped or force-boarded.
         return new THREE.Vector3(nx, y, nz);
       }
 
-      // Leaving the deck on the east side is only allowed through the bridge
-      // corridor; everywhere else is clamped to the gantry edge.
+      // Clamping: if heading into or inside elevator bridge corridor
+      if (nz >= -5.8 && nz <= -2.2) {
+        const clampedX = Math.max(-43.6, Math.min(-24.8, nx));
+        const clampedZ = Math.max(-5.8, Math.min(-2.2, nz));
+        return new THREE.Vector3(clampedX, y, clampedZ);
+      }
+
       const clampedX = Math.max(-40.2, Math.min(-24.8, nx));
       const clampedZ = Math.max(-12.7, Math.min(4.7, nz));
       return new THREE.Vector3(clampedX, y, clampedZ);
@@ -2493,6 +3417,26 @@
             const tourCount = Math.max(6, ((window.SpaceCenterModules && window.SpaceCenterModules.SITE_TOUR_SPAWNS) || []).length);
             const tourCodes = Array.from({ length: tourCount }, (_, i) => `Digit${i + 1}`);
             const tourIndex = tourCodes.indexOf(e.code);
+            const pos = (window.localCrew && window.localCrew.group) ? window.localCrew.group.position : (this.camera ? this.camera.position : null);
+            const isNearPad = pos && Math.abs(pos.x) < 70 && Math.abs(pos.z) < 90;
+
+            // When at Pad 39A, [3], [T], or [G] take you up to the Tower Top Deck or Gantry!
+            if (e.code === "Digit3" || e.code === "Numpad3" || (isNearPad && e.code === "KeyT")) {
+              e.preventDefault();
+              this._handleElevatorKey(3);
+              return;
+            }
+            if ((e.code === "Digit2" || e.code === "Numpad2") && isNearPad) {
+              e.preventDefault();
+              this._handleElevatorKey(2);
+              return;
+            }
+            if ((e.code === "Digit1" || e.code === "Numpad1") && isNearPad && pos && pos.y > 25.0) {
+              e.preventDefault();
+              this._handleElevatorKey(1);
+              return;
+            }
+
             if (tourIndex !== -1) {
               e.preventDefault();
               this.teleportSiteTour(tourIndex);
@@ -2503,14 +3447,19 @@
               this.exitSiteTour();
               return;
             }
-            if (e.code === "KeyM") {
+            if (e.code === "KeyG") {
               e.preventDefault();
-              if (window.gameplay && typeof window.gameplay.openMissionPlannerFromGround === "function") {
-                window.gameplay.openMissionPlannerFromGround();
-              }
+              this._handleElevatorKey(3);
               return;
             }
             if (e.code === "KeyE") {
+              const elevX = -34 + (this._elevatorConfig ? this._elevatorConfig.x : -8.2);
+              const elevZ = (this._elevatorConfig ? this._elevatorConfig.z : -4.0);
+              if (pos && Math.hypot(pos.x - elevX, pos.z - elevZ) < 24.0) {
+                e.preventDefault();
+                this._handleElevatorKey(3);
+                return;
+              }
               const nearTerm = this._getNearbyFacilityTerminal();
               if (nearTerm) {
                 e.preventDefault();
@@ -2518,7 +3467,47 @@
                 return;
               }
             }
+            if (e.code === "KeyM") {
+              e.preventDefault();
+              if (window.gameplay && typeof window.gameplay.openMissionPlannerFromGround === "function") {
+                window.gameplay.openMissionPlannerFromGround();
+              }
+              return;
+            }
             if (this.siteTourActive || isGround) return;
+          }
+
+          if (e.code === "Digit1" || e.code === "Numpad1") {
+            const elevX = -34 + (this._elevatorConfig ? this._elevatorConfig.x : -8.2);
+            const elevZ = (this._elevatorConfig ? this._elevatorConfig.z : -4.0);
+            const pos = (window.localCrew && window.localCrew.group) ? window.localCrew.group.position : (this.camera ? this.camera.position : null);
+            if (pos && (Math.hypot(pos.x - elevX, pos.z - elevZ) < 32.0 || this.elevatorMoving || pos.y > 25.0)) {
+              e.preventDefault();
+              this._handleElevatorKey(1);
+              return;
+            }
+          }
+
+          if (e.code === "Digit2" || e.code === "Numpad2") {
+            const elevX = -34 + (this._elevatorConfig ? this._elevatorConfig.x : -8.2);
+            const elevZ = (this._elevatorConfig ? this._elevatorConfig.z : -4.0);
+            const pos = (window.localCrew && window.localCrew.group) ? window.localCrew.group.position : (this.camera ? this.camera.position : null);
+            if (pos && (Math.hypot(pos.x - elevX, pos.z - elevZ) < 32.0 || this.elevatorMoving || pos.y < 35.0 || pos.y > 85.0)) {
+              e.preventDefault();
+              this._handleElevatorKey(2);
+              return;
+            }
+          }
+
+          if (e.code === "Digit3" || e.code === "Numpad3") {
+            const elevX = -34 + (this._elevatorConfig ? this._elevatorConfig.x : -8.2);
+            const elevZ = (this._elevatorConfig ? this._elevatorConfig.z : -4.0);
+            const pos = (window.localCrew && window.localCrew.group) ? window.localCrew.group.position : (this.camera ? this.camera.position : null);
+            if (pos && (Math.hypot(pos.x - elevX, pos.z - elevZ) < 32.0 || this.elevatorMoving || pos.y < 85.0)) {
+              e.preventDefault();
+              this._handleElevatorKey(3);
+              return;
+            }
           }
 
           if (e.code === "KeyL" && this._canLaunchNow()) {
@@ -2545,7 +3534,48 @@
             return;
           }
 
-          if ((e.code === "KeyE" || e.code === "KeyB") && this.dockLocked && !this.crewBoarded && this.missionPhase === "gantry") {
+          if (e.code === "KeyG") {
+            e.preventDefault();
+            const pos = (window.localCrew && window.localCrew.group) ? window.localCrew.group.position : (this.camera ? this.camera.position : null);
+            if (pos && pos.y < 35.0) {
+              this._handleElevatorKey(3);
+            } else {
+              this._handleElevatorKey();
+            }
+            return;
+          }
+
+          if (e.code === "KeyT" && !this.siteTourActive) {
+            e.preventDefault();
+            const pos = (window.localCrew && window.localCrew.group) ? window.localCrew.group.position : (this.camera ? this.camera.position : null);
+            if (pos && pos.y >= 85.0) {
+              this._handleElevatorKey(2);
+            } else {
+              this._handleElevatorKey(3);
+            }
+            return;
+          }
+
+          if (e.code === "KeyE") {
+            if (this.dockLocked && !this.crewBoarded && this.missionPhase === "gantry") {
+              const distHatch = this._distanceToGuidancePoint(-7.8, -7.2);
+              if (distHatch !== null && distHatch <= 2.6) {
+                e.preventDefault();
+                this.boardSpacecraft();
+                return;
+              }
+            }
+            const elevX = -34 + (this._elevatorConfig ? this._elevatorConfig.x : -8.2);
+            const elevZ = (this._elevatorConfig ? this._elevatorConfig.z : -4.0);
+            const pos = (window.localCrew && window.localCrew.group) ? window.localCrew.group.position : (this.camera ? this.camera.position : null);
+            if (pos && Math.hypot(pos.x - elevX, pos.z - elevZ) < 14.0) {
+              e.preventDefault();
+              this._handleElevatorKey();
+              return;
+            }
+          }
+
+          if (e.code === "KeyB" && this.dockLocked && !this.crewBoarded && this.missionPhase === "gantry") {
             const distHatch = this._distanceToGuidancePoint(-7.8, -7.2);
             if (distHatch !== null && distHatch <= 2.6) {
               e.preventDefault();
@@ -2769,6 +3799,15 @@
       const step1Done = this.dockLocked;
       const step2Done = this.crewBoarded;
 
+      const camPos = (window.localCrew && window.localCrew.group) ? window.localCrew.group.position : (this.camera ? this.camera.position : null);
+      const elevX = -34 + (this._elevatorConfig ? this._elevatorConfig.x : -8.2);
+      const elevZ = (this._elevatorConfig ? this._elevatorConfig.z : -4.0);
+      const nearElevator = camPos ? Math.hypot(camPos.x - elevX, camPos.z - elevZ) < 14.0 : false;
+      const isAtGround = camPos ? camPos.y < 35.0 : false;
+      const isAtTop = camPos ? camPos.y >= 85.0 : false;
+      const isAtGantry = !isAtGround && !isAtTop;
+      const canGoTop = isAtGantry && !this.isLaunching && !this.siteTourActive;
+
       const armOwnerLabel = crewState.armOwner
         ? (crewState.armOwner.isSelf ? `YOU (${crewState.armOwner.roleShort})` : `${crewState.armOwner.roleShort} · ${crewState.armOwner.name}`)
         : "ENG";
@@ -2835,6 +3874,12 @@
           ? "WAITING ON EARTH CONTROL OK · TAP LAUNCH TO OVERRIDE"
           : "WAITING ON EARTH CONTROL OK (8s) · PRESS [L] AGAIN TO LAUNCH NOW";
         statusColor = "#fbbf24";
+      } else if (isAtGround && !step2Done) {
+        statusText = "LAUNCH PAD · REACH TOWER TOP: PRESS [3] OR [T] · BRIDGE LEVEL: PRESS [2]";
+        statusColor = "#38bdf8";
+      } else if (isAtTop && !step2Done) {
+        statusText = "LAUNCH PAD · TOWER TOP (88m) · TAKE ELEVATOR [G/E] DOWN TO BOARDING LEVEL";
+        statusColor = "#facc15";
       } else if (!step1Done) {
         distance = this._distanceToGuidancePoint(-25.9, -6.3);
         target = "arm";
@@ -2875,6 +3920,10 @@
         canBoard,
         canUnboard,
         nearTerm,
+        nearElevator,
+        canGoTop,
+        isAtGround,
+        isAtTop,
         canLaunchNow,
         aboardCount: crewState.aboardCount,
         crewTotal: crewState.crewTotal,
@@ -2928,7 +3977,13 @@
               <button type="button" id="btn-sc-lcc-console" class="sc-hud-btn ${this.lccConsoleOpen ? "sc-btn-launch" : "sc-btn-term"}">
                 ${this.lccConsoleOpen ? "CLOSE OPS [C]" : (guidance.pollActive ? "GIVE OK [C]" : "CONTROL ROOM [C]")}
               </button>
+              <button type="button" id="btn-sc-elv-act" class="sc-hud-btn sc-btn-elv" style="display:${guidance.nearElevator ? "inline-flex" : "none"};">
+                ${guidance.isAtGround ? (touchUI ? "🗼 TO TOP DECK" : "🗼 TO TOP DECK [3/T]") : (guidance.isAtTop ? (touchUI ? "🛗 TO GROUND" : "🛗 TO GROUND [1]") : "🛗 ELEVATOR [G/E]")}
+              </button>
             ` : `
+              <button type="button" id="btn-sc-elv-act" class="sc-hud-btn sc-btn-elv" style="display:${guidance.nearElevator || this.siteTourActive || guidance.isAtGround ? "inline-flex" : "none"};">
+                ${guidance.isAtGround ? (touchUI ? "🗼 TO TOP DECK" : "🗼 TO TOP DECK [3/T]") : (guidance.isAtTop ? (touchUI ? "🛗 TO GROUND" : "🛗 TO GROUND [1]") : (this.siteTourActive ? "🛗 TO ELEVATOR [G]" : "🛗 ELEVATOR [G/E]"))}
+              </button>
               <button type="button" id="btn-sc-launch" class="sc-hud-btn sc-btn-launch" style="display:${guidance.canLaunchNow ? "inline-flex" : "none"};">
                 ${guidance.pollActive ? (touchUI ? "OVERRIDE LAUNCH" : "OVERRIDE [L]") : (touchUI ? "LAUNCH" : "LAUNCH [L]")}
               </button>
@@ -2944,6 +3999,15 @@
 
         <div class="sc-hud-body" style="display:${this.hudCollapsed ? "none" : "flex"};">
           <div class="sc-hud-tools">
+            <button type="button" id="btn-sc-ground" class="sc-hud-btn sc-btn-elv" title="Ride Elevator to Pad Ground Level [1]">
+              ${touchUI ? "🛗 GROUND" : "🛗 GROUND [1]"}
+            </button>
+            <button type="button" id="btn-sc-gantry" class="sc-hud-btn sc-btn-gantry" title="Ride Elevator to Spacecraft Gantry [2]">
+              ${touchUI ? "🚀 GANTRY" : "🚀 GANTRY [2]"}
+            </button>
+            <button type="button" id="btn-sc-top-deck" class="sc-hud-btn sc-btn-top" title="Ride Elevator to Tower Top Observation Deck [3/T]">
+              ${touchUI ? "🗼 TOP DECK" : "🗼 TOP DECK [3/T]"}
+            </button>
             <button type="button" id="btn-sc-mission-plan" class="sc-hud-btn sc-btn-plan">
               ${touchUI ? "DESIGN" : "DESIGN [M]"}
             </button>
@@ -3021,6 +4085,47 @@
       const btnReturnLcc = this.hudOverlay.querySelector("#btn-sc-return-lcc");
       if (btnReturnLcc) {
         btnReturnLcc.addEventListener("click", () => this.exitSiteTour());
+      }
+
+      const btnElvAct = this.hudOverlay.querySelector("#btn-sc-elv-act");
+      if (btnElvAct) {
+        btnElvAct.addEventListener("click", () => {
+          if (guidance.isAtGround) {
+            this._handleElevatorKey(3);
+          } else if (guidance.isAtTop) {
+            this._handleElevatorKey(1);
+          } else {
+            this._handleElevatorKey(3);
+          }
+        });
+      }
+
+      const btnGround = this.hudOverlay.querySelector("#btn-sc-ground");
+      if (btnGround) {
+        btnGround.addEventListener("click", () => {
+          this._handleElevatorKey(1);
+        });
+      }
+
+      const btnElv = this.hudOverlay.querySelector("#btn-sc-elevator");
+      if (btnElv) {
+        btnElv.addEventListener("click", () => {
+          this._handleElevatorKey(1);
+        });
+      }
+
+      const btnGantry = this.hudOverlay.querySelector("#btn-sc-gantry");
+      if (btnGantry) {
+        btnGantry.addEventListener("click", () => {
+          this._handleElevatorKey(2);
+        });
+      }
+
+      const btnTop = this.hudOverlay.querySelector("#btn-sc-top-deck");
+      if (btnTop) {
+        btnTop.addEventListener("click", () => {
+          this._handleElevatorKey(3);
+        });
       }
 
       const btnPlan = this.hudOverlay.querySelector("#btn-sc-mission-plan");
@@ -4253,7 +5358,7 @@
       // ── Elevator animation ──────────────────────────────────────────────────
       if (this.elevatorMoving && this.elevatorCab && this._elevatorConfig) {
         const cfg = this._elevatorConfig;
-        const speed = 8.0; // metres per second
+        const speed = 12.0; // metres per second smooth lift
         const diff  = this.elevatorTargetY - this.elevatorY;
         const step  = Math.sign(diff) * Math.min(Math.abs(diff), speed * delta);
         this.elevatorY += step;
@@ -4265,9 +5370,15 @@
           this._elevatorLightMat.emissive.setHex(0xf59e0b);
         }
 
-        // Carry the player if riding (towerGroup world Y offset = 19.8)
-        if (this.elevatorRidingPlayer && this.camera) {
-          this.camera.position.y = 19.8 + this.elevatorY + 1.4;
+        // Carry the player smoothly inside the cab if riding
+        if (this.elevatorRidingPlayer) {
+          const worldY = 19.8 + this.elevatorY;
+          if (window.localCrew && window.localCrew.group) {
+            window.localCrew.group.position.set(-42.2, worldY, -4.0);
+          }
+          if (this.camera) {
+            this.camera.position.set(-42.2, worldY + 1.48, -4.0);
+          }
         }
 
         // Arrived?
@@ -4275,23 +5386,70 @@
           this.elevatorY = this.elevatorTargetY;
           this.elevatorCab.position.y = this.elevatorY;
           this.elevatorMoving = false;
-          this.elevatorRidingPlayer = false;
 
-          if (this.camera) {
-            const isTop = this.elevatorY >= cfg.top - 1;
-            this.camera.position.y = isTop ? 64.1 : 19.8;
-            if (window.gameplay && typeof window.gameplay.showToast === "function") {
-              window.gameplay.showToast(isTop
-                ? "🛗 BOARDING BRIDGE LEVEL — swing the boarding bridge out with [F]"
-                : "🛗 GROUND LEVEL — Elevator doors open");
-            }
+          const arrivedGantry = Math.abs(this.elevatorY - 44.0) < 2.0;
+          const arrivedTop    = Math.abs(this.elevatorY - 88.0) < 2.0;
+          const arrivedGround = Math.abs(this.elevatorY - (-7.3)) < 2.0 || Math.abs(this.elevatorY - 0.0) < 2.0;
+          if (this.elevatorRidingPlayer && this.camera) {
+            this.camera.position.y = (arrivedTop ? 108.1 : (arrivedGantry ? 64.1 : 12.5)) + 1.48;
           }
 
           if (this._elevatorLightMat) {
-            const col = this.elevatorY >= cfg.top - 1 ? 0x34d399 : 0xef4444;
+            const col = arrivedGround ? 0x38bdf8 : (arrivedGantry ? 0x34d399 : 0xfacc15);
             this._elevatorLightMat.color.setHex(col);
             this._elevatorLightMat.emissive.setHex(col);
           }
+
+          if (window.spaceAudio && typeof window.spaceAudio.playAirlockCycle === "function") {
+            window.spaceAudio.playAirlockCycle();
+          }
+
+          if (this.elevatorRidingPlayer) {
+            this.elevatorRidingPlayer = false;
+
+            if (arrivedGantry) {
+              if (window.localCrew && window.localCrew.group) {
+                window.localCrew.group.position.set(-40.2, 64.1, -4.0);
+                window.localCrew.group.rotation.y = Math.PI / 2;
+              }
+              if (typeof window.setCameraYawPitch === "function") {
+                window.setCameraYawPitch(Math.PI / 2, 0.0);
+              }
+              if (window.gameplay && typeof window.gameplay.showToast === "function") {
+                window.gameplay.showToast("🛗 GANTRY LEVEL (44m) — Walk east across catwalk to extend Orbiter Access Arm [F] & board [E]");
+              }
+            } else if (arrivedTop) {
+              if (window.localCrew && window.localCrew.group) {
+                window.localCrew.group.position.set(-40.2, 108.1, -4.0);
+                window.localCrew.group.rotation.y = Math.PI / 2;
+              }
+              if (typeof window.setCameraYawPitch === "function") {
+                window.setCameraYawPitch(Math.PI / 2, 0.0);
+              }
+              if (window.gameplay && typeof window.gameplay.showToast === "function") {
+                window.gameplay.showToast("🛗 TOWER TOP DECK (88m / 300 FT) — 360° observation deck under the lightning mast spire");
+              }
+            } else {
+              if (window.localCrew && window.localCrew.group) {
+                window.localCrew.group.position.set(-41.0, 12.5, -4.0);
+                window.localCrew.group.rotation.y = -Math.PI / 2;
+              }
+              if (typeof window.setCameraYawPitch === "function") {
+                window.setCameraYawPitch(-Math.PI / 2, 0.0);
+              }
+              if (window.gameplay && typeof window.gameplay.showToast === "function") {
+                window.gameplay.showToast("🛗 PAD GROUND LEVEL — Elevator doors open onto Pad 39A Hardstand");
+              }
+            }
+          } else {
+            // Cab arrived after being called by a player waiting at the call station
+            if (window.gameplay && typeof window.gameplay.showToast === "function") {
+              const floorLabel = arrivedTop ? "TOWER TOP (88m)" : (arrivedGantry ? "GANTRY LEVEL (44m)" : "PAD GROUND LEVEL");
+              window.gameplay.showToast(`🛗 ELEVATOR ARRIVED AT ${floorLabel} — Press [E] or [G] to ride`);
+            }
+          }
+
+          this._renderGroundHUD();
         }
       }
       // ───────────────────────────────────────────────────────────────────────
@@ -4302,6 +5460,14 @@
         if (Math.abs(diff) > 0.001) {
           this.dockSwingAngle += diff * Math.min(1, delta * 4.5);
           this.armPivotGroup.rotation.y = this.dockSwingAngle;
+        }
+      }
+
+      // Smoothly swing the GOX Vent Arm & Beanie Cap (retracts during launch)
+      if (this.goxVentArm) {
+        const targetGoxAngle = this.isLaunching ? -0.55 : 0.0;
+        if (Math.abs(this.goxVentArm.rotation.y - targetGoxAngle) > 0.001) {
+          this.goxVentArm.rotation.y += (targetGoxAngle - this.goxVentArm.rotation.y) * Math.min(1, delta * 2.5);
         }
       }
 
