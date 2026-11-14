@@ -578,6 +578,9 @@
       window.gameplay.init();
       window.gameplay.updateTaskListUI();
     }
+    if (window.missionAcademy && typeof window.missionAcademy.init === "function") {
+      window.missionAcademy.init();
+    }
 
     // Auto-collapse dense panels on compact viewports so the 3D scene stays open
     syncResponsiveHudState(w, h);
@@ -2158,6 +2161,8 @@
     const modeBar = document.getElementById("lobby-ops-mode-bar");
     const selectedLabel = document.getElementById("lobby-mission-selected");
     const hint = document.getElementById("lobby-mission-hint");
+    const missionTip = document.getElementById("lobby-mission-tip");
+    const difficultyHint = document.getElementById("lobby-difficulty-hint");
     if (!cards) return;
 
     const opsMode = (mission && mission.opsMode === "shuttle_flight") ? "shuttle_flight" : "iss_expedition";
@@ -2192,6 +2197,8 @@
         hint.style.color = canSelect ? "#67e8f9" : "#9aa4ae";
       }
       if (difficultyContainer) difficultyContainer.style.display = "none";
+      if (missionTip) missionTip.style.display = "none";
+      if (difficultyHint) difficultyHint.style.display = "none";
       cards.innerHTML = `
         <div class="shuttle-mode-card">
           <div class="shuttle-mode-card-title">STS_OS CO-OP FLIGHT · LC-39A TO KSC SLF RWY 15</div>
@@ -2236,6 +2243,16 @@
         ? "HOST CONTROL — SELECT EXPEDITION PROFILE"
         : "HOST SELECTS THE EXPEDITION — CREW VIEW";
       hint.style.color = canSelect ? "#67e8f9" : "#9aa4ae";
+    }
+
+    if (missionTip) {
+      if (selected && selected.tradeoffTip) {
+        missionTip.innerHTML = `<strong>TRADE-OFF:</strong> ${escapeHtml(selected.tradeoffTip)}`;
+        missionTip.style.display = "block";
+      } else {
+        missionTip.style.display = "none";
+        missionTip.innerHTML = "";
+      }
     }
 
     cards.innerHTML = catalog.map((scenario) => {
@@ -2284,6 +2301,17 @@
           ">${escapeHtml(String(difficulty.name || difficulty.id).split("(")[0].trim().toUpperCase())}</button>
         `;
       }).join("");
+    }
+
+    if (difficultyHint) {
+      const chosen = difficulties.find((entry) => entry.id === selectedDifficultyId);
+      if (chosen) {
+        const isCadet = chosen.id === "cadet";
+        difficultyHint.innerHTML = `${isCadet ? "<strong>CADET TIP:</strong> " : ""}${escapeHtml(chosen.desc)}`;
+        difficultyHint.style.display = "block";
+      } else {
+        difficultyHint.style.display = "none";
+      }
     }
 
     cards.querySelectorAll("[data-scenario-id]").forEach((button) => {
@@ -2349,6 +2377,32 @@
           </div>
         `;
       }).join("");
+    }
+
+    const coach = document.getElementById("briefing-coach");
+    if (coach) {
+      const guidanceOn = !window.missionAcademy
+        || typeof window.missionAcademy.isGuidanceEnabled !== "function"
+        || window.missionAcademy.isGuidanceEnabled();
+      if (guidanceOn) {
+        let scenarioTip = "";
+        if (window.gameplay && typeof window.gameplay.getScenarioCatalog === "function") {
+          const scenario = window.gameplay.getScenarioCatalog().find((entry) => entry.id === mission.scenarioId);
+          scenarioTip = scenario && scenario.tradeoffTip ? scenario.tradeoffTip : "";
+        }
+        const isCadet = String(mission.difficultyId || "").toLowerCase() === "cadet";
+        coach.innerHTML = `
+          <strong>${isCadet ? "CADET COACH" : "MISSION COACH"}:</strong>
+          ${escapeHtml(scenarioTip || "Every design choice trades mass, power, data and cost. Keep all resource bars green before committing.")}
+          <div class="briefing-coach-actions">
+            <button type="button" id="btn-briefing-academy">OPEN MISSION ACADEMY [F1]</button>
+          </div>
+        `;
+        coach.style.display = "block";
+      } else {
+        coach.style.display = "none";
+        coach.innerHTML = "";
+      }
     }
 
     if (btnBegin) {
@@ -2865,7 +2919,7 @@
       const tTag = e.target && e.target.tagName ? e.target.tagName : "";
       if (tTag === "INPUT" || tTag === "TEXTAREA" || tTag === "SELECT" || (e.target && e.target.isContentEditable)) return;
 
-      const blockingOverlay = ["modal-auth", "modal-station-systems", "task-modal-overlay", "victory-overlay", "mission-briefing-overlay"]
+      const blockingOverlay = ["modal-auth", "modal-academy", "modal-station-systems", "task-modal-overlay", "victory-overlay", "mission-briefing-overlay"]
         .some((id) => {
           const el = document.getElementById(id);
           return el && el.style.display && el.style.display !== "none";

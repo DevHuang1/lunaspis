@@ -678,7 +678,8 @@
   function buildRackElectronics(fixtures) {
     const THREE = window.THREE;
     const group = new THREE.Group();
-    const selected = fixtures.filter((fixture, index) => index % 3 === 1);
+    const selected = fixtures.filter((fixture, index) => index % 4 === 1 &&
+      !Object.values(ISS_STATION_LAYOUT).some(({ position }) => Math.hypot(fixture.x - position[0], fixture.z - position[2]) < 0.95));
     if (!selected.length) return group;
     const parent = new THREE.Object3D(), local = new THREE.Object3D(), matrix = new THREE.Matrix4();
     const setPart = (mesh, index, fixture, position, scale = [1, 1, 1]) => {
@@ -732,6 +733,53 @@
       });
       finish(screen);
     });
+    return group;
+  }
+
+  function buildRackInstruments(surfaces) {
+    const THREE = window.THREE;
+    const group = new THREE.Group();
+    const selected = surfaces.filter((surface, index) => index % 5 === 3 && index % 4 !== 1 &&
+      !Object.values(ISS_STATION_LAYOUT).some(({ position }) => Math.hypot(surface.x - position[0], surface.z - position[2]) < 0.95));
+    if (!selected.length) return group;
+    const parent = new THREE.Object3D(), local = new THREE.Object3D(), matrix = new THREE.Matrix4();
+    const setPart = (mesh, index, surface, position, angle = 0) => {
+      parent.position.set(surface.x, 0, surface.z);
+      parent.rotation.set(0, surface.rotation, 0);
+      parent.updateMatrix();
+      local.position.set(...position);
+      local.rotation.set(0, 0, angle);
+      local.updateMatrix();
+      matrix.multiplyMatrices(parent.matrix, local.matrix);
+      mesh.setMatrixAt(index, matrix);
+    };
+    const finish = (mesh) => { mesh.instanceMatrix.needsUpdate = true; mesh.frustumCulled = false; group.add(mesh); };
+    const housing = new THREE.InstancedMesh(new THREE.BoxGeometry(0.6, 0.38, 0.12),
+      new THREE.MeshStandardMaterial({ color: 0xb1bab5, roughness: 0.7, metalness: 0.22 }), selected.length);
+    const inset = new THREE.InstancedMesh(new THREE.BoxGeometry(0.52, 0.29, 0.02),
+      new THREE.MeshStandardMaterial({ color: 0x46585b, roughness: 0.68, metalness: 0.2 }), selected.length);
+    const dialFace = new THREE.InstancedMesh(new THREE.CircleGeometry(0.075, 18),
+      new THREE.MeshStandardMaterial({ color: 0xd9ded7, roughness: 0.6 }), selected.length * 2);
+    const dialRim = new THREE.InstancedMesh(new THREE.TorusGeometry(0.077, 0.008, 6, 18),
+      new THREE.MeshStandardMaterial({ color: 0x849492, metalness: 0.45, roughness: 0.46 }), selected.length * 2);
+    const needle = new THREE.InstancedMesh(new THREE.BoxGeometry(0.006, 0.055, 0.008),
+      new THREE.MeshBasicMaterial({ color: 0x27373b }), selected.length * 2);
+    const switches = new THREE.InstancedMesh(new THREE.BoxGeometry(0.026, 0.035, 0.018),
+      new THREE.MeshStandardMaterial({ color: 0xabb7b3, roughness: 0.6, metalness: 0.35 }), selected.length * 3);
+    selected.forEach((surface, index) => {
+      const y = index % 2 ? 0.82 : 1.75;
+      setPart(housing, index, surface, [0, y, 0.30]);
+      setPart(inset, index, surface, [0, y, 0.37]);
+      [-0.14, 0.06].forEach((x, dial) => {
+        setPart(dialFace, index * 2 + dial, surface, [x, y + 0.02, 0.386]);
+        setPart(dialRim, index * 2 + dial, surface, [x, y + 0.02, 0.39]);
+        setPart(needle, index * 2 + dial, surface, [x, y + 0.035, 0.394], (index % 3 - 1) * 0.45 + dial * 0.35);
+      });
+      for (let switchIndex = 0; switchIndex < 3; switchIndex++) {
+        setPart(switches, index * 3 + switchIndex, surface, [0.20, y - 0.08 + switchIndex * 0.07, 0.39]);
+      }
+    });
+    [housing, inset, dialFace, dialRim, needle, switches].forEach(finish);
     return group;
   }
 
@@ -1532,7 +1580,7 @@
       });
       wallSurfaces.forEach((surface, index) => {
         const seed = Math.abs(Math.round(surface.x * 41 + surface.z * 73 + surface.rotation * 17));
-        if (index % 7 === 0 || seed % 4 !== 0) return;
+        if (index % 7 === 0 || index % 4 === 1 || index % 5 === 3 || seed % 4 !== 0) return;
         const nearConsole = Object.values(ISS_STATION_LAYOUT).some(({ position }) =>
           Math.hypot(surface.x - position[0], surface.z - position[2]) < 0.95
         );
@@ -1816,7 +1864,8 @@
         rackFixtures.push({ position: [x, 0, 10.35], rotation: [0, Math.PI, 0], label: `CREW-${index + 1}` });
       });
       group.add(buildEquipmentFixtures(rackFixtures, bagFixtures));
-      group.add(buildRackElectronics(wallFixtures));
+      group.add(buildRackElectronics(wallSurfaces));
+      group.add(buildRackInstruments(wallSurfaces));
       group.add(buildScienceGlovebox([-1.72, 0, 4.15]));
       group.add(buildAirlockPanel([-5.9, 0, 6.65]));
       group.add(buildAirlockPanel([-8.2, 0, 6.65]));

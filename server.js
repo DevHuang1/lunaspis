@@ -6,6 +6,7 @@ const express = require("express");
 const { Server } = require("socket.io");
 const db = require("./server/db");
 const storage = require("./server/storage");
+const { MISSION_DESIGN_KEYS, sanitizeDesignPatch } = require("./server/design_sanitizer");
 const { ShuttleMission, CREW: SHUTTLE_CREW } = require("./public/js/game/shuttle_mission.js");
 
 const SHUTTLE_SNAPSHOT_HZ = 15;
@@ -583,27 +584,6 @@ const MISSION_CATALOG = {
 };
 
 const DIFFICULTY_IDS = new Set(["cadet", "engineer", "director"]);
-const MISSION_DESIGN_KEYS = new Set([
-  "scenarioId",
-  "difficultyId",
-  "orbitId",
-  "launchVehicleId",
-  "busId",
-  "powerId",
-  "batteryId",
-  "instruments",
-  "thermalId",
-  "commsId",
-  "groundNetId",
-  "propulsionId",
-  "wavelengthId",
-  "disposalId",
-  "cubesatFormId",
-  "bioOrganismId",
-  "bioBagId",
-  "bioProtocolId",
-  "bioThermalId"
-]);
 
 
 const ROLE_INFO = {
@@ -928,26 +908,6 @@ function availableMissionObjectiveIds(mission) {
 
 function isMissionComplete(mission) {
   return MISSION_OBJECTIVES.every((objective) => mission && mission.completed && mission.completed[objective.id]);
-}
-
-function sanitizeDesignPatch(patch) {
-  if (!patch || typeof patch !== "object" || Array.isArray(patch)) return null;
-  const clean = {};
-  for (const key of Object.keys(patch)) {
-    if (!MISSION_DESIGN_KEYS.has(key)) continue;
-    const value = patch[key];
-    if (key === "instruments") {
-      if (Array.isArray(value)) {
-        clean[key] = value
-          .filter((item) => typeof item === "string")
-          .map((item) => item.slice(0, 48))
-          .slice(0, 8);
-      }
-    } else if (typeof value === "string" && value.length <= 64) {
-      clean[key] = value;
-    }
-  }
-  return Object.keys(clean).length ? clean : null;
 }
 
 function serializeMission(mission) {
