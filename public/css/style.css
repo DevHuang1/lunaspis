@@ -3647,6 +3647,17 @@ body.telemetry-collapsed #space-center-ground-hud {
   color: #ffffff;
 }
 
+.sc-btn-gantry {
+  border-color: rgba(52, 211, 153, 0.55);
+  background: rgba(12, 45, 30, 0.85);
+  color: #34d399;
+}
+.sc-btn-gantry:hover {
+  border-color: rgba(52, 211, 153, 0.95);
+  background: rgba(18, 65, 42, 0.95);
+  color: #ffffff;
+}
+
 .sc-btn-top {
   border-color: rgba(56, 189, 248, 0.55);
   background: rgba(12, 36, 52, 0.85);

@@ -282,10 +282,29 @@
       }
 
       if (!isNearElevator && !this.elevatorRidingPlayer) {
-        if (window.gameplay && typeof window.gameplay.showToast === "function") {
-          window.gameplay.showToast("🛗 Walk to the ELEVATOR on the west face of the FSS tower, then press [G] or [E]");
+        // If player is far away across the facility or on site tour, fast travel directly to the Pad 39A Elevator Base!
+        this.siteTourActive = false;
+        if (window.localCrew && window.localCrew.group) {
+          window.localCrew.group.position.set(-41.0, 19.8, -4.0);
+          window.localCrew.group.rotation.y = -Math.PI / 2;
         }
+        if (typeof window.setCameraYawPitch === "function") {
+          window.setCameraYawPitch(-Math.PI / 2, 0.0);
+        }
+        if (window.spaceAudio && typeof window.spaceAudio.playAirlockCycle === "function") {
+          window.spaceAudio.playAirlockCycle();
+        }
+        if (window.gameplay && typeof window.gameplay.showToast === "function") {
+          window.gameplay.showToast("🛗 FAST TRAVEL: Arrived at Pad 39A Elevator Base — Press [G], [2] (Gantry), or [3] (Top Deck)");
+        }
+        this._renderGroundHUD();
         return;
+      }
+
+      // Exit site tour if active when operating the elevator
+      if (this.siteTourActive) {
+        this.siteTourActive = false;
+        this._renderGroundHUD();
       }
 
       // Determine current floor
@@ -297,55 +316,75 @@
         window.spaceAudio.playAirlockCycle();
       }
 
+      // Normalize explicit floor requests
+      const reqGround = targetFloor === 1 || targetFloor === 0 || targetFloor === "ground";
+      const reqGantry = targetFloor === 2 || targetFloor === 44 || targetFloor === "gantry";
+      const reqTop    = targetFloor === 3 || targetFloor === 88 || targetFloor === "top";
+
+      if (reqTop) {
+        this.elevatorTargetY = cfg.top !== undefined ? cfg.top : 88;
+        this.elevatorMoving  = true;
+        this.elevatorRidingPlayer = true;
+        if (window.localCrew && window.localCrew.group) {
+          window.localCrew.group.position.set(-42.2, py, -4.0);
+        }
+        if (window.gameplay && typeof window.gameplay.showToast === "function") {
+          window.gameplay.showToast("🛗 ELEVATOR: Ascending to Tower Top Observation Deck (88m / 300 FT)");
+        }
+        return;
+      }
+
+      if (reqGantry) {
+        this.elevatorTargetY = cfg.gantry !== undefined ? cfg.gantry : 44;
+        this.elevatorMoving  = true;
+        this.elevatorRidingPlayer = true;
+        if (window.localCrew && window.localCrew.group) {
+          window.localCrew.group.position.set(-42.2, py, -4.0);
+        }
+        if (window.gameplay && typeof window.gameplay.showToast === "function") {
+          window.gameplay.showToast("🛗 ELEVATOR: In transit to Spacecraft Boarding Gantry (44m) — Walk to White Room to board");
+        }
+        return;
+      }
+
+      if (reqGround) {
+        this.elevatorTargetY = cfg.bottom !== undefined ? cfg.bottom : 0;
+        this.elevatorMoving  = true;
+        this.elevatorRidingPlayer = true;
+        if (window.localCrew && window.localCrew.group) {
+          window.localCrew.group.position.set(-42.2, py, -4.0);
+        }
+        if (window.gameplay && typeof window.gameplay.showToast === "function") {
+          window.gameplay.showToast("🛗 ELEVATOR: Descending to Pad Ground Level (0m)");
+        }
+        return;
+      }
+
+      // Unspecified target floor (general toggle via [G] or [E])
       if (atGround) {
-        // Player is at Ground (0m)
-        if (this.elevatorY < 4.0) {
-          // Cab is at Ground: ride up to Gantry Level to board the spacecraft!
-          this.elevatorTargetY = cfg.gantry !== undefined ? cfg.gantry : 44;
+        // From Ground: ride up to Gantry Level to board the spacecraft!
+        this.elevatorTargetY = cfg.gantry !== undefined ? cfg.gantry : 44;
+        this.elevatorMoving  = true;
+        this.elevatorRidingPlayer = true;
+        if (window.localCrew && window.localCrew.group) {
+          window.localCrew.group.position.set(-42.2, 19.8, -4.0);
+        }
+        if (window.gameplay && typeof window.gameplay.showToast === "function") {
+          window.gameplay.showToast("🛗 ELEVATOR: Ascending to Gantry Level (44m) — Walk to White Room to board spacecraft");
+        }
+      } else if (atGantry) {
+        // From Gantry: ride to Top Deck if cab is already at Gantry, otherwise to Ground
+        if (Math.abs(this.elevatorY - 44.0) < 4.0) {
+          this.elevatorTargetY = cfg.top !== undefined ? cfg.top : 88;
           this.elevatorMoving  = true;
           this.elevatorRidingPlayer = true;
           if (window.localCrew && window.localCrew.group) {
-            window.localCrew.group.position.set(-42.2, 19.8, -4.0);
+            window.localCrew.group.position.set(-42.2, 64.1, -4.0);
           }
           if (window.gameplay && typeof window.gameplay.showToast === "function") {
-            window.gameplay.showToast("🛗 ELEVATOR: Ascending to Gantry Level (44m) — Walk to White Room to board spacecraft");
+            window.gameplay.showToast("🛗 ELEVATOR: Ascending to Tower Top Observation Deck (88m / 300 FT)");
           }
         } else {
-          // Cab is elsewhere: call elevator down to Ground
-          this.elevatorTargetY = cfg.bottom !== undefined ? cfg.bottom : 0;
-          this.elevatorMoving  = true;
-          this.elevatorRidingPlayer = false;
-          if (window.gameplay && typeof window.gameplay.showToast === "function") {
-            window.gameplay.showToast("🛗 ELEVATOR CALLED: Descending to Ground Level (0m)...");
-          }
-        }
-      } else if (atGantry) {
-        // Player is at Gantry Level (44m)
-        if (Math.abs(this.elevatorY - 44.0) < 4.0) {
-          // Cab is at Gantry: ride to Top Deck if requested, otherwise down to Ground
-          if (targetFloor === 88 || targetFloor === "top") {
-            this.elevatorTargetY = cfg.top !== undefined ? cfg.top : 88;
-            this.elevatorMoving  = true;
-            this.elevatorRidingPlayer = true;
-            if (window.localCrew && window.localCrew.group) {
-              window.localCrew.group.position.set(-42.2, 64.1, -4.0);
-            }
-            if (window.gameplay && typeof window.gameplay.showToast === "function") {
-              window.gameplay.showToast("🛗 ELEVATOR: Ascending to Tower Top Observation Deck (88m)");
-            }
-          } else {
-            this.elevatorTargetY = cfg.bottom !== undefined ? cfg.bottom : 0;
-            this.elevatorMoving  = true;
-            this.elevatorRidingPlayer = true;
-            if (window.localCrew && window.localCrew.group) {
-              window.localCrew.group.position.set(-42.2, 64.1, -4.0);
-            }
-            if (window.gameplay && typeof window.gameplay.showToast === "function") {
-              window.gameplay.showToast("🛗 ELEVATOR: Descending to Ground Level (0m) — Press [T] next time for Top Deck");
-            }
-          }
-        } else {
-          // Cab is elsewhere: call elevator to Gantry
           this.elevatorTargetY = cfg.gantry !== undefined ? cfg.gantry : 44;
           this.elevatorMoving  = true;
           this.elevatorRidingPlayer = false;
@@ -354,26 +393,15 @@
           }
         }
       } else if (atTop) {
-        // Player is at Top Deck (88m)
-        if (Math.abs(this.elevatorY - 88.0) < 4.0) {
-          // Cab is at Top: ride back down to Gantry for spacecraft boarding!
-          this.elevatorTargetY = cfg.gantry !== undefined ? cfg.gantry : 44;
-          this.elevatorMoving  = true;
-          this.elevatorRidingPlayer = true;
-          if (window.localCrew && window.localCrew.group) {
-            window.localCrew.group.position.set(-42.2, 108.1, -4.0);
-          }
-          if (window.gameplay && typeof window.gameplay.showToast === "function") {
-            window.gameplay.showToast("🛗 ELEVATOR: Descending to Gantry Level (44m) for Spacecraft Boarding");
-          }
-        } else {
-          // Cab is elsewhere: call elevator up to Top Deck
-          this.elevatorTargetY = cfg.top !== undefined ? cfg.top : 88;
-          this.elevatorMoving  = true;
-          this.elevatorRidingPlayer = false;
-          if (window.gameplay && typeof window.gameplay.showToast === "function") {
-            window.gameplay.showToast("🛗 ELEVATOR CALLED: Ascending to Tower Top Deck (88m)...");
-          }
+        // From Top Deck: ride back down to Gantry for spacecraft boarding!
+        this.elevatorTargetY = cfg.gantry !== undefined ? cfg.gantry : 44;
+        this.elevatorMoving  = true;
+        this.elevatorRidingPlayer = true;
+        if (window.localCrew && window.localCrew.group) {
+          window.localCrew.group.position.set(-42.2, 108.1, -4.0);
+        }
+        if (window.gameplay && typeof window.gameplay.showToast === "function") {
+          window.gameplay.showToast("🛗 ELEVATOR: Descending to Gantry Level (44m) for Spacecraft Boarding");
         }
       }
     }
@@ -874,18 +902,60 @@
       this.padGroup.add(mlp);
 
       // MLP deck perimeter yellow safety rails & umbilical riser cabinets.
-      const railGeoX = new THREE.BoxGeometry(49.2, 1.15, 0.32);
+      // Front railing is split to leave a 5m open doorway at x in [-14.5, -9.5] for the access stairs!
       const railGeoZ = new THREE.BoxGeometry(0.32, 1.15, 40.6);
       const railMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.5, metalness: 0.35 });
-      const railFwd = new THREE.Mesh(railGeoX, railMat);
-      railFwd.position.set(0, 20.38, 20.34);
-      const railAft = new THREE.Mesh(railGeoX, railMat);
+      const railFwdEast = new THREE.Mesh(new THREE.BoxGeometry(34.0, 1.15, 0.32), railMat);
+      railFwdEast.position.set(7.5, 20.38, 20.34);
+      const railFwdWest = new THREE.Mesh(new THREE.BoxGeometry(10.0, 1.15, 0.32), railMat);
+      railFwdWest.position.set(-19.5, 20.38, 20.34);
+      const railAft = new THREE.Mesh(new THREE.BoxGeometry(49.2, 1.15, 0.32), railMat);
       railAft.position.set(0, 20.38, -20.34);
       const railEast = new THREE.Mesh(railGeoZ, railMat);
       railEast.position.set(24.34, 20.38, 0);
       const railWest = new THREE.Mesh(railGeoZ, railMat);
       railWest.position.set(-24.34, 20.38, 0);
-      this.padGroup.add(railFwd, railAft, railEast, railWest);
+      this.padGroup.add(railFwdEast, railFwdWest, railAft, railEast, railWest);
+
+      // Industrial Access Stairway & Ramp connecting Pad Hardstand (y=12.5) to MLP Deck (y=19.8)
+      // Placed at x = -12.0, spanning z = 32.0 to z = 20.5 (height difference 7.3m, run 11.5m)
+      const stairTreadMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.65, metalness: 0.55 });
+      const stairRamp = new THREE.Mesh(new THREE.BoxGeometry(4.8, 0.35, 13.62), stairTreadMat);
+      stairRamp.position.set(-12.0, 16.15, 26.25);
+      stairRamp.rotation.x = -0.565; // slope matching 7.3m rise over 11.5m run
+      stairRamp.castShadow = true;
+      stairRamp.receiveShadow = true;
+      this.padGroup.add(stairRamp);
+
+      // Stairway safety handrails on both sides
+      const stairRailMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.45, metalness: 0.4 });
+      [-14.4, -9.6].forEach((sx) => {
+        const handrail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 13.62), stairRailMat);
+        handrail.position.set(sx, 17.2, 26.25);
+        handrail.rotation.x = -0.565;
+        this.padGroup.add(handrail);
+        for (let i = 0; i <= 6; i++) {
+          const t = i / 6;
+          const sz = 32.0 - t * 11.5;
+          const sy = 12.5 + t * 7.3;
+          this._makeBeam(this.padGroup, 0.08, 1.1, 0.08, sx, sy + 0.55, sz, stairRailMat);
+        }
+      });
+
+      // Entrance sign at base of stairs
+      const signCanvas = document.createElement("canvas");
+      signCanvas.width = 512; signCanvas.height = 128;
+      const sctx = signCanvas.getContext("2d");
+      sctx.fillStyle = "#0f172a"; sctx.fillRect(0, 0, 512, 128);
+      sctx.strokeStyle = "#facc15"; sctx.lineWidth = 6; sctx.strokeRect(4, 4, 504, 120);
+      sctx.fillStyle = "#38bdf8"; sctx.font = "bold 26px Arial"; sctx.textAlign = "center";
+      sctx.fillText("PAD 39A MOBILE LAUNCHER ACCESS", 256, 46);
+      sctx.fillStyle = "#facc15"; sctx.font = "bold 22px Arial";
+      sctx.fillText("WALKWAY TO FSS ELEVATOR & ORBITER", 256, 88);
+      const signMesh = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 1.05),
+        new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(signCanvas), transparent: true }));
+      signMesh.position.set(-12.0, 14.8, 32.2);
+      this.padGroup.add(signMesh);
 
       // Single non-overlapping pad identification stencil ("39A").
       const markCanvas = document.createElement("canvas");
@@ -1714,6 +1784,51 @@
       this._makeBeam(this.towerGroup, 0.1, 0.1, 11.6, 5.7, pyrBaseY + 1.15, 0, topRailMat);
       this._makeBeam(this.towerGroup, 0.1, 0.1, 7.8, -5.7, pyrBaseY + 1.15, 1.8, topRailMat);
       this._makeBeam(this.towerGroup, 0.1, 0.1, 3.6, -5.7, pyrBaseY + 1.15, -7.6, topRailMat);
+
+      // Observation Binoculars & Weather Station on East railing overlooking Space Shuttle orbiter & Atlantic Ocean
+      const binoGrp = new THREE.Group();
+      binoGrp.position.set(5.5, pyrBaseY, 0);
+      const binoPole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 1.35, 12),
+        new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.4, metalness: 0.7 }));
+      binoPole.position.y = 0.68;
+      binoGrp.add(binoPole);
+      const binoHead = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.22, 0.35),
+        new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3, metalness: 0.8 }));
+      binoHead.position.set(0, 1.4, 0);
+      binoGrp.add(binoHead);
+      [-0.1, 0.1].forEach(oz => {
+        const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.25, 12),
+          new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.2, metalness: 0.9 }));
+        lens.rotation.z = Math.PI / 2;
+        lens.position.set(0.18, 1.4, oz);
+        binoGrp.add(lens);
+      });
+      this.towerGroup.add(binoGrp);
+
+      // Authentic NASA Top Deck Plaque
+      const tdSignCanvas = document.createElement("canvas");
+      tdSignCanvas.width = 512; tdSignCanvas.height = 128;
+      const tctx = tdSignCanvas.getContext("2d");
+      tctx.fillStyle = "#0f172a"; tctx.fillRect(0, 0, 512, 128);
+      tctx.strokeStyle = "#38bdf8"; tctx.lineWidth = 6; tctx.strokeRect(4, 4, 504, 120);
+      tctx.fillStyle = "#38bdf8"; tctx.font = "bold 26px Arial"; tctx.textAlign = "center";
+      tctx.fillText("NASA KSC · FSS APEX OBSERVATION DECK", 256, 44);
+      tctx.fillStyle = "#facc15"; tctx.font = "bold 22px Arial";
+      tctx.fillText("ELEVATION 300 FT (88m) · LIGHTNING MAST ZONE", 256, 88);
+      const tdSignMesh = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 0.9),
+        new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(tdSignCanvas), transparent: true }));
+      tdSignMesh.rotation.y = Math.PI / 2;
+      tdSignMesh.position.set(-5.6, pyrBaseY + 1.8, -4.0);
+      this.towerGroup.add(tdSignMesh);
+
+      // Deck Corner Floodlights aimed at lightning spire and launch mount
+      [[-5.2, -5.2], [5.2, -5.2], [-5.2, 5.2], [5.2, 5.2]].forEach(([lx, lz]) => {
+        const light = new THREE.SpotLight(0xfffbeb, 0.85, 90, Math.PI / 4, 0.45);
+        light.position.set(lx, pyrBaseY + 1.2, lz);
+        light.target.position.set(0, pyrTopY + 14, 0);
+        this.towerGroup.add(light);
+        this.towerGroup.add(light.target);
+      });
 
       // Pyramidal horizontal tie frames & X-braces
       [pyrBaseY + 4.0, pyrBaseY + 8.0, pyrTopY].forEach((fy) => {
@@ -2651,6 +2766,32 @@
       this._renderGroundHUD();
     }
 
+    _getSiteTourElevation(x, z) {
+      // 1. Mobile Launcher Platform (MLP) deck & Elevator landing platform
+      if (x >= -45.0 && x <= 24.5 && z >= -22.0 && z <= 20.5) {
+        return 19.8;
+      }
+      // 2. South Access Stairway to MLP (x in [-16.0, -8.0], z in [20.5, 32.0])
+      if (x >= -16.0 && x <= -8.0 && z >= 20.5 && z <= 32.0) {
+        const t = Math.max(0, Math.min(1, (32.0 - z) / (32.0 - 20.5)));
+        return 12.5 + t * 7.3;
+      }
+      // 3. Pad 39A elevated hardstand octagonal surface
+      if (z >= 20.5 && z <= 61.0 && Math.abs(x) <= 45.0) {
+        return 12.5;
+      }
+      if (z >= -45.0 && z < 20.5 && ((x < -24.5 && x >= -55.0) || (x > 24.5 && x <= 55.0))) {
+        return 12.5;
+      }
+      // 4. Crawlerway approach ramp from south apron (z=186, y=0.2) to Pad top (z=61, y=12.5)
+      if (z > 61.0 && z <= 186.0 && Math.abs(x) <= 18.0) {
+        const t = Math.max(0, Math.min(1, (186.0 - z) / (186.0 - 61.0)));
+        return 0.2 + t * 12.3;
+      }
+      // 5. Default ground level everywhere else
+      return 0.2;
+    }
+
     _resolveSiteTourCollision(currentPos, proposedPos) {
       const THREE = window.THREE;
       const radius = 0.45;
@@ -2663,10 +2804,20 @@
       let nx = Math.max(bounds.minX, Math.min(bounds.maxX, proposedPos.x));
       let nz = Math.max(bounds.minZ, Math.min(bounds.maxZ, proposedPos.z));
 
+      // Check if reaching the FSS Elevator landing on the MLP deck
+      const distToElevator = Math.hypot(nx - (-42.2), nz - (-4.0));
+      if (distToElevator < 6.0 && currentPos.y > 15.0) {
+        this.siteTourActive = false;
+        this._renderGroundHUD();
+        return new THREE.Vector3(nx, 19.8, nz);
+      }
+
       const boxes = (this.site && this.site.boxColliders) || [];
       const circles = (this.site && this.site.circleColliders) || [];
       const blocked = (x, z) => {
         for (const box of boxes) {
+          // Never block crawlerway ramp or pad approach
+          if (box.name && (box.name.toLowerCase().includes("ramp") || box.name.toLowerCase().includes("berm"))) continue;
           if (
             x > box.minX - radius &&
             x < box.maxX + radius &&
@@ -2677,6 +2828,7 @@
           }
         }
         for (const circle of circles) {
+          if (circle.name && (circle.name.toLowerCase().includes("berm") || circle.name.toLowerCase().includes("ramp"))) continue;
           if (Math.hypot(x - circle.x, z - circle.z) < circle.r + radius) return true;
         }
         return false;
@@ -2692,7 +2844,9 @@
           nz = currentPos.z;
         }
       }
-      return new THREE.Vector3(nx, 0.2, nz);
+
+      const targetY = this._getSiteTourElevation(nx, nz);
+      return new THREE.Vector3(nx, targetY, nz);
     }
 
     // ============================================================================
@@ -2823,14 +2977,20 @@
               this.exitSiteTour();
               return;
             }
-            if (e.code === "KeyM") {
+            if (e.code === "KeyG") {
               e.preventDefault();
-              if (window.gameplay && typeof window.gameplay.openMissionPlannerFromGround === "function") {
-                window.gameplay.openMissionPlannerFromGround();
-              }
+              this._handleElevatorKey();
               return;
             }
             if (e.code === "KeyE") {
+              const elevX = -34 + (this._elevatorConfig ? this._elevatorConfig.x : -8.2);
+              const elevZ = (this._elevatorConfig ? this._elevatorConfig.z : -4.0);
+              const pos = (window.localCrew && window.localCrew.group) ? window.localCrew.group.position : (this.camera ? this.camera.position : null);
+              if (pos && Math.hypot(pos.x - elevX, pos.z - elevZ) < 24.0) {
+                e.preventDefault();
+                this._handleElevatorKey();
+                return;
+              }
               const nearTerm = this._getNearbyFacilityTerminal();
               if (nearTerm) {
                 e.preventDefault();
@@ -2838,9 +2998,47 @@
                 return;
               }
             }
-            // The site tour is a read-only exploration mode; do not let pad
-            // boarding/launch keys fire while the crew is at the VAB or LCC.
+            if (e.code === "KeyM") {
+              e.preventDefault();
+              if (window.gameplay && typeof window.gameplay.openMissionPlannerFromGround === "function") {
+                window.gameplay.openMissionPlannerFromGround();
+              }
+              return;
+            }
             return;
+          }
+
+          if (e.code === "Digit1" || e.code === "Numpad1") {
+            const elevX = -34 + (this._elevatorConfig ? this._elevatorConfig.x : -8.2);
+            const elevZ = (this._elevatorConfig ? this._elevatorConfig.z : -4.0);
+            const pos = (window.localCrew && window.localCrew.group) ? window.localCrew.group.position : (this.camera ? this.camera.position : null);
+            if (pos && (Math.hypot(pos.x - elevX, pos.z - elevZ) < 28.0 || this.elevatorMoving)) {
+              e.preventDefault();
+              this._handleElevatorKey(1);
+              return;
+            }
+          }
+
+          if (e.code === "Digit2" || e.code === "Numpad2") {
+            const elevX = -34 + (this._elevatorConfig ? this._elevatorConfig.x : -8.2);
+            const elevZ = (this._elevatorConfig ? this._elevatorConfig.z : -4.0);
+            const pos = (window.localCrew && window.localCrew.group) ? window.localCrew.group.position : (this.camera ? this.camera.position : null);
+            if (pos && (Math.hypot(pos.x - elevX, pos.z - elevZ) < 28.0 || this.elevatorMoving)) {
+              e.preventDefault();
+              this._handleElevatorKey(2);
+              return;
+            }
+          }
+
+          if (e.code === "Digit3" || e.code === "Numpad3") {
+            const elevX = -34 + (this._elevatorConfig ? this._elevatorConfig.x : -8.2);
+            const elevZ = (this._elevatorConfig ? this._elevatorConfig.z : -4.0);
+            const pos = (window.localCrew && window.localCrew.group) ? window.localCrew.group.position : (this.camera ? this.camera.position : null);
+            if (pos && (Math.hypot(pos.x - elevX, pos.z - elevZ) < 28.0 || this.elevatorMoving)) {
+              e.preventDefault();
+              this._handleElevatorKey(3);
+              return;
+            }
           }
 
           if (e.code === "KeyL" && this._canLaunchNow()) {
@@ -3185,8 +3383,8 @@
             <button type="button" id="btn-sc-term-act" class="sc-hud-btn sc-btn-term" style="display:${guidance.nearTerm ? "inline-flex" : "none"};">
               ${guidance.nearTerm ? guidance.nearTerm.shortAction : "TERMINAL [E]"}
             </button>
-            <button type="button" id="btn-sc-elv-act" class="sc-hud-btn sc-btn-elv" style="display:${guidance.nearElevator ? "inline-flex" : "none"};">
-              🛗 ELEVATOR [G/E]
+            <button type="button" id="btn-sc-elv-act" class="sc-hud-btn sc-btn-elv" style="display:${guidance.nearElevator || this.siteTourActive ? "inline-flex" : "none"};">
+              ${this.siteTourActive ? "🛗 TO ELEVATOR [G]" : "🛗 ELEVATOR [G/E]"}
             </button>
             <button type="button" id="btn-sc-launch" class="sc-hud-btn sc-btn-launch" style="display:${guidance.canLaunchNow ? "inline-flex" : "none"};">
               ${touchUI ? "🚀 LAUNCH" : "🚀 LAUNCH [L]"}
@@ -3202,11 +3400,12 @@
             <button type="button" id="btn-sc-elevator" class="sc-hud-btn sc-btn-elv" title="Operate FSS Elevator [G]">
               ${touchUI ? "🛗 ELEVATOR" : "🛗 ELEVATOR [G]"}
             </button>
-            ${guidance.canGoTop ? `
-            <button type="button" id="btn-sc-top-deck" class="sc-hud-btn sc-btn-top" title="Ride Elevator to Tower Top Observation Deck [T]">
-              ${touchUI ? "🗼 TOP DECK" : "🗼 TOP DECK [T]"}
+            <button type="button" id="btn-sc-gantry" class="sc-hud-btn sc-btn-gantry" title="Ride Elevator to Spacecraft Gantry [2]">
+              ${touchUI ? "🚀 GANTRY" : "🚀 GANTRY [2]"}
             </button>
-            ` : ""}
+            <button type="button" id="btn-sc-top-deck" class="sc-hud-btn sc-btn-top" title="Ride Elevator to Tower Top Observation Deck [3/T]">
+              ${touchUI ? "🗼 TOP DECK" : "🗼 TOP DECK [3/T]"}
+            </button>
             <button type="button" id="btn-sc-mission-plan" class="sc-hud-btn sc-btn-plan">
               ${touchUI ? "📋 DESIGN" : "📋 DESIGN [M]"}
             </button>
@@ -3261,10 +3460,17 @@
         });
       }
 
+      const btnGantry = this.hudOverlay.querySelector("#btn-sc-gantry");
+      if (btnGantry) {
+        btnGantry.addEventListener("click", () => {
+          this._handleElevatorKey(2);
+        });
+      }
+
       const btnTop = this.hudOverlay.querySelector("#btn-sc-top-deck");
       if (btnTop) {
         btnTop.addEventListener("click", () => {
-          this._handleElevatorKey("top");
+          this._handleElevatorKey(3);
         });
       }
 

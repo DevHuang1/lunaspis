@@ -206,13 +206,8 @@
     site.label(g, "WATER TANK 39A", wt.x, 3.6, wt.z - 12, { width: 9, height: 1.6, fontSize: 40 });
     site.addCircleCollider(wt.x, wt.z, 8, "Water tower");
 
-    // Hardstand / grass berm is 92 m across at its base, so block the walker
-    // at the foot of the slope rather than 18 m inside it.
-    site.addCircleCollider(0, 0, 90, "Pad 39A berm");
-    // Crawlerway ramp and its flanking grass embankments are solid.
-    site.addBoxCollider(0, 123.5, 33, 128, "Pad 39A crawlerway ramp");
-    site.addBoxCollider(21, 122, 11.5, 120, "Pad 39A ramp embankment");
-    site.addBoxCollider(-21, 122, 11.5, 120, "Pad 39A ramp embankment");
+    // Pad 39A crawlerway ramp and hardstand are fully open and walkable so astronauts
+    // can walk from the apron road right up to the pad and onto the Mobile Launcher Platform!
     // Cryogenic propellant farm containment deck.
     site.addBoxCollider(prop.x, prop.z, 70, 44, "Propellant farm");
     // Egress bunker, floodlight cart and jersey barrier row.
