@@ -1561,21 +1561,21 @@
 
       const bioIssues = [];
       if (isBio) {
-        if (!isIssOrbit) bioIssues.push(`Target destination must be ISS 418 km / LEO (currently ${orbit.name})`);
-        if (rawLvCapacityKg <= 0) bioIssues.push(`${lv.name.split("(")[0].trim()} does not service ${orbit.name} — use Cygnus NG-18 CRS`);
-        if (!bioOrg.goalAligned) bioIssues.push("BioNutrients-2 primary goals require Engineered Yeast producing targeted beta-carotene");
-        if (bioBag.containerMassG >= 250) bioIssues.push(`Empty container mass (${bioBag.containerMassG} g) fails <250 g requirement vs BioNutrients-1`);
-        if (bioBag.kitVolumeMl >= 300) bioIssues.push(`Total kit volume (${bioBag.kitVolumeMl} mL) fails <300 mL requirement vs BioNutrients-1`);
-        if (!bioBag.hasIssNonLuerCover) bioIssues.push("Valve configuration lacks ISS non-Luer thread cover (-002 required)");
-        if (!bioBagFilmMatch) bioIssues.push(`${bioOrg.shortLabel} specifies ${bioOrg.id === "yeast_beta_carotene" ? "3mil" : "5mil"} FEP bag thickness`);
-        if (bioProto.replicates < 12) bioIssues.push(`Publication requires >=12 replicates (currently ${bioProto.replicates})`);
-        if (bioProto.sampleVolMl < 30) bioIssues.push(`Sample volume (${bioProto.sampleVolMl} mL) below >=30 mL requirement`);
-        if (!bioProto.sterileFiltered || bioProto.contaminationCfu > 0) bioIssues.push("Missing 0.2 µm sterile filtration step — microbial contamination risk");
-        if (bioOrg.requiresSixHourShake && !bioProto.hasSixHourShake) bioIssues.push("Yeast protocol requires ~1 min mid-incubation shake at 6 hours");
-        if (!bioTempMatch) bioIssues.push(`Incubator setpoint (${bioThm.incubateTempC}°C) mismatches ${bioOrg.shortLabel} (${bioOrg.targetTempC}°C)`);
-        if (!bioThm.melfiFrozen) bioIssues.push("Missing MELFI (-80°C) freezer storage for post-incubation return preservation");
-        if (betaCaroteneUgMl < 3.0) bioIssues.push(`Beta-carotene yield (${betaCaroteneUgMl} µg/mL) below >=3.0 µg/mL requirement`);
-        if (dryCellWeightMg < 1.0) bioIssues.push(`Dry cell weight (${dryCellWeightMg} mg) below >=1.0 mg requirement`);
+        if (!isIssOrbit) bioIssues.push(`Destination must be the Space Station at 418 km (currently ${orbit.name})`);
+        if (rawLvCapacityKg <= 0) bioIssues.push(`${lv.name.split("(")[0].trim()} does not fly to ${orbit.name} — pick Space Station Supply Ship`);
+        if (!bioOrg.goalAligned) bioIssues.push("This Space Station food mission needs Helpful Yeast that makes Vitamin A");
+        if (bioBag.containerMassG >= 250) bioIssues.push(`Empty pouch weight (${bioBag.containerMassG} g) is over the 250 g limit`);
+        if (bioBag.kitVolumeMl >= 300) bioIssues.push(`Full kit size (${bioBag.kitVolumeMl} mL) is over the 300 mL limit`);
+        if (!bioBag.hasIssNonLuerCover) bioIssues.push("Bag cap is missing the required Station safety lock cap");
+        if (!bioBagFilmMatch) bioIssues.push(`${bioOrg.shortLabel} needs the ${bioOrg.id === "yeast_beta_carotene" ? "Thin Clear Pouch" : "Thick Clear Pouch"}`);
+        if (bioProto.replicates < 12) bioIssues.push(`Science check needs at least 12 sample bags (currently ${bioProto.replicates})`);
+        if (bioProto.sampleVolMl < 30) bioIssues.push(`Water per bag (${bioProto.sampleVolMl} mL) is below the 30 mL minimum`);
+        if (!bioProto.sterileFiltered || bioProto.contaminationCfu > 0) bioIssues.push("Missing germ filter step — drinks would not stay clean and germ-free");
+        if (bioOrg.requiresSixHourShake && !bioProto.hasSixHourShake) bioIssues.push("Yeast recipe needs a quick 1-minute shake at the 6-hour mark");
+        if (!bioTempMatch) bioIssues.push(`Warmer temperature (${bioThm.incubateTempC}°C) does not match ${bioOrg.shortLabel} (${bioOrg.targetTempC}°C)`);
+        if (!bioThm.melfiFrozen) bioIssues.push("Missing -80°C ultra-cold freezer storage for the trip home");
+        if (betaCaroteneUgMl < 3.0) bioIssues.push(`Vitamin A nutrient score (${betaCaroteneUgMl} mg/L) is below the 3.0 mg/L goal`);
+        if (dryCellWeightMg < 1.0) bioIssues.push(`Yeast growth weight (${dryCellWeightMg} mg) is below the 1.0 mg goal`);
       }
       const bioOk = bioIssues.length === 0;
       const bioTelemetry = {
@@ -1656,20 +1656,20 @@
               ok: massOk && budgetOk && isIssOrbit && rawLvCapacityKg > 0 && bioTelemetry.containerMassOk && bioTelemetry.kitVolumeOk && bioBag.hasIssNonLuerCover
             },
             space: {
-              label: "SPACE",
+              label: "IN SPACE",
               ok: powerOk && bioTelemetry.sterileOk && bioTelemetry.replicatesOk && bioTelemetry.sampleVolOk && bioTelemetry.shake6hOk && bioTempMatch && bioTelemetry.melfiOk
             },
             ground: { label: "GROUND", ok: commsOk && bioTempMatch },
             user: {
-              label: "USER",
+              label: "RESULTS",
               ok: bioTelemetry.melfiOk && bioTelemetry.yieldOk && bioTelemetry.dcwOk && bioTelemetry.replicatesOk && bioTelemetry.sterileOk
             }
           }
         : {
             launch: { label: "LAUNCH", ok: massOk && budgetOk },
-            space: { label: "SPACE", ok: massOk && powerOk && deltaVOk && thermalOk && radiationOk && disposalOk && telescopeOk },
+            space: { label: "IN SPACE", ok: massOk && powerOk && deltaVOk && thermalOk && radiationOk && disposalOk && telescopeOk },
             ground: { label: "GROUND", ok: commsOk },
-            user: { label: "USER", ok: scienceScore >= 55 && matchedTypes.length >= 1 }
+            user: { label: "RESULTS", ok: scienceScore >= 55 && matchedTypes.length >= 1 }
           };
 
       const completedTasksCount = Array.isArray(this.tasks) ? this.tasks.filter((x) => x.completed).length : 0;
@@ -1680,85 +1680,85 @@
       if (completedTasksCount >= 6 || (segmentsPassed === 4 && overallScore >= 75)) cmlLevel = 4;
 
       const cmlTitles = {
-        1: "Stage 1 · The Big Idea (CML 1)",
-        2: "Stage 2 · Does the Physics Work? (CML 2)",
-        3: "Stage 3 · Compare Options (CML 3)",
-        4: "Stage 4 · Chosen Blueprint (CML 4)"
+        1: "Stage 1 · The Big Idea",
+        2: "Stage 2 · Does It Work?",
+        3: "Stage 3 · Compare Plans",
+        4: "Stage 4 · Ready Blueprint"
       };
 
       const riskMatrix = isBio
         ? [
             {
-              subsystem: "NG-18 Stow & Container",
+              subsystem: "Cargo Bag & Size",
               level: (!bioTelemetry.containerMassOk || !bioTelemetry.kitVolumeOk || !massOk) ? "RED" : !bioBagFilmMatch ? "AMBER" : "GREEN",
               likelihood: (!bioTelemetry.containerMassOk || !bioTelemetry.kitVolumeOk) ? "HIGH" : "LOW",
               consequence: "HIGH",
               detail: `${bioBag.containerMassG}g (<250g) · ${bioBag.kitVolumeMl}mL (<300mL)`
             },
             {
-              subsystem: "PWD Filter & Sterility",
+              subsystem: "Clean Water & Filter",
               level: !bioTelemetry.sterileOk ? "RED" : "GREEN",
               likelihood: !bioTelemetry.sterileOk ? "HIGH" : "LOW",
               consequence: "HIGH",
-              detail: `${bioProto.sterileFiltered ? "0.2µm Filter" : "UNFILTERED"} · ${bioBag.hasIssNonLuerCover ? "-002 Non-Luer" : "-001 Earth"}`
+              detail: `${bioProto.sterileFiltered ? "Germ Filter ON" : "NO GERM FILTER"} · ${bioBag.hasIssNonLuerCover ? "Station Safety Lock" : "Basic Earth Cap"}`
             },
             {
-              subsystem: "30°C & 6h Agitation",
+              subsystem: "30°C Warmth & 6h Shake",
               level: (!bioTempMatch || !bioTelemetry.shake6hOk || !powerOk) ? "RED" : "GREEN",
               likelihood: (!bioTempMatch || !bioTelemetry.shake6hOk) ? "HIGH" : "LOW",
               consequence: "HIGH",
-              detail: `${bioThm.incubateTempC}°C (req ${bioOrg.targetTempC}°C) · ${bioTelemetry.shake6hOk ? "6h Shake OK" : "NO 6h SHAKE"}`
+              detail: `${bioThm.incubateTempC}°C (needs ${bioOrg.targetTempC}°C) · ${bioTelemetry.shake6hOk ? "6h Shake OK" : "NEEDS 6h SHAKE"}`
             },
             {
-              subsystem: "Ground & MELFI -80°C",
+              subsystem: "Radio & -80°C Freezer",
               level: (!commsOk || !bioTelemetry.melfiOk) ? "RED" : linkMarginDb < 6 ? "AMBER" : "GREEN",
               likelihood: (!commsOk || !bioTelemetry.melfiOk) ? "HIGH" : "LOW",
               consequence: "MED",
-              detail: `${bioThm.storageTempC}°C · +${linkMarginDb} dB live console`
+              detail: `${bioThm.storageTempC}°C freezer · +${linkMarginDb} dB signal`
             },
             {
-              subsystem: "User Yield & Reps",
+              subsystem: "Vitamin Yield & Bags",
               level: (!bioTelemetry.yieldOk || !bioTelemetry.dcwOk || !bioTelemetry.replicatesOk || !bioTelemetry.sampleVolOk) ? "RED" : bioProto.replicates === 12 ? "AMBER" : "GREEN",
               likelihood: (!bioTelemetry.yieldOk || !bioTelemetry.replicatesOk) ? "HIGH" : bioProto.replicates === 12 ? "MED" : "LOW",
               consequence: "HIGH",
-              detail: `${betaCaroteneUgMl} µg/mL · ${bioProto.replicates}×${bioProto.sampleVolMl}mL · ${dryCellWeightMg}mg`
+              detail: `${betaCaroteneUgMl} mg/L · ${bioProto.replicates}×${bioProto.sampleVolMl}mL · ${dryCellWeightMg}mg yeast`
             }
           ]
         : [
             {
-              subsystem: "Launch & Mass",
+              subsystem: "Rocket Weight",
               level: !massOk ? "RED" : massMarginPct < 10 ? "AMBER" : "GREEN",
               likelihood: !massOk ? "HIGH" : massMarginPct < 10 ? "MED" : "LOW",
               consequence: "HIGH",
-              detail: `${massMarginPct}% mass margin (${wetMassKg}/${lvCapacityKg} kg)`
+              detail: `${massMarginPct}% spare lift (${wetMassKg}/${lvCapacityKg} kg)`
             },
             {
-              subsystem: "Power / Eclipse",
+              subsystem: "Solar & Battery",
               level: !powerOk ? "RED" : batteryDodPct > 65 ? "AMBER" : "GREEN",
               likelihood: !powerOk ? "HIGH" : batteryDodPct > 65 ? "MED" : "LOW",
               consequence: "HIGH",
-              detail: `${batteryDodPct}% DoD · ${netDaylightMarginW >= 0 ? "+" : ""}${netDaylightMarginW}W margin`
+              detail: `${batteryDodPct}% battery used · ${netDaylightMarginW >= 0 ? "+" : ""}${netDaylightMarginW}W spare`
             },
             {
-              subsystem: "Thermal / Rad",
+              subsystem: "Cooling & Shield",
               level: (!thermalOk || !radiationOk || !telescopeOk) ? "RED" : !lifetimeOk ? "AMBER" : "GREEN",
               likelihood: (!thermalOk || !radiationOk) ? "HIGH" : "LOW",
               consequence: "MED",
-              detail: `${thm.radRatingKrad} krad vault · ${estimatedLifetimeMonths} mo life`
+              detail: `Shield Level ${thm.radRatingKrad} · ${estimatedLifetimeMonths} mo lifespan`
             },
             {
-              subsystem: "RF Link / Ground",
+              subsystem: "Radio & Earth Dish",
               level: !commsOk ? "RED" : linkMarginDb < 6 ? "AMBER" : "GREEN",
               likelihood: !commsOk ? "HIGH" : linkMarginDb < 6 ? "MED" : "LOW",
               consequence: "MED",
-              detail: `${linkMarginDb} dB margin · ${downlinkCapGbPerDay}/${dataGeneratedGbPerDay} GB/d`
+              detail: `${linkMarginDb} dB signal · ${downlinkCapGbPerDay}/${dataGeneratedGbPerDay} GB/day`
             },
             {
-              subsystem: "Propulsion & EoM",
+              subsystem: "Fuel & Safe Cleanup",
               level: (!deltaVOk || !disposalOk) ? "RED" : (achievedDeltaV - requiredDeltaV) < 120 ? "AMBER" : "GREEN",
               likelihood: (!deltaVOk || !disposalOk) ? "HIGH" : "LOW",
               consequence: "HIGH",
-              detail: `${achievedDeltaV}/${requiredDeltaV} m/s · ${disposal.deorbitYears} yr EoM`
+              detail: `${achievedDeltaV}/${requiredDeltaV} m/s · ${disposal.deorbitYears} yr cleanup`
             }
           ];
 
@@ -1882,15 +1882,15 @@
           pct: Math.min(100, Math.round((t.totalCostM / Math.max(1, t.budgetCapM)) * 100)),
           ok: t.budgetOk,
           color: t.budgetOk ? "#7fb8a6" : "#ef4444",
-          tip: "Total mission cost vs the scenario budget. Cheaper parts leave reserve for upgrades or unexpected fixes."
+          tip: "Total mission cost compared to your budget limit. Saving money leaves room for upgrades later."
         },
         {
-          label: isPhone ? "MASS" : "MASS",
+          label: isPhone ? "WT" : "WEIGHT",
           val: `${t.wetMassKg}/${t.lvCapacityKg}kg`,
           pct: Math.min(100, Math.round((t.wetMassKg / Math.max(1, t.lvCapacityKg)) * 100)),
           ok: t.massOk,
           color: t.massOk ? "#67e8f9" : "#ef4444",
-          tip: "Wet mass (spacecraft + propellant + instruments) must fit under the selected rocket's lift capacity to this orbit."
+          tip: "Total weight (spacecraft + fuel + tools) must be light enough for your chosen rocket to lift."
         },
         {
           label: isPhone ? "PWR" : "POWER",
@@ -1898,23 +1898,23 @@
           pct: Math.min(100, Math.round((t.totalPowerLoadW / Math.max(1, t.daylightGenW)) * 100)),
           ok: t.powerOk,
           color: t.powerOk ? "#d0a15c" : "#ef4444",
-          tip: "Solar generation must run all loads and recharge the battery for eclipse. Battery depth-of-discharge must stay at or below 80%."
+          tip: "Solar panels must run your gear in sunlight and charge batteries enough to last through Earth's shadow."
         },
         {
-          label: isPhone ? "DATA" : "COMMS/DATA",
+          label: isPhone ? "RADIO" : "RADIO",
           val: `${t.linkMarginDb}dB`,
           pct: Math.min(100, Math.max(10, Math.round((t.downlinkCapGbPerDay / Math.max(1, t.dataGeneratedGbPerDay)) * 55))),
           ok: t.commsOk,
           color: t.commsOk ? "#9a8fc4" : "#f59e0b",
-          tip: "Instruments generate data; the antenna and ground network must downlink it with a link margin above 3 dB."
+          tip: "Science tools gather data; your radio and Earth dishes must be strong enough to send it all home cleanly."
         },
         {
-          label: isPhone ? "ΔV" : "DELTA-V",
+          label: isPhone ? "FUEL" : "FUEL PUSH",
           val: `${t.achievedDeltaV}m/s`,
           pct: Math.min(100, Math.round((t.achievedDeltaV / Math.max(1, t.requiredDeltaV)) * 80)),
           ok: t.deltaVOk,
           color: t.deltaVOk ? "#38bdf8" : "#ef4444",
-          tip: "Propulsion must cover orbit insertion plus end-of-mission disposal. Ion engines are efficient but power-hungry."
+          tip: "Thrusters need enough fuel to reach your destination, steer in space, and clean up safely at the end."
         },
         {
           label: isPhone ? "SCI" : "SCIENCE",
@@ -1922,7 +1922,7 @@
           pct: t.scienceScore,
           ok: t.scienceScore >= 60,
           color: "#4ade80",
-          tip: "Science score rises when the selected instruments cover the scenario's required science types."
+          tip: "Science score goes up when you pack the right cameras, sensors, or lab kits for the mission goal."
         }
       ];
 
@@ -2007,21 +2007,21 @@
         const stripColor = assign.isMine ? "#dbeafe" : "#cbd5e1";
         const stripMsg = assign.isMine
           ? (assign.role === "all"
-            ? "JOINT CREW CONSOLE · Any flight crewmember may run final evaluation & commit mission"
-            : `[ASSIGNED] YOUR STATION CONSOLE [${assign.short} ${assign.label}]`)
+            ? "EVERYONE CAN HELP · Any station player can run the final check & finish the mission"
+            : `[YOUR DESK] ASSIGNED WORKSTATION [${assign.short} ${assign.label}]`)
           : assign.isUnstaffed
-            ? `UNSTAFFED ROLE [${assign.short} ${assign.label}] · Cross-role support active`
-            : `PRIMARY OWNER: [${assign.short}] ${this._escapeHtml(assign.namesText)} · Co-review allowed`;
+            ? `OPEN ROLE [${assign.short} ${assign.label}] · Anyone can fill in here`
+            : `IN CHARGE: [${assign.short}] ${this._escapeHtml(assign.namesText)} · Anyone can help`;
         const gs = (mission && mission.groundSupport) || {};
         const gsTags = [
-          gs.dsnLocked ? "DSN LOCKED" : null,
-          gs.powerRouted ? "EPS ROUTED" : null,
-          gs.scienceCleared ? "SCI CLEARED" : null
+          gs.dsnLocked ? "DISH LOCKED" : null,
+          gs.powerRouted ? "POWER ROUTED" : null,
+          gs.scienceCleared ? "SCIENCE READY" : null
         ].filter(Boolean);
         roleStrip = `
           <div style="margin-bottom:8px;padding:7px 10px;border-radius:4px;border:1px solid ${stripBorder};background:${stripBg};color:${stripColor};font-family:var(--font-mono,monospace);font-size:10px;font-weight:700;letter-spacing:0.6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-            <span>${stripMsg}${gsTags.length ? ` · LCC SUPPORT: ${gsTags.join(" / ")}` : ""}</span>
-            <span>DUTY: ${assign.short}</span>
+            <span>${stripMsg}${gsTags.length ? ` · EARTH HELP: ${gsTags.join(" / ")}` : ""}</span>
+            <span>TEAM ROLE: ${assign.short}</span>
           </div>
         `;
       }
@@ -2030,7 +2030,7 @@
         <div style="padding:7px 9px;border-radius:4px;background:rgba(5,8,16,0.72);border:1px solid ${ok ? "rgba(34,197,94,0.35)" : "rgba(239,68,68,0.55)"};">
           <div style="display:flex;justify-content:space-between;align-items:center;font-family:var(--font-mono,monospace);font-size:9px;color:#94a3b8;letter-spacing:0.8px;">
             <span>${label}</span>
-            <span style="color:${ok ? "#86efac" : "#fca5a5"};font-weight:700;">${ok ? "NOMINAL" : "CONSTRAINT"}</span>
+            <span style="color:${ok ? "#86efac" : "#fca5a5"};font-weight:700;">${ok ? "PASS" : "NEEDS FIX"}</span>
           </div>
           <div style="font-family:var(--font-mono,monospace);font-size:12px;font-weight:700;color:#f8fafc;margin-top:2px;">${value}</div>
           <div style="font-family:var(--font-mono,monospace);font-size:9px;color:#94a3b8;margin-top:1px;">${sub}</div>
@@ -2054,7 +2054,7 @@
         const bg = active ? "rgba(37,99,235,0.24)" : "rgba(255,255,255,0.04)";
         const fg = active ? "#93c5fd" : isTarget ? "#fde68a" : "#64748b";
         const bd = isTarget ? "rgba(251,191,36,0.75)" : (active ? "rgba(59,130,246,0.55)" : "rgba(148,163,184,0.18)");
-        return `<button type="button" class="btn-cml-pill-jump" data-cml-jump="${lvl}" title="Open Stage ${lvl} in the Mission Readiness Guide" style="padding:2px 5px;border-radius:3px;font-family:var(--font-mono,monospace);font-size:8.5px;font-weight:700;background:${bg};color:${fg};border:1px solid ${bd};cursor:pointer;">STAGE ${lvl}${isTarget ? "*" : ""}</button>`;
+        return `<button type="button" class="btn-cml-pill-jump" data-cml-jump="${lvl}" title="Open Stage ${lvl} in the Readiness Guide" style="padding:2px 5px;border-radius:3px;font-family:var(--font-mono,monospace);font-size:8.5px;font-weight:700;background:${bg};color:${fg};border:1px solid ${bd};cursor:pointer;">STAGE ${lvl}${isTarget ? "*" : ""}</button>`;
       }).join("");
 
       let tradeDeltaHtml = "";
@@ -2074,11 +2074,11 @@
         const dScore = Number((t.overallScore - a.overallScore).toFixed(0));
         tradeDeltaHtml = `
           <div style="margin-top:8px;padding:6px 9px;border-radius:4px;background:rgba(37,99,235,0.1);border:1px solid rgba(59,130,246,0.35);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-family:var(--font-mono,monospace);font-size:9.5px;">
-            <span style="color:#bfdbfe;font-weight:700;">MDL TRADE Δ (vs Option A: ${this._escapeHtml(a.scenario.code)} / ${this._escapeHtml(a.orbit.id.toUpperCase())})</span>
+            <span style="color:#bfdbfe;font-weight:700;">CHANGES (vs Saved Plan A: ${this._escapeHtml(a.scenario.code)})</span>
             <span style="color:#cbd5e1;">
-              Cost ${fmtDelta(dCost, "M", true)} · Mass ${fmtDelta(dMass, "kg", true)} · Pwr ${fmtDelta(dPwr, "W")} · ΔV ${fmtDelta(dDv, "m/s")} · Sci ${fmtDelta(dSci, "pt")} · Grade ${fmtDelta(dScore, "pt")}
+              Cost ${fmtDelta(dCost, "M", true)} · Weight ${fmtDelta(dMass, "kg", true)} · Power ${fmtDelta(dPwr, "W")} · Fuel ${fmtDelta(dDv, "m/s")} · Science ${fmtDelta(dSci, "pt")} · Score ${fmtDelta(dScore, "pt")}
             </span>
-            <button type="button" id="btn-mdl-clear-a" style="padding:2px 6px;border-radius:3px;border:1px solid rgba(148,163,184,0.28);background:rgba(5,8,16,0.6);color:#cbd5e1;font-family:inherit;font-size:8.5px;cursor:pointer;">CLEAR A</button>
+            <button type="button" id="btn-mdl-clear-a" style="padding:2px 6px;border-radius:3px;border:1px solid rgba(148,163,184,0.28);background:rgba(5,8,16,0.6);color:#cbd5e1;font-family:inherit;font-size:8.5px;cursor:pointer;">CLEAR PLAN A</button>
           </div>
         `;
       }
@@ -2100,10 +2100,10 @@
               ${t.cmlLabel.toUpperCase()} · ${t.scenario.name.toUpperCase()}
             </span>
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-              <button type="button" id="btn-mdl-snapshot-a" style="padding:3px 8px;border-radius:4px;border:1px solid rgba(148,163,184,0.28);background:rgba(15,23,42,0.85);color:#e2e8f0;font-family:var(--font-mono,monospace);font-size:9px;font-weight:700;cursor:pointer;">${this.tradeBaselineA ? "UPDATE OPTION A" : "SAVE OPTION A"}</button>
-              <button type="button" id="btn-open-cml-workbench" style="padding:3px 8px;border-radius:4px;border:1px solid rgba(251,191,36,0.55);background:rgba(245,158,11,0.16);color:#fde68a;font-family:var(--font-mono,monospace);font-size:9px;font-weight:700;cursor:pointer;" title="Open step-by-step Mission Readiness Guide (Stages 1-9)">READY ${targetPct}% @ S${targetLvl}${critCount ? ` · ${critCount} KEY` : ""}</button>
-              <button type="button" id="btn-mdl-open-csa-lab" style="padding:3px 8px;border-radius:4px;border:1px solid rgba(52,211,153,0.5);background:rgba(16,185,129,0.16);color:#a7f3d0;font-family:var(--font-mono,monospace);font-size:9px;font-weight:700;cursor:pointer;" title="Open CSA Digital Games & Activities, GMAT Script Generator & Webb Telescope Lab">CSA / NASA LAB</button>
-              <button type="button" id="btn-mdl-open-viz" style="padding:3px 8px;border-radius:4px;border:1px solid rgba(59,130,246,0.5);background:rgba(37,99,235,0.2);color:#dbeafe;font-family:var(--font-mono,monospace);font-size:9px;font-weight:700;cursor:pointer;">3D ORBIT VIZ [U]</button>
+              <button type="button" id="btn-mdl-snapshot-a" style="padding:3px 8px;border-radius:4px;border:1px solid rgba(148,163,184,0.28);background:rgba(15,23,42,0.85);color:#e2e8f0;font-family:var(--font-mono,monospace);font-size:9px;font-weight:700;cursor:pointer;">${this.tradeBaselineA ? "UPDATE PLAN A" : "SAVE PLAN A"}</button>
+              <button type="button" id="btn-open-cml-workbench" style="padding:3px 8px;border-radius:4px;border:1px solid rgba(251,191,36,0.55);background:rgba(245,158,11,0.16);color:#fde68a;font-family:var(--font-mono,monospace);font-size:9px;font-weight:700;cursor:pointer;" title="Open step-by-step Readiness Guide (Stages 1-9)">READY ${targetPct}% @ S${targetLvl}${critCount ? ` · ${critCount} KEY` : ""}</button>
+              <button type="button" id="btn-mdl-open-csa-lab" style="padding:3px 8px;border-radius:4px;border:1px solid rgba(52,211,153,0.5);background:rgba(16,185,129,0.16);color:#a7f3d0;font-family:var(--font-mono,monospace);font-size:9px;font-weight:700;cursor:pointer;" title="Open Space Games &amp; Activities, 3D Path Builder &amp; Telescope Tool">GAMES &amp; TOOLS</button>
+              <button type="button" id="btn-mdl-open-viz" style="padding:3px 8px;border-radius:4px;border:1px solid rgba(59,130,246,0.5);background:rgba(37,99,235,0.2);color:#dbeafe;font-family:var(--font-mono,monospace);font-size:9px;font-weight:700;cursor:pointer;">3D EARTH MAP [U]</button>
               <span style="font-family:var(--font-mono,monospace);font-size:10px;font-weight:700;color:${t.overallScore >= 75 ? "#86efac" : "#fde68a"};">
                 SCORE ${t.overallScore}/100 (SCI ${t.scienceScore} · ENG ${t.engineeringScore})
               </span>
@@ -2121,20 +2121,20 @@
             </div>
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:7px;">
-            ${pill("BUDGET", `$${t.totalCostM}M / $${t.budgetCapM}M`, `${t.budgetRemainingM >= 0 ? `+$${t.budgetRemainingM}M reserve` : `$${Math.abs(t.budgetRemainingM)}M OVER CAP`}`, t.budgetOk)}
+            ${pill("BUDGET", `$${t.totalCostM}M / $${t.budgetCapM}M`, `${t.budgetRemainingM >= 0 ? `+$${t.budgetRemainingM}M spare` : `$${Math.abs(t.budgetRemainingM)}M OVER LIMIT`}`, t.budgetOk)}
             ${
               t.scenario.isBioPayload
                 ? `
-                  ${pill("CONTAINER & VOL", `${t.bioTelemetry.bag.containerMassG}g / ${t.bioTelemetry.bag.kitVolumeMl}mL`, `Caps: <250g · <300mL (vs BN-1)`, t.bioTelemetry.containerMassOk && t.bioTelemetry.kitVolumeOk)}
-                  ${pill("INCUBATE / MELFI", `${t.bioTelemetry.thermal.incubateTempC}°C / ${t.bioTelemetry.thermal.storageTempC}°C`, `Load ${t.totalPowerLoadW}W · Req ${t.bioTelemetry.organism.targetTempC}°C`, t.powerOk && t.bioTelemetry.tempMatch && t.bioTelemetry.melfiOk)}
-                  ${pill("SAMPLES & FILTER", `${t.bioTelemetry.protocol.replicates}×${t.bioTelemetry.protocol.sampleVolMl}mL`, `${t.bioTelemetry.sterileOk ? "0.2µm + -002 OK" : "STERILE FAIL"} · +${t.linkMarginDb}dB`, t.bioTelemetry.replicatesOk && t.bioTelemetry.sampleVolOk && t.bioTelemetry.sterileOk && t.commsOk)}
-                  ${pill("BETA-CAROTENE", `${t.bioTelemetry.betaCaroteneUgMl} µg/mL`, `Req ≥3.0 · DCW ${t.bioTelemetry.dryCellWeightMg}mg ≥1`, t.bioTelemetry.yieldOk && t.bioTelemetry.dcwOk)}
+                  ${pill("POUCH & KIT SIZE", `${t.bioTelemetry.bag.containerMassG}g / ${t.bioTelemetry.bag.kitVolumeMl}mL`, `Limits: <250g · <300mL`, t.bioTelemetry.containerMassOk && t.bioTelemetry.kitVolumeOk)}
+                  ${pill("WARM / FREEZER", `${t.bioTelemetry.thermal.incubateTempC}°C / ${t.bioTelemetry.thermal.storageTempC}°C`, `Power ${t.totalPowerLoadW}W · Needs ${t.bioTelemetry.organism.targetTempC}°C`, t.powerOk && t.bioTelemetry.tempMatch && t.bioTelemetry.melfiOk)}
+                  ${pill("BAGS & FILTER", `${t.bioTelemetry.protocol.replicates}×${t.bioTelemetry.protocol.sampleVolMl}mL`, `${t.bioTelemetry.sterileOk ? "Germ Filter + Lock OK" : "NEEDS FILTER/LOCK"} · +${t.linkMarginDb}dB`, t.bioTelemetry.replicatesOk && t.bioTelemetry.sampleVolOk && t.bioTelemetry.sterileOk && t.commsOk)}
+                  ${pill("VITAMIN A SCORE", `${t.bioTelemetry.betaCaroteneUgMl} mg/L`, `Goal ≥3.0 · Yeast ${t.bioTelemetry.dryCellWeightMg}mg ≥1`, t.bioTelemetry.yieldOk && t.bioTelemetry.dcwOk)}
                 `
                 : `
-                  ${pill(t.scenario.isCubesat ? `MASS (${t.cubesatForm.shortLabel})` : "WET MASS", `${t.wetMassKg} / ${t.lvCapacityKg} kg`, `Margin: ${t.massMarginPct}% (${t.lv.name.split(" ")[0]})`, t.massOk)}
-                  ${pill("POWER / DoD", `${t.totalPowerLoadW}W / ${t.daylightGenW}W`, `Eclipse DoD: ${t.batteryDodPct}% (≤80%)`, t.powerOk)}
-                  ${pill("DATA & LINK", `${t.dataGeneratedGbPerDay} / ${t.downlinkCapGbPerDay} GB/d`, `Link Margin: ${t.linkMarginDb} dB (≥3dB)`, t.commsOk)}
-                  ${pill("ΔV & EoM DISPOSAL", `${t.achievedDeltaV} / ${t.requiredDeltaV} m/s`, `${t.disposalOk ? `${t.disposal.deorbitYears}yr EoM` : "EoM FAIL"} · ${t.estimatedLifetimeMonths}/${t.scenario.targetLifetimeMonths} mo`, t.deltaVOk && t.disposalOk && t.lifetimeOk)}
+                  ${pill(t.scenario.isCubesat ? `WEIGHT (${t.cubesatForm.shortLabel})` : "TOTAL WEIGHT", `${t.wetMassKg} / ${t.lvCapacityKg} kg`, `Spare: ${t.massMarginPct}% (${t.lv.name.split(" ")[0]})`, t.massOk)}
+                  ${pill("SOLAR & BATTERY", `${t.totalPowerLoadW}W / ${t.daylightGenW}W`, `Battery used at night: ${t.batteryDodPct}% (≤80%)`, t.powerOk)}
+                  ${pill("RADIO & DATA", `${t.dataGeneratedGbPerDay} / ${t.downlinkCapGbPerDay} GB/d`, `Signal: ${t.linkMarginDb} dB (≥3dB)`, t.commsOk)}
+                  ${pill("FUEL & CLEANUP", `${t.achievedDeltaV} / ${t.requiredDeltaV} m/s`, `${t.disposalOk ? `${t.disposal.deorbitYears}yr cleanup` : "CLEANUP FAIL"} · ${t.estimatedLifetimeMonths}/${t.scenario.targetLifetimeMonths} mo`, t.deltaVOk && t.disposalOk && t.lifetimeOk)}
                 `
             }
           </div>
@@ -2153,7 +2153,7 @@
         btnSnap.addEventListener("click", () => {
           this.tradeBaselineA = JSON.parse(JSON.stringify(this.evaluateMissionDesign()));
           if (window.spaceAudio) window.spaceAudio.playClick();
-          this.showToast("Baseline Option A captured — adjust subsystems to see live MDL trade deltas.");
+          this.showToast("Saved Plan A — change parts now to compare the differences!");
           if (typeof this._activeRenderCallback === "function") {
             this._activeRenderCallback();
           } else {
@@ -2568,7 +2568,7 @@
         ctx.restore();
         ctx.fillStyle = "#fcd34d";
         ctx.font = "9px monospace";
-        ctx.fillText("REQ 3.0 µg/mL", gx0 + 4, reqY - 4);
+        ctx.fillText("GOAL 3.0 mg/L", gx0 + 4, reqY - 4);
 
         // Growth curve 0h -> 24h (inflection bump at t = 0.25 -> 6 hours)
         ctx.strokeStyle = bio.yieldOk ? "#fbbf24" : "#f87171";
@@ -2597,17 +2597,17 @@
 
         ctx.fillStyle = "#cbd5e1";
         ctx.font = "bold 9.5px monospace";
-        ctx.fillText(`BETA-CAROTENE: ${bio.betaCaroteneUgMl} µg/mL (${bio.thermal.incubateTempC}°C)`, gx0, h - 7);
+        ctx.fillText(`VITAMIN A: ${bio.betaCaroteneUgMl} mg/L (${bio.thermal.incubateTempC}°C)`, gx0, h - 7);
 
-        // Right: Verification Bar Check (Reps, Sample Vol, Mass vs <250g, Kit Vol vs <300mL, DCW)
+        // Right: Plain Checks (Pouches, Water, Bag Weight, Kit Space, Yeast Growth)
         const bx = splitX + 12;
         const bw = w - bx - 14;
         const checks = [
-          { label: `Replicates ${bio.protocol.replicates}/12+`, pct: Math.min(1, bio.protocol.replicates / 16), ok: bio.replicatesOk },
-          { label: `Sample Vol ${bio.protocol.sampleVolMl}/30mL+`, pct: Math.min(1, bio.protocol.sampleVolMl / 40), ok: bio.sampleVolOk },
-          { label: `Container ${bio.bag.containerMassG}g (<250g)`, pct: Math.min(1, bio.bag.containerMassG / 350), ok: bio.containerMassOk },
-          { label: `Kit Vol ${bio.bag.kitVolumeMl}mL (<300mL)`, pct: Math.min(1, bio.bag.kitVolumeMl / 520), ok: bio.kitVolumeOk },
-          { label: `Dry Cell Wt ${bio.dryCellWeightMg}/1.0mg+`, pct: Math.min(1, bio.dryCellWeightMg / 2.5), ok: bio.dcwOk }
+          { label: `Pouches ${bio.protocol.replicates}/12+`, pct: Math.min(1, bio.protocol.replicates / 16), ok: bio.replicatesOk },
+          { label: `Water / Pouch ${bio.protocol.sampleVolMl}/30mL+`, pct: Math.min(1, bio.protocol.sampleVolMl / 40), ok: bio.sampleVolOk },
+          { label: `Empty Bag ${bio.bag.containerMassG}g (<250g)`, pct: Math.min(1, bio.bag.containerMassG / 350), ok: bio.containerMassOk },
+          { label: `Kit Space ${bio.bag.kitVolumeMl}mL (<300mL)`, pct: Math.min(1, bio.bag.kitVolumeMl / 520), ok: bio.kitVolumeOk },
+          { label: `Yeast Growth ${bio.dryCellWeightMg}/1.0mg+`, pct: Math.min(1, bio.dryCellWeightMg / 2.5), ok: bio.dcwOk }
         ];
         checks.forEach((c, idx) => {
           const rowY = 26 + idx * 23;
@@ -2823,8 +2823,8 @@
         id: "preflight_mdl",
         kind: "preflight-mdl",
         isPreFlightMdl: true,
-        name: "NASA MDL Pre-Flight Point Design Desk",
-        location: "VAB / LCC / PAD LC-39A",
+        name: "Spacecraft Workshop & Blueprint Desk",
+        location: "Earth Launch Complex",
         role: "all",
         completed: false
       };
@@ -2835,7 +2835,7 @@
       if (!modal || !title || !body) return;
 
       let activeTab = initialTab || "bus";
-      title.textContent = "NASA GSFC MISSION DESIGN LAB (MDL) · PRE-FLIGHT TRADE DESK";
+      title.textContent = "SPACECRAFT WORKSHOP · PRE-FLIGHT DESIGN DESK";
       modal.style.display = "flex";
       if (window.spaceAudio) window.spaceAudio.playClick();
 
@@ -2861,7 +2861,7 @@
               `).join("")}
             </div>
             <button type="button" id="btn-mdl-auto-baseline" style="padding:6px 12px;border-radius:5px;border:1px solid rgba(74,222,128,0.5);background:rgba(74,222,128,0.14);color:#86efac;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
-              APPLY RECOMMENDED BASELINE FOR ${t.scenario.code}
+              AUTO-FILL RECOMMENDED SETUP FOR ${t.scenario.code}
             </button>
           `;
         } else if (activeTab === "orbit") {
@@ -2870,7 +2870,7 @@
               ${Object.values(ORBIT_OPTIONS).map((o) => `
                 <div class="mdl-q-orb" data-id="${o.id}" style="padding:9px;border-radius:7px;border:1px solid ${md.orbitId === o.id ? "#67e8f9" : "rgba(255,255,255,0.12)"};background:${md.orbitId === o.id ? "rgba(103,232,249,0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
                   <div style="font-size:11.5px;font-weight:700;color:#ece7dc;">${o.name}</div>
-                  <div style="font-family:monospace;font-size:9.5px;color:#67e8f9;">Req ΔV ${o.reqInsertionDv} m/s · Rad ${o.radiationEnvKrad} krad</div>
+                  <div style="font-family:monospace;font-size:9.5px;color:#67e8f9;">Fuel Needed: ${o.reqInsertionDv} m/s · Shield Level: ${o.radiationEnvKrad}</div>
                 </div>
               `).join("")}
             </div>
@@ -2878,7 +2878,7 @@
               ${Object.values(LAUNCH_VEHICLES).map((v) => `
                 <div class="mdl-q-lv" data-id="${v.id}" style="padding:9px;border-radius:7px;border:1px solid ${md.launchVehicleId === v.id ? "#d0a15c" : "rgba(255,255,255,0.12)"};background:${md.launchVehicleId === v.id ? "rgba(208,161,92,0.12)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
                   <div style="font-size:11px;font-weight:700;color:#ece7dc;">${v.name}</div>
-                  <div style="font-family:monospace;font-size:9.5px;color:#d0a15c;">$${v.costM}M · Lift: ${v.capacityKg[md.orbitId] || 0} kg</div>
+                  <div style="font-family:monospace;font-size:9.5px;color:#d0a15c;">$${v.costM}M · Can Lift: ${v.capacityKg[md.orbitId] || 0} kg</div>
                 </div>
               `).join("")}
             </div>
@@ -2888,19 +2888,19 @@
             <div style="display:grid;grid-template-columns:260px 1fr;gap:12px;align-items:start;">
               <div>
                 <div id="mdl-point-design-3d" style="width:100%;height:156px;border-radius:6px;background:#050914;"></div>
-                <div style="font-family:monospace;font-size:9px;color:#94a3b8;text-align:center;margin-top:4px;">LIVE 3D POINT DESIGN (${t.bus.id.toUpperCase()})</div>
+                <div style="font-family:monospace;font-size:9px;color:#94a3b8;text-align:center;margin-top:4px;">LIVE 3D SPACECRAFT PREVIEW</div>
               </div>
               <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:7px;">
                 ${Object.values(SPACECRAFT_BUSES).map((b) => `
                   <div class="mdl-q-bus" data-id="${b.id}" style="padding:8px;border-radius:6px;border:1px solid ${md.busId === b.id ? "#67e8f9" : "rgba(255,255,255,0.12)"};background:${md.busId === b.id ? "rgba(103,232,249,0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
                     <div style="font-size:11px;font-weight:700;color:#ece7dc;">${b.name}</div>
-                    <div style="font-family:monospace;font-size:9px;color:#67e8f9;">$${b.costM}M · ${b.dryMassKg} kg · ${b.maxInstruments} bays</div>
+                    <div style="font-family:monospace;font-size:9px;color:#67e8f9;">$${b.costM}M · ${b.dryMassKg} kg · Holds ${b.maxInstruments} tools</div>
                   </div>
                 `).join("")}
                 ${Object.values(POWER_SYSTEMS).map((p) => `
                   <div class="mdl-q-pwr" data-id="${p.id}" style="padding:8px;border-radius:6px;border:1px solid ${md.powerId === p.id ? "#d0a15c" : "rgba(255,255,255,0.12)"};background:${md.powerId === p.id ? "rgba(208,161,92,0.12)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
                     <div style="font-size:11px;font-weight:700;color:#ece7dc;">${p.name}</div>
-                    <div style="font-family:monospace;font-size:9px;color:#7fb8a6;">+$${p.costM}M · +${p.genW} W</div>
+                    <div style="font-family:monospace;font-size:9px;color:#7fb8a6;">+$${p.costM}M · +${p.genW} W Power</div>
                   </div>
                 `).join("")}
               </div>
@@ -2910,13 +2910,13 @@
           tabContent = `
             <canvas id="sim-science-canvas" width="680" height="150" style="width:100%;height:150px;border-radius:6px;border:1px solid rgba(103,232,249,0.3);margin-bottom:8px;display:block;"></canvas>
             <div style="font-family:monospace;font-size:10px;color:#c4b5fd;margin-bottom:6px;">
-              REAL NASA / CSA ANALOGUE: <strong style="color:#ece7dc;">${t.analogue.missions}</strong>
+              SIMILAR REAL-LIFE SPACE MISSION: <strong style="color:#ece7dc;">${t.analogue.missions}</strong>
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:6px;">
               ${t.riskMatrix.map((r) => `
                 <div style="padding:6px;border-radius:5px;background:rgba(0,0,0,0.35);border-left:3px solid ${r.level === "GREEN" ? "#4ade80" : r.level === "AMBER" ? "#fbbf24" : "#ef4444"};">
-                  <div style="font-family:monospace;font-size:9px;font-weight:700;color:#e2e8f0;">${r.subsystem} (${r.level})</div>
-                  <div style="font-family:monospace;font-size:8.5px;color:#94a3b8;">L:${r.likelihood} / C:${r.consequence}</div>
+                  <div style="font-family:monospace;font-size:9px;font-weight:700;color:#e2e8f0;">${r.subsystem} (${r.level === "GREEN" ? "GOOD" : r.level === "AMBER" ? "TIGHT" : "NEEDS FIX"})</div>
+                  <div style="font-family:monospace;font-size:8.5px;color:#94a3b8;">${r.detail}</div>
                 </div>
               `).join("")}
             </div>
@@ -2927,19 +2927,19 @@
         body.innerHTML = `
           ${this._renderLiveTradeoffStrip({ onRerender: renderDesk })}
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
-            ${mkTab("arch", "1. SCENARIO")}
-            ${mkTab("orbit", "2. ORBIT & LAUNCH")}
-            ${mkTab("bus", "3. 3D BUS & POWER")}
-            ${mkTab("viz", "4. RISK & SCIENCE PREVIEW")}
-            <button type="button" id="btn-mdl-open-cml" style="padding:6px 10px;border-radius:5px;border:1px solid rgba(251,191,36,0.55);background:rgba(245,158,11,0.14);color:#fde68a;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">5. READINESS STAGES (${t.cml ? `${t.cml.activeSummary.percentGreen}% @ S${t.cml.targetCml}` : `Stage ${t.cmlLevel}`})</button>
+            ${mkTab("arch", "1. MISSION GOAL")}
+            ${mkTab("orbit", "2. ORBIT & ROCKET")}
+            ${mkTab("bus", "3. 3D BODY & POWER")}
+            ${mkTab("viz", "4. SAFETY & SCIENCE PREVIEW")}
+            <button type="button" id="btn-mdl-open-cml" style="padding:6px 10px;border-radius:5px;border:1px solid rgba(251,191,36,0.55);background:rgba(245,158,11,0.14);color:#fde68a;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">5. READINESS STAGES (${t.cml ? `${t.cml.activeSummary.percentGreen}% @ Stage ${t.cml.targetCml}` : `Stage ${t.cmlLevel}`})</button>
           </div>
           ${tabContent}
           <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.1);">
             <button type="button" id="btn-mdl-export-json" style="padding:8px 12px;border-radius:5px;border:1px solid rgba(167,139,250,0.5);background:rgba(167,139,250,0.12);color:#ddd6fe;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
-              EXPORT POINT DESIGN (.JSON)
+              SAVE BLUEPRINT FILE (.JSON)
             </button>
             <button type="button" id="btn-mdl-sync-crew" style="padding:9px 18px;border-radius:6px;border:1px solid #67e8f9;background:#ece7dc;color:#05060a;font-family:monospace;font-size:10.5px;font-weight:800;letter-spacing:1.2px;cursor:pointer;">
-              SYNC POINT DESIGN TO CREW & CLOSE
+              SHARE DESIGN WITH TEAM &amp; CLOSE
             </button>
           </div>
         `;
@@ -3009,7 +3009,7 @@
             if (window.netManager && typeof window.netManager.syncMissionDesign === "function") {
               window.netManager.syncMissionDesign(this.syncFullDesignPatch());
             }
-            this.showToast("Point Design synchronized across Launch / Space / Ground / User crew");
+            this.showToast("Mission plan shared across Launch / In Space / Ground / Results team");
             this.closeTaskModal();
           });
         }
@@ -3611,6 +3611,17 @@
         if (mission) this.applyMissionDefinition(mission);
       });
 
+      window.netManager.on("mission_validation_failed", (data) => {
+        const reasons = (data && Array.isArray(data.reasons)) ? data.reasons : [];
+        const first = reasons.length ? reasons[0] : "The LDR report did not pass server validation.";
+        this.showToast(`[SERVER VALIDATION] ${first}`);
+        const landingTask = this.tasks.find((entry) => entry.id === "task_landing");
+        if (landingTask) landingTask.completed = false;
+        this.updateTaskListUI();
+        this.updateTaskBar();
+        if (reasons.length) console.warn("[LDR] Server validation rejected:", reasons);
+      });
+
       window.netManager.on("state_sync", (data) => {
         if (!data || !data.tasks) return;
         const completed = data.tasks.completed || 0;
@@ -3824,18 +3835,24 @@
       if (window.spaceAudio) window.spaceAudio.playClick();
     }
 
-    finishTask(task, stayOpen = false) {
+    finishTask(task, stayOpen = false, options = {}) {
       this._runCleanup();
+      const evaluation = options && options.evaluation ? options.evaluation : null;
       const wasCompleted = task.completed;
-      task.completed = true;
+      if (!evaluation) {
+        task.completed = true;
+      }
       this._renderResourceMeters();
 
       if (window.spaceAudio) window.spaceAudio.playRadioBeep(false);
 
       const patch = this.buildDesignPatch(task);
       const hasPatch = patch && Object.keys(patch).length > 0;
-      if (window.netManager && (!wasCompleted || hasPatch)) {
-        window.netManager.completeTask(task.id, task.name, patch);
+      if (window.netManager && (!wasCompleted || hasPatch || evaluation)) {
+        window.netManager.completeTask(task.id, task.name, patch, evaluation);
+      }
+      if (evaluation && typeof this.showToast === "function") {
+        this.showToast("LDR report sent to mission control — awaiting server validation…");
       }
 
       this.updateTaskListUI();
@@ -3847,6 +3864,62 @@
           this.closeTaskModal();
         }, 420);
       }
+    }
+
+    buildMissionValidationSnapshot(t, missionEvent, phases, allNominal) {
+      return {
+        scenarioId: t.scenario.id,
+        difficultyId: t.difficulty.id,
+        overallScore: t.overallScore,
+        scienceScore: t.scienceScore,
+        engineeringScore: t.engineeringScore,
+        cmlLevel: t.cmlLevel,
+        allNominal: !!allNominal,
+        budgetOk: !!t.budgetOk,
+        massOk: !!t.massOk,
+        powerOk: !!t.powerOk,
+        commsOk: !!t.commsOk,
+        deltaVOk: !!t.deltaVOk,
+        thermalOk: !!t.thermalOk,
+        radiationOk: !!t.radiationOk,
+        lifetimeOk: !!t.lifetimeOk,
+        disposalOk: !!t.disposalOk,
+        telescopeOk: !!t.telescopeOk,
+        bioOk: !!(t.bioTelemetry && t.bioTelemetry.bioOk),
+        totalCostM: t.totalCostM,
+        budgetCapM: t.budgetCapM,
+        budgetRemainingM: t.budgetRemainingM,
+        wetMassKg: t.wetMassKg,
+        lvCapacityKg: t.lvCapacityKg,
+        massMarginPct: t.massMarginPct,
+        totalPowerLoadW: t.totalPowerLoadW,
+        daylightGenW: t.daylightGenW,
+        netDaylightMarginW: t.netDaylightMarginW,
+        batteryDodPct: t.batteryDodPct,
+        dataGeneratedGbPerDay: t.dataGeneratedGbPerDay,
+        downlinkCapGbPerDay: t.downlinkCapGbPerDay,
+        linkMarginDb: t.linkMarginDb,
+        achievedDeltaV: t.achievedDeltaV,
+        requiredDeltaV: t.requiredDeltaV,
+        estimatedLifetimeMonths: t.estimatedLifetimeMonths,
+        selectedInstCount: (t.selectedInsts || []).length,
+        selectedInstTypes: (t.selectedInsts || []).map((instrument) => instrument.type),
+        phases: (phases || []).map((phase) => ({
+          phase: phase.phase,
+          ok: phase.ok === true,
+          metric: phase.metric
+        })),
+        event: missionEvent
+          ? {
+              id: missionEvent.id,
+              severity: missionEvent.severity,
+              title: missionEvent.title,
+              ok: !!missionEvent.ok,
+              metric: missionEvent.metric
+            }
+          : null,
+        design: this.syncFullDesignPatch()
+      };
     }
 
     // ========================================================================
@@ -3864,15 +3937,15 @@
               <div class="md-scenario-card" data-id="${sc.id}" style="padding:12px;border-radius:8px;border:1px solid ${active ? "#67e8f9" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(103,232,249,0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;transition:all 0.15s;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
                   <span style="font-family:monospace;font-size:9px;font-weight:700;color:#67e8f9;letter-spacing:1px;">${sc.badge}</span>
-                  <span style="font-family:monospace;font-size:10px;font-weight:700;color:#d0a15c;">Cap: $${Math.round(sc.baseBudgetM * t.difficulty.budgetMultiplier)}M · ${sc.targetLifetimeMonths} mo</span>
+                  <span style="font-family:monospace;font-size:10px;font-weight:700;color:#d0a15c;">Budget: $${Math.round(sc.baseBudgetM * t.difficulty.budgetMultiplier)}M · Goal: ${sc.targetLifetimeMonths} mo</span>
                 </div>
                 <div style="font-size:13px;font-weight:700;color:#ece7dc;margin-bottom:4px;">${sc.name}</div>
                 <div style="font-size:11px;color:#94a3b8;line-height:1.45;margin-bottom:6px;">${sc.summary}</div>
                 <div style="font-family:monospace;font-size:9.5px;color:#7fb8a6;">
                   ${
                     sc.isBioPayload
-                      ? "Goals: Yeast Beta-Carotene ≥3µg/mL · ≥12 Reps · <250g · <300mL · MELFI -80°C"
-                      : `Priority Sensors: ${sc.requiredScienceTypes.map((x) => x.toUpperCase()).join(" · ")} | Min ΔV: ${sc.minDeltaV} m/s`
+                      ? "Goals: Make Vitamin A ≥3 mg/L · 12+ Pouches · <250g · <300mL · -80°C Freezer"
+                      : `Helpful Tools: ${sc.requiredScienceTypes.map((x) => x.toUpperCase()).join(" · ")} | Min Fuel Push: ${sc.minDeltaV} m/s`
                   }
                 </div>
               </div>
@@ -3897,7 +3970,7 @@
           specializationHtml = `
             <div style="margin-bottom:12px;">
               <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#c4b5fd;margin-bottom:6px;">
-                STEP 1C · TELESCOPE OBSERVING WAVELENGTH (CONSTRAINS OPTICS, ORBIT & CRYO THERMAL)
+                STEP 1C · WHAT KIND OF LIGHT WILL YOUR TELESCOPE SEE?
               </div>
               <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;">
                 ${Object.values(WAVELENGTH_BANDS).map((wb) => {
@@ -3916,7 +3989,7 @@
           specializationHtml = `
             <div style="margin-bottom:12px;">
               <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#67e8f9;margin-bottom:6px;">
-                STEP 1C · NASA CSLI CUBESAT FORM FACTOR (CONSTRAINS MASS, VOLUME & POWER)
+                STEP 1C · PICK YOUR MINI-SATELLITE BOX SIZE
               </div>
               <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;">
                 ${Object.values(CUBESAT_FORMS).map((cf) => {
@@ -3924,7 +3997,7 @@
                   return `
                     <div class="md-csform-card" data-id="${cf.id}" style="padding:10px;border-radius:7px;border:1px solid ${active ? "#67e8f9" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(103,232,249,0.14)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
                       <div style="font-size:11.5px;font-weight:700;color:#ece7dc;">${cf.name}</div>
-                      <div style="font-family:monospace;font-size:9.5px;color:#7fb8a6;margin:3px 0;">Max Mass: ${cf.maxMassKg} kg · Max Bays: ${cf.maxInst}</div>
+                      <div style="font-family:monospace;font-size:9.5px;color:#7fb8a6;margin:3px 0;">Weight Limit: ${cf.maxMassKg} kg · Holds up to ${cf.maxInst} tools</div>
                       <div style="font-size:10px;color:#94a3b8;line-height:1.35;">${cf.explain}</div>
                     </div>
                   `;
@@ -3937,16 +4010,16 @@
             <div style="margin-bottom:12px;">
               <div style="padding:10px 12px;border-radius:7px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.32);margin-bottom:9px;font-size:10.5px;color:#e2e8f0;line-height:1.45;">
                 <div style="font-family:monospace;font-size:9.5px;font-weight:700;color:#fbbf24;margin-bottom:4px;">
-                  NASA ACCESS TO SPACE CONOPS · BIONUTRIENTS-2 NEED, GOALS &amp; 4 SEGMENTS
+                  HOW SPACE STATION VITAMIN MAKER (BIONUTRIENTS-2) WORKS
                 </div>
-                <div><strong>Need:</strong> Rapid, safe &amp; reliable in-place production of dietary nutrients using minimal mass, power &amp; volume for long-duration missions.</div>
-                <div style="margin-top:3px;"><strong>Goals:</strong> (1) Enable yeast growth · (2) Produce beta-carotene on ISS · (3) Slash mass (&lt;250g) &amp; volume (&lt;300mL) vs BioNutrients-1.</div>
+                <div><strong>Why It Matters:</strong> Astronauts on long trips need a fast, safe way to grow fresh vitamins on demand without carrying heavy jars from Earth.</div>
+                <div style="margin-top:3px;"><strong>3 Simple Goals:</strong> (1) Wake up sleeping yeast · (2) Grow fresh Vitamin A nutrient on the Space Station · (3) Keep each pouch super light (&lt;250g) and compact (&lt;300mL).</div>
                 <div style="margin-top:4px;font-family:monospace;font-size:9px;color:#93c5fd;">
-                  LAUNCH (NG-18 Ambient Foil Kit) -> SPACE (PWD Hydration -> Syringe/Filter -> Shake -> Incubate + 6h Shake -> MELFI -80°C) -> GROUND (Live Console) -> USER (Thaw -> Wash -> Centrifuge -> Analyze)
+                  1. LAUNCH (Supply Ship) -> 2. SPACE (Add clean filtered water -> Warm at 30°C -> Shake at 6h -> Freeze at -80°C) -> 3. EARTH TEAM (Watch live) -> 4. LAB CHECK (Thaw &amp; measure Vitamin A)
                 </div>
               </div>
               <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#fbbf24;margin-bottom:6px;">
-                STEP 1C · SELECT TARGET ORGANISM &amp; BIOPRODUCTION PROFILE (SLIDES 12 &amp; 21)
+                STEP 1C · PICK WHICH HELPFUL MICROBE TO GROW
               </div>
               <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;">
                 ${Object.values(BIO_ORGANISM_OPTIONS).map((org) => {
@@ -3955,9 +4028,9 @@
                     <div class="md-bioorg-card" data-id="${org.id}" style="padding:10px;border-radius:7px;border:1px solid ${active ? "#fbbf24" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(245,158,11,0.14)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
                       <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
                         <span style="font-size:11.5px;font-weight:700;color:#ece7dc;">${org.name}</span>
-                        ${org.goalAligned ? `<span style="font-family:monospace;font-size:8px;padding:2px 5px;border-radius:3px;background:rgba(74,222,128,0.18);color:#86efac;font-weight:700;">PRIMARY GOAL</span>` : ""}
+                        ${org.goalAligned ? `<span style="font-family:monospace;font-size:8px;padding:2px 5px;border-radius:3px;background:rgba(74,222,128,0.18);color:#86efac;font-weight:700;">BEST MATCH</span>` : ""}
                       </div>
-                      <div style="font-family:monospace;font-size:9.5px;color:#fcd34d;margin:3px 0;">Incubate: ${org.targetTempC}°C · 6h Shake: ${org.requiresSixHourShake ? "MANDATORY" : "No"} · Base Yield: ${org.baseBetaCaroteneUgMl} µg/mL</div>
+                      <div style="font-family:monospace;font-size:9.5px;color:#fcd34d;margin:3px 0;">Warmth: ${org.targetTempC}°C · 6h Shake: ${org.requiresSixHourShake ? "NEEDED" : "No"} · Vitamin Output: ${org.baseBetaCaroteneUgMl} mg/L</div>
                       <div style="font-size:10px;color:#94a3b8;line-height:1.35;">${org.explain}</div>
                     </div>
                   `;
@@ -3972,10 +4045,10 @@
           <div style="margin-bottom:12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
               <span style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#9aa4ae;">
-                STEP 1A · SELECT PRIMARY MISSION OBJECTIVE & SCENARIO
+                STEP 1A · PICK YOUR MISSION GOAL
               </span>
               <button type="button" id="btn-arch-apply-rec" style="padding:4px 9px;border-radius:5px;border:1px solid rgba(74,222,128,0.45);background:rgba(74,222,128,0.12);color:#86efac;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">
-                APPLY RECOMMENDED BASELINE FOR ${t.scenario.code}
+                AUTO-FILL RECOMMENDED SETUP FOR ${t.scenario.code}
               </button>
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px;">
@@ -3987,7 +4060,7 @@
 
           <div style="margin-bottom:12px;">
             <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#9aa4ae;margin-bottom:6px;">
-              STEP 1B · ENGINEERING CONSTRAINTS & DIFFICULTY TIER
+              STEP 1B · PICK DIFFICULTY &amp; BUDGET SIZE
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
               ${diffBtns}
@@ -3996,19 +4069,19 @@
 
           <div style="padding:10px 12px;border-radius:4px;background:rgba(8,13,24,0.78);border:1px solid rgba(148,163,184,0.22);margin-bottom:14px;">
             <div style="font-family:var(--font-mono,monospace);font-size:10px;font-weight:700;letter-spacing:1.3px;color:#93c5fd;margin-bottom:6px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;">
-              <span>6-ROLE GROUND &amp; FLIGHT DUTY ROSTER</span>
-              <span style="color:#94a3b8;font-weight:500;">Assigned randomly · Trade seats via Crew Roster [SWAP]</span>
+              <span>WHO DOES WHAT ON THE TEAM (EARTH TEAM &amp; SPACE TEAM)</span>
+              <span style="color:#94a3b8;font-weight:500;">Roles are picked automatically · Click [SWAP] on the left panel to trade</span>
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;font-size:10.5px;color:#cbd5e1;margin-top:6px;">
               ${(["flight_director", "ground_capcom", "commander", "engineer", "scientist", "specialist"]).map((rId) => {
                 const a = this._getRoleAssignment(rId);
                 const dutiesMap = {
-                  flight_director: "KSC LCC · GO/NO-GO Launch Release & Docking Corridor Clearance",
-                  ground_capcom: "KSC LCC · DSN Telemetry Lock, EPS Route & Science Downlink",
-                  commander: "Flight Crew · Pad Launch Auth [L], Docking Pilot & Station Command",
-                  engineer: "Flight Crew · Pad Access Arm [F], RCS [1/2] & Power/Propulsion",
-                  scientist: "Flight Crew · Docking Boresight [3/4], Payload Lab & Thermal ECLSS",
-                  specialist: "Flight Crew · Orbital EVA Support & Cross-Console Contingency Ops"
+                  flight_director: "Earth Team · Gives the green light for launch and safe docking",
+                  ground_capcom: "Earth Team · Connects giant Earth dishes, backup power & science links",
+                  commander: "Space Team · Starts launch [L], steers docking & picks Mission Goal + Orbit",
+                  engineer: "Space Team · Retracts launch bridge [F], chooses Body, Solar, Radio & Engines",
+                  scientist: "Space Team · Aligns docking camera [3/4], picks Science Tools & Cooling",
+                  specialist: "Space Team · Helps teammates at any workstation and runs spacewalk checks"
                 };
                 return `
                   <div style="padding:8px 10px;border-radius:4px;border:1px solid ${a.isMine ? "#2563eb" : "rgba(148,163,184,0.2)"};background:${a.isMine ? "rgba(37,99,235,0.14)" : "rgba(5,8,16,0.55)"};display:flex;flex-direction:column;gap:4px;">
@@ -4016,22 +4089,22 @@
                       <strong style="color:${a.color};">[${a.short}] ${this._escapeHtml(a.label)}</strong>
                       <span style="font-family:var(--font-mono,monospace);font-size:9px;color:${a.isUnstaffed ? "#94a3b8" : "#86efac"};">${this._escapeHtml(a.namesText)}${a.isMine ? " (YOU)" : ""}</span>
                     </div>
-                    <div style="font-size:10px;color:#94a3b8;line-height:1.35;">${dutiesMap[rId] || "Cross-mission support"}</div>
+                    <div style="font-size:10px;color:#94a3b8;line-height:1.35;">${dutiesMap[rId] || "Helps across all stations"}</div>
                   </div>
                 `;
               }).join("")}
             </div>
             <div style="font-size:11px;color:#cbd5e1;margin-top:8px;padding-top:6px;border-top:1px solid rgba(148,163,184,0.16);">
-              <strong style="color:#93c5fd;">Engineering Insight:</strong> ${t.scenario.tradeoffTip}
+              <strong style="color:#93c5fd;">Helpful Tip:</strong> ${t.scenario.tradeoffTip}
             </div>
           </div>
 
           <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
             <span style="font-family:var(--font-mono,monospace);font-size:10px;color:#94a3b8;">
-              Active Objective: <strong style="color:#f8fafc;">${t.scenario.code}</strong> · Budget Cap: <strong style="color:#86efac;">$${t.budgetCapM}M</strong>
+              Chosen Mission: <strong style="color:#f8fafc;">${t.scenario.code}</strong> · Budget Limit: <strong style="color:#86efac;">$${t.budgetCapM}M</strong>
             </span>
             <button type="button" id="btn-commit-arch" style="padding:9px 18px;border-radius:4px;border:1px solid #f8fafc;background:#f8fafc;color:#050810;font-family:var(--font-mono,monospace);font-size:11px;font-weight:700;letter-spacing:1.3px;cursor:pointer;">
-              LOCK MISSION CHARTER &amp; CONTINUE
+              SAVE MISSION GOAL &amp; CONTINUE
             </button>
           </div>
         `;
@@ -4065,7 +4138,7 @@
           btnRec.addEventListener("click", () => {
             this.applyRecommendedScenarioBaseline(this.missionDesign.scenarioId);
             if (window.spaceAudio) window.spaceAudio.playClick();
-            this.showToast(`Applied recommended baseline configuration for ${t.scenario.code}`);
+            this.showToast("Applied the recommended safe setup for this mission!");
             render();
           });
         }
@@ -4127,7 +4200,7 @@
                   ${rec ? `<span style="font-family:monospace;font-size:8.5px;padding:2px 6px;border-radius:4px;background:rgba(127,184,166,0.18);color:#7fb8a6;font-weight:700;">RECOMMENDED</span>` : ""}
                 </div>
                 <div style="font-family:monospace;font-size:10px;color:#67e8f9;margin-bottom:5px;">
-                  Period: ${orb.periodMin} min · Eclipse: ${Math.round(orb.eclipseFraction * 100)}% · Insertion ΔV: ${orb.reqInsertionDv} m/s · Rad: ${orb.radiationEnvKrad} krad
+                  Time per Lap: ${orb.periodMin} min · Time in Shadow: ${Math.round(orb.eclipseFraction * 100)}% · Fuel Needed: ${orb.reqInsertionDv} m/s · Shield Needed: Level ${orb.radiationEnvKrad}
                 </div>
                 <div style="font-size:10.5px;color:#94a3b8;line-height:1.4;">${orb.explain}</div>
               </div>
@@ -4147,7 +4220,7 @@
                   <span style="font-family:monospace;font-size:10.5px;font-weight:700;color:#d0a15c;">$${veh.costM}M</span>
                 </div>
                 <div style="font-family:monospace;font-size:10px;color:${fits ? "#7fb8a6" : "#fca5a5"};margin-bottom:5px;">
-                  Max Lift to Selected Orbit: ${capForOrbit} kg (Your Spacecraft: ${t.wetMassKg} kg) · Fairing: ${veh.fairingM}m
+                  Can Lift to This Orbit: ${capForOrbit} kg (Your Spacecraft: ${t.wetMassKg} kg) · Nose Cone Width: ${veh.fairingM}m
                 </div>
                 <div style="font-size:10.5px;color:#94a3b8;line-height:1.4;">${veh.explain}</div>
               </div>
@@ -4161,7 +4234,7 @@
         const compatible = launchReady && t.budgetOk;
         const bioLaunchBanner = isBio
           ? `<div style="margin-bottom:10px;padding:9px 11px;border-radius:7px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.34);font-size:10.5px;color:#e2e8f0;line-height:1.45;">
-              <strong style="color:#fbbf24;">BIONUTRIENTS-2 LAUNCH SEGMENT (SLIDE 17):</strong> Target ISS 418 km (51.6°) aboard <strong>Cygnus NG-18 CRS</strong>. Kits are <strong>soft-stowed at room (ambient) temperature</strong> in protective metallic foil pouches (<em>4 Production Bags + 4 Filters</em>) to shield dehydrated yeast spores from O₂ &amp; moisture.
+              <strong style="color:#fbbf24;">SPACE STATION SUPPLY DELIVERY:</strong> Fly to the <strong>Space Station (418 km)</strong> aboard the <strong>Space Station Supply Ship (Cygnus)</strong>. The experiment kits ride at normal room temperature inside sealed silver pouches (<em>4 Growth Bags + 4 Water Filters per kit</em>) to keep the sleeping yeast dry and fresh.
             </div>`
           : "";
 
@@ -4170,7 +4243,7 @@
           ${bioLaunchBanner}
           <div style="margin-bottom:12px;">
             <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#9aa4ae;margin-bottom:6px;">
-              STEP 2A · SELECT TARGET ORBITAL REGIME
+              STEP 2A · WHERE IN SPACE ARE WE FLYING?
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:8px;">
               ${orbitCards}
@@ -4179,7 +4252,7 @@
 
           <div style="margin-bottom:12px;">
             <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#9aa4ae;margin-bottom:6px;">
-              STEP 2B · SELECT LAUNCH VEHICLE (CHECK MASS vs. ORBIT CAPACITY)
+              STEP 2B · PICK A ROCKET STRONG ENOUGH TO LIFT YOUR SPACECRAFT
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:8px;">
               ${lvCards}
@@ -4189,19 +4262,19 @@
           <div style="padding:10px 12px;border-radius:8px;background:${launchReady ? "rgba(127,184,166,0.08)" : "rgba(239,68,68,0.12)"};border:1px solid ${launchReady ? "rgba(127,184,166,0.35)" : "rgba(239,68,68,0.45)"};margin-bottom:14px;font-size:11.5px;color:#ece7dc;">
             ${
               !isIssDest
-                ? `<strong>[WARN] Wrong Destination for BioNutrients-2:</strong> BioNutrients-2 must operate aboard the <strong>International Space Station (418 km ISS LEO)</strong>. Select ISS 418 km or 400 km LEO.`
+                ? `<strong>[NEEDS FIX] Wrong Destination:</strong> The Space Station Vitamin Maker must fly to the <strong>Space Station Orbit (418 km)</strong>.`
                 : t.massOk
-                  ? `<strong>[PASS] Launch Compatibility Verified:</strong> ${t.lv.name} can inject <strong>${t.lvCapacityKg} kg</strong> into ${t.orbit.name}, giving your <strong>${t.wetMassKg} kg</strong> payload a <strong>+${t.massMarginPct}%</strong> launch mass margin.`
-                  : `<strong>[WARN] Launch Vehicle Overload:</strong> Payload mass (<strong>${t.wetMassKg} kg</strong>) exceeds <strong>${t.lvCapacityKg} kg</strong> capacity of ${t.lv.name} to ${t.orbit.name}, or exceeds kit limits. Select Cygnus NG-18 CRS to ISS 418 km.`
+                  ? `<strong>[READY] Rocket &amp; Weight Match:</strong> ${t.lv.name} can lift <strong>${t.lvCapacityKg} kg</strong> to ${t.orbit.name}, giving your <strong>${t.wetMassKg} kg</strong> spacecraft <strong>+${t.massMarginPct}%</strong> spare lifting room.`
+                  : `<strong>[TOO HEAVY] Rocket Cannot Lift This Weight:</strong> Your spacecraft weighs <strong>${t.wetMassKg} kg</strong>, which is heavier than the <strong>${t.lvCapacityKg} kg</strong> limit of ${t.lv.name} for ${t.orbit.name}. Pick a stronger rocket or lighter parts.`
             }
           </div>
 
           <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
             <span style="font-family:monospace;font-size:10px;color:#94a3b8;">
-              ${compatible ? "Trajectory & Lift Margins Nominal" : "Resolve destination, mass or budget constraint before locking"}
+              ${compatible ? "Orbit path and rocket lift look great!" : "Pick a matching orbit, rocket, or budget before saving"}
             </span>
             <button type="button" id="btn-commit-orbit" style="padding:10px 20px;border-radius:6px;border:1px solid ${launchReady ? "#67e8f9" : "rgba(239,68,68,0.6)"};background:${launchReady ? "#ece7dc" : "rgba(239,68,68,0.2)"};color:${launchReady ? "#05060a" : "#fecaca"};font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1.4px;cursor:pointer;">
-              ${launchReady ? (isBio ? "CONFIRM ISS NG-18 CARGO MANIFEST" : "CONFIRM ORBIT & LAUNCHER") : (isIssDest ? "REQUIRE MASS ≤ LIFT CAPACITY" : "SELECT ISS 418 km LEO DESTINATION")}
+              ${launchReady ? "SAVE ORBIT &amp; ROCKET CHOICE" : (isIssDest ? "PICK A BIGGER ROCKET OR LIGHTER PARTS" : "SELECT SPACE STATION ORBIT (418 km)")}
             </button>
           </div>
         `;
@@ -4230,8 +4303,8 @@
             if (!launchReady) {
               if (window.spaceAudio) window.spaceAudio.playAlarm("warning");
               this.showToast(!isIssDest
-                ? "BioNutrients-2 must be manifested to ISS 418 km LEO!"
-                : "Payload mass exceeds Launch Vehicle lift capacity for this orbit!");
+                ? "BioNutrients-2 must go to the Space Station (418 km up)!"
+                : "Your equipment is too heavy for this rocket to carry to that orbit!");
               return;
             }
             this.finishTask(task);
@@ -4260,7 +4333,7 @@
                   <span style="font-family:monospace;color:#d0a15c;">$${b.costM}M</span>
                 </div>
                 <div style="font-family:monospace;font-size:9.5px;color:#67e8f9;margin:4px 0;">
-                  Dry Mass: ${b.dryMassKg} kg · Base Load: ${b.basePowerLoadW} W · Max Instruments: ${b.maxInstruments}
+                  Empty Weight: ${b.dryMassKg} kg · Base Power: ${b.basePowerLoadW} W · Tool Slots: ${b.maxInstruments}
                 </div>
                 <div style="font-size:10px;color:#94a3b8;line-height:1.35;">${b.explain}</div>
               </div>
@@ -4278,7 +4351,7 @@
                   <span style="font-family:monospace;color:#d0a15c;">$${p.costM}M</span>
                 </div>
                 <div style="font-family:monospace;font-size:9.5px;color:#7fb8a6;margin:4px 0;">
-                  Output: +${p.genW} W · Mass: ${p.massKg} kg
+                  Power Made: +${p.genW} W · Weight: ${p.massKg} kg
                 </div>
                 <div style="font-size:10px;color:#94a3b8;line-height:1.35;">${p.explain}</div>
               </div>
@@ -4296,7 +4369,7 @@
                   <span style="font-family:monospace;color:#d0a15c;">$${b.costM}M</span>
                 </div>
                 <div style="font-family:monospace;font-size:9.5px;color:#67e8f9;margin:4px 0;">
-                  Storage: ${b.capacityWh} Wh · Mass: ${b.massKg} kg
+                  Battery Size: ${b.capacityWh} Wh · Weight: ${b.massKg} kg
                 </div>
                 <div style="font-size:10px;color:#94a3b8;line-height:1.35;">${b.explain}</div>
               </div>
@@ -4306,7 +4379,7 @@
 
         const csFormBar = t.scenario.isCubesat
           ? `<div style="margin-bottom:10px;padding:8px 10px;border-radius:7px;background:rgba(103,232,249,0.06);border:1px solid rgba(103,232,249,0.28);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-              <span style="font-family:monospace;font-size:9.5px;font-weight:700;color:#67e8f9;">CUBESAT FORM FACTOR:</span>
+              <span style="font-family:monospace;font-size:9.5px;font-weight:700;color:#67e8f9;">MINI-SATELLITE SIZE:</span>
               <div style="display:flex;gap:6px;flex-wrap:wrap;">
                 ${Object.values(CUBESAT_FORMS).map((cf) => `<button type="button" class="md-csform-btn" data-id="${cf.id}" style="padding:4px 9px;border-radius:4px;border:1px solid ${md.cubesatFormId === cf.id ? "#67e8f9" : "rgba(255,255,255,0.16)"};background:${md.cubesatFormId === cf.id ? "rgba(103,232,249,0.22)" : "rgba(0,0,0,0.3)"};color:#ece7dc;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">${cf.shortLabel}</button>`).join("")}
               </div>
@@ -4320,10 +4393,10 @@
         const bioBagBar = isBio
           ? `<div style="margin-bottom:10px;padding:10px 12px;border-radius:7px;background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.32);">
               <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.2px;color:#fbbf24;margin-bottom:6px;">
-                BIONUTRIENTS-2 HARDWARE DESIGN · FEP PRODUCTION BAG &amp; SWABABLE BARB VALVE (SLIDES 19–20)
+                PICK YOUR GROWTH POUCH &amp; SAFETY LOCK CAP
               </div>
               <div style="font-size:10.5px;color:#cbd5e1;margin-bottom:7px;line-height:1.4;">
-                Goal #3 requires slashing empty container mass (<strong>&lt;250 g</strong>) and total occupied kit volume (<strong>&lt;300 mL</strong>) vs BioNutrients-1, with polycarbonate/silicone needlefree swabable barb valves &amp; ISS non-Luer covers (<code>P/N 110596-002</code>).
+                Each empty pouch must weigh less than <strong>250 g</strong>, take up less than <strong>300 mL</strong> of space, and include a leak-proof <strong>Space Station safety lock cap</strong> so astronauts can add water safely.
               </div>
               <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:7px;">
                 ${Object.values(BIO_BAG_CONFIGS).map((bag) => {
@@ -4333,10 +4406,10 @@
                     <div class="md-biobag-card" data-id="${bag.id}" style="padding:9px 10px;border-radius:7px;border:1px solid ${active ? "#fbbf24" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(245,158,11,0.14)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
                       <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
                         <span style="font-size:11px;font-weight:700;color:#ece7dc;">${bag.name}</span>
-                        <span style="font-family:monospace;font-size:9px;color:${specsOk ? "#86efac" : "#fca5a5"};">${specsOk ? "SPEC PASS" : "SPEC WARN"}</span>
+                        <span style="font-family:monospace;font-size:9px;color:${specsOk ? "#86efac" : "#fca5a5"};">${specsOk ? "PASSES" : "CHECK"}</span>
                       </div>
                       <div style="font-family:monospace;font-size:9px;color:#fcd34d;margin:3px 0;">
-                        Container: ${bag.containerMassG}g (&lt;250g) · Kit Vol: ${bag.kitVolumeMl}mL (&lt;300mL) · ${bag.dimensions}
+                        Empty Weight: ${bag.containerMassG}g (&lt;250g) · Kit Size: ${bag.kitVolumeMl}mL (&lt;300mL) · ${bag.dimensions}
                       </div>
                       <div style="font-size:9.8px;color:#94a3b8;line-height:1.35;">${bag.explain}</div>
                     </div>
@@ -4352,19 +4425,19 @@
           ${bioBagBar}
           <div style="display:grid;grid-template-columns:260px 1fr;gap:12px;align-items:start;margin-bottom:10px;">
             <div style="padding:8px;border-radius:8px;background:rgba(0,0,0,0.35);border:1px solid rgba(103,232,249,0.24);">
-              <div style="font-family:monospace;font-size:9px;font-weight:700;letter-spacing:1px;color:#67e8f9;margin-bottom:5px;">LIVE 3D POINT DESIGN</div>
+              <div style="font-family:monospace;font-size:9px;font-weight:700;letter-spacing:1px;color:#67e8f9;margin-bottom:5px;">LIVE 3D PREVIEW</div>
               <div id="mdl-point-design-3d" style="width:100%;height:156px;border-radius:6px;background:#050914;"></div>
               <div style="font-family:monospace;font-size:9px;color:#94a3b8;margin-top:5px;">
                 ${
                   isBio
-                    ? `Bag: <strong style="color:#ece7dc;">${bio.bag.shortLabel}</strong> · Container: <strong>${bio.bag.containerMassG}g</strong> · Vol: <strong>${bio.bag.kitVolumeMl}mL</strong>`
-                    : `Bus: <strong style="color:#ece7dc;">${t.bus.name.split(" ")[0]}</strong> · Dry: <strong>${t.dryMassKg} kg</strong>`
+                    ? `Pouch: <strong style="color:#ece7dc;">${bio.bag.shortLabel}</strong> · Weight: <strong>${bio.bag.containerMassG}g</strong> · Size: <strong>${bio.bag.kitVolumeMl}mL</strong>`
+                    : `Frame: <strong style="color:#ece7dc;">${t.bus.name.split(" ")[0]}</strong> · Empty Weight: <strong>${t.dryMassKg} kg</strong>`
                 }
               </div>
             </div>
             <div>
               <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#9aa4ae;margin-bottom:6px;">
-                STEP 3A · SPACECRAFT PRIMARY STRUCTURE & AVIONICS BUS
+                STEP 3A · PICK YOUR SPACECRAFT BODY FRAME
               </div>
               <div style="display:grid;grid-template-columns:1fr;gap:7px;">
                 ${busCards}
@@ -4374,7 +4447,7 @@
 
           <div style="margin-bottom:10px;">
             <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#9aa4ae;margin-bottom:6px;">
-              STEP 3B · SOLAR ARRAY / RTG POWER GENERATION
+              STEP 3B · PICK SOLAR PANELS FOR DAYTIME ELECTRICITY
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;">
               ${pwrCards}
@@ -4383,7 +4456,7 @@
 
           <div style="margin-bottom:12px;">
             <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#9aa4ae;margin-bottom:6px;">
-              STEP 3C · ECLIPSE ENERGY STORAGE (LI-ION / SOLID-STATE BATTERY)
+              STEP 3C · PICK RECHARGEABLE BATTERIES FOR NIGHT SHADOWS
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;">
               ${batCards}
@@ -4393,17 +4466,17 @@
           <div style="padding:10px 12px;border-radius:8px;background:${step3Ready ? "rgba(127,184,166,0.08)" : "rgba(239,68,68,0.12)"};border:1px solid ${step3Ready ? "rgba(127,184,166,0.35)" : "rgba(239,68,68,0.45)"};margin-bottom:12px;font-size:11px;color:#ece7dc;line-height:1.45;">
             ${
               !bioHwOk
-                ? `<strong>[WARN] BioNutrients-2 Hardware Violation:</strong> Ensure empty sample container is <strong>&lt;250 g</strong> (${bio.bag.containerMassG} g), kit occupied volume is <strong>&lt;300 mL</strong> (${bio.bag.kitVolumeMl} mL), and valve uses ISS <code>-002</code> non-Luer thread cover.`
-                : `<strong>Electrical Power Balance Equation:</strong> Continuous rack/payload load is <strong>${t.totalPowerLoadW} W</strong>, plus <strong>${t.rechargePowerNeededW} W</strong> needed during daylight to recharge the battery after each <strong>${(t.eclipseHours * 60).toFixed(0)}-minute</strong> orbital eclipse (${t.eclipseEnergyNeedWh} Wh drawn, <strong>${t.batteryDodPct}% Depth-of-Discharge</strong>). ${t.powerOk ? `[PASS] Net daylight power margin is <strong>+${t.netDaylightMarginW} W</strong> and Battery DoD is safe (≤80%).` : `[WARN] Power deficit or excessive battery discharge (>80% DoD). Select larger solar wings/RTG or a higher-capacity battery bank.`}`
+                ? `<strong>[NEEDS FIX] Pouch Size or Cap:</strong> Make sure the empty pouch is under <strong>250 g</strong> (${bio.bag.containerMassG} g), the kit size is under <strong>300 mL</strong> (${bio.bag.kitVolumeMl} mL), and it has the Space Station safety lock cap.`
+                : `<strong>Electricity &amp; Battery Check:</strong> Your equipment uses <strong>${t.totalPowerLoadW} W</strong>, plus <strong>${t.rechargePowerNeededW} W</strong> while in sunlight to recharge the battery after each <strong>${(t.eclipseHours * 60).toFixed(0)}-minute</strong> pass through Earth's shadow (<strong>${t.batteryDodPct}% of battery used</strong>). ${t.powerOk ? `[READY] You have <strong>+${t.netDaylightMarginW} W</strong> of spare power and safe battery use (under 80%).` : `[NEEDS MORE POWER] Your tools use too much electricity or drain the battery past 80%. Pick bigger solar panels or a bigger battery.`}`
             }
           </div>
 
           <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
             <span style="font-family:monospace;font-size:10px;color:#94a3b8;">
-              ${isBio ? `vs BioNutrients-1: ${bio.bag.containerMassG}/250g · ${bio.bag.kitVolumeMl}/300mL · Margin: +${t.netDaylightMarginW}W` : `Bus Bays Used: ${t.selectedInsts.length}/${t.maxInstruments} · Net Margin: ${t.netDaylightMarginW >= 0 ? `+${t.netDaylightMarginW}W` : `${t.netDaylightMarginW}W`}`}
+              ${isBio ? `Pouch: ${bio.bag.containerMassG}/250g · ${bio.bag.kitVolumeMl}/300mL · Spare Power: +${t.netDaylightMarginW}W` : `Tool Slots Used: ${t.selectedInsts.length}/${t.maxInstruments} · Spare Power: ${t.netDaylightMarginW >= 0 ? `+${t.netDaylightMarginW}W` : `${t.netDaylightMarginW}W`}`}
             </span>
             <button type="button" id="btn-commit-bus" style="padding:10px 20px;border-radius:6px;border:1px solid ${step3Ready ? "#67e8f9" : "rgba(239,68,68,0.6)"};background:${step3Ready ? "#ece7dc" : "rgba(239,68,68,0.2)"};color:${step3Ready ? "#05060a" : "#fecaca"};font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1.4px;cursor:pointer;">
-              ${step3Ready ? (isBio ? "LOCK FEP BAG HARDWARE & RACK POWER" : "LOCK BUS & ELECTRICAL POWER SYSTEM") : "RESOLVE HARDWARE / POWER CONSTRAINTS"}
+              ${step3Ready ? "SAVE BODY, SOLAR &amp; BATTERY" : "FIX POUCH OR POWER SETTINGS"}
             </button>
           </div>
         `;
@@ -4462,12 +4535,12 @@
           commitBtn.addEventListener("click", () => {
             if (!bioHwOk) {
               if (window.spaceAudio) window.spaceAudio.playAlarm("warning");
-              this.showToast("BioNutrients-2 FEP bag must stay <250 g, <300 mL, and include ISS -002 non-Luer cover!");
+              this.showToast("Sample pouch must weigh under 250 g, pack under 300 mL, and include the Space Station safety lock cap!");
               return;
             }
             if (!t.powerOk) {
               if (window.spaceAudio) window.spaceAudio.playAlarm("warning");
-              this.showToast("Power generation or battery capacity is insufficient for orbital eclipse!");
+              this.showToast("Not enough solar power or battery size to last through Earth's dark shadow!");
               return;
             }
             this.finishTask(task);
@@ -4512,14 +4585,14 @@
         const bioProtoBanner = isBio
           ? `<div style="margin-bottom:12px;padding:10px 12px;border-radius:7px;background:rgba(52,211,153,0.06);border:1px solid rgba(52,211,153,0.32);">
               <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.2px;color:#34d399;margin-bottom:6px;">
-                BIONUTRIENTS-2 ISS SPACE PROTOCOL &amp; PUBLICATION REQUIREMENTS (SLIDES 16, 18, 21)
+                SPACE STATION WATER MIXING &amp; SAMPLE RECIPE GOALS
               </div>
               <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:6px;margin-bottom:8px;font-family:monospace;font-size:9px;">
-                <div style="padding:5px 7px;border-radius:4px;background:rgba(0,0,0,0.35);border-left:3px solid ${bio.replicatesOk ? "#4ade80" : "#ef4444"};">REPLICATES: <strong>${bio.protocol.replicates}</strong> (Req ≥12)</div>
-                <div style="padding:5px 7px;border-radius:4px;background:rgba(0,0,0,0.35);border-left:3px solid ${bio.sampleVolOk ? "#4ade80" : "#ef4444"};">VOLUME: <strong>${bio.protocol.sampleVolMl} mL</strong> (Req ≥30 mL)</div>
-                <div style="padding:5px 7px;border-radius:4px;background:rgba(0,0,0,0.35);border-left:3px solid ${bio.yieldOk ? "#4ade80" : "#ef4444"};">BETA-CAROTENE: <strong>${bio.betaCaroteneUgMl} µg/mL</strong> (≥3)</div>
-                <div style="padding:5px 7px;border-radius:4px;background:rgba(0,0,0,0.35);border-left:3px solid ${bio.dcwOk ? "#4ade80" : "#ef4444"};">DRY CELL WT: <strong>${bio.dryCellWeightMg} mg</strong> (≥1 mg)</div>
-                <div style="padding:5px 7px;border-radius:4px;background:rgba(0,0,0,0.35);border-left:3px solid ${bio.sterileOk ? "#4ade80" : "#ef4444"};">STERILITY: <strong>${bio.protocol.contaminationCfu} CFU</strong> (0.2µm Filter)</div>
+                <div style="padding:5px 7px;border-radius:4px;background:rgba(0,0,0,0.35);border-left:3px solid ${bio.replicatesOk ? "#4ade80" : "#ef4444"};">SAMPLE BAGS: <strong>${bio.protocol.replicates}</strong> (Need ≥12)</div>
+                <div style="padding:5px 7px;border-radius:4px;background:rgba(0,0,0,0.35);border-left:3px solid ${bio.sampleVolOk ? "#4ade80" : "#ef4444"};">WATER / BAG: <strong>${bio.protocol.sampleVolMl} mL</strong> (Need ≥30 mL)</div>
+                <div style="padding:5px 7px;border-radius:4px;background:rgba(0,0,0,0.35);border-left:3px solid ${bio.yieldOk ? "#4ade80" : "#ef4444"};">VITAMIN A: <strong>${bio.betaCaroteneUgMl} mg/L</strong> (≥3.0)</div>
+                <div style="padding:5px 7px;border-radius:4px;background:rgba(0,0,0,0.35);border-left:3px solid ${bio.dcwOk ? "#4ade80" : "#ef4444"};">YEAST GROWTH: <strong>${bio.dryCellWeightMg} mg</strong> (≥1.0 mg)</div>
+                <div style="padding:5px 7px;border-radius:4px;background:rgba(0,0,0,0.35);border-left:3px solid ${bio.sterileOk ? "#4ade80" : "#ef4444"};">GERM CHECK: <strong>${bio.protocol.contaminationCfu} germs</strong> (Filter)</div>
               </div>
               <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:7px;">
                 ${Object.values(BIO_PROTOCOL_OPTIONS).map((pr) => {
@@ -4532,7 +4605,7 @@
                         <span style="font-family:monospace;font-size:8.5px;color:${protoOk ? "#86efac" : "#fca5a5"};">${protoOk ? "PASS" : "FAIL"}</span>
                       </div>
                       <div style="font-family:monospace;font-size:9px;color:#6ee7b7;margin:3px 0;">
-                        ${pr.replicates} bags × ${pr.sampleVolMl}mL · 0.2µm Filter: ${pr.sterileFiltered ? "YES" : "NO"} · 6h Shake: ${pr.hasSixHourShake ? "YES" : "SKIPPED"}
+                        ${pr.replicates} bags × ${pr.sampleVolMl}mL · Germ Filter: ${pr.sterileFiltered ? "YES" : "NO"} · 6h Shake: ${pr.hasSixHourShake ? "YES" : "SKIPPED"}
                       </div>
                       <div style="font-size:9.8px;color:#94a3b8;line-height:1.35;">${pr.explain}</div>
                     </div>
@@ -4545,13 +4618,13 @@
         const waveBanner = t.scenario.requiresWavelength
           ? `<div style="margin-bottom:10px;padding:9px 11px;border-radius:7px;background:${t.telescopeOk ? "rgba(167,139,250,0.08)" : "rgba(239,68,68,0.12)"};border:1px solid ${t.telescopeOk ? "rgba(167,139,250,0.35)" : "rgba(239,68,68,0.45)"};">
               <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
-                <span style="font-family:monospace;font-size:9.5px;font-weight:700;color:#ddd6fe;">TELESCOPE WAVELENGTH BAND:</span>
+                <span style="font-family:monospace;font-size:9.5px;font-weight:700;color:#ddd6fe;">LIGHT TYPE TO VIEW:</span>
                 <div style="display:flex;gap:5px;flex-wrap:wrap;">
                   ${Object.values(WAVELENGTH_BANDS).map((wb) => `<button type="button" class="md-wave-pill" data-id="${wb.id}" style="padding:3px 7px;border-radius:4px;border:1px solid ${md.wavelengthId === wb.id ? "#c084fc" : "rgba(255,255,255,0.16)"};background:${md.wavelengthId === wb.id ? "rgba(192,132,252,0.22)" : "rgba(0,0,0,0.3)"};color:#ece7dc;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">${wb.shortLabel}</button>`).join("")}
                 </div>
               </div>
               <div style="font-size:10.5px;color:${t.telescopeOk ? "#a7f3d0" : "#fecaca"};">
-                ${t.telescopeOk ? `[PASS] Wavelength (${t.wavelength.shortLabel}), Detectors, Thermal Control & Orbit are optically compatible.` : `[WARN] ${t.telescopeIssues.join(" · ")}`}
+                ${t.telescopeOk ? `[PASS] Light type (${t.wavelength.shortLabel}), camera, cooling &amp; spot in space all match!` : `[FIX] ${t.telescopeIssues.join(" · ")}`}
               </div>
             </div>`
           : "";
@@ -4567,10 +4640,10 @@
           ${csaContextualHtml}
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
             <span style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#9aa4ae;">
-              SELECT SCIENTIFIC INSTRUMENTS (BAYS USED: ${t.selectedInsts.length} / ${t.maxInstruments} MAX ON ${t.bus.name.toUpperCase()})
+              PICK CAMERAS &amp; SENSORS (SLOTS USED: ${t.selectedInsts.length} / ${t.maxInstruments} MAX)
             </span>
             <span style="font-family:monospace;font-size:10px;color:#7fb8a6;">
-              Matched Priority Objectives: ${t.matchedTypes.length} / ${t.scenario.requiredScienceTypes.length}
+              Matched Goals: ${t.matchedTypes.length} / ${t.scenario.requiredScienceTypes.length}
             </span>
           </div>
 
@@ -4579,15 +4652,15 @@
           </div>
 
           <div style="padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);margin-bottom:12px;font-size:11px;color:#cbd5e1;line-height:1.45;">
-            <strong>Payload Trade-Off Analysis:</strong> Your ${t.selectedInsts.length} selected instruments draw <strong>${t.selectedInsts.reduce((a, b) => a + b.powerW, 0)} W</strong>, weigh <strong>${t.selectedInsts.reduce((a, b) => a + b.massKg, 0)} kg</strong>, cost <strong>$${t.selectedInsts.reduce((a, b) => a + b.costM, 0)}M</strong>, and generate <strong>${t.dataGeneratedGbPerDay} GB/day</strong> of raw science telemetry. Adding high-value instruments like the L-Band SAR increases science return to <strong>${t.scienceScore}/100</strong>, but requires higher solar power and Ka/X-Band downlink capacity.
+            <strong>Gear Summary:</strong> Your ${t.selectedInsts.length} chosen tools use <strong>${t.selectedInsts.reduce((a, b) => a + b.powerW, 0)} W</strong> of power, weigh <strong>${t.selectedInsts.reduce((a, b) => a + b.massKg, 0)} kg</strong>, cost <strong>$${t.selectedInsts.reduce((a, b) => a + b.costM, 0)}M</strong>, and create <strong>${t.dataGeneratedGbPerDay} GB/day</strong> of files to send home. Stronger cameras boost your score (now <strong>${t.scienceScore}/100</strong>), but need more solar power and faster radios.
           </div>
 
           <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
             <span style="font-family:monospace;font-size:10px;color:#94a3b8;">
-              Science Value Score: <strong style="color:#4ade80;">${t.scienceScore}/100</strong> (Min 55 required)
+              Science Score: <strong style="color:#4ade80;">${t.scienceScore}/100</strong> (Need at least 55)
             </span>
             <button type="button" id="btn-commit-science" style="padding:10px 20px;border-radius:6px;border:1px solid ${payloadValid ? "#67e8f9" : "rgba(239,68,68,0.6)"};background:${payloadValid ? "#ece7dc" : "rgba(239,68,68,0.2)"};color:${payloadValid ? "#05060a" : "#fecaca"};font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1.4px;cursor:pointer;">
-              ${payloadValid ? (isBio ? "LOCK PWD HYDRATION &amp; 6H SHAKE PROTOCOL" : "INTEGRATE SCIENCE PAYLOAD SUITE") : (isBio ? "RESOLVE REPLICATES / FILTER / 6H SHAKE" : (!t.telescopeOk ? "RESOLVE WAVELENGTH / OPTICS CONFLICT" : `SELECT 2–${t.maxInstruments} INSTRUMENTS (SCI ≥ 55)`))}
+              ${payloadValid ? (isBio ? "SAVE WATER MIXING &amp; 6H SHAKE RECIPE" : "SAVE CAMERAS &amp; SENSORS") : (isBio ? "FIX BAG COUNT / FILTER / 6H SHAKE" : (!t.telescopeOk ? "FIX LIGHT TYPE / CAMERA MISMATCH" : `PICK 2–${t.maxInstruments} TOOLS (SCORE ≥ 55)`))}
             </button>
           </div>
         `;
@@ -4624,7 +4697,7 @@
               }
             } else {
               if (this.missionDesign.instruments.length >= t.maxInstruments) {
-                this.showToast(`Current bus/form supports at most ${t.maxInstruments} instruments! Upgrade or deselect one.`);
+                this.showToast(`This spacecraft fits at most ${t.maxInstruments} tools! Upgrade body or remove one.`);
                 if (window.spaceAudio) window.spaceAudio.playAlarm("warning");
                 return;
               }
@@ -4642,7 +4715,7 @@
             if (!payloadValid) {
               if (window.spaceAudio) window.spaceAudio.playAlarm("warning");
               this.showToast(isBio
-                ? "BioNutrients-2 requires Yeast target, ≥12 replicates, ≥30 mL/sample, 0.2µm sterile filter, and 6h shake!"
+                ? "Pick Helpful Yeast, at least 12 bags, 30 mL water each, the germ filter, and the 6-hour shake!"
                 : (!t.telescopeOk
                   ? `[WARN] ${t.telescopeIssues[0]}`
                   : "Select 2 to " + t.maxInstruments + " instruments with at least 55 Science Value!"));
@@ -4674,7 +4747,7 @@
                   <span style="font-family:monospace;font-size:11px;font-weight:700;color:#d0a15c;">$${pkg.costM}M</span>
                 </div>
                 <div style="font-family:monospace;font-size:9.5px;color:#7fb8a6;margin-bottom:5px;">
-                  Heat Rejection Cap: ${pkg.thermalCapW} W · Radiation Vault: ${pkg.radRatingKrad} krad · Mass: ${pkg.massKg} kg · Power: ${pkg.powerW} W
+                  Cooling Power: ${pkg.thermalCapW} W · Space Shield: Level ${pkg.radRatingKrad} · Weight: ${pkg.massKg} kg · Power: ${pkg.powerW} W
                 </div>
                 <div style="font-size:10.5px;color:#94a3b8;line-height:1.4;">${pkg.explain}</div>
               </div>
@@ -4688,10 +4761,10 @@
         const bioThermalSection = isBio
           ? `<div style="margin-bottom:12px;padding:10px 12px;border-radius:7px;background:rgba(56,189,248,0.06);border:1px solid rgba(56,189,248,0.34);">
               <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.2px;color:#38bdf8;margin-bottom:6px;">
-                BIONUTRIENTS-2 INCUBATION &amp; MELFI (-80°C) COLD-CHAIN PROFILE (SLIDES 16, 21, 23)
+                SPACE STATION WARMER &amp; -80°C ULTRA-COLD FREEZER SETUP
               </div>
               <div style="font-size:10.5px;color:#cbd5e1;margin-bottom:7px;line-height:1.4;">
-                Target temperatures: <strong>Yeast 30°C</strong> (+6h shake) · <strong>Yogurt 42°C</strong> · <strong>Kefir Ambient</strong>. After incubation, pack each FEP bag in protective overwrap &amp; store in ISS <strong>MELFI (-80°C)</strong> freezer for return.
+                Target warmth: <strong>Yeast 30°C</strong> (+6-hour shake) · <strong>Yogurt 42°C</strong> · <strong>Kefir Room Temp</strong>. Once grown, wrap each clear pouch and place it in the Station's <strong>-80°C ultra-cold freezer</strong> for the ride home.
               </div>
               <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:7px;">
                 ${Object.values(BIO_THERMAL_OPTIONS).map((bt) => {
@@ -4704,7 +4777,7 @@
                         <span style="font-family:monospace;font-size:8.5px;color:${btOk ? "#86efac" : "#fca5a5"};">${btOk ? "MATCH" : "MISMATCH"}</span>
                       </div>
                       <div style="font-family:monospace;font-size:9px;color:#7dd3fc;margin:3px 0;">
-                        Incubator: ${bt.incubateTempC}°C (Req ${bio.organism.targetTempC}°C) · Freezer: ${bt.storageTempC}°C · ${bt.powerW} W
+                        Warmer: ${bt.incubateTempC}°C (Needs ${bio.organism.targetTempC}°C) · Freezer: ${bt.storageTempC}°C · ${bt.powerW} W
                       </div>
                       <div style="font-size:9.8px;color:#94a3b8;line-height:1.35;">${bt.explain}</div>
                     </div>
@@ -4719,7 +4792,7 @@
           ${bioThermalSection}
           <div style="margin-bottom:12px;">
             <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#9aa4ae;margin-bottom:6px;">
-              SELECT THERMAL REJECTION RADIATORS & AVIONICS RADIATION SHIELDING
+              PICK COOLING SYSTEM &amp; SPACE RADIATION SHIELDING
             </div>
             <div style="display:grid;grid-template-columns:1fr;gap:8px;">
               ${thmCards}
@@ -4728,34 +4801,34 @@
 
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin-bottom:14px;">
             <div style="padding:10px;border-radius:6px;background:rgba(0,0,0,0.35);border:1px solid ${t.thermalOk ? "rgba(127,184,166,0.35)" : "rgba(239,68,68,0.5)"};">
-              <div style="font-family:monospace;font-size:9.5px;color:#9aa4ae;">${isBio ? "INCUBATION & MELFI LOOP" : "THERMAL DISSIPATION"}</div>
+              <div style="font-family:monospace;font-size:9.5px;color:#9aa4ae;">${isBio ? "WARMER &amp; -80°C FREEZER" : "HEAT COOLING"}</div>
               <div style="font-family:monospace;font-size:13px;font-weight:700;color:${t.thermalOk ? "#7fb8a6" : "#fca5a5"};margin-top:2px;">
-                ${isBio ? `${bio.thermal.incubateTempC}°C / ${bio.thermal.storageTempC}°C` : `${t.thm.thermalCapW} W Cap vs ${t.totalPowerLoadW} W Load`}
+                ${isBio ? `${bio.thermal.incubateTempC}°C / ${bio.thermal.storageTempC}°C` : `${t.thm.thermalCapW} W Cooling vs ${t.totalPowerLoadW} W Used`}
               </div>
-              <div style="font-size:10px;color:#94a3b8;margin-top:2px;">${isBio ? `Req ${bio.organism.targetTempC}°C incubator & MELFI -80°C freezer (${t.thm.thermalCapW}W loop).` : "All electrical power consumed onboard turns into waste heat that must be radiated to space."}</div>
+              <div style="font-size:10px;color:#94a3b8;margin-top:2px;">${isBio ? `Needs ${bio.organism.targetTempC}°C warmer &amp; -80°C freezer (${t.thm.thermalCapW}W cooling).` : "Electricity inside the spacecraft turns into heat that must be cooled down in space."}</div>
             </div>
             <div style="padding:10px;border-radius:6px;background:rgba(0,0,0,0.35);border:1px solid ${t.radiationOk ? "rgba(127,184,166,0.35)" : "rgba(239,68,68,0.5)"};">
-              <div style="font-family:monospace;font-size:9.5px;color:#9aa4ae;">TOTAL IONIZING DOSE (TID)</div>
+              <div style="font-family:monospace;font-size:9.5px;color:#9aa4ae;">RADIATION SHIELDING</div>
               <div style="font-family:monospace;font-size:13px;font-weight:700;color:${t.radiationOk ? "#7fb8a6" : "#fca5a5"};margin-top:2px;">
-                ${t.thm.radRatingKrad} krad vs ${Math.max(t.scenario.minRadiationKrad, t.orbit.radiationEnvKrad)} krad Req
+                Level ${t.thm.radRatingKrad} vs Level ${Math.max(t.scenario.minRadiationKrad, t.orbit.radiationEnvKrad)} Needed
               </div>
-              <div style="font-size:10px;color:#94a3b8;margin-top:2px;">Protects flight computers and focal-plane sensors from solar protons and Van Allen belt electrons.</div>
+              <div style="font-size:10px;color:#94a3b8;margin-top:2px;">Protects the computer and cameras from solar storms and harsh radiation zones.</div>
             </div>
             <div style="padding:10px;border-radius:6px;background:rgba(0,0,0,0.35);border:1px solid ${t.lifetimeOk ? "rgba(127,184,166,0.35)" : "rgba(239,68,68,0.5)"};">
-              <div style="font-family:monospace;font-size:9.5px;color:#9aa4ae;">OPERATIONAL LIFETIME</div>
+              <div style="font-family:monospace;font-size:9.5px;color:#9aa4ae;">MISSION LIFESPAN</div>
               <div style="font-family:monospace;font-size:13px;font-weight:700;color:${t.lifetimeOk ? "#7fb8a6" : "#fca5a5"};margin-top:2px;">
-                ${t.estimatedLifetimeMonths} Months (Target: ${t.scenario.targetLifetimeMonths} mo)
+                ${t.estimatedLifetimeMonths} Months (Goal: ${t.scenario.targetLifetimeMonths} mo)
               </div>
-              <div style="font-size:10px;color:#94a3b8;margin-top:2px;">Determined by radiation shielding, battery cycle depth-of-discharge, and propellant reserve.</div>
+              <div style="font-size:10px;color:#94a3b8;margin-top:2px;">Depends on shield thickness, gentle battery use, and extra steering fuel.</div>
             </div>
           </div>
 
           <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
             <span style="font-family:monospace;font-size:10px;color:#94a3b8;">
-              ${envSurvived ? (isBio ? "Incubation Setpoint, MELFI -80°C & Rack Thermal Verified" : "Thermal, Radiation & Lifetime Margins Verified") : (isBio ? "Match incubator temperature & enable MELFI (-80°C)" : "Upgrade shielding or battery to meet mission lifetime")}
+              ${envSurvived ? (isBio ? "Warmer Temperature, -80°C Freezer & Cooling All Ready" : "Cooling, Radiation Shield & Lifespan Look Great") : (isBio ? "Match warmer temperature & turn on -80°C freezer" : "Upgrade shield or battery to last full mission")}
             </span>
             <button type="button" id="btn-commit-thm" style="padding:10px 20px;border-radius:6px;border:1px solid ${envSurvived ? "#67e8f9" : "rgba(239,68,68,0.6)"};background:${envSurvived ? "#ece7dc" : "rgba(239,68,68,0.2)"};color:${envSurvived ? "#05060a" : "#fecaca"};font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1.4px;cursor:pointer;">
-              ${envSurvived ? (isBio ? "LOCK INCUBATOR (30°C) & MELFI (-80°C) COLD CHAIN" : "QUALIFY THERMAL & RADIATION SHIELDING") : "RESOLVE THERMAL / MELFI / RADIATION"}
+              ${envSurvived ? (isBio ? "SAVE WARMER (30°C) & -80°C FREEZER PLAN" : "SAVE COOLING & SHIELDING PLAN") : "FIX COOLING / FREEZER / SHIELDING"}
             </button>
           </div>
         `;
@@ -4784,8 +4857,8 @@
             if (!envSurvived) {
               if (window.spaceAudio) window.spaceAudio.playAlarm("warning");
               this.showToast(isBio
-                ? "BioNutrients-2 Yeast requires 30°C incubator match and MELFI (-80°C) storage!"
-                : "Thermal radiator capacity or radiation shielding is below orbital requirements!");
+                ? "This yeast mission needs the 30°C warmer AND the -80°C ultra-cold freezer!"
+                : "Cooling or radiation shield isn't strong enough for this flight path!");
               return;
             }
             this.finishTask(task);
@@ -4814,7 +4887,7 @@
                   <span style="font-family:monospace;color:#d0a15c;">$${c.costM}M</span>
                 </div>
                 <div style="font-family:monospace;font-size:9.5px;color:#67e8f9;margin:3px 0;">
-                  Downlink: ${c.rateMbps} Mbps · Mass: ${c.massKg} kg · Power: ${c.powerW} W
+                  Speed: ${c.rateMbps} Mbps · Weight: ${c.massKg} kg · Power: ${c.powerW} W
                 </div>
                 <div style="font-size:10px;color:#94a3b8;line-height:1.35;">${c.explain}</div>
               </div>
@@ -4832,7 +4905,7 @@
                   <span style="font-family:monospace;color:#d0a15c;">$${g.costM}M</span>
                 </div>
                 <div style="font-family:monospace;font-size:9.5px;color:#c4b5fd;margin:3px 0;">
-                  Receiver Gain: +${g.gainDb} dB · Pass Coverage: ${g.contactMultiplier}x
+                  Signal Boost: +${g.gainDb} dB · Daily Passes: ${g.contactMultiplier}x
                 </div>
                 <div style="font-size:10px;color:#94a3b8;line-height:1.35;">${g.explain}</div>
               </div>
@@ -4850,7 +4923,7 @@
                   <span style="font-family:monospace;color:#d0a15c;">$${p.costM}M</span>
                 </div>
                 <div style="font-family:monospace;font-size:9.5px;color:#7fb8a6;margin:3px 0;">
-                  Isp: ${p.ispSec} s · Fuel: ${p.propellantKg} kg · Dry: ${p.dryMassKg} kg · Power: ${p.powerW} W
+                  Efficiency: ${p.ispSec} s · Fuel: ${p.propellantKg} kg · Engine Weight: ${p.dryMassKg} kg · Power: ${p.powerW} W
                 </div>
                 <div style="font-size:10px;color:#94a3b8;line-height:1.35;">${p.explain}</div>
               </div>
@@ -4868,7 +4941,7 @@
                   <span style="font-family:monospace;color:#d0a15c;">$${d.costM}M</span>
                 </div>
                 <div style="font-family:monospace;font-size:9px;color:${d.id === "none_drift" ? "#fca5a5" : "#86efac"};margin:3px 0;">
-                  Deorbit: ${d.deorbitYears} yr · Mass: ${d.massKg} kg · Req ΔV: +${d.dvCostMs} m/s
+                  Cleanup Time: ${d.deorbitYears} yr · Weight: ${d.massKg} kg · Fuel Needed: +${d.dvCostMs} m/s
                 </div>
                 <div style="font-size:10px;color:#94a3b8;line-height:1.35;">${d.explain}</div>
               </div>
@@ -4882,11 +4955,11 @@
         const bioGroundBanner = isBio
           ? `<div style="margin-bottom:10px;padding:10px 12px;border-radius:7px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.34);font-size:10.5px;color:#e2e8f0;line-height:1.45;">
               <div style="font-family:monospace;font-size:9.5px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">
-                GROUND SEGMENT &amp; USER SEGMENT ("BEGIN WITH THE END IN MIND" · SLIDES 15, 16, 23)
+                EARTH SUPPORT &amp; FINAL LAB CHECK ("BEGIN WITH THE END IN MIND")
               </div>
-              <div><strong>Ground Ops:</strong> Scientists &amp; engineers watch ISS initiation live on console (supporting crew questions &amp; anomaly resolution) and continuously monitor <strong>${bio.thermal.incubateTempC}°C incubation &amp; ${bio.thermal.storageTempC}°C MELFI</strong> temperatures.</div>
+              <div><strong>Earth Monitoring:</strong> Scientists watch astronauts start the kit live on screen (helping with questions in real time) and continuously track <strong>${bio.thermal.incubateTempC}°C warming &amp; ${bio.thermal.storageTempC}°C freezer</strong> logs.</div>
               <div style="margin-top:4px;font-family:monospace;font-size:9.5px;color:${bio.yieldOk && bio.dcwOk ? "#86efac" : "#fca5a5"};">
-                USER LAB WORKFLOW: 1. Delivery -> 2. Thaw -> 3. Empty &amp; Wash -> 4. Centrifuge -> 5. Beta-Carotene Assay (${bio.betaCaroteneUgMl} µg/mL, ${bio.dryCellWeightMg} mg DCW) &amp; Publish
+                EARTH LAB STEPS: 1. Deliver -> 2. Thaw -> 3. Wash -> 4. Spin -> 5. Test Vitamin A (${bio.betaCaroteneUgMl} mg/L, ${bio.dryCellWeightMg} mg yeast) &amp; Share Results
               </div>
             </div>`
           : "";
@@ -4896,7 +4969,7 @@
           ${bioGroundBanner}
           <div style="margin-bottom:10px;">
             <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#9aa4ae;margin-bottom:6px;">
-              STEP 6A · SPACECRAFT TRANSCEIVER & HIGH-GAIN ANTENNA
+              STEP 6A · SPACECRAFT RADIO &amp; DISH
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;">
               ${comCards}
@@ -4905,7 +4978,7 @@
 
           <div style="margin-bottom:10px;">
             <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#9aa4ae;margin-bottom:6px;">
-              STEP 6B · GROUND STATION TRACKING NETWORK
+              STEP 6B · EARTH DISH NETWORK
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;">
               ${gndCards}
@@ -4914,7 +4987,7 @@
 
           <div style="margin-bottom:10px;">
             <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#9aa4ae;margin-bottom:6px;">
-              STEP 6C · ORBITAL PROPULSION & DELTA-V (TSIOLKOVSKY ROCKET EQUATION)
+              STEP 6C · ENGINES &amp; STEERING FUEL
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;">
               ${propCards}
@@ -4923,7 +4996,7 @@
 
           <div style="margin-bottom:12px;">
             <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#fbbf24;margin-bottom:6px;">
-              STEP 6D · END-OF-MISSION (EoM) DISPOSAL & ORBITAL DEBRIS MITIGATION
+              STEP 6D · SAFE END-OF-MISSION CLEANUP (NO SPACE JUNK)
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;">
               ${dispCards}
@@ -4931,17 +5004,17 @@
           </div>
 
           <div style="padding:10px 12px;border-radius:8px;background:${systemsReady ? "rgba(127,184,166,0.08)" : "rgba(239,68,68,0.12)"};border:1px solid ${systemsReady ? "rgba(127,184,166,0.35)" : "rgba(239,68,68,0.45)"};margin-bottom:12px;font-size:11px;color:#ece7dc;line-height:1.45;">
-            <div><strong>1. Link Budget & Data Balance:</strong> Link Margin is <strong>${t.linkMarginDb} dB</strong> (min 3.0 dB required for carrier lock at ${t.orbit.altitudeKm.toLocaleString()} km) and daily downlink capacity is <strong>${t.downlinkCapGbPerDay} GB/day</strong> vs. <strong>${t.dataGeneratedGbPerDay} GB/day</strong> generated by your instruments.</div>
-            <div style="margin-top:4px;"><strong>2. Tsiolkovsky Rocket Equation (Δv = I_sp · g₀ · ln(m₀ / m_f)):</strong> With wet mass m₀ = <strong>${t.wetMassKg} kg</strong> and dry mass m_f = <strong>${t.dryMassKg} kg</strong>, your propulsion delivers <strong>${t.achievedDeltaV} m/s</strong> vs. <strong>${t.requiredDeltaV} m/s</strong> required (incl. +${t.disposal.dvCostMs} m/s EoM disposal).</div>
-            <div style="margin-top:4px;"><strong>3. Debris Compliance:</strong> ${t.disposalOk ? `[PASS] ${t.disposalNote}` : `[WARN] ${t.disposalNote}`}</div>
+            <div><strong>1. Radio Signal &amp; Data Check:</strong> Signal strength is <strong>${t.linkMarginDb} dB</strong> (needs at least 3.0 dB from ${t.orbit.altitudeKm.toLocaleString()} km away) and Earth dishes can download <strong>${t.downlinkCapGbPerDay} GB/day</strong> vs. <strong>${t.dataGeneratedGbPerDay} GB/day</strong> gathered by your tools.</div>
+            <div style="margin-top:4px;"><strong>2. Rocket Fuel Push:</strong> Loaded weight is <strong>${t.wetMassKg} kg</strong> (empty weight <strong>${t.dryMassKg} kg</strong>), so your engines give <strong>${t.achievedDeltaV} m/s</strong> of push vs. <strong>${t.requiredDeltaV} m/s</strong> needed (including +${t.disposal.dvCostMs} m/s for safe cleanup).</div>
+            <div style="margin-top:4px;"><strong>3. Safe Cleanup Check:</strong> ${t.disposalOk ? `[PASS] ${t.disposalNote}` : `[WARN] ${t.disposalNote}`}</div>
           </div>
 
           <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
             <span style="font-family:monospace;font-size:10px;color:#94a3b8;">
-              Link: ${t.linkMarginDb} dB · ΔV: ${t.achievedDeltaV}/${t.requiredDeltaV} m/s · EoM: ${t.disposalOk ? "PASS" : "FAIL"}
+              Signal: ${t.linkMarginDb} dB · Fuel Push: ${t.achievedDeltaV}/${t.requiredDeltaV} m/s · Cleanup: ${t.disposalOk ? "PASS" : "NEEDS FIX"}
             </span>
             <button type="button" id="btn-commit-comms" style="padding:10px 20px;border-radius:6px;border:1px solid ${systemsReady ? "#67e8f9" : "rgba(239,68,68,0.6)"};background:${systemsReady ? "#ece7dc" : "rgba(239,68,68,0.2)"};color:${systemsReady ? "#05060a" : "#fecaca"};font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1.4px;cursor:pointer;">
-              ${systemsReady ? "LOCK COMMS, PROPULSION & EoM DISPOSAL" : "RESOLVE LINK, DELTA-V OR EoM DISPOSAL"}
+              ${systemsReady ? "SAVE RADIO, FUEL &amp; CLEANUP PLAN" : "FIX SIGNAL, FUEL OR CLEANUP"}
             </button>
           </div>
         `;
@@ -4987,7 +5060,7 @@
           commitBtn.addEventListener("click", () => {
             if (!systemsReady) {
               if (window.spaceAudio) window.spaceAudio.playAlarm("warning");
-              this.showToast("Ensure Link Margin, Delta-V, and End-of-Mission disposal requirements all pass!");
+              this.showToast("Make sure your radio signal, fuel push, and safe cleanup plan all pass!");
               return;
             }
             this.finishTask(task);
@@ -5009,117 +5082,158 @@
         {
           id: "software_safe_mode",
           severity: "CADET",
-          title: "FLIGHT COMPUTER SAFE-MODE RESET",
-          situation: "A transient software fault reset the flight computer during cruise. The spacecraft must recover without losing the science campaign or overrunning the budget.",
+          title: "COMPUTER RESTART SURPRISE",
+          situation: "A brief glitch restarted the onboard computer mid-flight. The ship must recover without losing science data or going over budget.",
           check: (telemetry) => telemetry.engineeringScore >= 50 && telemetry.budgetOk,
           metric: (telemetry) => `Engineering ${telemetry.engineeringScore}/100 · Reserve $${Math.max(0, telemetry.budgetRemainingM)}M`,
-          mitigation: "Keep the engineering score above 50 and preserve a small budget reserve for contingency operations."
+          mitigation: "Keep Engineering score above 50 and leave a little extra budget for surprises."
         },
         {
           id: "station_weather_delay",
           severity: "CADET",
-          title: "GROUND STATION WEATHER DELAY",
-          situation: "A storm closed the primary ground station for two passes. The remaining network must still close the link and preserve a small schedule reserve.",
+          title: "BAD WEATHER AT GROUND DISH",
+          situation: "A storm knocked out our main Earth radio dish for two passes. Backup dishes must still keep a clear signal and leave a small budget buffer.",
           check: (telemetry) => telemetry.budgetRemainingM >= telemetry.budgetCapM * 0.02 && telemetry.linkMarginDb >= 3,
-          metric: (telemetry) => `Link ${telemetry.linkMarginDb} dB (≥3) · Reserve $${Math.max(0, telemetry.budgetRemainingM)}M`,
-          mitigation: "Keep at least a 3 dB link margin and a 2% budget reserve for weather or scheduling delays."
+          metric: (telemetry) => `Signal ${telemetry.linkMarginDb} dB (≥3) · Reserve $${Math.max(0, telemetry.budgetRemainingM)}M`,
+          mitigation: "Keep at least 3 dB of radio signal margin and 2% of your budget in reserve for delays."
         },
         {
           id: "eclipse_thermal_transient",
           severity: "CADET",
-          title: "ECLIPSE THERMAL TRANSIENT",
-          situation: "An unexpected heater load appeared during eclipse. The battery and thermal system must absorb it without a brownout.",
+          title: "COLD SHADOW POWER SPIKE",
+          situation: "Heaters turned on higher than planned while flying through Earth's dark shadow. Your battery and cooling gear must handle the load.",
           check: (telemetry) => telemetry.batteryDodPct <= 85 && telemetry.thermalOk,
-          metric: (telemetry) => `Battery DoD ${telemetry.batteryDodPct}% (≤85%) · Thermal ${telemetry.thermalOk ? "NOMINAL" : "FAIL"}`,
-          mitigation: "Keep battery depth-of-discharge below 85% and pair the payload with adequate thermal rejection."
+          metric: (telemetry) => `Battery Drain ${telemetry.batteryDodPct}% (≤85%) · Heat Control ${telemetry.thermalOk ? "GOOD" : "FAIL"}`,
+          mitigation: "Keep battery drain below 85% and use strong enough heat shields and radiators."
         },
         // Engineer — realistic phase-A anomalies.
         {
           id: "cme_solar_storm",
           severity: "ENGINEER",
-          title: "CME SOLAR PARTICLE STORM",
-          situation: "A coronal mass ejection swept the spacecraft. Radiation shielding, thermal control and lifetime margin must all survive the storm.",
+          title: "SUN RADIATION STORM",
+          situation: "A burst of sun energy hit the ship. Your space shielding, temperature control, and parts lifespan must all hold up.",
           check: (telemetry) => telemetry.radiationOk && telemetry.thermalOk && telemetry.lifetimeOk,
-          metric: (telemetry) => `Rad ${telemetry.thm.radRatingKrad} krad · Heat ${telemetry.thm.thermalCapW} W · Life ${telemetry.estimatedLifetimeMonths} mo`,
-          mitigation: "Choose a thermal/radiation package rated for the mission environment and keep the lifetime margin positive."
+          metric: (telemetry) => `Shield Level ${telemetry.thm.radRatingKrad} · Cooling ${telemetry.thm.thermalCapW} W · Lifespan ${telemetry.estimatedLifetimeMonths} mo`,
+          mitigation: "Pick heat and shielding gear strong enough for this zone and keep part lifespan above target."
         },
         {
           id: "dsn_antenna_outage",
           severity: "ENGINEER",
-          title: "DSN 70 m ANTENNA OUTAGE",
-          situation: "The primary Deep Space Network dish went offline for maintenance. The remaining network must still downlink at least 85% of the science data with a healthy link margin.",
+          title: "MAIN EARTH DISH OFFLINE",
+          situation: "Our biggest Earth radio dish went down for repairs. Smaller backup dishes must still download at least 85% of your data clearly.",
           check: (telemetry) => telemetry.linkMarginDb >= 6 && telemetry.downlinkCapGbPerDay >= telemetry.dataGeneratedGbPerDay * 0.85,
-          metric: (telemetry) => `Link ${telemetry.linkMarginDb} dB (≥6) · ${telemetry.downlinkCapGbPerDay} / ${telemetry.dataGeneratedGbPerDay} GB/d`,
-          mitigation: "Use a higher-gain antenna or a denser ground network, and avoid generating more data than the backup network can carry."
+          metric: (telemetry) => `Signal ${telemetry.linkMarginDb} dB (≥6) · ${telemetry.downlinkCapGbPerDay} / ${telemetry.dataGeneratedGbPerDay} GB/d`,
+          mitigation: "Pick a stronger radio dish or more Earth stations, and don't make more data than backup dishes can download."
         },
         {
           id: "reaction_wheel_anomaly",
           severity: "ENGINEER",
-          title: "REACTION WHEEL BEARING ANOMALY",
-          situation: "One reaction wheel began drawing excess current. Propulsion must provide at least 100 m/s of attitude-control reserve while still completing the orbit insertion budget.",
+          title: "STEERING WHEEL WOBBLE",
+          situation: "One steering flywheel started sticking. Your engines need at least 100 m/s of extra fuel push to keep pointing steady.",
           check: (telemetry) => telemetry.deltaVOk && (telemetry.achievedDeltaV - telemetry.requiredDeltaV) >= 100,
-          metric: (telemetry) => `ΔV reserve ${Math.max(0, telemetry.achievedDeltaV - telemetry.requiredDeltaV)} m/s (≥100)`,
-          mitigation: "Select a propulsion system with at least 100 m/s of reserve above the orbit-insertion requirement."
+          metric: (telemetry) => `Extra Fuel Push ${Math.max(0, telemetry.achievedDeltaV - telemetry.requiredDeltaV)} m/s (≥100)`,
+          mitigation: "Pick an engine with at least 100 m/s of extra fuel push beyond what your flight path needs."
         },
         {
           id: "detector_degradation",
           severity: "ENGINEER",
-          title: "PAYLOAD DETECTOR DEGRADATION",
-          situation: "One detector channel degraded after launch. The remaining instruments must still deliver at least 75/100 science value.",
+          title: "SENSOR CHANNEL FADE",
+          situation: "One camera sensor dimmed after launch. Your remaining tools must still score at least 75/100 in science value.",
           check: (telemetry) => telemetry.scienceScore >= 75 && telemetry.selectedInsts.length >= 2,
-          metric: (telemetry) => `Science ${telemetry.scienceScore}/100 (≥75) · ${telemetry.selectedInsts.length} instruments`,
-          mitigation: "Carry at least two instruments and maintain science margin above the mission's required coverage."
+          metric: (telemetry) => `Science ${telemetry.scienceScore}/100 (≥75) · ${telemetry.selectedInsts.length} tools`,
+          mitigation: "Carry at least two science tools and stay well above the minimum science score."
         },
         {
           id: "launch_window_delay",
           severity: "ENGINEER",
-          title: "LAUNCH WINDOW SOLAR ACTIVITY DELAY",
-          situation: "Solar activity delayed the launch by three weeks. The mission must absorb the schedule cost while preserving its lifetime margin.",
+          title: "SOLAR WEATHER LAUNCH DELAY",
+          situation: "Sun storms pushed launch back by three weeks. Your plan must cover the delay cost and still last long enough in space.",
           check: (telemetry) => telemetry.budgetRemainingM >= telemetry.budgetCapM * 0.05 && telemetry.lifetimeOk,
-          metric: (telemetry) => `Reserve $${Math.max(0, telemetry.budgetRemainingM)}M (≥5%) · Life ${telemetry.estimatedLifetimeMonths} mo`,
-          mitigation: "Keep a 5% budget reserve and select components that meet the target lifetime with margin."
+          metric: (telemetry) => `Reserve $${Math.max(0, telemetry.budgetRemainingM)}M (≥5%) · Lifespan ${telemetry.estimatedLifetimeMonths} mo`,
+          mitigation: "Keep a 5% budget reserve and choose parts that last past the mission target."
         },
         // Director — severe anomalies.
         {
           id: "severe_x_class_cme",
           severity: "DIRECTOR",
-          title: "SEVERE X-CLASS CME",
-          situation: "An X-class solar storm struck the spacecraft. Shielding, thermal control, lifetime margin and the communications link must all survive simultaneously.",
+          title: "EXTREME SUN STORM",
+          situation: "A massive sun storm hit the ship. Shielding, cooling, part lifespan, and radio signal must all survive together.",
           check: (telemetry) => telemetry.radiationOk && telemetry.thermalOk && telemetry.lifetimeOk && telemetry.linkMarginDb >= 8,
-          metric: (telemetry) => `Rad ${telemetry.thm.radRatingKrad} krad · Link ${telemetry.linkMarginDb} dB (≥8) · Life ${telemetry.estimatedLifetimeMonths} mo`,
-          mitigation: "Use a hardened thermal/radiation package, a high-gain link and extra lifetime margin."
+          metric: (telemetry) => `Shield Level ${telemetry.thm.radRatingKrad} · Signal ${telemetry.linkMarginDb} dB (≥8) · Lifespan ${telemetry.estimatedLifetimeMonths} mo`,
+          mitigation: "Use top-grade heat and radiation shielding, a strong radio link, and extra part lifespan."
         },
         {
           id: "dsn_network_loss",
           severity: "DIRECTOR",
-          title: "DEEP SPACE NETWORK LOSS",
-          situation: "A network-wide failure removed the backup DSN assets. The spacecraft must close an 8 dB link and downlink 100% of its generated data using the remaining capacity.",
+          title: "BACKUP EARTH DISHES ONLY",
+          situation: "Major Earth antennas went offline. Your ship must keep an 8 dB signal and send 100% of its science data through remaining dishes.",
           check: (telemetry) => telemetry.linkMarginDb >= 8 && telemetry.downlinkCapGbPerDay >= telemetry.dataGeneratedGbPerDay,
-          metric: (telemetry) => `Link ${telemetry.linkMarginDb} dB (≥8) · ${telemetry.downlinkCapGbPerDay} / ${telemetry.dataGeneratedGbPerDay} GB/d`,
-          mitigation: "Design for full data downlink with an 8 dB margin, not just the 3 dB minimum."
+          metric: (telemetry) => `Signal ${telemetry.linkMarginDb} dB (≥8) · ${telemetry.downlinkCapGbPerDay} / ${telemetry.dataGeneratedGbPerDay} GB/d`,
+          mitigation: "Build enough radio strength to send 100% of your data with an 8 dB cushion."
         },
         {
           id: "power_bus_arc_fault",
           severity: "DIRECTOR",
-          title: "POWER BUS ARC FAULT",
-          situation: "An arc fault degraded one power bus. The spacecraft must hold battery depth-of-discharge at or below 60% and retain a 10% daylight power margin.",
+          title: "SOLAR WIRING SHORT CIRCUIT",
+          situation: "A short circuit weakened one power line. Keep battery drain at 60% or less and hold a 10% extra sunlight power cushion.",
           check: (telemetry) => telemetry.batteryDodPct <= 60 && telemetry.netDaylightMarginW >= telemetry.totalPowerLoadW * 0.1,
-          metric: (telemetry) => `DoD ${telemetry.batteryDodPct}% (≤60%) · Margin ${telemetry.netDaylightMarginW} W (≥10%)`,
-          mitigation: "Oversize solar generation and battery capacity beyond the standard 80% DoD limit."
+          metric: (telemetry) => `Battery Drain ${telemetry.batteryDodPct}% (≤60%) · Cushion ${telemetry.netDaylightMarginW} W (≥10%)`,
+          mitigation: "Bring extra solar panels and a larger battery so drain stays way under the normal 80% limit."
         },
         {
           id: "primary_instrument_failure",
           severity: "DIRECTOR",
-          title: "PRIMARY INSTRUMENT FAILURE",
-          situation: "The primary science instrument failed. The remaining payload must still deliver at least 85/100 science value across the required science types.",
+          title: "MAIN SCIENCE TOOL GLITCH",
+          situation: "Your main science tool stopped working. Remaining tools must still deliver at least 85/100 science value.",
           check: (telemetry) => telemetry.scienceScore >= 85 && telemetry.selectedInsts.length >= 3,
-          metric: (telemetry) => `Science ${telemetry.scienceScore}/100 (≥85) · ${telemetry.selectedInsts.length} instruments`,
-          mitigation: "Carry at least three instruments and keep science value well above the minimum threshold."
+          metric: (telemetry) => `Science ${telemetry.scienceScore}/100 (≥85) · ${telemetry.selectedInsts.length} tools`,
+          mitigation: "Pack at least three science tools so backup sensors still hit high science scores."
+        },
+        // BioNutrients — payload-specific anomalies so the low-cost lab scenario
+        // remains achievable without the deep-space antenna requirements.
+        {
+          id: "bio_incubator_drift",
+          severity: "CADET",
+          bio: true,
+          title: "WARMER TEMPERATURE DRIFT",
+          situation: "The Space Station yeast warmer drifted slightly off heat. Your power and temp gear must keep yeast at the exact right warmth.",
+          check: (telemetry) => telemetry.bioTelemetry.tempMatch && telemetry.powerOk,
+          metric: (telemetry) => `Warmer ${telemetry.bioTelemetry.thermal.incubateTempC}°C · Power ${telemetry.powerOk ? "GOOD" : "FAIL"}`,
+          mitigation: "Match the 30°C yeast warmth setting and stay within the Station power limit."
+        },
+        {
+          id: "bio_bag_contamination",
+          severity: "ENGINEER",
+          bio: true,
+          title: "GERM CHECK ON SAMPLE BAG",
+          situation: "One nutrient bag triggered a germ warning. Your germ filter, bag count, and water amount must still pass the Space Food Lab test.",
+          check: (telemetry) => telemetry.bioTelemetry.sterileOk && telemetry.bioTelemetry.replicatesOk && telemetry.bioTelemetry.sampleVolOk,
+          metric: (telemetry) => `${telemetry.bioTelemetry.protocol.replicates} bags · ${telemetry.bioTelemetry.protocol.sampleVolMl} mL · ${telemetry.bioTelemetry.protocol.contaminationCfu} germs`,
+          mitigation: "Use the ultra-light clear pouch with a germ filter, at least 12 bags, and 30 mL of water per bag."
+        },
+        {
+          id: "bio_freezer_power_loss",
+          severity: "DIRECTOR",
+          bio: true,
+          title: "-80°C FREEZER POWER GLITCH",
+          situation: "A brief power dip hit the -80°C freezer. Keep enough power, freezing, and Station signal so samples stay safely frozen.",
+          check: (telemetry) => telemetry.bioTelemetry.melfiOk && telemetry.powerOk && telemetry.commsOk,
+          metric: (telemetry) => `Freezer ${telemetry.bioTelemetry.thermal.storageTempC}°C · Signal ${telemetry.linkMarginDb} dB`,
+          mitigation: "Include the -80°C ultra-cold freezer and keep a clear Earth radio link."
         }
       ];
 
-      const pool = events.filter((event) => event.severity === difficulty.toUpperCase());
-      const usable = pool.length ? pool : events.filter((event) => event.severity === "ENGINEER");
+      const isBio = !!t.isBio;
+      const difficultyKey = difficulty.toUpperCase();
+      const matchesBio = (event) => !!event.bio === isBio;
+      let usable = events.filter((event) => event.severity === difficultyKey && matchesBio(event));
+      if (!usable.length) {
+        usable = events.filter((event) => event.severity === "ENGINEER" && matchesBio(event));
+      }
+      if (!usable.length) {
+        usable = events.filter(matchesBio);
+      }
+      if (!usable.length) return null;
       let hash = (Number(seed) || 1) >>> 0;
       hash ^= difficulty === "director" ? 0x9e3779b9 : difficulty === "cadet" ? 0x85ebca6b : 0xc2b2ae35;
       hash = Math.imul(hash ^ (hash >>> 16), 2246822507);
@@ -5155,94 +5269,94 @@
         const phases = isBio
           ? [
               {
-                phase: "PHASE 1 · LAUNCH SEGMENT (CYGNUS NG-18 AMBIENT STOW)",
+                phase: "STAGE 1 · TRIP TO SPACE STATION (SUPPLY SHIP)",
                 ok: t.segments.launch.ok,
                 metric: `${bio.bag.containerMassG}g (<250g) · ${bio.bag.kitVolumeMl}mL (<300mL) · $${t.totalCostM}M/$${t.budgetCapM}M`,
                 detail: t.segments.launch.ok
-                  ? `${t.lv.name} carried BioNutrients-2 soft-stowed foil kits (4 Production Bags + 4 Filters) at room temperature to ISS 418 km, slashing mass & volume vs BioNutrients-1.`
-                  : `LAUNCH/HARDWARE HOLD: Check ISS LEO destination, ${t.lv.name.split("(")[0].trim()}, container mass (${bio.bag.containerMassG}g < 250g), volume (${bio.bag.kitVolumeMl}mL < 300mL), or -002 cover.`
+                  ? `${t.lv.name} carried our light clear pouches (4 sample pouches + 4 filters) at room temperature to the Space Station at 418 km, beating older bulky kits.`
+                  : `FIX LAUNCH/BAG: Check Space Station 418 km destination, ${t.lv.name.split("(")[0].trim()}, empty pouch under 250g (${bio.bag.containerMassG}g), kit under 300mL (${bio.bag.kitVolumeMl}mL), or Station safety lock cap.`
               },
               {
-                phase: "PHASE 2 · SPACE HYDRATION & STERILITY (PWD -> FILTER -> VALVE)",
+                phase: "STAGE 2 · ADD WATER & KEEP GERMS OUT (CLEAN WATER -> FILTER -> LOCK CAP)",
                 ok: bio.sterileOk && bio.replicatesOk && bio.sampleVolOk && bio.filmMatch,
-                metric: `${bio.protocol.replicates}×${bio.protocol.sampleVolMl} mL · ${bio.bag.shortLabel} · ${bio.protocol.contaminationCfu} CFU`,
+                metric: `${bio.protocol.replicates}×${bio.protocol.sampleVolMl} mL · ${bio.bag.shortLabel} · ${bio.protocol.contaminationCfu} germs`,
                 detail: (bio.sterileOk && bio.replicatesOk && bio.sampleVolOk)
-                  ? `ISS crew drew PWD water into 1L bag, syringe-injected through 0.2µm sterile filter + needlefree swabable barb valve (-002), removed filter & shook 1 min across ${bio.protocol.replicates} replicates.`
-                  : `HYDRATION/STERILITY FAIL: Verify 3mil FEP (-002), 0.2µm sterile filtration, >=12 replicates, and >=30 mL sample volume.`
+                  ? `Astronauts drew clean Space Station drinking water into a mixing bag, pushed it through a tiny germ filter + safety lock cap, took off the filter, and shook 1 min across ${bio.protocol.replicates} pouches.`
+                  : `CLEANLINESS FIX: Pick the Thin Clear Pouch + Station Lock Cap, turn on the germ filter, pack >=12 sample bags, and use >=30 mL water each.`
               },
               {
-                phase: "PHASE 3 · SPACE INCUBATION (30°C + 6h SHAKE -> MELFI -80°C)",
+                phase: "STAGE 3 · KEEP WARM (30°C + 6h SHAKE -> -80°C FREEZER)",
                 ok: t.powerOk && bio.tempMatch && bio.shake6hOk && bio.melfiOk,
-                metric: `Incubator: ${bio.thermal.incubateTempC}°C (Req ${bio.organism.targetTempC}°C) · 6h Shake: ${bio.shake6hOk ? "YES" : "NO"} · MELFI: ${bio.thermal.storageTempC}°C`,
+                metric: `Warmer: ${bio.thermal.incubateTempC}°C (Needs ${bio.organism.targetTempC}°C) · 6h Shake: ${bio.shake6hOk ? "YES" : "NO"} · Freezer: ${bio.thermal.storageTempC}°C`,
                 detail: (t.powerOk && bio.tempMatch && bio.shake6hOk && bio.melfiOk)
-                  ? `Incubated yeast at 30°C with ~1 min shake at 6 hours, then packed bags inside protective overwrap & cryopreserved at -80°C inside ISS MELFI.`
-                  : `INCUBATION/FREEZE HOLD: Ensure 30°C incubator match for Yeast, mandatory 6-hour shake, adequate rack power, and MELFI (-80°C) freezer storage.`
+                  ? `Kept yeast warm at 30°C with a quick 1-minute shake at 6 hours, then wrapped the pouches and froze them at -80°C inside the Station's ultra-cold freezer.`
+                  : `WARMER/FREEZER FIX: Match 30°C warmer for Helpful Yeast, include the 6-hour shake, keep enough electricity on, and use the -80°C ultra-cold freezer.`
               },
               {
-                phase: "PHASE 4 · GROUND CONSOLE (REAL-TIME INITIATION & TELEMETRY)",
+                phase: "STAGE 4 · EARTH TEAM MONITORING (LIVE CHECK-IN & TEMPERATURE WATCH)",
                 ok: t.segments.ground.ok,
-                metric: `${t.gnd.name} · +${t.linkMarginDb} dB Link · ${t.downlinkCapGbPerDay}/${t.dataGeneratedGbPerDay} GB/d`,
+                metric: `${t.gnd.name} · +${t.linkMarginDb} dB Signal · ${t.downlinkCapGbPerDay}/${t.dataGeneratedGbPerDay} GB/day`,
                 detail: t.segments.ground.ok
-                  ? `Science & engineering team monitored live crew initiation on console and verified continuous ${bio.thermal.incubateTempC}°C & -80°C MELFI thermal logs via ${t.com.name}.`
-                  : `TELEMETRY HOLD: Insufficient RF link margin (${t.linkMarginDb} dB) or ground thermal monitoring mismatch.`
+                  ? `The Earth support team watched astronauts start the kit live and tracked steady ${bio.thermal.incubateTempC}°C warming & ${bio.thermal.storageTempC}°C freezer logs through ${t.com.name}.`
+                  : `RADIO FIX: Radio signal (${t.linkMarginDb} dB) or ground monitoring needs a boost.`
               },
               {
-                phase: "PHASE 5 · USER SEGMENT (THAW -> WASH -> CENTRIFUGE -> ANALYZE)",
+                phase: "STAGE 5 · EARTH LAB CHECK (THAW -> WASH -> SPIN -> MEASURE VITAMINS)",
                 ok: t.segments.user.ok,
-                metric: `Beta-Carotene: ${bio.betaCaroteneUgMl} µg/mL (≥3) · DCW: ${bio.dryCellWeightMg} mg (≥1) · Sci: ${t.scienceScore}/100`,
+                metric: `Vitamin A: ${bio.betaCaroteneUgMl} mg/L (≥3.0) · Yeast Wt: ${bio.dryCellWeightMg} mg (≥1.0) · Sci: ${t.scienceScore}/100`,
                 detail: t.segments.user.ok
-                  ? `Post-flight Earth lab completed Delivery -> Thaw -> Empty & Wash -> Centrifuge -> Assay, measuring ${bio.betaCaroteneUgMl} µg/mL beta-carotene & ${bio.dryCellWeightMg} mg dry cell weight across ${bio.protocol.replicates} zero-contamination replicates.`
-                  : `ASSAY FAILURE: Returned sample metrics (${bio.betaCaroteneUgMl} µg/mL beta-carotene, ${bio.dryCellWeightMg} mg DCW) fell below BioNutrients-2 publication thresholds.`
+                  ? `Back on Earth, scientists thawed the pouches, washed and spun out the yeast, and measured ${bio.betaCaroteneUgMl} mg/L of Vitamin A nutrient & ${bio.dryCellWeightMg} mg of yeast across ${bio.protocol.replicates} clean, germ-free bags.`
+                  : `LAB TEST FAIL: Returned nutrient levels (${bio.betaCaroteneUgMl} mg/L Vitamin A, ${bio.dryCellWeightMg} mg yeast) fell short of mission goals.`
               }
             ]
           : [
               {
-                phase: "PHASE 1 · LAUNCH & ASCENT",
+                phase: "STAGE 1 · ROCKET LIFTOFF & WEIGHT CHECK",
                 ok: t.massOk && t.budgetOk,
-                metric: `${t.wetMassKg} / ${t.lvCapacityKg} kg (${t.massMarginPct}% margin) · $${t.totalCostM}M / $${t.budgetCapM}M`,
+                metric: `${t.wetMassKg} / ${t.lvCapacityKg} kg (${t.massMarginPct}% spare) · $${t.totalCostM}M / $${t.budgetCapM}M`,
                 detail: t.massOk && t.budgetOk
-                  ? `${t.lv.name} cleared the tower at LC-39A and injected the ${t.wetMassKg} kg spacecraft onto its transfer trajectory with $${Math.max(0, t.budgetRemainingM)}M budget reserve.`
+                  ? `${t.lv.name} lifted off the launch pad and carried your ${t.wetMassKg} kg spacecraft onto its space path with $${Math.max(0, t.budgetRemainingM)}M left in budget.`
                   : !t.massOk
-                    ? `FAILURE: Spacecraft wet mass (${t.wetMassKg} kg) exceeded ${t.lv.name} capacity (${t.lvCapacityKg} kg) for ${t.orbit.name}.`
-                    : `BUDGET OVERRUN: Total cost ($${t.totalCostM}M) exceeded the $${t.budgetCapM}M cap by $${Math.abs(t.budgetRemainingM)}M.`
+                    ? `TOO HEAVY: Your spacecraft (${t.wetMassKg} kg) exceeds ${t.lv.name} lift limit (${t.lvCapacityKg} kg) for ${t.orbit.name}.`
+                    : `OVER BUDGET: Total cost ($${t.totalCostM}M) went past the $${t.budgetCapM}M limit by $${Math.abs(t.budgetRemainingM)}M.`
               },
               {
-                phase: "PHASE 2 · ORBITAL INSERTION & PROPULSION BURN",
+                phase: "STAGE 2 · ENGINE PUSH & STEERING FUEL",
                 ok: t.deltaVOk,
-                metric: `Achieved ΔV: ${t.achievedDeltaV} m/s vs Required: ${t.requiredDeltaV} m/s`,
+                metric: `Fuel Push: ${t.achievedDeltaV} m/s vs Needed: ${t.requiredDeltaV} m/s`,
                 detail: t.deltaVOk
-                  ? `${t.prop.name} executed orbital insertion burn cleanly, leaving ${t.achievedDeltaV - t.requiredDeltaV} m/s of station-keeping propellant reserve.`
-                  : `FAILURE: ${t.prop.name} only provided ${t.achievedDeltaV} m/s, falling short of the ${t.requiredDeltaV} m/s required to capture into ${t.orbit.name}.`
+                  ? `${t.prop.name} pushed into your target flight path cleanly, leaving ${t.achievedDeltaV - t.requiredDeltaV} m/s of extra steering fuel.`
+                  : `NOT ENOUGH FUEL: ${t.prop.name} only gives ${t.achievedDeltaV} m/s, short of the ${t.requiredDeltaV} m/s needed for ${t.orbit.name}.`
               },
               {
-                phase: "PHASE 3 · SOLAR ARRAY DEPLOYMENT & ECLIPSE POWER TEST",
+                phase: "STAGE 3 · SOLAR PANELS & NIGHT SHADOW BATTERY",
                 ok: t.powerOk,
-                metric: `Load: ${t.totalPowerLoadW} W vs Gen: ${t.daylightGenW} W · Eclipse DoD: ${t.batteryDodPct}%`,
+                metric: `Used: ${t.totalPowerLoadW} W vs Made: ${t.daylightGenW} W · Night Battery Used: ${t.batteryDodPct}%`,
                 detail: t.powerOk
-                  ? `${t.pwr.name} generated ${t.daylightGenW} W in sunlight (+${t.netDaylightMarginW} W net margin) and ${t.bat.name} sustained all instruments through ${Math.round(t.eclipseHours * 60)}-min eclipses at ${t.batteryDodPct}% DoD.`
-                  : `BROWNOUT: Continuous payload load (${t.totalPowerLoadW} W) + recharge exceeded solar capacity or drained battery past 80% Depth-of-Discharge (${t.batteryDodPct}%).`
+                  ? `${t.pwr.name} made ${t.daylightGenW} W in sunlight (+${t.netDaylightMarginW} W spare) and ${t.bat.name} kept everything running through ${Math.round(t.eclipseHours * 60)}-min night shadows using ${t.batteryDodPct}% battery.`
+                  : `POWER OUTAGE: Running gear (${t.totalPowerLoadW} W) + charging needed more power than solar panels made, or drained the battery past the safe 80% limit (${t.batteryDodPct}% used).`
               },
               {
-                phase: "PHASE 4 · SPACE WEATHER EVENT (CME SOLAR PARTICLE STORM)",
+                phase: "STAGE 4 · SPACE WEATHER STORM & COOLING CHECK",
                 ok: t.thermalOk && t.radiationOk && t.lifetimeOk,
-                metric: `Vault: ${t.thm.radRatingKrad} krad · Heat Cap: ${t.thm.thermalCapW} W · Life: ${t.estimatedLifetimeMonths} mo`,
+                metric: `Shield Level ${t.thm.radRatingKrad} · Cooling ${t.thm.thermalCapW} W · Life ${t.estimatedLifetimeMonths} mo`,
                 detail: t.thermalOk && t.radiationOk && t.lifetimeOk
-                  ? `${t.thm.name} absorbed a Coronal Mass Ejection solar storm without single-event latchup, sustaining full operations across ${t.estimatedLifetimeMonths} months.`
-                  : `DEGRADATION: Radiation dose or waste heat (${t.totalPowerLoadW} W) exceeded ${t.thm.name} limits, shortening lifetime to ${t.estimatedLifetimeMonths} months (target ${t.scenario.targetLifetimeMonths} mo).`
+                  ? `${t.thm.name} protected electronics through a strong solar storm without glitches, lasting a full ${t.estimatedLifetimeMonths} months.`
+                  : `DAMAGE RISK: Space radiation or trapped heat (${t.totalPowerLoadW} W) overpowered ${t.thm.name}, cutting life to ${t.estimatedLifetimeMonths} months (goal ${t.scenario.targetLifetimeMonths} mo).`
               },
               {
-                phase: "PHASE 5 · SCIENCE CAMPAIGN & DEEP-SPACE DATA DOWNLINK",
+                phase: "STAGE 5 · SCIENCE CAMERAS & SENDING DATA HOME",
                 ok: t.commsOk && t.scienceScore >= 60,
-                metric: `${t.downlinkCapGbPerDay} GB/d Downlink vs ${t.dataGeneratedGbPerDay} GB/d · Link: ${t.linkMarginDb} dB · Sci: ${t.scienceScore}/100`,
+                metric: `${t.downlinkCapGbPerDay} GB/day sent vs ${t.dataGeneratedGbPerDay} GB/day · Signal: ${t.linkMarginDb} dB · Sci: ${t.scienceScore}/100`,
                 detail: t.commsOk
-                  ? `${t.com.name} linked with ${t.gnd.name} at +${t.linkMarginDb} dB carrier margin, transmitting 100% of ${t.dataGeneratedGbPerDay} GB/day science telemetry from ${t.selectedInsts.length} instruments.`
-                  : `DATA BOTTLENECK: Link margin (${t.linkMarginDb} dB) or downlink capacity (${t.downlinkCapGbPerDay} GB/d) could not transmit the ${t.dataGeneratedGbPerDay} GB/d generated by the payload.`
+                  ? `${t.com.name} connected with ${t.gnd.name} at +${t.linkMarginDb} dB signal strength, sending 100% of ${t.dataGeneratedGbPerDay} GB/day science data from ${t.selectedInsts.length} tools.`
+                  : `SIGNAL TOO WEAK: Signal strength (${t.linkMarginDb} dB) or download speed (${t.downlinkCapGbPerDay} GB/day) couldn't send all ${t.dataGeneratedGbPerDay} GB/day from your tools.`
               }
             ];
 
         if (missionEvent) {
           phases.push({
-            phase: `PHASE ${phases.length + 1} · SEEDED ANOMALY: ${missionEvent.title}`,
+            phase: `STAGE ${phases.length + 1} · SURPRISE CHALLENGE: ${missionEvent.title}`,
             ok: missionEvent.ok,
             metric: missionEvent.metric,
             detail: missionEvent.detail
@@ -5259,18 +5373,18 @@
           <div style="padding:10px 12px;border-radius:8px;background:rgba(167,139,250,0.06);border:1px solid rgba(167,139,250,0.28);margin-bottom:10px;">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
               <span style="font-family:monospace;font-size:9.5px;font-weight:700;color:#ddd6fe;">
-                ${t.analogue.agencyTag} HERITAGE MATCH: <strong style="color:#ffffff;">${t.analogue.missions}</strong>
+                ${t.analogue.agencyTag} REAL NASA INSPIRATION: <strong style="color:#ffffff;">${t.analogue.missions}</strong>
               </span>
               <span style="font-family:monospace;font-size:9.5px;color:#7dd3fc;">
-                ${t.disposalOk ? `PASS EoM ${t.disposal.deorbitYears} yr COMPLIANT` : "WARN EoM NON-COMPLIANT"}
+                ${t.disposalOk ? `PASS ${t.disposal.deorbitYears} yr SAFE CLEANUP` : "NEEDS SAFE CLEANUP PLAN"}
               </span>
             </div>
             <canvas id="sim-science-canvas" width="700" height="150" style="width:100%;height:150px;border-radius:6px;border:1px solid rgba(103,232,249,0.28);display:block;margin-bottom:8px;"></canvas>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:6px;">
               ${t.riskMatrix.map((r) => `
                 <div style="padding:5px 7px;border-radius:5px;background:rgba(0,0,0,0.35);border-left:3px solid ${r.level === "GREEN" ? "#4ade80" : r.level === "AMBER" ? "#fbbf24" : "#ef4444"};">
-                  <div style="font-family:monospace;font-size:8.5px;font-weight:700;color:#e2e8f0;">${r.subsystem} (${r.level})</div>
-                  <div style="font-family:monospace;font-size:8px;color:#94a3b8;">L:${r.likelihood} / C:${r.consequence}</div>
+                  <div style="font-family:monospace;font-size:8.5px;font-weight:700;color:#e2e8f0;">${r.subsystem} (${r.level === "GREEN" ? "GOOD" : r.level === "AMBER" ? "TIGHT" : "NEEDS FIX"})</div>
+                  <div style="font-family:monospace;font-size:8px;color:#94a3b8;">Chance:${r.likelihood} / Impact:${r.consequence}</div>
                 </div>
               `).join("")}
             </div>
@@ -5280,7 +5394,7 @@
             <div style="padding:10px 12px;border-radius:8px;background:${missionEvent.ok ? "rgba(74,222,128,0.07)" : "rgba(239,68,68,0.08)"};border:1px solid ${missionEvent.ok ? "rgba(74,222,128,0.4)" : "rgba(239,68,68,0.45)"};margin-bottom:10px;">
               <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
                 <span style="font-family:monospace;font-size:9.5px;font-weight:800;letter-spacing:1.1px;color:${missionEvent.ok ? "#86efac" : "#fca5a5"};">
-                  SEEDED MISSION ANOMALY · ${missionEvent.severity} · SEED ${missionSeed}
+                  SURPRISE MISSION TEST · ${missionEvent.severity === "CADET" ? "BEGINNER" : missionEvent.severity === "DIRECTOR" ? "EXPERT" : "NORMAL"}
                 </span>
                 <span style="font-family:monospace;font-size:9px;font-weight:800;padding:2px 7px;border-radius:4px;background:${missionEvent.ok ? "rgba(74,222,128,0.16)" : "rgba(239,68,68,0.16)"};color:${missionEvent.ok ? "#4ade80" : "#f87171"};">
                   ${missionEvent.ok ? "SURVIVED" : "FAILED"}
@@ -5289,8 +5403,8 @@
               <div style="font-size:13px;font-weight:700;color:#f8fafc;margin-top:3px;">${missionEvent.title}</div>
               <div style="font-size:11px;color:#cbd5e1;line-height:1.45;margin-top:3px;">${missionEvent.situation}</div>
               <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:6px;margin-top:7px;">
-                <div style="font-family:monospace;font-size:9.5px;color:${missionEvent.ok ? "#86efac" : "#fbbf24"};">CONSTRAINT: ${missionEvent.metric}</div>
-                <div style="font-family:monospace;font-size:9.5px;color:#94a3b8;">MITIGATION: ${missionEvent.mitigation}</div>
+                <div style="font-family:monospace;font-size:9.5px;color:${missionEvent.ok ? "#86efac" : "#fbbf24"};">CHECK: ${missionEvent.metric}</div>
+                <div style="font-family:monospace;font-size:9.5px;color:#94a3b8;">TIP: ${missionEvent.mitigation}</div>
               </div>
             </div>
           ` : ""}
@@ -5298,10 +5412,10 @@
           <div style="padding:12px;border-radius:8px;background:rgba(0,0,0,0.42);border:1px solid rgba(255,255,255,0.12);margin-bottom:12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
               <span style="font-family:monospace;font-size:10.5px;font-weight:700;letter-spacing:1.4px;color:#67e8f9;">
-                INTEGRATED FLIGHT SIMULATION & POST-MISSION ENGINEERING REPORT
+                FULL TEST FLIGHT &amp; MISSION REPORT CARD
               </span>
               <span style="font-family:monospace;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;background:${allNominal ? "rgba(74,222,128,0.15)" : "rgba(251,191,36,0.15)"};color:${allNominal ? "#4ade80" : "#fbbf24"};">
-                ${allNominal ? "MISSION RATING: GRADE A (FLIGHT QUALIFIED)" : `MISSION RATING: ${t.overallScore}/100 (NEEDS REFINEMENT)`}
+                ${allNominal ? "MISSION GRADE: A (READY TO FLY!)" : `MISSION SCORE: ${t.overallScore}/100 (NEEDS TWEAKS)`}
               </span>
             </div>
 
@@ -5312,7 +5426,7 @@
                   <div style="padding:9px 11px;border-radius:6px;background:rgba(255,255,255,0.025);border-left:3px solid ${p.ok ? "#4ade80" : "#ef4444"};">
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
                       <span style="font-family:monospace;font-size:10px;font-weight:700;color:${p.ok ? "#a7f3d0" : "#fca5a5"};">
-                        ${p.ok ? "[PASS] " : "[FAIL] "}${p.phase}
+                        ${p.ok ? "[PASS] " : "[FIX] "}${p.phase}
                       </span>
                       <span style="font-family:monospace;font-size:9.5px;color:#cbd5e1;">${p.metric}</span>
                     </div>
@@ -5327,20 +5441,20 @@
           <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
               <button type="button" id="btn-sim-lunar-3d" style="padding:9px 12px;border-radius:4px;border:1px solid rgba(56,189,248,0.45);background:rgba(37,99,235,0.14);color:#93c5fd;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
-                LUNAR 3D [K]
+                3D MOON [K]
               </button>
               <button type="button" id="btn-sim-export-json" style="padding:9px 12px;border-radius:4px;border:1px solid rgba(148,163,184,0.28);background:rgba(255,255,255,0.04);color:#cbd5e1;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
-                EXPORT MDL (.JSON)
+                SAVE PLAN (.JSON)
               </button>
               <button type="button" id="btn-sim-export-gmat" style="padding:9px 12px;border-radius:4px;border:1px solid rgba(103,232,249,0.45);background:rgba(103,232,249,0.12);color:#67e8f9;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
-                EXPORT GMAT (.SCRIPT)
+                EXPORT 3D PATH
               </button>
               <button type="button" id="btn-sim-edit-arch" style="padding:9px 12px;border-radius:4px;border:1px solid rgba(148,163,184,0.28);background:rgba(255,255,255,0.04);color:#f8fafc;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
-                EDIT DESIGN
+                EDIT PLAN
               </button>
             </div>
             <button type="button" id="btn-commit-sim" style="padding:10px 22px;border-radius:6px;border:1px solid ${allNominal ? "#4ade80" : "#fbbf24"};background:${allNominal ? "#ece7dc" : "rgba(251,191,36,0.22)"};color:${allNominal ? "#05060a" : "#fef08a"};font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1.4px;cursor:pointer;">
-              ${allNominal ? "LAUNCH FULL MISSION SIMULATION & COMPLETE" : "COMPLETE WITH CURRENT DESIGN (" + t.overallScore + "/100)"}
+              ${allNominal ? "FINISH &amp; SAVE MISSION REPORT" : "FIX RED STEPS TO FINISH (" + t.overallScore + "/100)"}
             </button>
           </div>
         `;
@@ -5373,24 +5487,31 @@
         if (btnEdit) {
           btnEdit.addEventListener("click", () => {
             this.closeTaskModal();
-            this.showToast("Walk to any station console [E] to adjust Orbit, Bus, Power, Instruments, or Propulsion and re-simulate!");
+            this.showToast("Walk to any workstation [E] to change your Flight Path, Spacecraft Body, Power, Science Tools, or Engines and re-test!");
           });
         }
 
         const commitBtn = container.querySelector("#btn-commit-sim");
         if (commitBtn) {
           commitBtn.addEventListener("click", () => {
+            if (!allNominal) {
+              if (typeof this.showToast === "function") {
+                this.showToast("Your mission isn't ready to launch yet — fix any failed test steps or bring your score up to 75+.");
+              }
+              return;
+            }
             this.missionDesign.lastSimulationReport = t;
             const onlineInRoom = !!(window.netManager && window.netManager.connected && window.netManager.roomId);
             const alreadyVictory = !!(window.netManager && window.netManager.roomState && window.netManager.roomState.status === "victory");
-            this.finishTask(task, false);
+            const validation = this.buildMissionValidationSnapshot(t, missionEvent, phases, allNominal);
+            this.finishTask(task, false, { evaluation: validation });
             if (!onlineInRoom || alreadyVictory) {
               setTimeout(() => {
                 if (alreadyVictory && typeof this.reopenVictory === "function") {
                   this.reopenVictory();
                 } else {
                   this.showVictory(
-                    `${t.scenario.name} completed with Overall Score ${t.overallScore}/100 (Science ${t.scienceScore}/100 · Engineering ${t.engineeringScore}/100 · Budget $${t.totalCostM}M/$${t.budgetCapM}M · Mass ${t.wetMassKg}/${t.lvCapacityKg} kg · ΔV ${t.achievedDeltaV} m/s · Lifetime ${t.estimatedLifetimeMonths} mo).`,
+                    `${t.scenario.name} finished with Score ${t.overallScore}/100 (Science ${t.scienceScore}/100 · Engineering ${t.engineeringScore}/100 · Budget $${t.totalCostM}M/$${t.budgetCapM}M · Weight ${t.wetMassKg}/${t.lvCapacityKg} kg · Fuel Push ${t.achievedDeltaV} m/s · Lifespan ${t.estimatedLifetimeMonths} mo).`,
                     this.lastDebrief
                   );
                 }
@@ -5553,8 +5674,9 @@
 
       const data = debrief || {};
       const scenarioCode = data.scenarioCode || "LUNASPIS";
-      const scenarioName = data.scenarioName || "Co-op Expedition";
-      const difficulty = String(data.difficultyId || "engineer").toUpperCase();
+      const scenarioName = data.scenarioName || "Team Mission";
+      const diffNames = { cadet: "BEGINNER", engineer: "NORMAL", director: "EXPERT" };
+      const difficulty = diffNames[String(data.difficultyId || "").toLowerCase()] || String(data.difficultyId || "NORMAL").toUpperCase();
       const durationSec = Math.max(0, Math.round((data.durationMs || 0) / 1000));
       const durationText = `${String(Math.floor(durationSec / 60)).padStart(2, "0")}:${String(durationSec % 60).padStart(2, "0")}`;
       const completedCount = Array.isArray(data.completedObjectives) ? data.completedObjectives.length : 0;
@@ -5564,20 +5686,27 @@
         title.textContent = `${scenarioCode} · MISSION COMPLETE`;
         title.style.color = "#67e8f9";
       }
-      if (icon) icon.textContent = "LUNASPIS // MISSION DEBRIEF";
+      if (icon) icon.textContent = "LUNASPIS // MISSION SUMMARY";
       if (msg) {
-        msg.textContent = reason || `${scenarioName} — all ${totalCount} shared objectives verified by the crew.`;
+        msg.textContent = reason || `${scenarioName} — all ${totalCount} team steps finished and verified.`;
       }
 
       if (details) {
         const crew = Array.isArray(data.crew) ? data.crew : [];
         const crewRows = crew.map((member) => `
           <div style="display:flex;justify-content:space-between;gap:12px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
-            <span style="color:#ece7dc;">${this._escapeHtml(member.name || "Astronaut")}</span>
-            <span style="color:#9aa4ae;font-family:monospace;font-size:10px;">${this._escapeHtml(String(member.role || "crew").toUpperCase())} · ${Number(member.tasksDone || 0)} TASKS</span>
+            <span style="color:#ece7dc;">${this._escapeHtml(member.name || "Player")}</span>
+            <span style="color:#9aa4ae;font-family:monospace;font-size:10px;">${this._escapeHtml(String(member.role || "crew").toUpperCase())} · ${Number(member.tasksDone || 0)} STEPS</span>
           </div>
         `).join("");
         const evalSummary = this.evaluateMissionDesign();
+        const serverResult = data.result && typeof data.result === "object" ? data.result : null;
+        const finalScore = serverResult ? serverResult.overallScore : evalSummary.overallScore;
+        const finalCmlLevel = serverResult ? serverResult.cmlLevel : evalSummary.cmlLevel;
+        const eventInfo = serverResult && serverResult.event ? serverResult.event : this.lastMissionEvent;
+        const validationBadge = serverResult
+          ? `<span style="font-family:monospace;font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;background:rgba(74,222,128,0.14);border:1px solid rgba(74,222,128,0.4);color:#86efac;">SERVER VALIDATED</span>`
+          : "";
         details.innerHTML = `
           <div style="display:grid;grid-template-columns:repeat(2,minmax(150px,1fr));gap:8px;margin-bottom:10px;text-align:left;">
             <div style="padding:8px 10px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;background:rgba(255,255,255,0.03);">
@@ -5585,39 +5714,39 @@
               <div style="font-family:monospace;font-size:15px;color:#67e8f9;">${durationText}</div>
             </div>
             <div style="padding:8px 10px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;background:rgba(255,255,255,0.03);">
-              <div style="font-family:monospace;font-size:9px;color:#9aa4ae;letter-spacing:1px;">OBJECTIVES & SCORE</div>
-              <div style="font-family:monospace;font-size:15px;color:#34d399;">${completedCount} / ${totalCount} (${evalSummary.overallScore}/100)</div>
+              <div style="font-family:monospace;font-size:9px;color:#9aa4ae;letter-spacing:1px;">STEPS &amp; SCORE ${validationBadge}</div>
+              <div style="font-family:monospace;font-size:15px;color:#34d399;">${completedCount} / ${totalCount} (${finalScore}/100)</div>
             </div>
             <div style="padding:8px 10px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;background:rgba(255,255,255,0.03);">
-              <div style="font-family:monospace;font-size:9px;color:#9aa4ae;letter-spacing:1px;">DIFFICULTY / READINESS</div>
-              <div style="font-family:monospace;font-size:12px;color:#fbbf24;">${this._escapeHtml(difficulty)} · STAGE ${evalSummary.cmlLevel}${evalSummary.cml ? ` (${evalSummary.cml.activeSummary.percentGreen}% @ Stage ${evalSummary.cml.targetCml})` : ""}</div>
+              <div style="font-family:monospace;font-size:9px;color:#9aa4ae;letter-spacing:1px;">LEVEL / READINESS</div>
+              <div style="font-family:monospace;font-size:12px;color:#fbbf24;">${this._escapeHtml(difficulty)} · STAGE ${finalCmlLevel}${!serverResult && evalSummary.cml ? ` (${evalSummary.cml.activeSummary.percentGreen}% @ Stage ${evalSummary.cml.targetCml})` : ""}</div>
             </div>
             <div style="padding:8px 10px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;background:rgba(255,255,255,0.03);">
-              <div style="font-family:monospace;font-size:9px;color:#9aa4ae;letter-spacing:1px;">FLIGHT CREW</div>
-              <div style="font-family:monospace;font-size:12px;color:#ece7dc;">${crew.length} ASTRONAUTS</div>
+              <div style="font-family:monospace;font-size:9px;color:#9aa4ae;letter-spacing:1px;">TEAM SIZE</div>
+              <div style="font-family:monospace;font-size:12px;color:#ece7dc;">${crew.length} ${crew.length === 1 ? "PLAYER" : "PLAYERS"}</div>
             </div>
           </div>
           <div style="padding:8px 10px;border-radius:6px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.3);margin-bottom:10px;text-align:left;font-size:11px;color:#e2e8f0;">
             <div style="font-family:monospace;font-size:9px;color:#c4b5fd;font-weight:700;letter-spacing:0.8px;">${evalSummary.analogue.agencyTag} INSPIRATION &amp; SCIENCE GOAL</div>
             <div style="margin-top:2px;"><strong>${evalSummary.analogue.missions}</strong> — ${evalSummary.analogue.productTitle}</div>
             <div style="margin-top:6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-              <span style="font-family:monospace;font-size:9.5px;color:#86efac;">Clean Retirement: ${evalSummary.disposal.name.split("(")[0].trim()} (${evalSummary.disposal.deorbitYears} yr)</span>
+              <span style="font-family:monospace;font-size:9.5px;color:#86efac;">Clean Finish: ${evalSummary.disposal.name.split("(")[0].trim()} (${evalSummary.disposal.deorbitYears} yr)</span>
               <div style="display:flex;gap:6px;flex-wrap:wrap;">
                 <button type="button" id="btn-victory-open-cml" style="padding:4px 9px;border-radius:4px;border:1px solid rgba(251,191,36,0.55);background:rgba(245,158,11,0.16);color:#fde68a;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">READINESS REPORT</button>
-                <button type="button" id="btn-victory-export-mdl" style="padding:4px 9px;border-radius:4px;border:1px solid rgba(103,232,249,0.5);background:rgba(103,232,249,0.14);color:#7dd3fc;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">DOWNLOAD BLUEPRINT (.JSON)</button>
+                <button type="button" id="btn-victory-export-mdl" style="padding:4px 9px;border-radius:4px;border:1px solid rgba(103,232,249,0.5);background:rgba(103,232,249,0.14);color:#7dd3fc;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">DOWNLOAD PLAN (.JSON)</button>
               </div>
             </div>
           </div>
           <div style="font-family:monospace;font-size:9px;color:#9aa4ae;letter-spacing:0.8px;margin-bottom:8px;text-align:left;">
-            LAUNCH: <span style="color:#ece7dc;">${this._escapeHtml(data.launchedBy || "—")}</span>
-            &nbsp;·&nbsp; DOCKING: <span style="color:#ece7dc;">${this._escapeHtml(data.dockedBy || "—")}</span>
+            LAUNCHED BY: <span style="color:#ece7dc;">${this._escapeHtml(data.launchedBy || "—")}</span>
+            &nbsp;·&nbsp; PARKED BY: <span style="color:#ece7dc;">${this._escapeHtml(data.dockedBy || "—")}</span>
           </div>
-          ${this.lastMissionEvent ? `
-            <div style="margin-bottom:8px;padding:7px 10px;border-radius:5px;background:${this.lastMissionEvent.ok ? "rgba(74,222,128,0.08)" : "rgba(239,68,68,0.1)"};border:1px solid ${this.lastMissionEvent.ok ? "rgba(74,222,128,0.35)" : "rgba(239,68,68,0.4)"};font-family:monospace;font-size:9.5px;color:${this.lastMissionEvent.ok ? "#86efac" : "#fca5a5"};text-align:left;">
-              SEEDED ANOMALY · ${this._escapeHtml(this.lastMissionEvent.title)} · ${this.lastMissionEvent.ok ? "SURVIVED" : "FAILED"} — ${this._escapeHtml(this.lastMissionEvent.metric)}
+          ${eventInfo ? `
+            <div style="margin-bottom:8px;padding:7px 10px;border-radius:5px;background:${eventInfo.ok ? "rgba(74,222,128,0.08)" : "rgba(239,68,68,0.1)"};border:1px solid ${eventInfo.ok ? "rgba(74,222,128,0.35)" : "rgba(239,68,68,0.4)"};font-family:monospace;font-size:9.5px;color:${eventInfo.ok ? "#86efac" : "#fca5a5"};text-align:left;">
+              SURPRISE CHALLENGE · ${this._escapeHtml(eventInfo.title)} · ${eventInfo.ok ? "PASSED" : "NEEDS FIX"} — ${this._escapeHtml(eventInfo.metric || "")}
             </div>
           ` : ""}
-          <div style="font-family:monospace;font-size:10px;color:#9aa4ae;letter-spacing:1px;margin-bottom:4px;text-align:left;">CREW MANIFEST</div>
+          <div style="font-family:monospace;font-size:10px;color:#9aa4ae;letter-spacing:1px;margin-bottom:4px;text-align:left;">TEAM ROSTER</div>
           <div style="text-align:left;max-height:130px;overflow:auto;margin-bottom:6px;">${crewRows}</div>
         `;
         const btnVCml = details.querySelector("#btn-victory-open-cml");
@@ -5638,7 +5767,7 @@
         btnNext.disabled = !isHost;
         btnNext.style.opacity = isHost ? "1" : "0.5";
         btnNext.style.cursor = isHost ? "pointer" : "not-allowed";
-        btnNext.textContent = isHost ? "NEXT MISSION →" : "WAITING FOR HOST...";
+        btnNext.textContent = isHost ? "PLAY ANOTHER MISSION →" : "WAITING FOR HOST...";
         btnNext.onclick = () => {
           if (isHost && window.netManager && typeof window.netManager.returnToLobby === "function") {
             window.netManager.returnToLobby();
@@ -5646,8 +5775,8 @@
         };
       }
       if (btnClose) {
-        btnClose.textContent = "REVIEW STATION [Y]";
-        btnClose.title = "Hide the debrief — press [Y] to reopen it";
+        btnClose.textContent = "WALK AROUND STATION [Y]";
+        btnClose.title = "Hide this summary — press [Y] to bring it back";
         btnClose.onclick = () => {
           if (modal) modal.style.display = "none";
         };

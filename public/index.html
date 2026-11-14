@@ -88,37 +88,37 @@
     <header class="title-topbar">
       <div class="title-brand">
         <span class="title-brand-dot"></span>
-        <span>LUNASPIS // ORBITAL MISSION LAB</span>
+        <span>LUNASPIS // SPACE MISSION BUILDER</span>
       </div>
       <div class="title-top-actions">
-        <button class="title-chip-btn" id="btn-open-academy" title="First-flight guide, controls & trade-off cheat sheet [F1]">MISSION ACADEMY</button>
-        <button class="title-chip-btn" id="btn-open-mission-log" title="Local flight records, personal bests & shareable mission reports">MISSION LOG</button>
-        <button class="title-chip-btn" id="btn-open-nasa-csa-menu" title="CSA Digital Games &amp; Activities + NASA GMAT &amp; Telescope Lab">CSA &amp; NASA LAB</button>
-        <button class="title-chip-btn" id="btn-open-hangar-menu">3D HANGAR</button>
+        <button class="title-chip-btn" id="btn-open-academy" title="How to play, controls &amp; simple cheat sheet [F1]">BEGINNER GUIDE</button>
+        <button class="title-chip-btn" id="btn-open-mission-log" title="Past flights, personal bests &amp; shareable mission reports">PAST FLIGHTS</button>
+        <button class="title-chip-btn" id="btn-open-nasa-csa-menu" title="Space Games &amp; Activities + 3D Path &amp; Telescope Lab">GAMES &amp; TOOLS</button>
+        <button class="title-chip-btn" id="btn-open-hangar-menu">3D MODELS</button>
       </div>
     </header>
 
     <!-- Bottom-Left Asymmetric Hero Lockup (Leaves 3D Earth & ISS Unobstructed) -->
     <main class="title-hero">
-      <div class="title-eyebrow">EXPEDITION 72 &middot; LOW EARTH ORBIT &middot; 418 KM</div>
+      <div class="title-eyebrow">SPACE STATION MISSION &middot; 418 KM ABOVE EARTH</div>
       <h1 class="title-display">LUNASPIS</h1>
       <p class="title-premise">
-        Explore the orbital station, coordinate your crew, and plan the mission beyond Earth.
+        Walk through the space station, team up with friends, and build a real space mission.
       </p>
 
       <div class="title-callsign-row">
-        <label class="title-callsign-lbl" for="input-player-name">CALLSIGN</label>
-        <input type="text" id="input-player-name" class="title-callsign-input" placeholder="CDR. Voss" maxlength="16" />
+        <label class="title-callsign-lbl" for="input-player-name">YOUR NAME</label>
+        <input type="text" id="input-player-name" class="title-callsign-input" placeholder="Alex" maxlength="16" />
       </div>
 
       <div class="title-cta-row">
-        <button class="btn-title-primary" id="btn-quick-play" title="Launch a single-player mission — no crew code required">ENTER MISSION</button>
-        <button class="btn-title-secondary" id="btn-host-game" title="Create a crew room and receive an expedition code to share">HOST CREW</button>
-        <button class="btn-title-secondary btn-title-shuttle" id="btn-shuttle-ops" title="Launch Shuttle Flight Ops (Launch, Orbit &amp; Runway 15 Landing)">SHUTTLE OPS</button>
+        <button class="btn-title-primary" id="btn-quick-play" title="Start a solo mission — no team code needed">PLAY SOLO</button>
+        <button class="btn-title-secondary" id="btn-host-game" title="Create a multiplayer team room and get a code to share">CREATE TEAM</button>
+        <button class="btn-title-secondary btn-title-shuttle" id="btn-shuttle-ops" title="Launch, fly in orbit &amp; land the Space Shuttle">FLY SHUTTLE</button>
       </div>
 
       <div class="title-join-row">
-        <input type="text" id="input-join-code" class="title-code-input" placeholder="CREW EXPEDITION CODE" maxlength="8" />
+        <input type="text" id="input-join-code" class="title-code-input" placeholder="TEAM ROOM CODE" maxlength="8" />
         <button class="btn-title-join" id="btn-join-game">JOIN</button>
       </div>
 
@@ -127,7 +127,7 @@
         <span class="strip-sep">&middot;</span>
         <span>COMPLETED <strong id="stat-victories" class="val-sage">0</strong></span>
         <span class="strip-sep">&middot;</span>
-        <span>REPAIRS <strong id="stat-tasks" class="val-amber">0</strong></span>
+        <span>CHECKS <strong id="stat-tasks" class="val-amber">0</strong></span>
       </div>
     </main>
   </div>
@@ -236,7 +236,7 @@
 
     <div class="lobby-bottom-bar">
       <div class="lobby-controls-hint">
-        <strong>WASD</strong> Walk &middot; <strong>Drag</strong> Look Around &middot; <strong>[E]</strong> Use Station &middot; <strong>[R]</strong> Team Radio &middot; <strong>[M]</strong> Mic &middot; <strong>[C]</strong> Camera &middot; <strong>[U]</strong> 3D Orbit Map
+        <strong>WASD</strong> Move &middot; <strong>Shift</strong> Sprint &middot; <strong>Drag</strong> Look Around &middot; <strong>[E]</strong> Use Station &middot; <strong>[R]</strong> Team Radio &middot; <strong>[M]</strong> Mic &middot; <strong>[C]</strong> Camera &middot; <strong>[U]</strong> 3D Orbit Map
       </div>
       <div class="lobby-start-cluster">
         <label class="lobby-autoshuffle-toggle" id="lobby-autoshuffle-wrap" title="Mix up roles one more time when the game starts">
@@ -264,7 +264,7 @@
       <div class="hud-race-team coop">
         <div class="hud-race-team-info">
           <span class="hud-race-team-dot dot-coop"></span>
-          <span class="hud-race-team-name">LUNASPIS CO-OP OBJECTIVES</span>
+          <span class="hud-race-team-name">TEAM MISSION STEPS</span>
           <span class="hud-race-score" id="race-score-coop">0 / 7</span>
         </div>
         <div class="hud-race-track">
@@ -277,8 +277,8 @@
 
     <div class="hud-task-bar-container" style="display:none;">
       <div class="hud-task-label-row">
-        <span class="hud-task-label" id="hud-task-label">FLIGHT TIMELINE [0/7]</span>
-        <span class="hud-systems-badge">NOMINAL</span>
+        <span class="hud-task-label" id="hud-task-label">MISSION STEPS [0/7]</span>
+        <span class="hud-systems-badge">READY</span>
       </div>
       <div class="hud-task-track">
         <div class="hud-task-fill" id="hud-task-fill"></div>
@@ -287,10 +287,10 @@
 
     <!-- Left Fault Queue & Flight Plan Checklist -->
     <div class="hud-checklist-panel" id="hud-checklist-panel">
-      <div class="hud-checklist-header" id="hud-checklist-toggle" title="Click to collapse / expand">
+      <div class="hud-checklist-header" id="hud-checklist-toggle" title="Click to hide or show checklist">
         <div class="hud-checklist-title-wrap">
           <span id="hud-checklist-team-icon" style="width:6px;height:6px;border-radius:50%;background:#67e8f9;display:inline-block;flex-shrink:0;"></span>
-          <span style="font-weight:700;letter-spacing:1.1px;" id="hud-checklist-title">MISSION OBJECTIVES</span>
+          <span style="font-weight:700;letter-spacing:1.1px;" id="hud-checklist-title">MISSION TO-DO LIST</span>
           <span id="hud-checklist-count" class="checklist-count-pill">0/7</span>
         </div>
         <div class="hud-checklist-meta-wrap">
@@ -307,15 +307,15 @@
     </div>
 
     <!-- Compact Spacecraft Telemetry Bar Toggle -->
-    <button type="button" id="btn-telemetry-toggle" title="Toggle Spacecraft Telemetry Meters">
-      <span>TELEM</span>
+    <button type="button" id="btn-telemetry-toggle" title="Show or Hide Spacecraft Health Meters">
+      <span>METERS</span>
       <span id="telemetry-toggle-chevron">&#9656;</span>
     </button>
 
     <!-- Floating Proximity Interact Button [E] -->
     <button id="btn-proximity-use">
       <span class="prox-key-badge">E</span>
-      <span id="proximity-task-label">ACCESS CONSOLE</span>
+      <span id="proximity-task-label">OPEN WORKSTATION</span>
     </button>
 
     <!-- Top-Right Compact Controls (View, Mic, Hangar, Systems) -->
@@ -325,40 +325,40 @@
           <span id="cam-mode-icon">CAM</span>
           <span id="cam-mode-label">3RD PERSON</span>
         </button>
-        <button id="btn-voice-mic" class="voice-mic-btn" title="Toggle Mute [M]">
+        <button id="btn-voice-mic" class="voice-mic-btn" title="Mute or Unmute Microphone [M]">
           <span id="voice-mic-icon">MIC</span>
           <span id="voice-mic-label">ON</span>
         </button>
-        <button id="btn-sband-radio" class="voice-mic-btn" title="S-Band Ground &lt;-&gt; Ship Radio Link [R]">
-          <span>S-BAND</span>
+        <button id="btn-sband-radio" class="voice-mic-btn" title="Talk to teammates between Earth and Space [R]">
+          <span>TEAM RADIO</span>
           <span id="sband-radio-label">OFF [R]</span>
         </button>
-        <button id="btn-emote-menu" class="voice-mic-btn" title="Crew Emotes [X]">
-          <span>EMOTE</span>
+        <button id="btn-emote-menu" class="voice-mic-btn" title="Wave &amp; Signals [X]">
+          <span>WAVE</span>
         </button>
-        <button id="btn-hud-hangar" class="voice-mic-btn" title="3D Asset Hangar [H]">
-          <span>HANGAR</span>
+        <button id="btn-hud-hangar" class="voice-mic-btn" title="View 3D Spacecraft &amp; Suits [H]">
+          <span>3D MODELS</span>
         </button>
-        <button id="btn-hud-academy" class="voice-mic-btn" title="Mission Academy, controls &amp; trade-off guide [F1]">
-          <span>GUIDE [F1]</span>
+        <button id="btn-hud-academy" class="voice-mic-btn" title="How-To-Play Guide &amp; Helpful Tips [F1]">
+          <span>HELP [F1]</span>
         </button>
-        <button id="btn-hud-orbit-viz" class="voice-mic-btn" title="3D Mission Viz &amp; Trajectory Theater [U]">
-          <span>VIZ [U]</span>
+        <button id="btn-hud-orbit-viz" class="voice-mic-btn" title="3D Space Flight Path Viewer [U]">
+          <span>3D ORBIT [U]</span>
         </button>
         <button id="btn-hud-cml" class="voice-mic-btn" title="Mission Readiness Guide — 9 Stages from Big Idea to Launch">
           <span>STAGES</span>
         </button>
-        <button id="btn-hud-nasa-csa" class="voice-mic-btn" title="CSA Digital Games &amp; Activities + NASA GMAT / Telescope Lab">
-          <span>CSA/NASA</span>
+        <button id="btn-hud-nasa-csa" class="voice-mic-btn" title="Play Space Mini-Games, Build a Telescope &amp; Read Simple Guides">
+          <span>SPACE GAMES</span>
         </button>
-        <button id="btn-hud-solar" class="voice-mic-btn" title="Solar System Atlas [O]">
-          <span>SOLAR [O]</span>
+        <button id="btn-hud-solar" class="voice-mic-btn" title="Explore the 3D Solar System [O]">
+          <span>SOLAR MAP [O]</span>
         </button>
-        <button id="btn-hud-vr-main" class="voice-mic-btn" title="Toggle WebXR / Stereo VR Mode">
+        <button id="btn-hud-vr-main" class="voice-mic-btn" title="Enter Virtual Reality (VR) Mode">
           <span>VR</span>
         </button>
-        <button id="btn-voice-settings" class="voice-settings-btn" title="Systems &amp; Performance Settings">
-          <span>SYS</span>
+        <button id="btn-voice-settings" class="voice-settings-btn" title="Audio &amp; Graphics Settings">
+          <span>SETTINGS</span>
         </button>
         <button id="btn-hud-leave-room" class="voice-mic-btn btn-danger-outline" title="Leave Room">
           <span>LEAVE</span>
@@ -367,9 +367,9 @@
       <div class="voice-sub-row">
         <div class="voice-status-badge" id="voice-status-badge">
           <span class="voice-pulse-dot" id="voice-pulse-dot"></span>
-          <span id="voice-mode-label">COMMS</span>
+          <span id="voice-mode-label">VOICE</span>
         </div>
-        <div class="voice-key-hint"><strong>[R]</strong> S-Band &middot; <strong>[U]</strong> Viz &middot; <strong>[O]</strong> Solar &middot; <strong>[J]</strong> ISS &middot; <strong>[K]</strong> Lunar &middot; <strong>[C]</strong> View</div>
+        <div class="voice-key-hint"><strong>[R]</strong> Team Radio &middot; <strong>[U]</strong> 3D Orbit &middot; <strong>[O]</strong> Solar Map &middot; <strong>[J]</strong> Station &middot; <strong>[K]</strong> Moon &middot; <strong>[C]</strong> Camera</div>
       </div>
     </div>
 
@@ -414,7 +414,7 @@
   <div id="task-modal-overlay">
     <div class="task-modal-card">
       <div class="task-modal-header">
-        <span class="task-modal-title" id="task-modal-title">CONSOLE DIAGNOSTIC</span>
+        <span class="task-modal-title" id="task-modal-title">MISSION WORKSTATION</span>
         <button class="task-modal-close-btn" id="task-modal-close">&times;</button>
       </div>
       <div id="task-modal-content"></div>
@@ -426,13 +426,13 @@
        ======================================================================== -->
   <div id="mission-briefing-overlay">
     <div class="mission-briefing-card">
-      <div class="victory-eyebrow">LUNASPIS // CREW MISSION BRIEFING</div>
-      <h2 id="briefing-title" class="mission-briefing-title">ARTEMIS-LSP · CO-OP EXPEDITION</h2>
+      <div class="victory-eyebrow">LUNASPIS // WELCOME TO YOUR MISSION</div>
+      <h2 id="briefing-title" class="mission-briefing-title">MOON WATER HUNTER · TEAM MISSION</h2>
       <div id="briefing-meta" class="mission-briefing-meta"></div>
       <p id="briefing-summary" class="mission-briefing-summary"></p>
       <div id="briefing-objectives" class="mission-briefing-objectives"></div>
       <div id="briefing-coach" class="briefing-coach" style="display:none;"></div>
-      <button id="btn-briefing-begin" class="btn-primary" style="max-width:280px;margin-top:16px;">BEGIN PRE-FLIGHT</button>
+      <button id="btn-briefing-begin" class="btn-primary" style="max-width:280px;margin-top:16px;">LET'S GET STARTED</button>
     </div>
   </div>
 
@@ -440,21 +440,21 @@
        EXPEDITION MISSION COMPLETION (DEBRIEF)
        ======================================================================== -->
   <div id="victory-overlay">
-    <div id="victory-icon" class="victory-eyebrow">LUNASPIS // MISSION DEBRIEF</div>
-    <h1 id="victory-title" class="victory-title">ALL SYSTEMS NOMINAL</h1>
+    <div id="victory-icon" class="victory-eyebrow">LUNASPIS // MISSION COMPLETE!</div>
+    <h1 id="victory-title" class="victory-title">GREAT JOB, TEAM!</h1>
     <p id="victory-msg" class="victory-msg">
-      Flight telemetry confirms all orbital transit systems and lunar descent parameters are 100% nominal.
+      Your spacecraft is built, tested, and ready to explore space safely!
     </p>
     <div id="victory-debrief" class="victory-debrief"></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
-      <button id="btn-victory-next" class="btn-primary" style="max-width:240px;">NEXT MISSION →</button>
-      <button id="btn-victory-log" class="btn-secondary" style="max-width:180px;">MISSION LOG</button>
-      <button id="btn-victory-close" class="btn-secondary" style="max-width:200px;">REVIEW STATION</button>
+      <button id="btn-victory-next" class="btn-primary" style="max-width:240px;">PLAY NEXT MISSION →</button>
+      <button id="btn-victory-log" class="btn-secondary" style="max-width:180px;">PAST MISSIONS</button>
+      <button id="btn-victory-close" class="btn-secondary" style="max-width:200px;">EXPLORE STATION</button>
     </div>
   </div>
 
   <div id="launch-countdown-banner">
-    ISS INTERIOR — SYSTEMS ONLINE
+    SPACE STATION — ALL SYSTEMS READY
   </div>
 
   <!-- ========================================================================
@@ -463,21 +463,21 @@
   <div id="modal-academy" class="settings-modal-overlay" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="academy-modal-title">
     <div class="settings-modal-card academy-modal-card">
       <div class="settings-modal-header">
-        <span class="settings-modal-title" id="academy-modal-title">LUNASPIS // MISSION ACADEMY</span>
+        <span class="settings-modal-title" id="academy-modal-title">LUNASPIS // HOW TO PLAY GUIDE</span>
         <button id="btn-close-academy" class="settings-close-btn" title="Close [ESC]">&times;</button>
       </div>
       <div class="academy-body">
-        <div class="academy-progress" id="academy-progress" aria-label="Mission academy steps"></div>
+        <div class="academy-progress" id="academy-progress" aria-label="How to play steps"></div>
         <div class="academy-step" id="academy-step"></div>
         <div class="academy-footer">
-          <label class="academy-tips-toggle" title="Show plain-language CADET COACH tips inside the design consoles">
+          <label class="academy-tips-toggle" title="Show friendly helper tips inside every workstation">
             <input type="checkbox" id="chk-academy-tips" checked />
-            <span>SHOW CADET TIPS IN CONSOLES</span>
+            <span>SHOW HELPFUL TIPS IN WORKSTATIONS</span>
           </label>
           <div class="academy-nav">
             <button type="button" id="btn-academy-back" class="btn-secondary">← BACK</button>
             <button type="button" id="btn-academy-next" class="btn-primary">NEXT →</button>
-            <button type="button" id="btn-academy-start" class="btn-primary">START CADET MISSION →</button>
+            <button type="button" id="btn-academy-start" class="btn-primary">START BEGINNER MISSION →</button>
           </div>
         </div>
       </div>
@@ -490,14 +490,14 @@
   <div id="modal-mission-log" class="settings-modal-overlay" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="mission-log-title">
     <div class="settings-modal-card mission-log-card">
       <div class="settings-modal-header">
-        <span class="settings-modal-title" id="mission-log-title">LUNASPIS // FLIGHT RECORDS</span>
+        <span class="settings-modal-title" id="mission-log-title">LUNASPIS // PAST MISSIONS &amp; SCORES</span>
         <button id="btn-close-mission-log" class="settings-close-btn" title="Close [ESC]">&times;</button>
       </div>
       <div class="mission-log-body">
         <div id="mission-log-content"></div>
         <div class="mission-log-footer">
-          <button type="button" id="btn-mission-log-export" class="btn-secondary">EXPORT LOG (.JSON)</button>
-          <button type="button" id="btn-mission-log-clear" class="btn-secondary btn-danger-outline">CLEAR LOCAL LOG</button>
+          <button type="button" id="btn-mission-log-export" class="btn-secondary">SAVE COPY</button>
+          <button type="button" id="btn-mission-log-clear" class="btn-secondary btn-danger-outline">CLEAR HISTORY</button>
         </div>
       </div>
     </div>
@@ -509,38 +509,38 @@
   <div id="modal-station-systems" class="settings-modal-overlay">
     <div class="settings-modal-card systems-modal-card">
       <div class="settings-modal-header">
-        <span class="settings-modal-title">LUNASPIS // SYSTEMS &amp; PERFORMANCE</span>
+        <span class="settings-modal-title">LUNASPIS // GAME &amp; AUDIO SETTINGS</span>
         <button id="btn-close-settings" class="settings-close-btn" title="Close [ESC]">&times;</button>
       </div>
 
       <div class="preset-profiles-container">
-        <span class="preset-label">PRESET:</span>
+        <span class="preset-label">QUALITY:</span>
         <div class="preset-buttons-group">
-          <button type="button" class="btn-preset" data-preset="cinematic">HIGH-FIDELITY</button>
+          <button type="button" class="btn-preset" data-preset="cinematic">BEST VISUALS</button>
           <button type="button" class="btn-preset active" data-preset="balanced">BALANCED</button>
-          <button type="button" class="btn-preset" data-preset="potato">ULTRA-FPS</button>
+          <button type="button" class="btn-preset" data-preset="potato">FASTEST SPEED</button>
           <button type="button" class="btn-preset btn-preset-reset" id="btn-reset-defaults">RESET</button>
         </div>
       </div>
 
       <div class="systems-tabs-bar">
-        <button type="button" class="sys-tab-btn active" data-tab="tab-comms">COMMS</button>
+        <button type="button" class="sys-tab-btn active" data-tab="tab-comms">VOICE CHAT</button>
         <button type="button" class="sys-tab-btn" data-tab="tab-graphics">GRAPHICS</button>
-        <button type="button" class="sys-tab-btn" data-tab="tab-network">NETWORK</button>
-        <button type="button" class="sys-tab-btn" data-tab="tab-display">DISPLAY</button>
+        <button type="button" class="sys-tab-btn" data-tab="tab-network">CONNECTION</button>
+        <button type="button" class="sys-tab-btn" data-tab="tab-display">SCREEN</button>
       </div>
 
       <div class="settings-modal-body">
         <div id="tab-comms" class="sys-tab-content active">
           <div class="settings-group">
-            <label class="settings-label">MICROPHONE INPUT DEVICE</label>
+            <label class="settings-label">MICROPHONE</label>
             <select id="audio-input-device" class="settings-select">
-              <option value="default">Default System Microphone</option>
+              <option value="default">Default Microphone</option>
             </select>
           </div>
           <div class="settings-group">
             <div class="settings-label-row">
-              <label class="settings-label">MIC INPUT LEVEL</label>
+              <label class="settings-label">MIC VOLUME TEST</label>
               <span id="mic-meter-text" class="settings-val-badge">0%</span>
             </div>
             <div class="mic-meter-track">
@@ -549,72 +549,72 @@
           </div>
           <div class="settings-group">
             <div class="settings-label-row">
-              <label class="settings-label">NOISE GATE SENSITIVITY</label>
+              <label class="settings-label">BACKGROUND NOISE FILTER</label>
               <span id="sensitivity-val-badge" class="settings-val-badge">22</span>
             </div>
             <input type="range" id="mic-sensitivity-slider" min="5" max="75" value="22" class="settings-slider" />
           </div>
           <div class="settings-group">
             <div class="settings-label-row">
-              <label class="settings-label">MASTER COMMS VOLUME</label>
+              <label class="settings-label">TEAM VOICE VOLUME</label>
               <span id="master-vol-badge" class="settings-val-badge">100%</span>
             </div>
             <div style="display:flex;gap:10px;align-items:center;">
               <input type="range" id="master-voice-slider" min="0" max="150" value="100" class="settings-slider" style="flex:1;" />
-              <button id="btn-deafen-toggle" class="btn-deafen">DEAFEN</button>
+              <button id="btn-deafen-toggle" class="btn-deafen">MUTE ALL</button>
             </div>
           </div>
           <div class="settings-group">
-            <label class="settings-label">CREWMATE COMMS BALANCE</label>
+            <label class="settings-label">INDIVIDUAL PLAYER VOLUME</label>
             <div id="crewmate-volume-list" class="crewmate-volume-list">
-              <div style="font-size:11px;color:rgba(154,164,174,0.7);text-align:center;padding:8px;">No crewmates in room</div>
+              <div style="font-size:11px;color:rgba(154,164,174,0.7);text-align:center;padding:8px;">No other players in room</div>
             </div>
           </div>
           <div class="settings-keybinds-box">
-            <div class="keybind-row"><span>[M]</span><span>Toggle Microphone Mute</span></div>
-            <div class="keybind-row"><span>[V]</span><span>Hold for Proximity PTT</span></div>
-            <div class="keybind-row"><span>[R]</span><span>Hold for Station Radio</span></div>
+            <div class="keybind-row"><span>[M]</span><span>Mute / Unmute Microphone</span></div>
+            <div class="keybind-row"><span>[V]</span><span>Hold to Talk to Nearby Players</span></div>
+            <div class="keybind-row"><span>[R]</span><span>Toggle Earth-to-Space Team Radio</span></div>
           </div>
         </div>
 
         <div id="tab-graphics" class="sys-tab-content">
           <div class="settings-group">
             <div class="settings-label-row">
-              <label class="settings-label">RENDER RESOLUTION SCALE</label>
+              <label class="settings-label">PICTURE SHARPNESS</label>
               <span id="render-scale-val-badge" class="settings-val-badge">100% (1.0x)</span>
             </div>
             <input type="range" id="render-scale-slider" min="50" max="150" step="5" value="100" class="settings-slider" />
           </div>
           <div class="settings-group">
-            <label class="settings-label">POST-PROCESSING SHADER</label>
+            <label class="settings-label">VISUAL EFFECTS</label>
             <select id="select-cinematic-preset" class="settings-select">
-              <option value="cinematic">Cinematic (HDR Bloom + ACES + Vignette)</option>
-              <option value="balanced" selected>Balanced (ACES + Vignette)</option>
-              <option value="off">Direct WebGL (Highest FPS)</option>
+              <option value="cinematic">Movie Glow (High Visuals)</option>
+              <option value="balanced" selected>Balanced (Recommended)</option>
+              <option value="off">Simple &amp; Fast (Best for Laptops)</option>
             </select>
           </div>
           <div class="settings-group">
             <div class="settings-label-row">
-              <label class="settings-label">TARGET MAX FPS</label>
+              <label class="settings-label">MAXIMUM FRAME RATE (FPS)</label>
               <span id="fps-cap-badge" class="settings-val-badge">60 FPS</span>
             </div>
             <select id="select-fps-cap" class="settings-select">
-              <option value="0">Uncapped</option>
+              <option value="0">Unlimited</option>
               <option value="120">120 FPS</option>
               <option value="60" selected>60 FPS (Recommended)</option>
               <option value="30">30 FPS (Battery Saver)</option>
             </select>
           </div>
           <div class="settings-group">
-            <label class="settings-label">LIGHTING QUALITY</label>
+            <label class="settings-label">INDOOR LIGHTING</label>
             <select id="select-lighting-quality" class="settings-select">
-              <option value="high" selected>High — Full Interior Point Lights</option>
-              <option value="low">Optimized — Reduced Point Lights</option>
+              <option value="high" selected>High — Full Room Lights</option>
+              <option value="low">Fast — Simpler Lights</option>
             </select>
           </div>
           <div class="settings-group">
             <div class="settings-label-row">
-              <label class="settings-label">CAMERA FIELD OF VIEW (FOV)</label>
+              <label class="settings-label">CAMERA WIDE ANGLE</label>
               <span id="fov-val-badge" class="settings-val-badge">62&deg;</span>
             </div>
             <input type="range" id="camera-fov-slider" min="55" max="90" step="1" value="62" class="settings-slider" />
@@ -623,26 +623,26 @@
 
         <div id="tab-network" class="sys-tab-content">
           <div class="settings-group">
-            <label class="settings-label">TRANSMISSION TICK RATE</label>
+            <label class="settings-label">MULTIPLAYER UPDATE SPEED</label>
             <select id="select-tick-rate" class="settings-select">
-              <option value="15">15 Hz (Low Bandwidth)</option>
-              <option value="20" selected>20 Hz (Balanced)</option>
-              <option value="30">30 Hz (High Responsiveness)</option>
+              <option value="15">15 times/sec (Data Saver)</option>
+              <option value="20" selected>20 times/sec (Balanced)</option>
+              <option value="30">30 times/sec (Fastest)</option>
             </select>
           </div>
           <div class="settings-group">
-            <label class="settings-label">INTERPOLATION BUFFER</label>
+            <label class="settings-label">PLAYER MOVEMENT SMOOTHING</label>
             <select id="select-interp-buffer" class="settings-select">
-              <option value="smooth">Smooth (130ms)</option>
-              <option value="balanced" selected>Balanced (90ms)</option>
-              <option value="snappy">Snappy (50ms)</option>
+              <option value="smooth">Extra Smooth (Best for Wi-Fi)</option>
+              <option value="balanced" selected>Balanced</option>
+              <option value="snappy">Instant Response</option>
             </select>
           </div>
           <div class="settings-group">
             <div class="settings-toggle-row">
               <div>
-                <div class="settings-toggle-title">STATIONARY DELTA-CULLING</div>
-                <div class="settings-toggle-desc">Suppresses redundant packets while stationary.</div>
+                <div class="settings-toggle-title">DATA SAVER WHEN STANDING STILL</div>
+                <div class="settings-toggle-desc">Uses less internet data when your character isn't moving.</div>
               </div>
               <label class="switch-toggle">
                 <input type="checkbox" id="toggle-delta-culling" checked />
@@ -656,11 +656,11 @@
               <div class="net-diag-val" id="net-diag-status" style="color:#7fb8a6;">ONLINE</div>
             </div>
             <div class="net-diag-col">
-              <div class="net-diag-lbl">RTT</div>
+              <div class="net-diag-lbl">DELAY</div>
               <div class="net-diag-val" id="net-diag-ping">-- ms</div>
             </div>
             <div class="net-diag-col">
-              <div class="net-diag-lbl">JITTER</div>
+              <div class="net-diag-lbl">STABILITY</div>
               <div class="net-diag-val" id="net-diag-jitter">&plusmn;0 ms</div>
             </div>
           </div>
@@ -670,8 +670,8 @@
           <div class="settings-group">
             <div class="settings-toggle-row">
               <div>
-                <div class="settings-toggle-title">PERFORMANCE TELEMETRY PILL</div>
-                <div class="settings-toggle-desc">Displays FPS and Ping in the top bar.</div>
+                <div class="settings-toggle-title">TOP SPEED &amp; CONNECTION BAR</div>
+                <div class="settings-toggle-desc">Shows FPS and internet ping in the top corner.</div>
               </div>
               <label class="switch-toggle">
                 <input type="checkbox" id="toggle-perf-pill" checked />
@@ -682,8 +682,8 @@
           <div class="settings-group">
             <div class="settings-toggle-row">
               <div>
-                <div class="settings-toggle-title">DIAGNOSTICS OVERLAY [P]</div>
-                <div class="settings-toggle-desc">Shows frame time, packet rates, and jitter.</div>
+                <div class="settings-toggle-title">DETAILED PERFORMANCE BOX [P]</div>
+                <div class="settings-toggle-desc">Shows extra graphics and internet details.</div>
               </div>
               <label class="switch-toggle">
                 <input type="checkbox" id="toggle-diag-overlay" />
@@ -693,7 +693,7 @@
           </div>
           <div class="settings-group">
             <div class="settings-label-row">
-              <label class="settings-label">1ST-PERSON VISOR INTENSITY</label>
+              <label class="settings-label">HELMET FRAME BORDER</label>
               <span id="visor-opacity-val-badge" class="settings-val-badge">100%</span>
             </div>
             <input type="range" id="visor-opacity-slider" min="0" max="100" step="5" value="100" class="settings-slider" />
@@ -721,8 +721,8 @@
   <!-- Core Engine Systems (Lunaspis Shaders, Audio, GLB Assets, Network, Voice & JPL CML) -->
   <script src="js/core/cinematic_pass.js?v=4.3.2"></script>
   <script src="js/core/audio_synth.js?v=4.0.0"></script>
-  <script src="js/core/glb_manager.js?v=4.2.3"></script>
-  <script src="js/core/network.js?v=4.9.5"></script>
+  <script src="js/core/glb_manager.js?v=4.2.4"></script>
+  <script src="js/core/network.js?v=4.9.6"></script>
   <script src="js/core/voice.js?v=4.4.0"></script>
   <script src="js/core/cml_framework.js?v=1.0.0"></script>
 
@@ -761,7 +761,7 @@
   <script src="js/game/gameplay.js?v=4.9.6"></script>
   <script src="js/game/mission_academy.js?v=1.0.0"></script>
   <script src="js/game/mission_log.js?v=1.0.0"></script>
-  <script src="js/game/main.js?v=5.0.4"></script>
+  <script src="js/game/main.js?v=5.0.6"></script>
 
 </body>
 </html>

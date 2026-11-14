@@ -16,7 +16,7 @@
 (function (window) {
   "use strict";
 
-  const CAR_SPAWN = { x: 33, y: 0.1, z: 160, yaw: 0.08 };
+  const FALLBACK_CAR_SPAWN = { x: 38, y: 0.08, z: 197, yaw: 0.15 };
   const CAR_RADIUS = 1.35;
   const MAX_FORWARD_SPEED = 16.5; // m/s (~59 km/h)
   const MAX_REVERSE_SPEED = 6.5;
@@ -42,7 +42,8 @@
       this.isDriving = false;
       this.speed = 0;
       this.steer = 0;
-      this.yaw = CAR_SPAWN.yaw;
+      this.spawn = Object.assign({}, FALLBACK_CAR_SPAWN);
+      this.yaw = this.spawn.yaw;
       this.brakeHeld = false;
       this.keys = Object.create(null);
       this._keysBound = false;
@@ -51,7 +52,6 @@
       this._bodyPitch = 0;
       this._bodyRoll = 0;
       this._netPos = null;
-      this._wasVisible = false;
     }
 
     // =========================================================================
@@ -62,12 +62,14 @@
       const sc = this.sc;
       if (!T || !sc || !sc.group) return this;
 
+      this.spawn = this._computeSpawnNearGroundSpawn();
+      this.yaw = this.spawn.yaw;
       this._buildMaterials();
       this._buildParkingPad();
 
       this.group = new T.Group();
       this.group.name = "SpaceCenter_OpenCar";
-      this.group.position.set(CAR_SPAWN.x, CAR_SPAWN.y, CAR_SPAWN.z);
+      this.group.position.set(this.spawn.x, this.spawn.y, this.spawn.z);
       this.group.rotation.y = this.yaw;
       sc.group.add(this.group);
 
@@ -82,14 +84,9 @@
       this._buildDriver();
       this._buildLabel();
 
-      this._netPos = new T.Vector3(CAR_SPAWN.x, 0.2, CAR_SPAWN.z);
+      this._netPos = new T.Vector3(this.spawn.x, this.spawn.y, this.spawn.z);
       this._buildHud();
       this._bindInput();
-
-      if (sc.site && Array.isArray(sc.site.circleColliders)) {
-        // The car is a moving prop; the site tour collision list is static, so
-        // do not register a permanent collider at the parking spot.
-      }
       return this;
     }
 
@@ -139,6 +136,40 @@
       };
     }
 
+    /**
+     * Parks the car a few steps from the current Pad 39A ground spawn. The
+     * site-tour spawn list is shared with the HUD, so if the spawn is adjusted
+     * the car follows it automatically instead of drifting away from the crew.
+     */
+    _computeSpawnNearGroundSpawn() {
+      const spawns = (window.SpaceCenterModules && window.SpaceCenterModules.SITE_TOUR_SPAWNS) || [];
+      const padSpawn = spawns.find((s) => s && s.id === "pad") || spawns[0];
+      if (!padSpawn) return Object.assign({}, FALLBACK_CAR_SPAWN);
+
+      const baseYaw = typeof padSpawn.yaw === "number" ? padSpawn.yaw : Math.PI;
+      const candidates = [
+        [8, -8], [-8, -8], [10, 1], [-10, 1], [8, 8], [-8, 8]
+      ];
+      for (const candidate of candidates) {
+        const x = padSpawn.x + candidate[0];
+        const z = padSpawn.z + candidate[1];
+        if (!this._blocked(x, z, 2.4, 0)) {
+          return {
+            x,
+            y: 0.08,
+            z,
+            yaw: baseYaw + Math.PI
+          };
+        }
+      }
+      return {
+        x: padSpawn.x + 8,
+        y: 0.08,
+        z: padSpawn.z - 8,
+        yaw: baseYaw + Math.PI
+      };
+    }
+
     _buildParkingPad() {
       const T = window.THREE;
       const pad = new T.Mesh(
@@ -146,19 +177,19 @@
         new T.MeshStandardMaterial({ color: 0x8d969e, roughness: 0.94, metalness: 0.03 })
       );
       pad.name = "OpenCarParkingPad";
-      pad.position.set(CAR_SPAWN.x, 0.04, CAR_SPAWN.z);
+      pad.position.set(this.spawn.x, 0.04, this.spawn.z);
       pad.receiveShadow = true;
       this.sc.group.add(pad);
 
       const stripeMat = new T.MeshStandardMaterial({ color: 0xf4f4ee, roughness: 0.8 });
       [-2.3, 2.3].forEach((ox) => {
         const stripe = new T.Mesh(new T.BoxGeometry(0.16, 0.025, 4.6), stripeMat);
-        stripe.position.set(CAR_SPAWN.x + ox, 0.085, CAR_SPAWN.z);
+        stripe.position.set(this.spawn.x + ox, 0.085, this.spawn.z);
         this.sc.group.add(stripe);
       });
       const stopMat = new T.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.8 });
       const stop = new T.Mesh(new T.BoxGeometry(5.2, 0.025, 0.16), stopMat);
-      stop.position.set(CAR_SPAWN.x, 0.085, CAR_SPAWN.z - 2.55);
+      stop.position.set(this.spawn.x, 0.085, this.spawn.z - 2.55);
       this.sc.group.add(stop);
     }
 
@@ -203,10 +234,11 @@
         this._box(body, 0.14, 0.55, 1.15, x, 0.94, 1.0, m.white, "CarSideFront");
         // Rear quarter panel
         this._box(body, 0.14, 0.55, 1.2, x, 0.94, -1.35, m.white, "CarSideRear");
-        // Low sill bridging the open door area
-        this._box(body, 0.14, 0.24, 1.4, x, 0.82, -0.15, m.whiteDim, "CarSill");
-        // Blue NASA livery stripe
-        this._box(body, 0.025, 0.1, 3.35, side * 0.995, 1.06, 0.0, m.blue, "CarStripe");
+        // Low sill bridging the open door area (inset 1 cm so it cannot
+        // z-fight with the door panels it overlaps).
+        this._box(body, 0.12, 0.24, 1.4, side * 0.915, 0.82, -0.15, m.whiteDim, "CarSill");
+        // Blue NASA livery stripe, offset just proud of the side panels.
+        this._box(body, 0.02, 0.1, 3.35, side * 1.006, 1.06, 0.0, m.blue, "CarStripe");
       }
 
       // Hood and nose.
@@ -219,8 +251,8 @@
         this._box(body, 0.06, 0.2, 0.02, i * 0.17, 1.03, 2.375, m.steel, "CarGrilleBar");
       }
       this._box(body, 0.42, 0.03, 1.1, 0, 1.16, 1.45, m.blue, "CarHoodStripeBlue");
-      this._box(body, 0.05, 0.025, 1.1, -0.1, 1.162, 1.45, m.red, "CarHoodStripeRed");
-      this._box(body, 0.05, 0.025, 1.1, 0.1, 1.162, 1.45, m.white, "CarHoodStripeWhite");
+      this._box(body, 0.05, 0.012, 1.1, -0.1, 1.182, 1.45, m.red, "CarHoodStripeRed");
+      this._box(body, 0.05, 0.012, 1.1, 0.1, 1.182, 1.45, m.white, "CarHoodStripeWhite");
 
       // Rear cargo bed with spare wheel and tool box.
       this._box(body, 1.7, 0.12, 1.15, 0, 0.89, -1.6, m.dark, "CarBedFloor");
@@ -576,8 +608,12 @@
           }
           #open-car-hud:not(.is-driving) .oc-drive-only { display: none; }
           #open-car-hud.is-driving .oc-near-only { display: none; }
+          @media (max-width: 820px) {
+            #open-car-hud {
+              bottom: max(140px, calc(env(safe-area-inset-bottom) + 128px));
+            }
+          }
           @media (max-width: 620px) {
-            #open-car-hud { bottom: max(12px, env(safe-area-inset-bottom)); }
             #open-car-hud .oc-card { min-width: 0; padding: 7px 10px; }
             #open-car-hud .oc-hint { display: none; }
             #open-car-hud .oc-btn { padding: 7px 10px; font-size: 10px; }
@@ -590,7 +626,7 @@
         hud.id = "open-car-hud";
         hud.innerHTML = `
           <div class="oc-card">
-            <div class="oc-title">LC-39A · NASA OPEN-TERRAIN CAR</div>
+            <div class="oc-title">LAUNCH CENTER · NASA ROAMING CAR</div>
             <div class="oc-row">
               <button type="button" class="oc-btn oc-btn-primary oc-near-only" id="open-car-action">E · DRIVE</button>
               <button type="button" class="oc-btn oc-btn-primary oc-drive-only" id="open-car-exit">E · EXIT</button>
@@ -611,10 +647,10 @@
       const action = document.getElementById("open-car-action");
       const exit = document.getElementById("open-car-exit");
       const brake = document.getElementById("open-car-brake");
-      if (action) action.addEventListener("click", (e) => { e.preventDefault(); this.enter(); });
-      if (exit) exit.addEventListener("click", (e) => { e.preventDefault(); this.exit(); });
+      if (action) action.addEventListener("click", (e) => { e.preventDefault(); e.currentTarget.blur(); this.enter(); });
+      if (exit) exit.addEventListener("click", (e) => { e.preventDefault(); e.currentTarget.blur(); this.exit(); });
       if (brake) {
-        const press = (e) => { e.preventDefault(); this.brakeHeld = true; };
+        const press = (e) => { e.preventDefault(); if (e.currentTarget) e.currentTarget.blur(); this.brakeHeld = true; };
         const release = (e) => { if (e) e.preventDefault(); this.brakeHeld = false; };
         brake.addEventListener("pointerdown", press);
         brake.addEventListener("pointerup", release);
@@ -682,8 +718,19 @@
       if (window.missionViz && window.missionViz.isActive) return true;
       if (window.issShowcase && window.issShowcase.isActive) return true;
       if (window.vrManager && window.vrManager.isAnyVRActive) return true;
-      const briefing = document.getElementById("mission-briefing-overlay");
-      if (briefing && briefing.style.display === "flex") return true;
+      const overlays = [
+        "mission-briefing-overlay",
+        "modal-academy",
+        "modal-mission-log",
+        "modal-auth",
+        "modal-station-systems",
+        "task-modal-overlay",
+        "victory-overlay"
+      ];
+      for (const id of overlays) {
+        const el = document.getElementById(id);
+        if (el && el.style && el.style.display && el.style.display !== "none") return true;
+      }
       return false;
     }
 
@@ -759,9 +806,13 @@
       if (this.driver) this.driver.visible = false;
       if (this.label) this.label.visible = true;
 
+      const terrain = window.SpaceCenterModules && window.SpaceCenterModules.terrain;
+      const exitY = terrain
+        ? terrain.getSurfaceHeightAt(exitPos.x, exitPos.z, this.group.position.y)
+        : this.group.position.y;
       if (window.localCrew && window.localCrew.group) {
         window.localCrew.group.visible = true;
-        window.localCrew.group.position.set(exitPos.x, 0.2, exitPos.z);
+        window.localCrew.group.position.set(exitPos.x, exitY, exitPos.z);
         window.localCrew.group.rotation.y = this.yaw;
       }
       if (typeof window.setCameraYawPitch === "function") {
@@ -798,7 +849,6 @@
     }
 
     _findExitPosition() {
-      const T = window.THREE;
       const x = this.group.position.x;
       const z = this.group.position.z;
       const candidates = [
@@ -811,7 +861,7 @@
         { x, z }
       ];
       for (const candidate of candidates) {
-        if (!this._blocked(candidate.x, candidate.z, 0.45)) return candidate;
+        if (!this._blocked(candidate.x, candidate.z, 0.45, this.group.position.y)) return candidate;
       }
       return { x, z };
     }
@@ -893,10 +943,41 @@
       const dz = Math.cos(this.yaw) * this.speed * delta;
       const px = this.group.position.x;
       const pz = this.group.position.z;
-      let nx = px + dx;
-      let nz = pz + dz;
+      const nx = px + dx;
+      const nz = pz + dz;
+      const terrain = window.SpaceCenterModules && window.SpaceCenterModules.terrain;
+      const bounds =
+        (window.SpaceCenterModules &&
+          window.SpaceCenterModules.constants &&
+          window.SpaceCenterModules.constants.SITE_BOUNDS) ||
+        undefined;
+      const boxes = (this.sc.site && this.sc.site.boxColliders) || [];
+      const circles = (this.sc.site && this.sc.site.circleColliders) || [];
 
-      if (!this._blocked(nx, nz)) {
+      let targetY = this.group.position.y;
+      if (terrain && typeof terrain.resolveMovement === "function") {
+        const res = terrain.resolveMovement(
+          px,
+          pz,
+          nx,
+          nz,
+          CAR_RADIUS,
+          this.group.position.y,
+          boxes,
+          circles,
+          bounds
+        );
+        this.group.position.x = res.x;
+        this.group.position.z = res.z;
+        targetY = res.y;
+        if (res.blocked) {
+          if (res.slid) {
+            this.speed *= 0.88;
+          } else {
+            this.speed = Math.abs(this.speed) > 1.0 ? -this.speed * 0.12 : 0;
+          }
+        }
+      } else if (!this._blocked(nx, nz)) {
         this.group.position.x = nx;
         this.group.position.z = nz;
       } else if (!this._blocked(nx, pz)) {
@@ -909,6 +990,8 @@
         this.speed = Math.abs(this.speed) > 1.0 ? -this.speed * 0.12 : 0;
       }
 
+      const yBlend = 1 - Math.exp(-delta * 28);
+      this.group.position.y += (targetY - this.group.position.y) * yBlend;
       this.group.rotation.y = this.yaw;
 
       // Wheels: spin with road speed and steer the front pair.
@@ -921,11 +1004,23 @@
         }
       });
 
-      // Subtle body pitch under acceleration + lean into corners.
+      // Slope-aligned body pitch/roll combined with dynamic suspension response.
+      const slope =
+        terrain && typeof terrain.getSurfaceSlopePitchRoll === "function"
+          ? terrain.getSurfaceSlopePitchRoll(
+              this.group.position.x,
+              this.group.position.z,
+              this.yaw,
+              this.group.position.y
+            )
+          : { pitch: 0, roll: 0 };
       const accel = (this.speed - previousSpeed) / Math.max(0.001, delta);
-      const targetPitch = Math.max(-0.05, Math.min(0.05, -accel * 0.0035));
-      this._bodyPitch += (targetPitch - this._bodyPitch) * Math.min(1, delta * 6);
-      this._bodyRoll += ((-this.steer * Math.abs(this.speed) / MAX_FORWARD_SPEED) * 0.11 - this._bodyRoll) * Math.min(1, delta * 5);
+      const dynPitch = Math.max(-0.045, Math.min(0.045, -accel * 0.0032));
+      const dynRoll = (-this.steer * Math.abs(this.speed) / MAX_FORWARD_SPEED) * 0.1;
+      const targetPitch = slope.pitch + dynPitch;
+      const targetRoll = slope.roll + dynRoll;
+      this._bodyPitch += (targetPitch - this._bodyPitch) * Math.min(1, delta * 9);
+      this._bodyRoll += (targetRoll - this._bodyRoll) * Math.min(1, delta * 8);
       if (this.body) {
         this.body.rotation.x = this._bodyPitch;
         this.body.rotation.z = this._bodyRoll;
@@ -945,9 +1040,27 @@
     }
 
     _idle(delta) {
+      const terrain = window.SpaceCenterModules && window.SpaceCenterModules.terrain;
+      if (terrain && this.group) {
+        const targetY = terrain.getSurfaceHeightAt(
+          this.group.position.x,
+          this.group.position.z,
+          this.group.position.y
+        );
+        this.group.position.y += (targetY - this.group.position.y) * Math.min(1, delta * 16);
+      }
+      const slope =
+        terrain && this.group && typeof terrain.getSurfaceSlopePitchRoll === "function"
+          ? terrain.getSurfaceSlopePitchRoll(
+              this.group.position.x,
+              this.group.position.z,
+              this.yaw,
+              this.group.position.y
+            )
+          : { pitch: 0, roll: 0 };
       if (this.body) {
-        this._bodyPitch += (0 - this._bodyPitch) * Math.min(1, delta * 5);
-        this._bodyRoll += (0 - this._bodyRoll) * Math.min(1, delta * 5);
+        this._bodyPitch += (slope.pitch - this._bodyPitch) * Math.min(1, delta * 7);
+        this._bodyRoll += (slope.roll - this._bodyRoll) * Math.min(1, delta * 7);
         this.body.rotation.x = this._bodyPitch;
         this.body.rotation.z = this._bodyRoll;
         this.body.position.y = 0;
@@ -962,7 +1075,7 @@
       return !!(virtualVar && window[virtualVar]);
     }
 
-    _blocked(x, z, radius) {
+    _blocked(x, z, radius, currentY) {
       const r = typeof radius === "number" ? radius : CAR_RADIUS;
       const sc = this.sc;
       const bounds = (window.SpaceCenterModules && window.SpaceCenterModules.constants && window.SpaceCenterModules.constants.SITE_BOUNDS) || {
@@ -971,13 +1084,18 @@
         minZ: -850,
         maxZ: 850
       };
-      if (x < bounds.minX + r || x > bounds.maxX - r || z < bounds.minZ + r || z > bounds.maxZ - r) return true;
-
       const boxes = (sc.site && sc.site.boxColliders) || [];
+      const circles = (sc.site && sc.site.circleColliders) || [];
+      const terrain = window.SpaceCenterModules && window.SpaceCenterModules.terrain;
+      const refY = typeof currentY === "number" ? currentY : this.group ? this.group.position.y : 0;
+      if (terrain && typeof terrain.isBlocked === "function") {
+        return terrain.isBlocked(x, z, r, refY, boxes, circles, bounds);
+      }
+
+      if (x < bounds.minX + r || x > bounds.maxX - r || z < bounds.minZ + r || z > bounds.maxZ - r) return true;
       for (const box of boxes) {
         if (x > box.minX - r && x < box.maxX + r && z > box.minZ - r && z < box.maxZ + r) return true;
       }
-      const circles = (sc.site && sc.site.circleColliders) || [];
       for (const circle of circles) {
         if (Math.hypot(x - circle.x, z - circle.z) < circle.r + r) return true;
       }
@@ -987,7 +1105,7 @@
     _syncLocalCrewPose() {
       if (!this._netPos) return;
       const p = this.group.position;
-      this._netPos.set(p.x, 0.2, p.z);
+      this._netPos.set(p.x, p.y, p.z);
       if (window.localCrew && window.localCrew.group) {
         window.localCrew.group.position.copy(this._netPos);
         window.localCrew.group.rotation.y = this.yaw;
@@ -1006,8 +1124,10 @@
       const distance = 7.4;
       const height = 3.35;
       const desiredX = p.x - Math.sin(this.yaw) * distance;
-      const desiredY = p.y + height;
       const desiredZ = p.z - Math.cos(this.yaw) * distance;
+      const terrain = window.SpaceCenterModules && window.SpaceCenterModules.terrain;
+      const camGroundY = terrain ? terrain.getSurfaceHeightAt(desiredX, desiredZ, p.y) : 0;
+      const desiredY = Math.max(p.y + height, camGroundY + 1.15);
 
       if (!this._camInitialised) {
         camera.position.set(desiredX, desiredY, desiredZ);
@@ -1020,7 +1140,7 @@
       }
       camera.lookAt(
         p.x + Math.sin(this.yaw) * 2.6,
-        p.y + 1.25,
+        p.y + 1.25 + Math.sin(-this._bodyPitch) * 1.4,
         p.z + Math.cos(this.yaw) * 2.6
       );
     }
@@ -1066,8 +1186,8 @@
       }
       if (this.statusEl) {
         this.statusEl.textContent = this.isDriving
-          ? "LC-39A · NASA OPEN-TERRAIN CAR · DRIVING"
-          : "LC-39A · NASA OPEN-TERRAIN CAR";
+          ? "LAUNCH CENTER · NASA ROAMING CAR · DRIVING"
+          : "LAUNCH CENTER · NASA ROAMING CAR";
       }
     }
   }

@@ -1924,9 +1924,11 @@
 
       const interiorGroup = this.group;
 
-      // Interior lighting matching SpaceShip/src/components/game/ShipInterior.tsx
-      this.group.add(new THREE.AmbientLight(0xffffff, 0.27));
-      this.group.add(new THREE.HemisphereLight(0xcfd9e2, 0x0a0f16, 0.43));
+      // Interior lighting matching SpaceShip/src/components/game/ShipInterior.tsx.
+      // Mobile relies more on ambient/hemisphere light and fewer dynamic point
+      // lights, which is much cheaper for the forward renderer.
+      this.group.add(new THREE.AmbientLight(0xffffff, window.isMobileDevice ? 0.4 : 0.27));
+      this.group.add(new THREE.HemisphereLight(0xcfd9e2, 0x0a0f16, window.isMobileDevice ? 0.6 : 0.43));
       const dirLight = new THREE.DirectionalLight(0xffe9cf, 0.18);
       dirLight.position.set(5, 8, 3);
       this.group.add(dirLight);
@@ -2641,25 +2643,31 @@
       cupola.add(cupolaLamp);
       group.add(cupola);
 
-      const earthTexture = new THREE.TextureLoader().load("textures/earth/earth_day_5400.jpg");
+      const earthTexture = new THREE.TextureLoader().load(window.isMobileDevice
+        ? "textures/earth/blue-marble-2048.jpg"
+        : "textures/earth/earth_day_5400.jpg");
       earthTexture.encoding = THREE.sRGBEncoding;
       earthTexture.anisotropy = window.isMobileDevice ? 2 : 8;
-      const earth = new THREE.Mesh(new THREE.SphereGeometry(11.5, 72, 54), new THREE.MeshBasicMaterial({ map: earthTexture }));
+      const earthSegments = window.isMobileDevice ? [48, 36] : [72, 54];
+      const earth = new THREE.Mesh(new THREE.SphereGeometry(11.5, earthSegments[0], earthSegments[1]),
+        new THREE.MeshBasicMaterial({ map: earthTexture }));
       // Push the planet far enough away that the limb and the black of space
       // remain visible around it through the cupola panes.
       earth.position.set(50, 2.0, 8.5);
       earth.rotation.y = 1.4;
       group.add(earth);
-      const cloudTexture = new THREE.TextureLoader().load("textures/earth/earth_clouds_2048.png");
+      const cloudTexture = new THREE.TextureLoader().load(window.isMobileDevice
+        ? "textures/earth/earth_clouds_1024.png"
+        : "textures/earth/earth_clouds_2048.png");
       cloudTexture.encoding = THREE.sRGBEncoding;
-      const clouds = new THREE.Mesh(new THREE.SphereGeometry(11.54, 72, 54),
+      const clouds = new THREE.Mesh(new THREE.SphereGeometry(11.54, earthSegments[0], earthSegments[1]),
         new THREE.MeshBasicMaterial({ map: cloudTexture, transparent: true, opacity: 0.68, depthWrite: false }));
       clouds.position.copy(earth.position);
       clouds.rotation.y = earth.rotation.y;
       group.add(clouds);
       // Fresnel rim gives the Earth a believable atmospheric limb without a
       // full post-processing pass; the interior stays lightweight on mobile.
-      const atmosphere = new THREE.Mesh(new THREE.SphereGeometry(11.7, 48, 32),
+      const atmosphere = new THREE.Mesh(new THREE.SphereGeometry(11.7, window.isMobileDevice ? 32 : 48, window.isMobileDevice ? 24 : 32),
         new THREE.ShaderMaterial({
           uniforms: { glowColor: { value: new THREE.Color(0x4d9dff) } },
           vertexShader: [
@@ -2695,7 +2703,8 @@
         const value = Math.sin(index * 127.1 + 311.7) * 43758.5453;
         return value - Math.floor(value);
       };
-      for (let index = 0; index < 520; index++) {
+      const starCount = window.isMobileDevice ? 220 : 520;
+      for (let index = 0; index < starCount; index++) {
         const theta = starSeed(index) * Math.PI * 2;
         const phi = Math.acos(1 - starSeed(index + 37) * 0.92);
         const radius = 62 + starSeed(index + 91) * 18;
@@ -2745,7 +2754,7 @@
       });
       group.add(buildEquipmentFixtures(rackFixtures, bagFixtures));
       group.add(buildRackElectronics(wallSurfaces));
-      group.add(buildRackInstruments(wallSurfaces));
+      if (!window.isMobileDevice) group.add(buildRackInstruments(wallSurfaces));
       group.add(buildRackTrim(rackFixtures));
       group.add(buildScienceGlovebox([-1.72, 0, 4.15]));
       group.add(buildAirlockPanel([-5.9, 0, 6.65]));
@@ -2773,7 +2782,8 @@
         [0, 2.76, 36, false], [0, 2.76, 43, false], [0, 2.76, 48, false],
         [-4.5, 2.76, -3.8, true], [7, 2.76, -3.8, true], [7, 2.76, 8, true]
       ];
-      lightPositions.forEach(([x, y, z, alongX]) => {
+      const interiorLights = [];
+      lightPositions.forEach(([x, y, z, alongX], lightIndex) => {
         [-1, 1].forEach((side) => {
           const housing = new THREE.Mesh(new THREE.BoxGeometry(alongX ? 1.25 : 0.18, 0.06, alongX ? 0.18 : 1.25), lightHousing);
           housing.position.set(x + (alongX ? 0 : side * 1.02), y, z + (alongX ? side * 1.02 : 0));
@@ -2782,10 +2792,15 @@
           diffuser.position.set(housing.position.x, y - 0.045, housing.position.z);
           group.add(diffuser);
         });
-        const light = new THREE.PointLight(0xe4f3ff, 0.9, 6.5, 1.7);
+        // The emissive diffusers remain on every fixture; mobile only pays for
+        // every second dynamic point light, and ambient fill covers the gap.
+        if (window.isMobileDevice && lightIndex % 2 !== 0) return;
+        const light = new THREE.PointLight(0xe4f3ff, window.isMobileDevice ? 1.15 : 0.9, 6.5, 1.7);
         light.position.set(x, y - 0.3, z);
         group.add(light);
+        interiorLights.push(light);
       });
+      window.interiorPointLights = interiorLights;
       return group;
     }
 
@@ -2913,17 +2928,17 @@
         <span style="width:6px;height:6px;border-radius:2px;background:#2563eb;flex-shrink:0;"></span>
         <span style="font-size:10px;font-weight:700;letter-spacing:1.6px;color:#f8fafc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="ship-room-title">INTERNATIONAL SPACE STATION · INTERIOR</span>
         <a href="https://sketchfab.com/3d-models/international-space-station-2256c89a089b4ec895bb658b18fa7bbb" target="_blank" rel="noopener noreferrer" title="Structural reference: International Space Station by Stephen Mack on Sketchfab, CC BY 4.0. Interior rebuilt for Lunaspis." style="font-size:8px;font-weight:700;letter-spacing:0.6px;color:#a5f3fc;text-decoration:underline;white-space:nowrap;">REFERENCE · STEPHEN MACK · CC BY 4.0</a>
-        <button id="btn-return-space-center" style="background:rgba(15,23,42,0.88);border:1px solid rgba(148,163,184,0.28);color:#e2e8f0;font-size:9px;font-weight:700;letter-spacing:1.2px;padding:4px 9px;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;" title="Return the whole crew to Kennedy Space Center LC-39A [G]">
-          PAD LC-39A [G]
+        <button id="btn-return-space-center" style="background:rgba(15,23,42,0.88);border:1px solid rgba(148,163,184,0.28);color:#e2e8f0;font-size:9px;font-weight:700;letter-spacing:1.2px;padding:4px 9px;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;" title="Return the whole crew to the Launch Center [G]">
+          LAUNCH PAD [G]
         </button>
-        <button id="btn-toggle-iss-showcase" style="background:rgba(15,23,42,0.88);border:1px solid rgba(148,163,184,0.22);color:#e2e8f0;font-size:9px;font-weight:700;letter-spacing:1.2px;padding:4px 9px;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;" title="Inspect 27-Part NASA ISS 3D Reference Model [J]">
-          ISS 3D [J]
+        <button id="btn-toggle-iss-showcase" style="background:rgba(15,23,42,0.88);border:1px solid rgba(148,163,184,0.22);color:#e2e8f0;font-size:9px;font-weight:700;letter-spacing:1.2px;padding:4px 9px;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;" title="Look around the 27-part 3D Space Station model [J]">
+          STATION 3D [J]
         </button>
         <button id="btn-toggle-lunar-scene" style="background:rgba(15,23,42,0.88);border:1px solid rgba(148,163,184,0.22);color:#94a3b8;font-size:9px;font-weight:700;letter-spacing:1.2px;padding:4px 9px;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;" title="Toggle 3D Lunar Touchdown Scene [K]">
           MOON [K]
         </button>
-        <button id="btn-toggle-mission-viz" style="background:rgba(37,99,235,0.22);border:1px solid rgba(59,130,246,0.48);color:#f8fafc;font-size:9px;font-weight:700;letter-spacing:1.2px;padding:4px 9px;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;" title="Open 3D NASA Mission Viz & GMAT Trajectory Theater [U]">
-          ORBIT VIZ [U]
+        <button id="btn-toggle-mission-viz" style="background:rgba(37,99,235,0.22);border:1px solid rgba(59,130,246,0.48);color:#f8fafc;font-size:9px;font-weight:700;letter-spacing:1.2px;padding:4px 9px;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;" title="Open 3D Orbit & Earth Map View [U]">
+          3D ORBIT [U]
         </button>
         <button id="btn-hud-vr" style="background:rgba(15,23,42,0.88);border:1px solid rgba(148,163,184,0.22);color:#cbd5e1;font-size:9px;font-weight:700;letter-spacing:1.2px;padding:4px 9px;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;" title="Toggle WebXR / Stereo VR View">
           VR VIEW
@@ -3324,7 +3339,8 @@
       if (window.localCrew && window.localCrew.group) {
         const p = window.localCrew.group.position;
         const yaw = window.localCrew.group.rotation.y || 0;
-        if (!this._minimapTimer || t - this._minimapTimer > 0.12) {
+        const minimapInterval = window.isMobileDevice ? 0.24 : 0.12;
+        if (!this._minimapTimer || t - this._minimapTimer > minimapInterval) {
           this._minimapTimer = t;
           this._updateMinimapDOM(p.x, p.z, yaw);
         }

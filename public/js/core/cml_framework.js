@@ -128,29 +128,29 @@
     },
     {
       level: 8,
-      name: "Preliminary Build Review (PDR)",
-      shortTitle: "Stage 8 · Preliminary Build Review (PDR)",
-      phase: "Step 3: Engineering Design (NASA Phase B)",
+      name: "Early Build Check",
+      shortTitle: "Stage 8 · Early Build Check",
+      phase: "Step 3: Detailed Blueprints",
       teamContext: "Flight Project Office",
-      competedGate: "Preliminary Design Review (PDR)",
-      assignedGate: "Preliminary Design Review (PDR)",
+      competedGate: "Early Design Check",
+      assignedGate: "Early Design Check",
       hasFormalChecklist: false,
       feedbackLoopGroup: null,
-      summary: "Show working lab prototypes (TRL 6+), confirm every requirement flows down to hardware specs, and prove the schedule and cost plan is realistic.",
-      keyFocus: "Prove the engineering design satisfies every science and safety goal before cutting final metal and buying flight hardware."
+      summary: "Show working lab test models, confirm every goal is covered by your part plans, and prove the calendar and budget are realistic.",
+      keyFocus: "Prove the design meets every science and safety goal before cutting final metal and buying spaceflight parts."
     },
     {
       level: 9,
-      name: "Final Build & Manufacturing (CDR)",
-      shortTitle: "Stage 9 · Ready to Build Flight Hardware (CDR)",
-      phase: "Step 4: Build & Test Hardware (NASA Phase C)",
+      name: "Ready to Build & Fly",
+      shortTitle: "Stage 9 · Ready to Build Real Spacecraft",
+      phase: "Step 4: Build & Test Real Hardware",
       teamContext: "Manufacturing & Test Team",
-      competedGate: "Critical Design Review (CDR)",
-      assignedGate: "Critical Design Review (CDR)",
+      competedGate: "Final Build Check",
+      assignedGate: "Final Build Check",
       hasFormalChecklist: false,
       feedbackLoopGroup: null,
-      summary: "All shop drawings, wiring diagrams, and flight software are finalized, reviewed, and cleared to manufacture and assemble the real spacecraft.",
-      keyFocus: "Approve final blueprints to build, assemble, test, and launch the actual flight spacecraft."
+      summary: "All final blueprints, wiring plans, and computer code are finished, checked, and cleared to build and assemble the real spacecraft.",
+      keyFocus: "Approve final blueprints to build, put together, test, and launch the real flight spacecraft."
     }
   ];
 
@@ -188,8 +188,8 @@
         1: "State your main science question in one simple sentence",
         2: "Check how your science goal compares to past space missions and NASA priorities",
         3: "Match each science goal to real measurements; compare science gain vs. cost and risk",
-        4: "Build a Goal-to-Sensor Map (STM); list main vs. bare-minimum science goals & key metrics",
-        5: "Finish the Science Goals Map & draft the official mission science rules (PLRA)",
+        4: "Map out goals to sensors; list main vs. bare-minimum science goals & key targets",
+        5: "Finish the Science Goals Map & write out your official science rules",
         6: "Lock top-level science goals, detailed sensor specs, and pass/fail mission rules",
         7: "Fine-tune science rules and early hardware-level specs if anything changed"
       }
@@ -218,7 +218,7 @@
         1: "One sentence explaining what makes this mission unique and how it works",
         2: "Put real numbers on orbit, fuel needs, and space hazards; compare to a similar past flight",
         3: "Compare different orbits and flight plans against science value, budget, and risk",
-        4: "Map flight phases, fuel (Delta-V) budget, power/radio plan, and backup trim options",
+        4: "Map flight phases, fuel push budget, power/radio plan, and backup trim options",
         5: "Prove the full timeline works smoothly across every phase from launch to end-of-life",
         6: "Detail key maneuvers (burns, flybys, communication passes) and ground dish schedules",
         7: "Write out detailed step-by-step flight modes and contingency timelines"
@@ -288,10 +288,10 @@
         1: "—",
         2: "Spot any brand-new tech that isn't space-proven yet and still needs lab testing",
         3: "Compare new high-tech options vs. safer proven alternatives across designs",
-        4: "Justify each tech's readiness level (TRL) and name a proven backup plan for new tech",
+        4: "Explain how tested each new part is and name a proven backup plan for new tech",
         5: "Finish grading every new tech and write the roadmap to prove it works before building",
-        6: "Fund lab demonstrations for key new tech and keep the maturation roadmap on track",
-        7: "Check prototype test progress to guarantee every new tech reaches flight readiness (TRL 6)"
+        6: "Fund lab demonstrations for key new tech and keep the testing plan on track",
+        7: "Check lab test progress to make sure every new part is ready for spaceflight"
       }
     },
     {
@@ -302,7 +302,7 @@
         1: "—",
         2: "Note which past mission designs or off-the-shelf hardware you plan to reuse",
         3: "Weigh the savings of reusing old parts against the risk of needing custom changes",
-        4: "Pick the main off-the-shelf or proven components (radios, star trackers, thrusters)",
+        4: "Pick the main off-the-shelf or proven components (radios, star cameras, engines)",
         5: "Double-check that key reused parts are still made, available, and fit this environment",
         6: "Re-verify supplier stock and watch out for discontinued or aging electronics",
         7: "Same as Stage 6"
@@ -311,12 +311,12 @@
     {
       id: "tech_mel",
       category: "technical",
-      name: "Parts & Weight List (MEL)",
+      name: "Parts & Weight List",
       cells: {
         1: "—",
         2: "—",
-        3: "Add up rough weights for major sections (structure, power, fuel, instruments)",
-        4: "List every major hardware piece (antenna, tanks, star tracker, sensors) and its weight",
+        3: "Add up rough weights for major sections (body, power, fuel, cameras)",
+        4: "List every major hardware piece (dish, tanks, star camera, sensors) and its weight",
         5: "Expand the parts list and verify weights match the past missions you copied from",
         6: "Detail down to small individual pieces for anything custom or facing harsh radiation/cold",
         7: "Same as Stage 6"
@@ -325,13 +325,13 @@
     {
       id: "tech_margins",
       category: "technical",
-      name: "Safety Buffers (Technical Margins)",
+      name: "Safety Buffers (Spare Room)",
       cells: {
         1: "—",
         2: "Spot areas prone to surprises (weight growth, tight power) and add rough slack",
         3: "Apply standard NASA safety buffers and test best-case vs. worst-case scenarios",
-        4: "Meet NASA buffers: >=35% weight/power/battery, >=100% CPU, >=3/6 dB signal, 20d launch",
-        5: "Actively track every resource ledger and define rules for who can spend reserve slack",
+        4: "Meet NASA buffers: >=35% weight/power/battery, >=100% computer, >=3/6 dB signal, 20d launch",
+        5: "Actively track every resource list and define rules for who can spend reserve slack",
         6: "Same as Stage 5",
         7: "Same as Stage 5"
       }
@@ -339,7 +339,7 @@
     {
       id: "tech_sys_eng",
       category: "technical",
-      name: "Pulling Everything Together (Systems Eng)",
+      name: "Pulling Everything Together",
       cells: {
         1: "—",
         2: "Generate a few different high-level mission concepts to explore",
@@ -499,15 +499,15 @@
     {
       id: "other_nepa",
       category: "other",
-      name: "Environmental & Public Safety (NEPA)",
+      name: "Environmental & Public Safety",
       cells: {
         1: "—",
-        2: "Check for radioactive materials, toxic propellants, or public safety impacts",
-        3: "Compare cleaner or non-nuclear alternatives if hazardous hardware is considered",
-        4: "Review formal environmental impact rules (NEPA) required before launch",
-        5: "Document environmental check results and notify the NASA Environmental Office",
-        6: "Re-check environmental compliance after final design changes",
-        7: "Re-check environmental compliance after final design changes"
+        2: "Check for radioactive materials, toxic fuels, or public safety impacts",
+        3: "Compare cleaner or safer alternatives if hazardous parts are considered",
+        4: "Review formal environmental safety rules required before launch",
+        5: "Write down environmental check results and notify the NASA Safety Office",
+        6: "Re-check environmental safety after final design changes",
+        7: "Re-check environmental safety after final design changes"
       }
     },
     {
@@ -560,9 +560,9 @@
     { id: "c2_sched_rot", level: 2, rowId: "mgmt_schedules", category: "management", text: "Pick a target launch timeframe and rough mission lifetime", critical: false, na: false, consoleKey: "task_nav" },
     { id: "c2_cost_range", level: 2, rowId: "cost_estimation", category: "cost", text: "Check rough mission cost against a realistic budget cap & similar past flights", critical: true, na: false, consoleKey: "task_wires" },
     { id: "c2_nepa_screen", level: 2, rowId: "other_nepa", category: "other", text: "Check for toxic fuels, nuclear materials, or public safety issues", critical: false, na: false, consoleKey: "task_landing" },
-    { id: "c2_mel_na", level: 2, rowId: "tech_mel", category: "technical", text: "Full Parts & Weight List (MEL) — Not needed yet at Stage 2", critical: false, na: true },
+    { id: "c2_mel_na", level: 2, rowId: "tech_mel", category: "technical", text: "Full Parts & Weight List — Not needed yet at Stage 2", critical: false, na: true },
     { id: "c2_vnv_na", level: 2, rowId: "tech_vnv", category: "technical", text: "Pre-Launch Testing Plan — Not needed yet at Stage 2", critical: false, na: true },
-    { id: "c2_wbs_na", level: 2, rowId: "mgmt_wbs", category: "management", text: "Project Task Tree (WBS) — Not needed yet at Stage 2", critical: false, na: true },
+    { id: "c2_wbs_na", level: 2, rowId: "mgmt_wbs", category: "management", text: "Project Task Map — Not needed yet at Stage 2", critical: false, na: true },
 
     // ======================= STAGE 3 CHECKLIST =======================
     { id: "c3_sci_partials", level: 3, rowId: "sci_objectives", category: "science", text: "Compare how changing weight, orbit, or budget changes your science payoff", critical: true, na: false, consoleKey: "task_science" },
@@ -592,18 +592,18 @@
 
     // ======================= STAGE 4 CHECKLIST (CORE BLUEPRINT GATE) =======================
     // Science Goals (6 active)
-    { id: "c4_sci_stm", level: 4, rowId: "sci_objectives", category: "science", text: "Build a Goal-to-Sensor Map connecting each question to a camera/sensor (STM)", critical: true, na: false, consoleKey: "task_science" },
+    { id: "c4_sci_stm", level: 4, rowId: "sci_objectives", category: "science", text: "Match every science question directly to a camera or sensor", critical: true, na: false, consoleKey: "task_science" },
     { id: "c4_sci_base", level: 4, rowId: "sci_objectives", category: "science", text: "Define 1 Full-Success Science Goal (what victory looks like)", critical: true, na: false, consoleKey: "task_science" },
     { id: "c4_sci_thresh", level: 4, rowId: "sci_objectives", category: "science", text: "Define 1 Bare-Minimum Science Goal (floor still worth flying)", critical: true, na: false, consoleKey: "task_science" },
-    { id: "c4_sci_kpp", level: 4, rowId: "sci_objectives", category: "science", text: "List Key Metrics (resolution, sensitivity, coverage) to prove success (KPPs)", critical: true, na: false, consoleKey: "task_science" },
-    { id: "c4_sci_l1", level: 4, rowId: "sci_objectives", category: "science", text: "Capture top-level mission must-haves (Level 1 Requirements)", critical: true, na: false, consoleKey: "task_science" },
+    { id: "c4_sci_kpp", level: 4, rowId: "sci_objectives", category: "science", text: "List Key Targets (sharpness, sensitivity, coverage) to prove success", critical: true, na: false, consoleKey: "task_science" },
+    { id: "c4_sci_l1", level: 4, rowId: "sci_objectives", category: "science", text: "Write down top-level mission must-haves", critical: true, na: false, consoleKey: "task_science" },
     { id: "c4_sci_data_size", level: 4, rowId: "sci_data_system", category: "science", text: "Confirm daily data fits inside Earth radio download capacity (GB/day)", critical: false, na: false, consoleKey: "task_hull" },
 
     // Technical — Mission Flight Plan (4)
     { id: "c4_mdev_ops", level: 4, rowId: "tech_mission_dev", category: "technical", text: "Map out main mission phases, orbit timeline, and daily operations modes", critical: false, na: false, consoleKey: "task_nav" },
-    { id: "c4_mdev_dv", level: 4, rowId: "tech_mission_dev", category: "technical", text: "Calculate fuel needed (Delta-V) to reach orbit, steer, and safely retire", critical: true, na: false, consoleKey: "task_nav" },
+    { id: "c4_mdev_dv", level: 4, rowId: "tech_mission_dev", category: "technical", text: "Check fuel push needed to reach orbit, steer, and safely retire", critical: true, na: false, consoleKey: "task_nav" },
     { id: "c4_mdev_ptd", level: 4, rowId: "tech_mission_dev", category: "technical", text: "Show power, radio link, and onboard data plan all work together", critical: true, na: false, consoleKey: "task_wires" },
-    { id: "c4_mdev_descope", level: 4, rowId: "tech_mission_dev", category: "technical", text: "Name backup options you can trim (descope) if weight or budget gets tight", critical: false, na: false, consoleKey: "task_nav" },
+    { id: "c4_mdev_descope", level: 4, rowId: "tech_mission_dev", category: "technical", text: "Name backup items you can trim if weight or budget gets tight", critical: false, na: false, consoleKey: "task_nav" },
 
     // Technical — Spacecraft Body (2)
     { id: "c4_sc_arch", level: 4, rowId: "tech_spacecraft", category: "technical", text: "Build full spacecraft layout sketch & 3D assembly diagram", critical: true, na: false, consoleKey: "task_wires" },
@@ -621,14 +621,14 @@
     { id: "c4_risk_5x5", level: 4, rowId: "tech_risk", category: "technical", text: "Build a 5x5 Risk Map (How Likely vs. How Bad) with backup fixes", critical: true, na: false, consoleKey: "task_landing" },
 
     // Technical — New Tech (4)
-    { id: "c4_tech_char", level: 4, rowId: "tech_technology", category: "technical", text: "Verify thermal, radio, and propulsion technology choices", critical: false, na: false, consoleKey: "task_wires" },
-    { id: "c4_tech_base", level: 4, rowId: "tech_technology", category: "technical", text: "Justify why your chosen baseline tech beats alternatives", critical: false, na: false, consoleKey: "task_wires" },
-    { id: "c4_tech_trl", level: 4, rowId: "tech_technology", category: "technical", text: "Explain how ready each new tech is (TRL readiness score)", critical: false, na: false, consoleKey: "task_wires" },
+    { id: "c4_tech_char", level: 4, rowId: "tech_technology", category: "technical", text: "Verify cooling, radio, and engine choices", critical: false, na: false, consoleKey: "task_wires" },
+    { id: "c4_tech_base", level: 4, rowId: "tech_technology", category: "technical", text: "Explain why your chosen parts beat alternatives", critical: false, na: false, consoleKey: "task_wires" },
+    { id: "c4_tech_trl", level: 4, rowId: "tech_technology", category: "technical", text: "Explain how ready each new part is for spaceflight", critical: false, na: false, consoleKey: "task_wires" },
     { id: "c4_tech_fall", level: 4, rowId: "tech_technology", category: "technical", text: "Pick a proven Plan-B backup for every brand-new piece of technology", critical: false, na: false, consoleKey: "task_landing" },
 
     // Technical — Reusing Parts & Parts List (2)
-    { id: "c4_inher_items", level: 4, rowId: "tech_inheritance", category: "technical", text: "Pick major proven off-the-shelf hardware (radios, sensors, past bus)", critical: false, na: false, consoleKey: "task_wires" },
-    { id: "c4_mel_assy", level: 4, rowId: "tech_mel", category: "technical", text: "List every major hardware piece and its weight (Master Equipment List)", critical: true, na: false, consoleKey: "task_wires" },
+    { id: "c4_inher_items", level: 4, rowId: "tech_inheritance", category: "technical", text: "Pick major proven off-the-shelf hardware (radios, sensors, past body)", critical: false, na: false, consoleKey: "task_wires" },
+    { id: "c4_mel_assy", level: 4, rowId: "tech_mel", category: "technical", text: "List every major hardware piece and its weight (Parts & Weight List)", critical: true, na: false, consoleKey: "task_wires" },
 
     // Technical — Safety Buffers (9 active + 3 shaded N/A)
     { id: "c4_mgn_policy", level: 4, rowId: "tech_margins", category: "technical", text: "Follow standard NASA safety buffers so surprises don't break the build", critical: false, na: false, consoleKey: "task_wires" },
@@ -951,11 +951,11 @@
     if (!opts.hasTradeComparison) {
       addRisk(
         "r_trade",
-        "Skipped Design Comparisons (No Option A/B Test)",
+        "Skipped Design Comparisons (No Plan A vs Plan B Test)",
         3,
         3,
         "Concept Team",
-        "Click SAVE OPTION A in the top bar and try one other setup so you know this design is best."
+        "Click SAVE PLAN A in the top bar and try one other setup so you know this design is best."
       );
     }
 
@@ -995,15 +995,15 @@
     }
     if (t.thm && t.thm.id === "cryo_rad_90") {
       score += 1;
-      factors.push("Ultra-cold cryogenic optics (<40 K cooling)");
+      factors.push("Ultra-cold deep-freeze mirrors (below -230°C)");
     }
     if (isDeepSpaceOrbit(t.orbit && t.orbit.id, t.scenario && t.scenario.id)) {
       score += 1;
-      factors.push("Deep-space distance with long radio delay (L2, Mars, or Jupiter)");
+      factors.push("Deep-space distance with long radio delay");
     }
     if (t.orbit && Number(t.orbit.radiationEnvKrad) >= 50) {
       score += 1;
-      factors.push(`Extreme space radiation belt (${t.orbit.radiationEnvKrad} krad)`);
+      factors.push(`High space radiation zone (Level ${t.orbit.radiationEnvKrad})`);
     }
     if (t.prop && t.prop.id === "hall_ion_sep") {
       score += 1;
@@ -1125,11 +1125,11 @@
           : hasOptionA || taskDone("task_nav") ? { autoStatus: "Y", autoReason: "Try a second orbit/body option & compare cost and risk" }
           : { autoStatus: "R", autoReason: "No Option A comparison saved yet" };
       case "c3_mdev_hazards":
-        return t.radiationOk && t.thermalOk ? { autoStatus: "G", autoReason: `Radiation vault (${t.thm.radRatingKrad} krad) & cooling look safe` }
+        return t.radiationOk && t.thermalOk ? { autoStatus: "G", autoReason: `Space shield (Level ${t.thm.radRatingKrad}) & cooling look safe` }
           : { autoStatus: "R", autoReason: "Space heat or radiation beats your current protection" };
       case "c3_sc_sens":
-        return hasOptionA ? { autoStatus: "G", autoReason: "Option A vs. Option B differences live in top bar" }
-          : { autoStatus: "Y", autoReason: "Click SAVE OPTION A in the top tradeoff bar to benchmark" };
+        return hasOptionA ? { autoStatus: "G", autoReason: "Plan A vs Plan B differences are live in the top bar" }
+          : { autoStatus: "Y", autoReason: "Click SAVE PLAN A in the top bar to compare choices" };
       case "c3_inst_sens":
         return (t.matchedTypes || []).length >= (t.scenario && t.scenario.requiredScienceTypes ? t.scenario.requiredScienceTypes.length : 1) && t.telescopeOk
           ? { autoStatus: "G", autoReason: "Sensors match wavelengths & required science goals" }
@@ -1219,16 +1219,16 @@
           ? { autoStatus: "G", autoReason: "Orbit & flight operations timeline checked" }
           : { autoStatus: "Y", autoReason: "Finish Orbit & Rocket [2]" };
       case "c4_mdev_dv":
-        return t.deltaVOk ? { autoStatus: "G", autoReason: `Fuel budget OK: ${t.achievedDeltaV} >= ${t.requiredDeltaV} m/s` }
-          : { autoStatus: "R", autoReason: `Not enough fuel / Delta-V (${t.achievedDeltaV}/${t.requiredDeltaV} m/s)` };
+        return t.deltaVOk ? { autoStatus: "G", autoReason: `Fuel push OK: ${t.achievedDeltaV} >= ${t.requiredDeltaV} m/s` }
+          : { autoStatus: "R", autoReason: `Not enough fuel push (${t.achievedDeltaV}/${t.requiredDeltaV} m/s)` };
       case "c4_mdev_ptd":
         return t.powerOk && t.commsOk ? { autoStatus: "G", autoReason: "Power, radio & data budgets all pass" }
           : (!t.powerOk && !t.commsOk) ? { autoStatus: "R", autoReason: "Both power and radio budgets are failing" }
           : { autoStatus: "Y", autoReason: t.powerOk ? "Fix radio link / data budget" : "Fix solar power / battery budget" };
       case "c4_mdev_descope":
         return hasOptionA || hasText(notes.descopeOptions)
-          ? { autoStatus: "G", autoReason: notes.descopeOptions || "Backup plan saved via Option A" }
-          : { autoStatus: "Y", autoReason: "Write a backup trim plan in Notes or click SAVE OPTION A" };
+          ? { autoStatus: "G", autoReason: notes.descopeOptions || "Backup plan saved via Plan A" }
+          : { autoStatus: "Y", autoReason: "Write a backup trim plan in Notes or click SAVE PLAN A" };
 
       case "c4_sc_arch":
         return t.bus && taskDone("task_wires")
@@ -1313,21 +1313,21 @@
           : { autoStatus: "Y", autoReason: "Add extra schedule buffer months in Journey & Notes tab" };
       case "c4_mgn_other":
         return t.thermalOk && t.radiationOk
-          ? { autoStatus: "G", autoReason: `Cooling & ${t.thm.radRatingKrad} krad radiation shield have safe room` }
+          ? { autoStatus: "G", autoReason: `Cooling & Level ${t.thm.radRatingKrad} space shield have safe room` }
           : { autoStatus: "R", autoReason: "Spacecraft gets too hot/cold or lacks radiation shielding" };
 
       case "c4_se_trades":
         return hasOptionA && allSegsOk
-          ? { autoStatus: "G", autoReason: "Option A/B tested & all 4 mission areas passing" }
+          ? { autoStatus: "G", autoReason: "Plan A vs Plan B tested & all 4 mission steps pass" }
           : hasOptionA || segsCount >= 3
-            ? { autoStatus: "Y", autoReason: "Save Option A & get all 4 main mission segments green" }
-            : { autoStatus: "R", autoReason: "Big-picture design comparisons not done yet" };
+            ? { autoStatus: "Y", autoReason: "Save Plan A & get all 4 mission steps green" }
+            : { autoStatus: "R", autoReason: "Side-by-side plan comparison not done yet" };
       case "c4_lv_backup":
         return t.lv && t.massOk && hasText(notes.backupLv)
-          ? { autoStatus: "G", autoReason: `Primary ${t.lv.name}; Backup: ${notes.backupLv}` }
+          ? { autoStatus: "G", autoReason: `Main ${t.lv.name}; Backup: ${notes.backupLv}` }
           : t.lv && t.massOk
             ? { autoStatus: "Y", autoReason: `${t.lv.name} fits — name a backup rocket in Journey & Notes tab` }
-            : { autoStatus: "R", autoReason: "Selected rocket can't lift this mission cleanly" };
+            : { autoStatus: "R", autoReason: "Chosen rocket can't lift this mission cleanly" };
       case "c4_lv_nls":
         return t.lv && taskDone("task_nav") ? { autoStatus: "G", autoReason: "Standard certified rocket path confirmed" }
           : { autoStatus: "Y", autoReason: "Confirm rocket selection in Orbit & Rocket [2]" };
@@ -1647,7 +1647,7 @@
     const e = cmlEval || {};
     const target = e.activeSummary || { level: 4, percentGreen: 0, greenCount: 0, applicableCount: 0, criticalGaps: [], items: [] };
     const lines = [
-      `# Space Mission Readiness Guide (JPL Concept Maturity Report) — ${t.scenario ? t.scenario.name : "Mission Concept"}`,
+      `# Space Mission Readiness Guide — ${t.scenario ? t.scenario.name : "Mission Idea"}`,
       "",
       `- **Stage Reached (80%+ Checklist Score):** Stage ${e.reachedCml} (${e.reachedTitle})`,
       `- **Verified Stage (Must-Haves + Fresh-Eyes Review):** Stage ${e.certifiedCml}`,
@@ -1656,7 +1656,7 @@
       `- **Mission Complexity:** ${e.complexity ? `${e.complexity.tier} (${e.complexity.score}/5)` : "N/A"}`,
       "",
       "## Safety Buffers (Technical Margin Gate)",
-      "| Safety Buffer | Your Design | NASA Target | Status |",
+      "| Safety Buffer | Your Design | Goal | Status |",
       "|---|---|---|---|",
       ...(e.margins ? e.margins.metrics.map((m) => `| ${m.label} | ${m.actual} | ${m.required} | ${m.status} |`) : []),
       "",

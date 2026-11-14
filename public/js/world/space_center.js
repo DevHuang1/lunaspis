@@ -165,10 +165,18 @@
       const texture = new THREE.CanvasTexture(canvas);
       texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
       texture.repeat.set(repeatX, repeatY);
+      // Canvas ground textures are viewed at grazing angles for hundreds of
+      // metres. Cap anisotropy high (16x where supported), keep full trilinear
+      // mipmapping, and let the GPU build the mip chain from the power-of-two
+      // canvas. The previous 8x cap made distant grass/gravel shimmer.
+      texture.generateMipmaps = true;
+      texture.minFilter = THREE.LinearMipmapLinearFilter;
+      texture.magFilter = THREE.LinearFilter;
       texture.anisotropy = this.renderer && this.renderer.capabilities
-        ? Math.min(8, this.renderer.capabilities.getMaxAnisotropy())
+        ? Math.min(16, this.renderer.capabilities.getMaxAnisotropy())
         : 1;
       if (THREE.sRGBEncoding !== undefined) texture.encoding = THREE.sRGBEncoding;
+      texture.needsUpdate = true;
       return texture;
     }
 
@@ -210,19 +218,42 @@
       return this._makeCanvasTexture(size, (ctx, s) => {
         ctx.fillStyle = "#486538";
         ctx.fillRect(0, 0, s, s);
-        for (let i = 0; i < 16; i++) {
-          const shades = ["rgba(56,82,42,0.22)", "rgba(88,118,58,0.18)", "rgba(98,108,64,0.14)"];
+
+        // Broad tonal patches give the lawn readable variation at distance.
+        for (let i = 0; i < 22; i++) {
+          const shades = ["rgba(56,82,42,0.20)", "rgba(88,118,58,0.16)", "rgba(98,108,64,0.12)"];
           ctx.fillStyle = shades[i % shades.length];
           ctx.beginPath();
-          ctx.ellipse(Math.random() * s, Math.random() * s, 26 + Math.random() * 64, 22 + Math.random() * 58, Math.random() * Math.PI, 0, Math.PI * 2);
+          ctx.ellipse(Math.random() * s, Math.random() * s, 30 + Math.random() * 70, 24 + Math.random() * 62, Math.random() * Math.PI, 0, Math.PI * 2);
           ctx.fill();
         }
-        for (let i = 0; i < 11000; i++) {
-          const g = 74 + Math.floor(Math.random() * 52);
-          ctx.fillStyle = `rgba(${g - 24},${g + 4},${g - 34},${0.16 + Math.random() * 0.22})`;
-          ctx.fillRect(Math.random() * s, Math.random() * s, 1 + Math.random() * 2.2, 1 + Math.random() * 2.8);
+
+        // Medium clumps replace the old 11,000 sub-pixel specks that caused
+        // severe moiré/shimmer on distant ground. Keep these low-contrast and
+        // at least a few pixels wide so mipmaps average them cleanly.
+        for (let i = 0; i < 140; i++) {
+          const g = 82 + Math.floor(Math.random() * 40);
+          ctx.fillStyle = `rgba(${g - 26},${g + 2},${g - 36},${0.07 + Math.random() * 0.1})`;
+          ctx.beginPath();
+          ctx.ellipse(
+            Math.random() * s,
+            Math.random() * s,
+            3.5 + Math.random() * 9,
+            2.5 + Math.random() * 7,
+            Math.random() * Math.PI,
+            0,
+            Math.PI * 2
+          );
+          ctx.fill();
         }
-      }, 54, 58);
+
+        // Sparse fine blade detail for close-up viewing only.
+        for (let i = 0; i < 2600; i++) {
+          const g = 78 + Math.floor(Math.random() * 34);
+          ctx.fillStyle = `rgba(${g - 22},${g + 4},${g - 32},${0.08 + Math.random() * 0.1})`;
+          ctx.fillRect(Math.random() * s, Math.random() * s, 1.4 + Math.random() * 2.4, 1.4 + Math.random() * 2.2);
+        }
+      }, 44, 48);
     }
 
     _makeSandTexture(size = 512) {
@@ -301,7 +332,7 @@
         this.elevatorMoving  = true;
         this.elevatorRidingPlayer = true;
         if (window.gameplay && typeof window.gameplay.showToast === "function") {
-          window.gameplay.showToast("🛗 ELEVATOR: Ascending to Gantry Level — stand clear of doors");
+          window.gameplay.showToast("🛗 ELEVATOR: Going up to Boarding Bridge Level — stand clear of doors");
         }
       } else if (atGantry) {
         // Send elevator back down
@@ -322,8 +353,8 @@
     _updateSunShadowFocus(camPos) {
       if (!this.isGroundMode || !window.sunLight || !window.sunLight.castShadow) return;
       const sun = window.sunLight;
-      const focusX = camPos ? Math.max(-420, Math.min(480, camPos.x)) : 0;
-      const focusZ = camPos ? Math.max(-220, Math.min(720, camPos.z)) : 0;
+      const focusX = camPos ? Math.max(-960, Math.min(480, camPos.x)) : 0;
+      const focusZ = camPos ? Math.max(-860, Math.min(760, camPos.z)) : 0;
       // Texel-snap focus onto a 2m grid so shadows never shimmer as the camera glides.
       const snap = 2.0;
       const sx = Math.round(focusX / snap) * snap;
@@ -573,10 +604,10 @@
       terrainGroup.add(apron);
 
       const apronCurb = new THREE.Mesh(
-        new THREE.CylinderGeometry(134.8, 136.2, 0.16, 64, 1, true),
+        new THREE.CylinderGeometry(132.2, 135.4, 0.16, 64, 1, true),
         new THREE.MeshStandardMaterial({ color: 0xa4acb2, roughness: 0.92, metalness: 0.04, side: THREE.DoubleSide })
       );
-      apronCurb.position.set(0, 0.02, 0);
+      apronCurb.position.set(0, -0.02, 0);
       terrainGroup.add(apronCurb);
 
       // Perimeter service road outside apron.
@@ -704,6 +735,7 @@
       const bermMat = new THREE.MeshStandardMaterial({ color: 0xffffff, map: bermTex, roughness: 0.96, metalness: 0.0 });
       const padBerm = new THREE.Mesh(new THREE.CylinderGeometry(66.5, 92, 11.9, 8), bermMat);
       padBerm.position.set(0, 5.95, 0);
+      padBerm.rotation.y = Math.PI / 8;
       padBerm.receiveShadow = true;
       padBerm.castShadow = true;
       this.padGroup.add(padBerm);
@@ -714,6 +746,7 @@
       const collarMat = new THREE.MeshStandardMaterial({ color: 0xffffff, map: collarTex, roughness: 0.9, metalness: 0.08 });
       const padCollar = new THREE.Mesh(new THREE.CylinderGeometry(65.6, 67.0, 0.55, 8), collarMat);
       padCollar.position.set(0, 12.14, 0);
+      padCollar.rotation.y = Math.PI / 8;
       padCollar.receiveShadow = true;
       this.padGroup.add(padCollar);
 
@@ -724,6 +757,7 @@
         new THREE.MeshStandardMaterial({ color: 0xffffff, map: topApronTex, roughness: 0.88, metalness: 0.1 })
       );
       topApron.position.set(0, 12.19, 0);
+      topApron.rotation.y = Math.PI / 8;
       topApron.receiveShadow = true;
       this.padGroup.add(topApron);
 
@@ -761,35 +795,76 @@
         this.padGroup.add(slope);
       });
 
-      // Crawlerway approach ramp from south apron (z=186, y=0.08) to Pad top (z=61, y=12.50).
+      // Crawlerway approach ramp from south crawlerway (z=186, y=0.14) to Pad top (z=60, y=12.50).
       const rampTex = this._makeConcreteTexture(512, "#808991");
       rampTex.repeat.set(2, 5);
-      const ramp = new THREE.Mesh(
-        new THREE.BoxGeometry(30, 1.4, 125.6),
-        new THREE.MeshStandardMaterial({ color: 0xffffff, map: rampTex, roughness: 0.92, metalness: 0.05 })
-      );
-      ramp.rotation.x = 0.0994;
-      ramp.position.set(0, 5.65, 123.5);
+      const rampMat = new THREE.MeshStandardMaterial({ color: 0xffffff, map: rampTex, roughness: 0.92, metalness: 0.05 });
+      const rampSpanZ = 126.0;
+      const rampRiseY = 12.36;
+      const rampLen = Math.hypot(rampSpanZ, rampRiseY);
+      const rampRx = Math.atan2(rampRiseY, rampSpanZ);
+      const rampHalfH = 0.7;
+      const rampMidY = (0.14 + 12.5) * 0.5;
+      const rampMidZ = (186.0 + 60.0) * 0.5;
+
+      const ramp = new THREE.Mesh(new THREE.BoxGeometry(38, rampHalfH * 2, rampLen), rampMat);
+      ramp.rotation.x = rampRx;
+      ramp.position.set(0, rampMidY - rampHalfH * Math.cos(rampRx), rampMidZ - rampHalfH * Math.sin(rampRx));
       ramp.receiveShadow = true;
       this.padGroup.add(ramp);
 
-      // Sloped grass wing embankments flanking the crawlerway ramp so it seats naturally.
-      [-21, 21].forEach((sx) => {
-        const wing = new THREE.Mesh(new THREE.BoxGeometry(11, 4.8, 118), bermMat);
-        wing.rotation.x = 0.0994;
-        wing.position.set(sx, 3.75, 122);
+      // Flush south toe transition pad meeting CrawlerLane (z=186..196, top=0.14) with zero seam step.
+      const toeApron = new THREE.Mesh(
+        new THREE.BoxGeometry(41.5, 0.14, 10.0),
+        new THREE.MeshStandardMaterial({
+          color: 0xffffff,
+          map: rampTex,
+          roughness: 0.92,
+          metalness: 0.05,
+          polygonOffset: true,
+          polygonOffsetFactor: -1,
+          polygonOffsetUnits: -1
+        })
+      );
+      toeApron.position.set(0, 0.07, 190.8);
+      toeApron.receiveShadow = true;
+      this.padGroup.add(toeApron);
+
+      // Flush north crest bridge connecting ramp cleanly to the octagonal top apron.
+      const topBridge = new THREE.Mesh(new THREE.BoxGeometry(39.6, 0.62, 6.0), rampMat);
+      topBridge.position.set(0, 12.185, 58.6);
+      topBridge.receiveShadow = true;
+      this.padGroup.add(topBridge);
+
+      // Full-length sloped grass wing embankments tilted gently down into the outer lawn.
+      [-25.2, 25.2].forEach((sx) => {
+        const wing = new THREE.Mesh(new THREE.BoxGeometry(12.2, 5.2, rampLen), bermMat);
+        wing.rotation.set(rampRx, 0, sx > 0 ? -0.26 : 0.26, "YXZ");
+        wing.position.set(sx, 3.05, rampMidZ - 0.5);
         wing.receiveShadow = true;
         this.padGroup.add(wing);
       });
 
       const rampEdgeMat = new THREE.MeshStandardMaterial({ color: 0x4b5560, roughness: 0.86, metalness: 0.14 });
-      [-15.4, 15.4].forEach((x) => {
-        const edge = new THREE.Mesh(new THREE.BoxGeometry(0.9, 2.0, 125.6), rampEdgeMat);
-        edge.rotation.x = 0.0994;
-        edge.position.set(x, 6.25, 123.5);
+      [-19.45, 19.45].forEach((x) => {
+        const curbHalfH = 0.88; // protrudes a gentle 0.36m above ramp top surface
+        const curbTopOffset = 0.36;
+        const edge = new THREE.Mesh(new THREE.BoxGeometry(0.9, curbHalfH * 2, rampLen - 1.5), rampEdgeMat);
+        edge.rotation.x = rampRx;
+        edge.position.set(
+          x,
+          rampMidY - (curbHalfH - curbTopOffset) * Math.cos(rampRx),
+          rampMidZ - 0.75 - (curbHalfH - curbTopOffset) * Math.sin(rampRx)
+        );
         edge.castShadow = true;
         edge.receiveShadow = true;
         this.padGroup.add(edge);
+
+        const curbBevel = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.42, 3.4), rampEdgeMat);
+        curbBevel.rotation.x = 0.11;
+        curbBevel.position.set(x, 0.19, 186.6);
+        curbBevel.receiveShadow = true;
+        this.padGroup.add(curbBevel);
       });
 
       // Mobile Launcher Platform (MLP) seated atop launch mount piers (top strictly at y=19.80).
@@ -1664,13 +1739,13 @@
 
       this.guidanceMarkers = this.guidanceMarkers || { arm: null, hatch: null };
 
-      const armMarker = this._createGuidanceMarker("1 · ACCESS ARM CONTROL", 0xfbbf24);
+      const armMarker = this._createGuidanceMarker("1 · BOARDING BRIDGE CONTROL", 0xfbbf24);
       armMarker.position.set(8.1, 44.42, -6.3);
       armMarker.userData.baseY = 44.42;
       this.towerGroup.add(armMarker);
       this.guidanceMarkers.arm = armMarker;
 
-      const hatchMarker = this._createGuidanceMarker("2 · BOARD ORBITER", 0x67e8f9);
+      const hatchMarker = this._createGuidanceMarker("2 · BOARD SPACESHIP", 0x67e8f9);
       hatchMarker.position.set(17.0, 0.48, 0);
       hatchMarker.userData.baseY = 0.48;
       this.armPivotGroup.add(hatchMarker);
@@ -1686,8 +1761,8 @@
             z: 652,
             y: 0.22,
             radius: 5.5,
-            label: "E · VAB SPACECRAFT INTEGRATION DESK",
-            shortAction: "OPEN VAB INTEGRATION DESK [E]",
+            label: "E · ASSEMBLY HALL DESIGN DESK",
+            shortAction: "OPEN ASSEMBLY DESK [E]",
             action: "bus",
             color: 0x38bdf8
           },
@@ -1697,8 +1772,8 @@
             z: 180.5,
             y: 0.3,
             radius: 3.2,
-            label: "E · LCC FLIGHT DIRECTOR OPS CONSOLE",
-            shortAction: "OPEN LCC OPS CONSOLE [E]",
+            label: "E · EARTH CONTROL OPS CONSOLE",
+            shortAction: "OPEN CONTROL CONSOLE [E]",
             action: "lcc_console",
             color: 0x3b82f6
           },
@@ -1708,8 +1783,8 @@
             z: 240.5,
             y: 0.3,
             radius: 4.6,
-            label: "E · MCC FLIGHT DIRECTOR CONSOLE",
-            shortAction: "FLIGHT DIRECTOR · MISSION CHARTER [E]",
+            label: "E · MISSION LEADER CONSOLE",
+            shortAction: "MISSION LEADER · GOALS [E]",
             action: "mission",
             color: 0xfbbf24
           },
@@ -1719,8 +1794,8 @@
             z: 240.5,
             y: 0.3,
             radius: 4.6,
-            label: "E · MCC GROUND SYSTEMS CONSOLE",
-            shortAction: "GROUND SYSTEMS · ORBIT & LINK [E]",
+            label: "E · GROUND SUPPORT CONSOLE",
+            shortAction: "GROUND SUPPORT · PATH & RADIO [E]",
             action: "orbit",
             color: 0x67e8f9
           },
@@ -1730,8 +1805,8 @@
             z: 181,
             y: 0.3,
             radius: 4.6,
-            label: "E · FIRING ROOM FLIGHT DIRECTOR",
-            shortAction: "FIRING ROOM · MISSION CHARTER [E]",
+            label: "E · CONTROL ROOM LEADER",
+            shortAction: "CONTROL ROOM · GOALS [E]",
             action: "mission",
             color: 0xfbbf24
           },
@@ -1741,8 +1816,8 @@
             z: 181,
             y: 0.3,
             radius: 4.6,
-            label: "E · FIRING ROOM GROUND SYSTEMS",
-            shortAction: "FIRING ROOM · ORBIT & LINK [E]",
+            label: "E · CONTROL ROOM SUPPORT",
+            shortAction: "CONTROL ROOM · PATH & RADIO [E]",
             action: "orbit",
             color: 0x67e8f9
           },
@@ -1752,8 +1827,8 @@
             z: 188,
             y: 0.3,
             radius: 5.0,
-            label: "E · LCC FLIGHT DYNAMICS & ORBIT VIZ",
-            shortAction: "OPEN ORBIT VIZ [E]",
+            label: "E · EARTH CONTROL 3D FLIGHT VIEW",
+            shortAction: "OPEN 3D FLIGHT VIEW [E]",
             action: "viz",
             color: 0xa78bfa
           }
@@ -2044,14 +2119,14 @@
     // ============================================================================
     _siteTourSpawn(index) {
       const spawns = (window.SpaceCenterModules && window.SpaceCenterModules.SITE_TOUR_SPAWNS) || [];
-      return spawns[((index % spawns.length) + spawns.length) % spawns.length] || { x: 18, z: 150, yaw: Math.PI, label: "Pad 39A" };
+      return spawns[((index % spawns.length) + spawns.length) % spawns.length] || { x: 18, z: 150, yaw: Math.PI, label: "Launch Pad" };
     }
 
     enterSiteTour(index = 0) {
       const isGround = this._isLocalGroundCrew();
       if (!this.isGroundMode || (!isGround && (this.crewBoarded || this.isLaunching))) {
         if (window.gameplay && typeof window.gameplay.showToast === "function") {
-          window.gameplay.showToast(this.crewBoarded ? "CREW ALREADY ABOARD · RETURN TO GANTRY BEFORE TOURING" : "SITE TOUR UNAVAILABLE DURING LAUNCH");
+          window.gameplay.showToast(this.crewBoarded ? "CREW ALREADY ABOARD · RETURN TO LAUNCH TOWER BEFORE TOURING" : "SITE TOUR UNAVAILABLE DURING LAUNCH");
         }
         return false;
       }
@@ -2080,8 +2155,8 @@
       }
       if (window.gameplay && typeof window.gameplay.showToast === "function") {
         window.gameplay.showToast(isGround
-          ? "RETURNED TO LCC FIRING ROOM · CONSOLE [C]"
-          : "RETURNED TO THE GANTRY · BOARD THE ORBITER WHEN READY");
+          ? "RETURNED TO EARTH CONTROL ROOM · CONSOLE [C]"
+          : "RETURNED TO THE LAUNCH TOWER · BOARD THE SPACESHIP WHEN READY");
       }
       this._renderGroundHUD();
     }
@@ -2102,9 +2177,11 @@
       const spawn = this._siteTourSpawn(index);
       const count = spawns.length || 6;
       this.siteTourIndex = ((index % count) + count) % count;
+      const terrain = window.SpaceCenterModules && window.SpaceCenterModules.terrain;
+      const spawnY = terrain ? terrain.getSurfaceHeightAt(spawn.x, spawn.z, 0.2) : 0.2;
       if (window.localCrew && window.localCrew.group) {
         window.localCrew.group.visible = true;
-        window.localCrew.group.position.set(spawn.x, 0.2, spawn.z);
+        window.localCrew.group.position.set(spawn.x, spawnY, spawn.z);
         window.localCrew.group.rotation.y = spawn.yaw;
       }
       if (typeof window.setCameraYawPitch === "function") {
@@ -2112,7 +2189,7 @@
       }
       this._updateSunShadowFocus({ x: spawn.x, z: spawn.z });
       if (window.gameplay && typeof window.gameplay.showToast === "function") {
-        window.gameplay.showToast(`SITE TOUR · ${spawn.label.toUpperCase()} · [1-${count}] FAST TRAVEL · [T] ${this._isLocalGroundCrew() ? "LCC ROOM" : "GANTRY"}`);
+        window.gameplay.showToast(`SITE TOUR · ${spawn.label.toUpperCase()} · [1-${count}] FAST TRAVEL · [T] ${this._isLocalGroundCrew() ? "CONTROL ROOM" : "LAUNCH TOWER"}`);
       }
       this._renderGroundHUD();
     }
@@ -2126,11 +2203,27 @@
         minZ: -850,
         maxZ: 850
       };
-      let nx = Math.max(bounds.minX, Math.min(bounds.maxX, proposedPos.x));
-      let nz = Math.max(bounds.minZ, Math.min(bounds.maxZ, proposedPos.z));
-
       const boxes = (this.site && this.site.boxColliders) || [];
       const circles = (this.site && this.site.circleColliders) || [];
+      const terrain = window.SpaceCenterModules && window.SpaceCenterModules.terrain;
+
+      if (terrain && typeof terrain.resolveMovement === "function") {
+        const res = terrain.resolveMovement(
+          currentPos.x,
+          currentPos.z,
+          proposedPos.x,
+          proposedPos.z,
+          radius,
+          currentPos.y,
+          boxes,
+          circles,
+          bounds
+        );
+        return new THREE.Vector3(res.x, res.y, res.z);
+      }
+
+      let nx = Math.max(bounds.minX, Math.min(bounds.maxX, proposedPos.x));
+      let nz = Math.max(bounds.minZ, Math.min(bounds.maxZ, proposedPos.z));
       const blocked = (x, z) => {
         for (const box of boxes) {
           if (
@@ -2556,7 +2649,7 @@
         : "CMD";
       const unboardedNames = crewState.flightRoster.filter((p) => !p.isAboard).map((p) => p.name);
 
-      let statusText = `LC-39A · STEP 1 (${armOwnerLabel}): ARM [F]`;
+      let statusText = `LAUNCH PAD · STEP 1 (${armOwnerLabel}): BRIDGE [F]`;
       let statusColor = "#93c5fd";
       let distance = null;
       let target = null;
@@ -2568,22 +2661,22 @@
           statusColor = "#60a5fa";
         } else if (this.missionPhase === "gantry") {
           if (pollActive) {
-            statusText = "LAUNCH POLL ACTIVE · ISSUE GO/NO-GO IN LCC CONSOLE [C]";
+            statusText = "LAUNCH CHECK READY · GIVE FINAL OK IN CONTROL CONSOLE [C]";
             statusColor = "#fbbf24";
           } else {
-            statusText = `LCC FIRING ROOM · FLIGHT ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · OPS CONSOLE [C]`;
+            statusText = `EARTH CONTROL ROOM · CREW ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · OPS CONSOLE [C]`;
             statusColor = gs.goNoGoLaunch ? "#86efac" : "#93c5fd";
           }
         } else if (this.missionPhase === "launch") {
-          statusText = "T+ASCENT TELEMETRY LIVE · MONITOR PAD 39A LIFTOFF · CONSOLE [C]";
+          statusText = "ROCKET CLIMBING LIVE · WATCH LIFTOFF STATS · CONSOLE [C]";
           statusColor = "#fca5a5";
         } else if (this.missionPhase === "docking") {
           statusText = gs.dockingClearance
-            ? "ORBITAL DOCKING IN PROGRESS · CORRIDOR CLEARED · CONSOLE [C]"
-            : "ORBITAL RENDEZVOUS · ISSUE DOCKING CLEARANCE [C]";
+            ? "DOCKING IN PROGRESS · PATH CLEARED · CONSOLE [C]"
+            : "APPROACHING STATION · APPROVE DOCKING [C]";
           statusColor = gs.dockingClearance ? "#86efac" : "#fbbf24";
         } else {
-          statusText = "ORBITAL OPS · COORDINATE STATION CREW & DOWNLINK · CONSOLE [C]";
+          statusText = "IN SPACE · HELP STATION CREW & RADIO DATA · CONSOLE [C]";
           statusColor = "#86efac";
         }
       } else if (this.siteTourActive) {
@@ -2592,45 +2685,45 @@
           statusText = `${nearTerm.label} · [E] OPEN TERMINAL`;
           statusColor = "#60a5fa";
         } else {
-          const loc = (current && (current.short || current.label) ? (current.short || current.label) : "PAD 39A").toUpperCase();
+          const loc = (current && (current.short || current.label) ? (current.short || current.label) : "LAUNCH PAD").toUpperCase();
           const jumpRange = tourSpawns.length || 6;
           statusText = touchUI
             ? `SITE TOUR · ${loc}`
-            : `SITE TOUR · ${loc} · [1-${jumpRange}] JUMP · [T] GANTRY`;
+            : `SITE TOUR · ${loc} · [1-${jumpRange}] JUMP · [T] TOWER`;
           statusColor = "#d0a15c";
         }
       } else if (this.isLaunching) {
-        statusText = "T-0: MAIN ENGINE & BOOSTER IGNITION · LIFTOFF";
+        statusText = "ENGINES FIRED · LIFTOFF!";
         statusColor = "#f87171";
       } else if (pollActive) {
         statusText = touchUI
-          ? "AWAITING GROUND GO/NO-GO · TAP LAUNCH TO OVERRIDE"
-          : "AWAITING GROUND GO/NO-GO (8s) · PRESS [L] AGAIN TO LAUNCH NOW";
+          ? "WAITING ON EARTH CONTROL OK · TAP LAUNCH TO OVERRIDE"
+          : "WAITING ON EARTH CONTROL OK (8s) · PRESS [L] AGAIN TO LAUNCH NOW";
         statusColor = "#fbbf24";
       } else if (!step1Done) {
         distance = this._distanceToGuidancePoint(-25.9, -6.3);
         target = "arm";
-        statusText = `LC-39A · STEP 1 (${armOwnerLabel}): ARM [F]${distance !== null ? ` · ${Math.max(1, Math.round(distance))}m` : ""}`;
+        statusText = `LAUNCH PAD · STEP 1 (${armOwnerLabel}): BRIDGE [F]${distance !== null ? ` · ${Math.max(1, Math.round(distance))}m` : ""}`;
         statusColor = "#fbbf24";
       } else if (!step2Done) {
         distance = this._distanceToGuidancePoint(-7.8, -7.2);
         target = "hatch";
-        statusText = `LC-39A · STEP 2: HATCH [E/B] (${crewState.aboardCount}/${crewState.crewTotal})${distance !== null ? ` · ${Math.max(1, Math.round(distance))}m` : ""}`;
+        statusText = `LAUNCH PAD · STEP 2: BOARD DOOR [E/B] (${crewState.aboardCount}/${crewState.crewTotal})${distance !== null ? ` · ${Math.max(1, Math.round(distance))}m` : ""}`;
         statusColor = "#93c5fd";
       } else if (this.autoLaunchRemaining !== null) {
         const seconds = Math.max(1, Math.ceil(this.autoLaunchRemaining));
-        statusText = `ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · LIFTOFF IN ${seconds}s`;
+        statusText = `CREW ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · LIFTOFF IN ${seconds}s`;
         statusColor = "#86efac";
       } else if (crewState.allAboard) {
         statusText = gs.goNoGoLaunch
-          ? `GO FOR LAUNCH · ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · IGNITION...`
-          : `ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · POLLING LAUNCH...`;
+          ? `CLEAR FOR LIFTOFF · CREW ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · STARTING...`
+          : `CREW ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · CHECKING WITH GROUND...`;
         statusColor = "#86efac";
       } else {
         const waitingOn = unboardedNames.length ? `WAIT: ${unboardedNames.join(", ")} · ` : "";
         statusText = touchUI
-          ? `ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · ${waitingOn}AUTH: ${launchAuthLabel}`
-          : `ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · ${waitingOn}${launchAuthLabel} [L]`;
+          ? `CREW ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · ${waitingOn}LEADER: ${launchAuthLabel}`
+          : `CREW ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · ${waitingOn}${launchAuthLabel} [L]`;
         statusColor = "#fbbf24";
       }
 
@@ -2695,14 +2788,14 @@
             </button>
             ${guidance.isGround ? `
               <button type="button" id="btn-sc-lcc-console" class="sc-hud-btn ${this.lccConsoleOpen ? "sc-btn-launch" : "sc-btn-term"}">
-                ${this.lccConsoleOpen ? "CLOSE OPS [C]" : (guidance.pollActive ? "GO/NO-GO [C]" : "LCC OPS [C]")}
+                ${this.lccConsoleOpen ? "CLOSE OPS [C]" : (guidance.pollActive ? "GIVE OK [C]" : "CONTROL ROOM [C]")}
               </button>
             ` : `
               <button type="button" id="btn-sc-launch" class="sc-hud-btn sc-btn-launch" style="display:${guidance.canLaunchNow ? "inline-flex" : "none"};">
                 ${guidance.pollActive ? (touchUI ? "OVERRIDE LAUNCH" : "OVERRIDE [L]") : (touchUI ? "LAUNCH" : "LAUNCH [L]")}
               </button>
             `}
-            <button type="button" id="btn-sc-hud-toggle" class="sc-hud-btn sc-btn-collapse" title="${this.hudCollapsed ? "Expand LC-39A Dock" : "Minimize LC-39A Dock"}">
+            <button type="button" id="btn-sc-hud-toggle" class="sc-hud-btn sc-btn-collapse" title="${this.hudCollapsed ? "Expand Launch Pad Dock" : "Minimize Launch Pad Dock"}">
               ${this.hudCollapsed ? "+" : "-"}
             </button>
           </div>
@@ -2714,21 +2807,21 @@
               ${touchUI ? "DESIGN" : "DESIGN [M]"}
             </button>
             <button type="button" id="btn-sc-mdl-desk" class="sc-hud-btn sc-btn-mdl">
-              MDL DESK
+              SUMMARY DESK
             </button>
             <button type="button" id="btn-sc-cml-workbench" class="sc-hud-btn sc-btn-plan">
               READINESS
             </button>
             <button type="button" id="btn-sc-orbit-viz" class="sc-hud-btn sc-btn-viz">
-              ${touchUI ? "ORBIT VIZ" : "ORBIT VIZ [U]"}
+              ${touchUI ? "3D VIEW" : "3D VIEW [U]"}
             </button>
             ${guidance.isGround ? `
               <button type="button" id="btn-sc-return-lcc" class="sc-hud-btn sc-btn-tour">
-                ${touchUI ? "LCC ROOM" : "LCC ROOM [T]"}
+                ${touchUI ? "CONTROL ROOM" : "CONTROL ROOM [T]"}
               </button>
             ` : `
               <button type="button" id="btn-sc-site-tour" class="sc-hud-btn sc-btn-tour">
-                ${this.siteTourActive ? (touchUI ? "GANTRY" : "GANTRY [T]") : "SITE TOUR"}
+                ${this.siteTourActive ? (touchUI ? "LAUNCH TOWER" : "LAUNCH TOWER [T]") : "SITE TOUR"}
               </button>
             `}
           </div>
@@ -2736,19 +2829,19 @@
           ${guidance.isGround ? `
             <div class="sc-ground-ops-strip">
               <button type="button" id="btn-gop-gonogo" class="ground-action-btn ${this._groundOpButtonAttrs(gs.goNoGoLaunch, guidance.pollActive)}" data-ground-op="go_nogo_launch">
-                ${gs.goNoGoLaunch ? "GO LAUNCHED" : (guidance.pollActive ? "ISSUE GO/LAUNCH" : "PRE-CLEAR GO")}
+                ${gs.goNoGoLaunch ? "LIFTOFF OK'D" : (guidance.pollActive ? "APPROVE LIFTOFF" : "PRE-APPROVE LIFTOFF")}
               </button>
               <button type="button" id="btn-gop-dock" class="ground-action-btn ${this._groundOpButtonAttrs(gs.dockingClearance, this.missionPhase === "docking" && !gs.dockingClearance)}" data-ground-op="docking_clearance">
-                ${gs.dockingClearance ? "DOCK CLEARED" : "CLEAR DOCKING"}
+                ${gs.dockingClearance ? "DOCKING OK'D" : "APPROVE DOCKING"}
               </button>
               <button type="button" id="btn-gop-dsn" class="ground-action-btn ${this._groundOpButtonAttrs(gs.dsnLocked)}" data-ground-op="dsn_lock">
-                ${gs.dsnLocked ? "DSN LOCKED" : "DSN LOCK"}
+                ${gs.dsnLocked ? "DISH LOCKED" : "LOCK EARTH DISH"}
               </button>
               <button type="button" id="btn-gop-eps" class="ground-action-btn ${this._groundOpButtonAttrs(gs.powerRouted)}" data-ground-op="power_route">
-                ${gs.powerRouted ? "EPS ROUTED" : "EPS ROUTE"}
+                ${gs.powerRouted ? "POWER SENT" : "BOOST SOLAR POWER"}
               </button>
               <button type="button" id="btn-gop-sci" class="ground-action-btn ${this._groundOpButtonAttrs(gs.scienceCleared)}" data-ground-op="science_downlink">
-                ${gs.scienceCleared ? "SCI DOWNLINK" : "SCI CLEAR"}
+                ${gs.scienceCleared ? "LAB DATA ON" : "CLEAR SCIENCE DATA"}
               </button>
             </div>
           ` : `
@@ -2915,7 +3008,7 @@
       if (btnLcc) {
         btnLcc.textContent = this.lccConsoleOpen
           ? "CLOSE OPS [C]"
-          : (guidance.pollActive ? "GO/NO-GO [C]" : "LCC OPS [C]");
+          : (guidance.pollActive ? "GIVE OK [C]" : "CONTROL ROOM [C]");
       }
 
       const stepsRow = this.hudOverlay.querySelector("#sc-guidance-steps");
@@ -2931,12 +3024,12 @@
         chip.style.boxShadow = "none";
       };
 
-      applyChip("sc-step-1", `1 · ARM [F]`, guidance.step1Done, !guidance.step1Done, {
+      applyChip("sc-step-1", `1 · BRIDGE [F]`, guidance.step1Done, !guidance.step1Done, {
         border: "rgba(217,119,6,0.65)",
         background: "rgba(217,119,6,0.16)",
         color: "#fde68a"
       });
-      applyChip("sc-step-2", `2 · HATCH [E/B] (${guidance.aboardCount}/${guidance.crewTotal})`, guidance.step2Done, guidance.step1Done && !guidance.step2Done, {
+      applyChip("sc-step-2", `2 · BOARD DOOR [E/B] (${guidance.aboardCount}/${guidance.crewTotal})`, guidance.step2Done, guidance.step1Done && !guidance.step2Done, {
         border: "rgba(59,130,246,0.6)",
         background: "rgba(37,99,235,0.18)",
         color: "#dbeafe"
@@ -2983,7 +3076,7 @@
       const missionEl = this.lccConsoleOverlay.querySelector("#lcc-live-telemetry-readout");
       if (missionEl && window.gameplay && typeof window.gameplay.getGroundTelemetrySummary === "function") {
         const sum = window.gameplay.getGroundTelemetrySummary();
-        missionEl.textContent = `PHASE ${String(this.missionPhase || "gantry").toUpperCase()} · CHECKLIST ${sum.completed}/${sum.total} · READINESS ${sum.readiness}%`;
+        missionEl.textContent = `STAGE: ${String(this.missionPhase || "gantry").toUpperCase()} · TASKS ${sum.completed}/${sum.total} · READY ${sum.readiness}%`;
       }
     }
 
@@ -2998,29 +3091,29 @@
         : { completed: 0, total: 6, readiness: 0, o2: 100, temp: 21.5, rad: 0 };
       const mapHtml = (window.shipInterior && typeof window.shipInterior.renderExternalFloorplanHtml === "function")
         ? window.shipInterior.renderExternalFloorplanHtml(190)
-        : `<div style="font-size:11px;color:#94a3b8;">Station floorplan telemetry online upon docking.</div>`;
+        : `<div style="font-size:11px;color:#94a3b8;">Station map goes live once you dock.</div>`;
       const activePing = gs.activePing;
       const pingValid = activePing && (Date.now() - (activePing.at || 0) < 20000);
       const roomButtons = [
-        { id: "HUB", label: "HUB · HARMONY" },
-        { id: "CMD", label: "CMD · CUPOLA" },
-        { id: "PWR", label: "PWR · EPS BAY" },
-        { id: "SCI", label: "SCI · LAB" },
-        { id: "LSS", label: "LSS · DESTINY" },
-        { id: "HULL", label: "HULL · COMMS" }
+        { id: "HUB", label: "HUB · MAIN HALL" },
+        { id: "CMD", label: "CMD · WINDOW DECK" },
+        { id: "PWR", label: "PWR · POWER ROOM" },
+        { id: "SCI", label: "SCI · SCIENCE LAB" },
+        { id: "LSS", label: "LSS · AIR & WATER" },
+        { id: "HULL", label: "HULL · RADIO DISH" }
       ];
 
       this.lccConsoleOverlay.innerHTML = `
         <div class="ground-lcc-header">
           <div>
-            <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:1.6px;color:#93c5fd;">KENNEDY SPACE CENTER · FIRING ROOM 4</div>
+            <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:1.6px;color:#93c5fd;">EARTH CONTROL CENTER · ROOM 4</div>
             <div id="lcc-live-telemetry-readout" style="font-size:12px;font-weight:700;color:#f8fafc;margin-top:2px;">
-              PHASE ${phaseUpper} · CHECKLIST ${sum.completed}/${sum.total} · READINESS ${sum.readiness}%
+              STAGE: ${phaseUpper} · TASKS ${sum.completed}/${sum.total} · READY ${sum.readiness}%
             </div>
           </div>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-            <button type="button" class="ground-action-btn" id="btn-lcc-open-viz">ORBIT VIZ [U]</button>
-            <button type="button" class="ground-action-btn" id="btn-lcc-open-planner">ARCHITECTURE [M]</button>
+            <button type="button" class="ground-action-btn" id="btn-lcc-open-viz">3D PATH VIEW [U]</button>
+            <button type="button" class="ground-action-btn" id="btn-lcc-open-planner">MISSION PLAN [M]</button>
             <button type="button" class="ground-action-btn" id="btn-lcc-cml-review" style="border-color:rgba(251,191,36,0.55);color:#fde68a;">FRESH-EYES REVIEW</button>
             <button type="button" class="ground-action-btn" id="btn-lcc-close">CLOSE [C]</button>
           </div>
@@ -3028,61 +3121,61 @@
 
         ${pingValid ? `
           <div class="ground-ping-banner">
-            <span>ACTIVE FLIGHT PING: <strong>${String(activePing.roomLabel || activePing.roomId || "HUB").toUpperCase()}</strong>${activePing.message ? ` · ${activePing.message}` : ""} (${activePing.byName || "LCC"})</span>
-            <button type="button" class="ground-action-btn" id="btn-lcc-clear-ping">CLEAR PING</button>
+            <span>TEAM ALERT: <strong>${String(activePing.roomLabel || activePing.roomId || "HUB").toUpperCase()}</strong>${activePing.message ? ` · ${activePing.message}` : ""} (${activePing.byName || "Ground"})</span>
+            <button type="button" class="ground-action-btn" id="btn-lcc-clear-ping">CLEAR ALERT</button>
           </div>
         ` : ""}
 
         <div class="ground-lcc-grid">
           <div class="ground-lcc-card">
-            <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:1.4px;color:#94a3b8;">LAUNCH & DOCKING CLEARANCES</div>
+            <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:1.4px;color:#94a3b8;">LAUNCH & DOCKING OK</div>
             <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.goNoGoLaunch, pollActive)}" data-lcc-op="go_nogo_launch" style="text-align:left;padding:7px 10px;">
-              ${gs.goNoGoLaunch ? `GO FOR LAUNCH APPROVED (${gs.goNoGoBy || "GROUND"})` : (pollActive ? "POLL ACTIVE: ISSUE GO FOR LAUNCH" : "PRE-CLEAR GO FOR LAUNCH")}
+              ${gs.goNoGoLaunch ? `LIFTOFF APPROVED (${gs.goNoGoBy || "GROUND"})` : (pollActive ? "CHECK ACTIVE: GIVE LIFTOFF OK" : "PRE-APPROVE LIFTOFF")}
             </button>
             <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.dockingClearance, this.missionPhase === "docking" && !gs.dockingClearance)}" data-lcc-op="docking_clearance" style="text-align:left;padding:7px 10px;">
-              ${gs.dockingClearance ? `DOCKING CORRIDOR CLEARED (${gs.dockingClearanceBy || "GROUND"})` : "ISSUE DOCKING CORRIDOR CLEARANCE"}
+              ${gs.dockingClearance ? `DOCKING PATH CLEARED (${gs.dockingClearanceBy || "GROUND"})` : "APPROVE SAFE DOCKING PATH"}
             </button>
-            <div style="font-family:var(--font-mono);font-size:10px;color:#94a3b8;margin-top:4px;">FLIGHT CREW MANIFEST (${crewState.aboardCount}/${crewState.crewTotal} ABOARD)</div>
+            <div style="font-family:var(--font-mono);font-size:10px;color:#94a3b8;margin-top:4px;">FLIGHT TEAM (${crewState.aboardCount}/${crewState.crewTotal} ABOARD)</div>
             <div style="display:flex;flex-direction:column;gap:4px;">
               ${crewState.flightRoster.map((p) => `
                 <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:4px 7px;background:rgba(15,23,42,0.65);border:1px solid rgba(148,163,184,0.16);border-radius:3px;">
                   <span style="color:#f8fafc;"><strong>${p.roleShort}</strong> · ${p.name}</span>
                   <span style="font-family:var(--font-mono);font-size:9px;color:${this.missionPhase === "station" ? "#86efac" : (p.isAboard ? "#93c5fd" : "#94a3b8")};">
-                    ${this.missionPhase === "station" ? "STATION" : (p.isAboard ? "BOARDED" : "PAD 39A")}
+                    ${this.missionPhase === "station" ? "STATION" : (p.isAboard ? "ABOARD" : "LAUNCH PAD")}
                   </span>
                 </div>
-              `).join("") || `<div style="font-size:11px;color:#94a3b8;">No Flight Crew assigned.</div>`}
+              `).join("") || `<div style="font-size:11px;color:#94a3b8;">No Space Crew assigned.</div>`}
             </div>
           </div>
 
           <div class="ground-lcc-card">
-            <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:1.4px;color:#94a3b8;">GROUND NETWORK & SUBSYSTEM SUPPORT</div>
+            <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:1.4px;color:#94a3b8;">GROUND TEAM HELP & BOOSTS</div>
             <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.dsnLocked)}" data-lcc-op="dsn_lock" style="text-align:left;padding:7px 10px;">
-              ${gs.dsnLocked ? `DSN TELEMETRY LOCKED (${gs.dsnLockedBy || "GROUND"})` : "LOCK DEEP SPACE NETWORK ANTENNA (+COMMS)"}
+              ${gs.dsnLocked ? `EARTH RADIO LOCKED (${gs.dsnLockedBy || "GROUND"})` : "TURN ON BIG EARTH RADIO DISH (+SIGNAL)"}
             </button>
             <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.powerRouted)}" data-lcc-op="power_route" style="text-align:left;padding:7px 10px;">
-              ${gs.powerRouted ? `EPS ARRAY POWER ROUTED (${gs.powerRoutedBy || "GROUND"})` : "ROUTE EPS SOLAR ARRAY TELEMETRY (+POWER)"}
+              ${gs.powerRouted ? `SOLAR POWER BOOST ON (${gs.powerRoutedBy || "GROUND"})` : "SEND EXTRA SOLAR POWER TRACKING (+POWER)"}
             </button>
             <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.scienceCleared)}" data-lcc-op="science_downlink" style="text-align:left;padding:7px 10px;">
-              ${gs.scienceCleared ? `SCIENCE DOWNLINK CLEARED (${gs.scienceClearedBy || "GROUND"})` : "AUTHORIZE PAYLOAD SCIENCE DOWNLINK (+SCIENCE)"}
+              ${gs.scienceCleared ? `LAB DATA LINK CLEARED (${gs.scienceClearedBy || "GROUND"})` : "APPROVE LIVE SCIENCE DATA FEED (+SCIENCE)"}
             </button>
-            <div style="font-family:var(--font-mono);font-size:10px;color:#94a3b8;margin-top:4px;">PING STATION COMPARTMENT</div>
+            <div style="font-family:var(--font-mono);font-size:10px;color:#94a3b8;margin-top:4px;">ALERT A STATION ROOM</div>
             <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;">
               ${roomButtons.map((rm) => `
                 <button type="button" class="ground-action-btn ${pingValid && activePing.roomId === rm.id ? "is-approved" : ""}" data-lcc-ping="${rm.id}">
-                  PING ${rm.label}
+                  ALERT ${rm.label}
                 </button>
               `).join("")}
             </div>
           </div>
 
           <div class="ground-lcc-card">
-            <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:1.4px;color:#94a3b8;">ORBITAL STATION LIVE CREW TRACKER</div>
+            <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:1.4px;color:#94a3b8;">LIVE STATION ROOM MAP</div>
             <div id="lcc-live-floorplan" style="background:rgba(5,8,16,0.8);border:1px solid rgba(148,163,184,0.16);border-radius:4px;padding:6px;">
               ${mapHtml}
             </div>
             <div style="font-size:10px;color:#94a3b8;line-height:1.4;">
-              Advisory model: Ground clearances boost &amp; guide Flight Crew telemetry without soft-locking mission progression. Hold [R] or click S-BAND RADIO to speak directly to orbit.
+              Team helper: Ground approvals boost &amp; guide Space Crew numbers without blocking progress. Hold [R] or click VOICE RADIO to talk directly to space.
             </div>
           </div>
         </div>
@@ -3120,7 +3213,7 @@
       this.lccConsoleOverlay.querySelectorAll("[data-lcc-ping]").forEach((btn) => {
         btn.addEventListener("click", () => {
           const targetRoom = btn.getAttribute("data-lcc-ping");
-          if (targetRoom) this._triggerGroundAction("ping_room", { targetRoom, message: "PRIORITY CHECK REQUESTED BY LCC" });
+          if (targetRoom) this._triggerGroundAction("ping_room", { targetRoom, message: "PLEASE CHECK THIS ROOM — EARTH CONTROL" });
         });
       });
     }
@@ -3575,7 +3668,7 @@
           if (!pollPending || (Date.now() - this._localPollSentAt < 1200)) {
             if (!pollPending) this._localPollSentAt = Date.now();
             if (window.gameplay && typeof window.gameplay.showToast === "function") {
-              window.gameplay.showToast("GO/NO-GO LAUNCH POLL SENT TO GROUND CONTROL (8s AUTO-RELEASE · PRESS [L] AGAIN TO OVERRIDE)");
+              window.gameplay.showToast("LIFTOFF CHECK SENT TO EARTH CONTROL (8s AUTO-START · PRESS [L] AGAIN TO LAUNCH NOW)");
             }
             this._renderGroundHUD();
             return;
@@ -3635,7 +3728,7 @@
         this._renderGroundHUD();
         if (this.lccConsoleOpen) this._renderLccConsole();
         if (window.gameplay && typeof window.gameplay.showToast === "function") {
-          window.gameplay.showToast("T-0 LIFTOFF AT LC-39A · OBSERVE ASCENT FROM SPACE CENTER · CONSOLE [C]");
+          window.gameplay.showToast("LIFTOFF AT LAUNCH PAD · WATCH ROCKET CLIMB · CONTROL CONSOLE [C]");
         }
         return;
       }
@@ -3697,7 +3790,7 @@
         this._renderGroundHUD();
         if (this.lccConsoleOpen) this._renderLccConsole();
         if (window.gameplay && typeof window.gameplay.showToast === "function") {
-          window.gameplay.showToast("ORBITAL RENDEZVOUS · ISSUE DOCKING CORRIDOR CLEARANCE IN LCC CONSOLE [C]");
+          window.gameplay.showToast("APPROACHING STATION · APPROVE SAFE DOCKING IN CONTROL CONSOLE [C]");
         }
         return;
       }
@@ -3734,7 +3827,7 @@
 
       if (window.dockingSim && typeof window.dockingSim.start === "function") {
         if (window.gameplay && typeof window.gameplay.showToast === "function") {
-          window.gameplay.showToast("ORBITAL INSERTION COMPLETE · ALIGN & DOCK WITH STATION PORT PMA-2");
+          window.gameplay.showToast("REACHED SPACE ORBIT · LINE UP & DOCK WITH THE STATION DOOR");
         }
         window.dockingSim.start(this.scene, this.camera, null, (info) => {
           this.completeDockingAndEnterStation({ corridorCapture: !!(info && info.corridorCapture) });
@@ -3774,7 +3867,7 @@
         this._renderGroundHUD();
         if (this.lccConsoleOpen) this._renderLccConsole();
         if (firstEntry && window.gameplay && typeof window.gameplay.showToast === "function") {
-          window.gameplay.showToast("FLIGHT CREW DOCKED AT STATION · COORDINATE OPERATIONS FROM LCC CONSOLE [C]");
+          window.gameplay.showToast("CREW DOCKED AT SPACE STATION · HELP TEAM FROM CONTROL CONSOLE [C]");
         }
         return;
       }
@@ -3843,25 +3936,25 @@
       }
 
       if (!fromNetwork && window.gameplay && typeof window.gameplay.showToast === "function") {
-        window.gameplay.showToast("HARD CAPTURE & INGRESS COMPLETE · WELCOME ABOARD STATION INTERIOR");
+        window.gameplay.showToast("DOCKING LOCKED · WELCOME INSIDE THE SPACE STATION!");
       }
     }
 
     /**
-     * Requests a shared crew reset back to LC-39A. The server is authoritative
+     * Requests a shared crew reset back to Launch Pad. The server is authoritative
      * so every astronaut returns to the gantry together; solo/offline sessions
      * fall back to a purely local reset.
      */
     requestMissionReset() {
       if (this.missionPhase === "gantry" && this.isGroundMode) {
         if (window.gameplay && typeof window.gameplay.showToast === "function") {
-          window.gameplay.showToast("ALREADY AT LC-39A · FOLLOW THE GUIDANCE MARKERS TO THE ACCESS ARM AND ORBITER HATCH");
+          window.gameplay.showToast("ALREADY AT LAUNCH PAD · FOLLOW THE MARKERS TO THE BOARDING BRIDGE AND SPACESHIP DOOR");
         }
         return false;
       }
 
       const confirmed = typeof window.confirm !== "function" ||
-        window.confirm("Return the whole crew to Kennedy Space Center LC-39A? This resets the shared mission for every astronaut.");
+        window.confirm("Send the whole crew back to the Launch Pad? This restarts the trip from ground for everyone.");
       if (!confirmed) return false;
 
       const nm = window.netManager;
@@ -3901,7 +3994,7 @@
       }
       this.enterSpaceCenter(localMission);
       if (window.gameplay && typeof window.gameplay.showToast === "function") {
-        window.gameplay.showToast("CREW RETURNED TO KENNEDY SPACE CENTER LC-39A");
+        window.gameplay.showToast("CREW RETURNED TO THE LAUNCH PAD");
       }
     }
 
@@ -3951,7 +4044,7 @@
             this.camera.position.y = isTop ? 64.1 : 19.8;
             if (window.gameplay && typeof window.gameplay.showToast === "function") {
               window.gameplay.showToast(isTop
-                ? "🛗 GANTRY LEVEL — extend the Orbiter Access Arm with [F]"
+                ? "🛗 BOARDING BRIDGE LEVEL — swing the boarding bridge out with [F]"
                 : "🛗 GROUND LEVEL — Elevator doors open");
             }
           }

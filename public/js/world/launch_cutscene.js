@@ -499,8 +499,8 @@
       this.overlayEl.innerHTML = `
         <div class="launch-header-row">
           <div class="launch-badge-card">
-            <div style="font-size:10px;font-weight:700;letter-spacing:1.6px;color:#93c5fd;">LUNASPIS FLIGHT OPS &bull; KENNEDY LC-39A</div>
-            <div class="launch-title-main" style="font-size:14px;font-weight:700;color:#f8fafc;letter-spacing:1px;">EX-01 LAUNCH VEHICLE ASCENT &amp; PAYLOAD DEPLOY</div>
+            <div style="font-size:10px;font-weight:700;letter-spacing:1.6px;color:#93c5fd;">LUNASPIS FLIGHT CONTROL &bull; LAUNCH PAD 39A</div>
+            <div class="launch-title-main" style="font-size:14px;font-weight:700;color:#f8fafc;letter-spacing:1px;">ROCKET LIFTOFF &amp; SPACECRAFT RELEASE</div>
             <div id="launch-crew-banner" style="font-size:10px;font-weight:600;color:#cbd5e1;margin-top:4px;letter-spacing:0.6px;"></div>
           </div>
 
@@ -510,7 +510,7 @@
         </div>
 
         <div id="launch-capcom-banner">
-          T-3s: MAIN ENGINE IGNITION SEQUENCE START
+          T-3s: MAIN ENGINES STARTING UP
         </div>
 
         <div id="launch-telem-bar"></div>

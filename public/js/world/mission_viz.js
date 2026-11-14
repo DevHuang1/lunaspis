@@ -1023,7 +1023,7 @@
             ? cell("WARM BOX / FREEZER", `${t.bioTelemetry.thermal.incubateTempC}°C / ${t.bioTelemetry.thermal.storageTempC}°C`, (t.bioTelemetry.tempMatch && t.bioTelemetry.melfiOk) ? "#38bdf8" : "#f87171")
             : cell("FUEL POWER", `${t.achievedDeltaV} / ${t.requiredDeltaV} m/s`, t.deltaVOk ? "#38bdf8" : "#f87171"),
           t.scenario.isBioPayload && t.bioTelemetry
-            ? cell("NUTRIENT YIELD", `${t.bioTelemetry.betaCaroteneUgMl} units (${t.bioTelemetry.protocol.replicates} pouches)`, t.bioTelemetry.yieldOk ? "#7fb8a6" : "#f87171")
+            ? cell("NUTRIENT YIELD", `${t.bioTelemetry.betaCaroteneUgMl} mg/L (${t.bioTelemetry.protocol.replicates} pouches)`, t.bioTelemetry.yieldOk ? "#7fb8a6" : "#f87171")
             : cell("SHIELD & LIFESPAN", `Level ${t.orbit.radiationEnvKrad} · ${t.estimatedLifetimeMonths} mo`, t.radiationOk ? "#7fb8a6" : "#f87171")
         ].join("");
       }
@@ -1042,9 +1042,9 @@
         );
         segEl.innerHTML = [
           seg("LAUNCH", segmentOk("launch", t.massOk && t.budgetOk)),
-          seg("SPACE", segmentOk("space", t.powerOk && t.deltaVOk && t.thermalOk && t.radiationOk && t.disposalOk && t.telescopeOk)),
+          seg("IN SPACE", segmentOk("space", t.powerOk && t.deltaVOk && t.thermalOk && t.radiationOk && t.disposalOk && t.telescopeOk)),
           seg("GROUND", segmentOk("ground", t.commsOk)),
-          seg("USER", segmentOk("user", t.scienceScore >= 55 && Array.isArray(t.matchedTypes) && t.matchedTypes.length > 0))
+          seg("RESULTS", segmentOk("user", t.scienceScore >= 55 && Array.isArray(t.matchedTypes) && t.matchedTypes.length > 0))
         ].join("");
       }
     }

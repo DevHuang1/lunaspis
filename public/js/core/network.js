@@ -14,59 +14,59 @@
   const ROLE_META = {
     flight_director: {
       id: "flight_director",
-      short: "FDIR",
+      short: "BOSS",
       team: "ground",
-      zoneLabel: "GROUND CONTROL",
-      title: "Flight Director",
-      label: "Flight Director",
+      zoneLabel: "EARTH CONTROL",
+      title: "Mission Boss",
+      label: "Mission Boss",
       color: "#38bdf8",
-      padDuty: "Monitor LC-39A Readiness & Release GO/NO-GO Launch [LCC]",
-      dockDuty: "Grant Orbital Approach & Latch Clearance [LCC]",
-      consolesSummary: "LCC Launch Auth · Orbit Telemetry · Ship Tracker",
-      stationDuty: "LCC Launch Auth · Orbit Telemetry · Ship Tracker",
-      primaryDuty: "LCC Firing Room Authority: GO/NO-GO Launch & Latch Clearance, Charter Review & Crew Pings",
+      padDuty: "Check Launch Pad & give GO for liftoff [Control]",
+      dockDuty: "Give final approach & Space Station docking OK [Control]",
+      consolesSummary: "Launch OK · Orbit Path · Crew Tracker",
+      stationDuty: "Launch OK · Orbit Path · Crew Tracker",
+      primaryDuty: "Earth Control Lead: Launch & Docking OK, Plan Review & Team Alerts",
       duties: {
-        pad: "Monitor Pad & Issue GO/NO-GO Launch Clearance [LCC]",
-        dock: "Track Orbit Approach & Issue Latch Clearance [LCC]",
-        station: "Approve Bus Routing, Track Crew & Coordinate Stations [LCC]"
+        pad: "Check Launch Pad & give Launch GO [Control]",
+        dock: "Watch Approach & give Docking OK [Control]",
+        station: "Approve Power Routing, Track Crew & Coordinate [Control]"
       }
     },
     ground_capcom: {
       id: "ground_capcom",
-      short: "CAP",
+      short: "RADIO",
       team: "ground",
-      zoneLabel: "GROUND CONTROL",
-      title: "Ground CAPCOM",
-      label: "Ground CAPCOM",
+      zoneLabel: "EARTH CONTROL",
+      title: "Earth Radio Helper",
+      label: "Earth Radio Helper",
       color: "#60a5fa",
-      padDuty: "S-Band Relay [R] & Telemetry Carrier Lock [LCC]",
-      dockDuty: "Lock DSN Link & Monitor Telemetry Corridor [LCC]",
-      consolesSummary: "DSN Lock · EPS Power Route · Science Downlink",
-      stationDuty: "DSN Lock · EPS Power Route · Science Downlink",
-      primaryDuty: "LCC DSN & Systems Desk: S-Band CapCom [R], DSN Link Lock, EPS Power & Science Downlink",
+      padDuty: "Voice Radio [R] & Earth Dish Signal [Control]",
+      dockDuty: "Lock Earth Dish & Watch Approach Speed [Control]",
+      consolesSummary: "Earth Dish · Power Route · Science Data",
+      stationDuty: "Earth Dish · Power Route · Science Data",
+      primaryDuty: "Earth Dish & Systems Helper: Voice Radio [R], Dish Lock, Power & Science Data",
       duties: {
-        pad: "Verify Comms Carrier & Pad Trunk Telemetry [LCC]",
-        dock: "Assist Docking Corridor & Maintain S-Band CapCom [R]",
-        station: "Lock DSN 70m Array, Route EPS Power & Clear Downlink"
+        pad: "Check Radio Signal & Launch Pad Cables [Control]",
+        dock: "Help Space Docking & Keep Radio Clear [R]",
+        station: "Lock Earth Dish, Route Power & Clear Science Data"
       }
     },
     commander: {
       id: "commander",
-      short: "CMD",
+      short: "CAPT",
       team: "crew",
       zoneLabel: "FLIGHT CREW",
-      title: "Commander",
-      label: "Commander",
+      title: "Captain",
+      label: "Captain",
       color: "#c08a8a",
-      padDuty: "Board White Room & Initiate Liftoff [L]",
-      dockDuty: "Primary 6DOF Pilot & Capture Latch [SPACE]",
-      consolesSummary: "Charter [HUB] · Orbit & Launch [CMD] · Sim [LDR]",
-      stationDuty: "Charter [HUB] · Orbit & Launch [CMD] · Sim [LDR]",
-      primaryDuty: "Launch Director [L], Docking Helm Pilot [WASD/QE] & Charter/Nav Consoles [HUB, CMD]",
+      padDuty: "Board the Spaceship & Start Liftoff [L]",
+      dockDuty: "Main Docking Pilot & Lock Hatch [SPACE]",
+      consolesSummary: "Goal [HUB] · Flight Path [CMD] · Test [LDR]",
+      stationDuty: "Goal [HUB] · Flight Path [CMD] · Test [LDR]",
+      primaryDuty: "Launch Captain [L], Docking Pilot [WASD/QE] & Goal / Flight Path Desks [HUB, CMD]",
       duties: {
-        pad: "Board White Room & Initiate Liftoff [L]",
-        dock: "Primary 6DOF Pilot & Capture Latch [SPACE]",
-        station: "Charter [HUB] · Orbit & Launch [CMD] · Sim [LDR]"
+        pad: "Board the Spaceship & Start Liftoff [L]",
+        dock: "Main Docking Pilot & Lock Hatch [SPACE]",
+        station: "Goal [HUB] · Flight Path [CMD] · Test [LDR]"
       }
     },
     engineer: {
@@ -77,15 +77,15 @@
       title: "Flight Engineer",
       label: "Flight Engineer",
       color: "#d0a15c",
-      padDuty: "Extend & Lock Access Arm [F]",
-      dockDuty: "RCS Attitude Stabilizer [1] & Fine Trim [2]",
-      consolesSummary: "Bus & Power [PWR] · Comms, Hull & ΔV [HULL]",
-      stationDuty: "Bus & Power [PWR] · Comms, Hull & ΔV [HULL]",
-      primaryDuty: "Pad Access Arm [F], Docking RCS Stabilizer [1/2] & Power/Hull Consoles [PWR, HULL]",
+      padDuty: "Swing & Lock Boarding Bridge [F]",
+      dockDuty: "Steadier Thrusters [1] & Gentle Mode [2]",
+      consolesSummary: "Body & Power [PWR] · Fuel & Radio [HULL]",
+      stationDuty: "Body & Power [PWR] · Fuel & Radio [HULL]",
+      primaryDuty: "Boarding Bridge [F], Steadier Thrusters [1/2] & Power / Fuel Desks [PWR, HULL]",
       duties: {
-        pad: "Extend & Lock Access Arm [F]",
-        dock: "RCS Attitude Stabilizer [1] & Fine Trim [2]",
-        station: "Bus & Power [PWR] · Comms, Hull & ΔV [HULL]"
+        pad: "Swing & Lock Boarding Bridge [F]",
+        dock: "Steadier Thrusters [1] & Gentle Mode [2]",
+        station: "Body & Power [PWR] · Fuel & Radio [HULL]"
       }
     },
     scientist: {
@@ -96,34 +96,34 @@
       title: "Science Officer",
       label: "Science Officer",
       color: "#7fb8a6",
-      padDuty: "White Room Ingress & Cabin Bio-Check",
-      dockDuty: "Boresight Auto-Align [3] & Corridor Ping [4]",
-      consolesSummary: "Instruments [SCI] · Thermal & ECLSS [LSS]",
-      stationDuty: "Instruments [SCI] · Thermal & ECLSS [LSS]",
-      primaryDuty: "Bio-Check Ingress, Boresight Laser Telemetry [3/4] & Science/ECLSS Consoles [SCI, LSS]",
+      padDuty: "Board Ship & Cabin Health Check",
+      dockDuty: "Laser Guide Beam [3] & Distance Check [4]",
+      consolesSummary: "Science Tools [SCI] · Heat & Air [LSS]",
+      stationDuty: "Science Tools [SCI] · Heat & Air [LSS]",
+      primaryDuty: "Cabin Check, Laser Guide [3/4] & Science / Heat Desks [SCI, LSS]",
       duties: {
-        pad: "White Room Ingress & Cabin Bio-Check",
-        dock: "Boresight Auto-Align [3] & Corridor Ping [4]",
-        station: "Instruments [SCI] · Thermal & ECLSS [LSS]"
+        pad: "Board Ship & Cabin Health Check",
+        dock: "Laser Guide Beam [3] & Distance Check [4]",
+        station: "Science Tools [SCI] · Heat & Air [LSS]"
       }
     },
     specialist: {
       id: "specialist",
-      short: "SPC",
+      short: "SPEC",
       team: "crew",
       zoneLabel: "FLIGHT CREW",
-      title: "Mission Specialist",
-      label: "Mission Specialist",
+      title: "Spacewalk Specialist",
+      label: "Spacewalk Specialist",
       color: "#a78bfa",
-      padDuty: "Assist Pad Readiness & Board Orbiter",
-      dockDuty: "Corridor Telemetry Ping [4] & EVA Latch Watch",
-      consolesSummary: "Cross-Support: Instruments [SCI] · Comms [HULL] · Hub",
-      stationDuty: "Cross-Support: Instruments [SCI] · Comms [HULL] · Hub",
-      primaryDuty: "EVA & Docking Corridor Support [3/4], Cross-Console Systems & Comms Relay",
+      padDuty: "Help Check Boarding Bridge & Board Ship",
+      dockDuty: "Distance Check [4] & Hatch Watch",
+      consolesSummary: "Extra Help: Science [SCI] · Radio [HULL] · Goal",
+      stationDuty: "Extra Help: Science [SCI] · Radio [HULL] · Goal",
+      primaryDuty: "Spacewalk & Docking Helper [3/4], Cross-Desk Support & Radio Relay",
       duties: {
-        pad: "Verify Access Arm Lock & Board Orbiter",
-        dock: "Corridor Telemetry Ping [4] & Docking Assist",
-        station: "EVA Support · Payload [SCI] · Comms [HULL]"
+        pad: "Check Boarding Bridge Lock & Board Ship",
+        dock: "Distance Check [4] & Docking Assist",
+        station: "Spacewalk Help · Science [SCI] · Radio [HULL]"
       }
     }
   };
@@ -650,6 +650,7 @@
         if (typeof data.pitch === "number") rp.targetPitch = data.pitch;
         if (typeof data.isEva === "boolean") rp.isEva = data.isEva;
         if (typeof data.suitLights === "boolean") rp.suitLights = data.suitLights;
+        if (typeof data.sprinting === "boolean") rp.isSprinting = data.sprinting;
       });
 
       this.socket.on("emote_broadcast", (data) => {
@@ -677,6 +678,10 @@
         }
         if (window.spaceAudio) window.spaceAudio.playAlarm("warning");
         this.emitEvent("objective_locked", data);
+      });
+
+      this.socket.on("mission_validation_failed", (data) => {
+        this.emitEvent("mission_validation_failed", data);
       });
 
       this.socket.on("lobby_returned", (data) => {
@@ -1001,7 +1006,7 @@
       return this.mission || (this.roomState && this.roomState.mission) || null;
     }
 
-    sendPlayerUpdate(pos, yaw, pitch, isEva, suitLights) {
+    sendPlayerUpdate(pos, yaw, pitch, isEva, suitLights, isSprinting = false) {
       if (!this.connected || !this.roomId) return;
       const now = performance.now();
       if (now - this.lastSendTime < this.sendInterval) return;
@@ -1017,7 +1022,9 @@
         const distSq = dx * dx + dy * dy + dz * dz;
         const dYaw = Math.abs(yaw - this.lastSentState.yaw);
         const dPitch = Math.abs(pitch - this.lastSentState.pitch);
-        const stateSame = (isEva === this.lastSentState.isEva) && (suitLights === this.lastSentState.suitLights);
+        const stateSame = (isEva === this.lastSentState.isEva) &&
+          (suitLights === this.lastSentState.suitLights) &&
+          (!!isSprinting === this.lastSentState.sprinting);
 
         // Translation drives the walk animation / extrapolation; yaw still
         // counts for culling so remote avatars turn smoothly in place.
@@ -1045,7 +1052,8 @@
         yaw: yaw,
         pitch: pitch,
         isEva: !!isEva,
-        suitLights: !!suitLights
+        suitLights: !!suitLights,
+        sprinting: !!isSprinting
       };
 
       this.packetsSentThisSec++;
@@ -1055,6 +1063,7 @@
         pitch: Number(pitch.toFixed(3)),
         isEva: !!isEva,
         suitLights: !!suitLights,
+        sprinting: !!isSprinting,
         moving: isTranslating
       });
     }
@@ -1126,9 +1135,11 @@
       };
     }
 
-    completeTask(taskId, taskName, designPatch) {
+    completeTask(taskId, taskName, designPatch, evaluation) {
       this.packetsSentThisSec++;
-      this.socket.emit("complete_task", { taskId, taskName, designPatch });
+      const payload = { taskId, taskName, designPatch };
+      if (evaluation && typeof evaluation === "object") payload.evaluation = evaluation;
+      this.socket.emit("complete_task", payload);
     }
 
     syncMissionDesign(designPatch) {

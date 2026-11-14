@@ -13,19 +13,19 @@
 
   const PHASES = ["briefing", "prelaunch", "ascent", "insertion", "payload", "deorbit", "entry", "approach", "rollout", "debrief"];
   const OBJECTIVES = [
-    ["liftoff", "ascent", "Liftoff (automatic)"], ["srb_sep", "ascent", "SRB separation (automatic)"],
-    ["meco", "ascent", "MECO on target energy (automatic)"], ["et_sep", "ascent", "External tank separation (automatic)"],
-    ["oms2", "insertion", "Authorize OMS-2 insertion burn"], ["orbit_valid", "insertion", "Stable orbit verified (both apsides in envelope)"],
-    ["doors_open", "payload", "Open payload bay doors (radiators exposed)"], ["payload_power", "payload", "Power the satellite"],
-    ["payload_ready", "payload", "Satellite checkout complete"], ["payload_go", "payload", "MS2: GO for deploy after checkout review"], ["rates_nulled", "payload", "Null rotation rates / engage attitude hold"],
-    ["release_att", "payload", "Align release attitude (bay to zenith, nose along track)"], ["release", "payload", "Release satellite"],
-    ["separation", "payload", "Separation burn: ≥ 0.3 m/s away from the satellite, opening ≥ 0.8 m/s"], ["deploy_verified", "payload", "Deployment verified at safe distance (≥ 150 m)"],
-    ["doors_closed", "deorbit", "Close payload bay doors"], ["coast_tig", "deorbit", "Coast to the deorbit opportunity"],
-    ["retro_att", "deorbit", "Point nose retrograde (±5°) and stabilise"], ["deorbit_burn", "deorbit", "Authorize guided deorbit burn"],
-    ["entry_corridor", "deorbit", "Predicted entry inside the KSC corridor"],
-    ["entry_interface", "entry", "Entry interface (121.9 km)"], ["taem_gate", "entry", "Reach the terminal-area gate with viable energy"],
-    ["gear", "approach", "Deploy landing gear"], ["touchdown", "approach", "Touchdown on the runway inside limits"],
-    ["wheels_stop", "rollout", "Steer and brake to wheels stop"],
+    ["liftoff", "ascent", "Liftoff (automatic)"], ["srb_sep", "ascent", "Side booster separation (automatic)"],
+    ["meco", "ascent", "Main engine cutoff on target speed (automatic)"], ["et_sep", "ascent", "Orange fuel tank separation (automatic)"],
+    ["oms2", "insertion", "Start orbit-push engine burn"], ["orbit_valid", "insertion", "Stable orbit reached (safe high/low path)"],
+    ["doors_open", "payload", "Open cargo bay doors (reveal cooling panels)"], ["payload_power", "payload", "Turn on satellite power"],
+    ["payload_ready", "payload", "Satellite self-check finished"], ["payload_go", "payload", "Crew 2: Approve satellite release"], ["rates_nulled", "payload", "Stop spinning / lock steady hold"],
+    ["release_att", "payload", "Aim cargo bay skyward & nose forward"], ["release", "payload", "Release satellite into space"],
+    ["separation", "payload", "Back away cleanly (≥ 0.3 m/s push, moving ≥ 0.8 m/s apart)"], ["deploy_verified", "payload", "Satellite floating safely away (≥ 150 m)"],
+    ["doors_closed", "deorbit", "Close cargo bay doors before re-entry"], ["coast_tig", "deorbit", "Fast-forward to return burn spot"],
+    ["retro_att", "deorbit", "Point nose backward along flight path (±5°)"], ["deorbit_burn", "deorbit", "Start return-to-Earth braking burn"],
+    ["entry_corridor", "deorbit", "Landing path lined up for Florida"],
+    ["entry_interface", "entry", "Enter upper atmosphere (121.9 km)"], ["taem_gate", "entry", "Reach runway approach zone with good speed"],
+    ["gear", "approach", "Lower landing wheels"], ["touchdown", "approach", "Land smoothly inside runway limits"],
+    ["wheels_stop", "rollout", "Steer straight and brake to a stop"],
   ];
   // every flown phase can be accelerated (user request); hand-flown phases are capped so inputs stay controllable
   const WARP_LIMIT = { briefing: 1, prelaunch: 4, ascent: 8, insertion: 100, payload: 20, deorbit: 100, entry: 8, approach: 4, rollout: 4, debrief: 1 };
@@ -53,7 +53,7 @@
       this.plan = null; this.touchdown = null; this.integrity = "normal";
       this.assistLog = { alphaAssistOffT: 0, holdUsed: false, warpUsedMax: 1 };
       this.prev = { r: this.st.r.slice(), q: this.st.q.slice() };
-      this._say("Training mission loaded: deploy one satellite in LEO and return to KSC runway 15.", "info");
+      this._say("Training flight ready: launch a satellite in space and land safely on Florida Runway 15.", "info");
       return this;
     }
 
@@ -147,35 +147,35 @@
           this.flags.payloadGo = true; this._done("payload_go");
           return ok("MS2: satellite checkout reviewed — GO for deploy.");
         case "DAP_HOLD": {
-          if (st.regime !== "orbit") return no("Attitude hold only available in orbit");
-          if (st.dap.mode === "AUTO") return no("Guidance currently owns attitude");
+          if (st.regime !== "orbit") return no("Angle lock only works in orbit");
+          if (st.dap.mode === "AUTO") return no("Auto-pilot is currently steering the ship");
           const wRel = norm(sub(st.w, S.orbitRateBody(st)));
-          if (st.dap.mode === "HOLD") { st.dap.mode = "FREE"; return ok("DAP FREE: rates persist; RCS jets fire only on your inputs."); }
-          if (wRel > 0.5 * DEG) return no(`Rates too high for attitude hold (${(wRel / DEG).toFixed(2)}°/s > 0.50°/s) — null them manually first`);
+          if (st.dap.mode === "HOLD") { st.dap.mode = "FREE"; return ok("FREE STEER: ship keeps drifting until you fire the side thrusters."); }
+          if (wRel > 0.5 * DEG) return no(`Spinning too fast to lock angle (${(wRel / DEG).toFixed(2)}°/s > 0.50°/s) — slow your spin first`);
           st.dap.mode = "HOLD"; st.dap.holdRel = null; this.assistLog.holdUsed = true;
-          return ok("DAP HOLD (LVLH): attitude held relative to the local horizon; stick commands rates.");
+          return ok("ANGLE LOCKED: ship stays level with Earth's horizon; stick turns it.");
         }
         case "RELEASE_PAYLOAD": {
-          if (this.phase !== "payload") return no("Payload operations not active");
+          if (this.phase !== "payload") return no("Cargo bay release isn't active right now");
           if (!st.cfg.payload) return no("Satellite already released");
           const c = this._releaseChecks();
           if (c.length) return no(c[0]);
           S.releasePayload(st); this._done("release"); this._emit("PAYLOAD_RELEASED", { attErrDeg: this._releaseErr() / DEG });
-          return ok("Satellite released (spring ejection 0.6 m/s along the bay normal). Fire the separation burn: translate DOWN.");
+          return ok("Satellite gently pushed clear (0.6 m/s out of the bay). Move safely away: fire DOWN thruster.");
         }
         case "COAST_TO_TIG": return this._coastToTig();
         case "TOGGLE_AOA_ASSIST":
-          if (this.phase !== "entry") return no("AoA assistance is selectable during entry only");
+          if (this.phase !== "entry") return no("Nose-angle helper can only be toggled during re-entry");
           st.flight.alphaAssist = !st.flight.alphaAssist;
-          return ok(st.flight.alphaAssist ? "AoA assist ON: holding the scheduled angle of attack." : "AoA assist OFF: pitch input commands angle of attack.");
+          return ok(st.flight.alphaAssist ? "Nose-angle helper ON: holding the safe landing angle." : "Nose-angle helper OFF: stick steers the nose angle directly.");
         case "DEPLOY_GEAR": {
-          if (this.phase !== "approach") return no("Gear deploys only during the final approach");
-          if (st.flight.gearCmd) return no("Gear already commanded down (one-way)");
+          if (this.phase !== "approach") return no("Landing wheels only drop during final landing approach");
+          if (st.flight.gearCmd) return no("Landing wheels already down (cannot retract)");
           const d = S.derive(st);
-          if (d.eas > 165) return no(`Gear limit speed 165 m/s EAS (now ${d.eas.toFixed(0)}) — slow down first`);
-          if (d.altitudeM > 3000) return no("Too early — deploy below 3000 m (normally ~100 m)");
+          if (d.eas > 165) return no(`Too fast for landing wheels — slow below 165 m/s airspeed (now ${d.eas.toFixed(0)})`);
+          if (d.altitudeM > 3000) return no("Too high — drop wheels below 3000 m (usually around 100 m)");
           st.flight.gearCmd = true; this._done("gear"); this._emit("GEAR_DEPLOY");
-          return ok("Gear down — one-way pyrotechnic deployment, ≈4 s to lock.");
+          return ok("Landing wheels down — locked in place in about 4 seconds.");
         }
         default: return no(`Unknown command ${type}`);
       }
@@ -229,33 +229,33 @@
         st.burn = { kind: "OMS2", tig: st.t + tApo - dur / 2, dvTarget: dv, dvDone: 0, active: false, authorized: true, complete: false, dur };
         st.dap.mode = "AUTO";
         this._done("oms2");
-        this._say(`OMS-2 authorized: Δv ${dv.toFixed(1)} m/s at apoapsis, TIG in ${(tApo - dur / 2).toFixed(0)} s. Autopilot will orient prograde and fire. Time acceleration allowed until TIG-60 s.`, "info");
+        this._say(`Orbit boost #2 approved: adding ${dv.toFixed(1)} m/s speed at the highest point in ${(tApo - dur / 2).toFixed(0)} s. Auto-pilot will aim forward and fire. You can speed up time until 60 s before the burn.`, "info");
         return { accepted: true };
       }
       if (this.phase === "deorbit") {
-        if (!this.plan) return no("No deorbit solution");
-        if (st.bay.doors > 0.001) return no(`Close the payload bay doors first (${(st.bay.doors * 100).toFixed(0)}% open)`);
-        const e = this._retroErr(); if (e > 5 * DEG) return no(`Nose must point retrograde within 5° (error ${(e / DEG).toFixed(1)}°)`);
-        const w = this._relRate(); if (w > 0.2 * DEG) return no(`Rates ${(w / DEG).toFixed(2)}°/s — stabilise below 0.20°/s`);
-        if (st.t > this.plan.tig + 60) return no(`TIG passed ${(st.t - this.plan.tig).toFixed(0)} s ago — opportunity missed. Use COAST TO TIG for the next opportunity.`);
+        if (!this.plan) return no("No landing burn plan ready");
+        if (st.bay.doors > 0.001) return no(`Close the cargo bay doors first (${(st.bay.doors * 100).toFixed(0)}% open)`);
+        const e = this._retroErr(); if (e > 5 * DEG) return no(`Point the nose backward within 5° first (off by ${(e / DEG).toFixed(1)}°)`);
+        const w = this._relRate(); if (w > 0.2 * DEG) return no(`Still spinning at ${(w / DEG).toFixed(2)}°/s — steady it below 0.20°/s`);
+        if (st.t > this.plan.tig + 60) return no(`Burn window passed ${(st.t - this.plan.tig).toFixed(0)} s ago. Use SKIP TO LANDING BURN for the next pass.`);
         st.burn = { kind: "DEORBIT", tig: this.plan.tig, dvTarget: this.plan.dv, dvDone: 0, active: false, authorized: true, complete: false, dur: this.plan.dur };
         this._done("retro_att");
         st.dap.mode = "AUTO";
         const late = st.t - this.plan.tig;
-        this._say(late > 2 ? `Deorbit burn authorized LATE (+${late.toFixed(0)} s): expect the trajectory to fall long of KSC.` :
-          `Deorbit burn authorized: Δv ${this.plan.dv.toFixed(1)} m/s retrograde at TIG (in ${(-late).toFixed(0)} s). Guidance holds retrograde during the burn.`, late > 2 ? "warn" : "info");
+        this._say(late > 2 ? `Landing burn approved LATE (+${late.toFixed(0)} s): you may overshoot the Florida runway.` :
+          `Landing burn approved: slowing by ${this.plan.dv.toFixed(1)} m/s backward in ${(-late).toFixed(0)} s. Auto-pilot will hold steady during the burn.`, late > 2 ? "warn" : "info");
         return { accepted: true };
       }
-      return no("No burn is planned in this phase");
+      return no("No engine burn planned in this step");
     }
 
     _coastToTig() {
       const st = this.st;
-      if (this.phase !== "deorbit") return { accepted: false, reason: "Coast is available after payload deployment" };
-      if (st.burn && st.burn.authorized) return { accepted: false, reason: "Burn already authorized" };
-      if (!this.plan || st.t > this.plan.tig + 60) { this._planDeorbit(); if (!this.plan) return { accepted: false, reason: "No landing opportunity found" }; }
+      if (this.phase !== "deorbit") return { accepted: false, reason: "Skip-ahead works after releasing the satellite" };
+      if (st.burn && st.burn.authorized) return { accepted: false, reason: "Engine burn already approved" };
+      if (!this.plan || st.t > this.plan.tig + 60) { this._planDeorbit(); if (!this.plan) return { accepted: false, reason: "No landing window found right now" }; }
       const dtc = this.plan.tig - 360 - st.t;
-      if (dtc <= 0) return { accepted: false, reason: "Already within 6 minutes of TIG" };
+      if (dtc <= 0) return { accepted: false, reason: "Already within 6 minutes of the landing burn" };
       // two-body coast (aero is exactly zero above 150 km in this model, so this matches the integrator)
       const L0 = S.lvlh(st.r, st.v), rel = S.quat.qmul(S.quat.qconj(L0.q), st.q);
       const s = S.keplerPropagate(st.r, st.v, dtc);
@@ -339,7 +339,7 @@
         const b = st.burn, vh = unit(st.v), up = unit(st.r);
         if (b.kind === "OMS2") st.autoAttitude = S.quat.qFromNoseUp(vh, up);
         else st.autoAttitude = S.quat.qFromNoseUp(scl(vh, -1), S.quat.qrot(st.q, [0, 1, 0]));
-        if (!b.active && st.t >= b.tig) { b.active = true; this._emit("BURN_START", { kind: b.kind }); this._say(`${b.kind === "OMS2" ? "OMS-2" : "Deorbit"} burn ignition.`, "info"); }
+        if (!b.active && st.t >= b.tig) { b.active = true; this._emit("BURN_START", { kind: b.kind }); this._say(`${b.kind === "OMS2" ? "Orbit boost #2" : "Landing burn"} engine started.`, "info"); }
       }
       const inp = this._inputForPhase();
       const ev = S.step(st, inp, DT);
@@ -365,32 +365,32 @@
     _onSimEvent(e) {
       const st = this.st;
       switch (e.type) {
-        case "LIFTOFF": this._setPhase("ascent"); this._done("liftoff"); this._emit("LIFTOFF"); this._say("LIFTOFF. Roll program to the launch azimuth, then pitch-over (automatic).", "info"); break;
+        case "LIFTOFF": this._setPhase("ascent"); this._done("liftoff"); this._emit("LIFTOFF"); this._say("LIFTOFF! Turning toward our launch path and tilting forward (automatic).", "info"); break;
         case "STAGE_SEPARATED":
           this._emit("STAGE_SEPARATED", { stage: e.stage });
-          if (e.stage === "SRB") { this._done("srb_sep"); this._say("SRB separation: booster casings jettisoned. Closed-loop guidance on the main engines.", "info"); }
+          if (e.stage === "SRB") { this._done("srb_sep"); this._say("Side boosters separated! Empty shells dropped; main engines still flying.", "info"); }
           if (e.stage === "ET") {
             this._done("et_sep"); this._setPhase("insertion");
             const el = S.elements(st.r, st.v);
-            this._say(`ET separation. Orbit ${(el.periapsisAlt / 1e3).toFixed(0)} × ${(el.apoapsisAlt / 1e3).toFixed(0)} km is NOT yet a stable orbit (perigee too low). Handover: authorize the OMS-2 insertion burn [B].`, "info");
+            this._say(`Main fuel tank dropped. Path (${(el.periapsisAlt / 1e3).toFixed(0)} × ${(el.apoapsisAlt / 1e3).toFixed(0)} km) is NOT stable yet — low point dips into air. Next step: approve Orbit Boost #2 [B].`, "info");
           }
           break;
-        case "MECO": this._done("meco"); this._emit("MECO", { reason: e.reason }); this._say(`MECO (${e.reason}). Main engines off; ET separation in 18 s.`, "info"); break;
+        case "MECO": this._done("meco"); this._emit("MECO", { reason: e.reason }); this._say(`Main engines off (${e.reason === "target energy" ? "target speed reached" : e.reason === "ET depleted" ? "tank empty" : e.reason}). Main tank separates in 18 s.`, "info"); break;
         case "BURN_END": {
           const b = st.burn; if (!b) break;
           b.complete = true; b.active = false; st.autoAttitude = null;
           this._emit("BURN_END", { kind: b.kind, dv: b.dvDone });
-          if (b.kind === "OMS2") this._say(`OMS-2 complete (Δv ${b.dvDone.toFixed(1)} m/s). Verifying orbit…`, "info");
+          if (b.kind === "OMS2") this._say(`Orbit boost #2 finished (+${b.dvDone.toFixed(1)} m/s speed). Checking orbit…`, "info");
           if (b.kind === "DEORBIT") this._afterDeorbit();
           break;
         }
-        case "DOORS_OPEN": this._emit("DOORS_OPEN"); this._say("Payload bay doors open — radiators exposed, cooling nominal.", "info"); break;
-        case "DOORS_CLOSED": this._emit("DOORS_CLOSED"); this._say("Payload bay doors closed and latched.", "info"); break;
-        case "PAYLOAD_READY": this._emit("PAYLOAD_READY"); this._say("Satellite checkout complete: READY for release.", "info"); break;
-        case "PAYLOAD_POWER_LOST": this._say("Satellite power lost: radiators stowed.", "warn"); break;
-        case "PAYLOAD_DEPLOYED": this._emit("PAYLOAD_DEPLOYED"); this._say("Satellite reports arrays and antenna deployed.", "info"); break;
-        case "COLLISION": this._fail(`Collision with the satellite: range ${e.range.toFixed(1)} m and closing${-e.rangeRate >= 0.01 ? ` at ${(-e.rangeRate).toFixed(2)} m/s` : ""}. Translate DOWN (away from the bay side) after release.`, { quantity: "range" }); break;
-        case "NOSE_GEAR_TOUCHDOWN": this._say("Nose gear touchdown. Brakes available.", "info"); break;
+        case "DOORS_OPEN": this._emit("DOORS_OPEN"); this._say("Cargo bay doors open — heat panels exposed, cooling working normally.", "info"); break;
+        case "DOORS_CLOSED": this._emit("DOORS_CLOSED"); this._say("Cargo bay doors closed and latched.", "info"); break;
+        case "PAYLOAD_READY": this._emit("PAYLOAD_READY"); this._say("Satellite checkout done: READY to release.", "info"); break;
+        case "PAYLOAD_POWER_LOST": this._say("Satellite power lost: cooling panels closed.", "warn"); break;
+        case "PAYLOAD_DEPLOYED": this._emit("PAYLOAD_DEPLOYED"); this._say("Satellite reports solar wings and antenna opened.", "info"); break;
+        case "COLLISION": this._fail(`Collided with the satellite: ${e.range.toFixed(1)} m away and closing${-e.rangeRate >= 0.01 ? ` at ${(-e.rangeRate).toFixed(2)} m/s` : ""}. Move DOWN (away from the cargo bay) after releasing it.`, { quantity: "range" }); break;
+        case "NOSE_GEAR_TOUCHDOWN": this._say("Front wheel on the runway. Wheel brakes ready.", "info"); break;
         case "GROUND_FAIL": this._fail(e.reason); break;
         case "WHEELS_STOP": this._done("wheels_stop"); this._complete(); break;
       }
@@ -401,18 +401,18 @@
       this._done("deorbit_burn");
       const el = S.elements(st.r, st.v);
       const tEI = S.timeToRadius(st.r, st.v, S.RE + S.EI_ALT, 8000);
-      if (tEI === null || el.periapsisAlt > 85e3) { this._fail(`Insufficient deorbit Δv: perigee ${(el.periapsisAlt / 1e3).toFixed(0)} km does not reach the entry corridor (needs < 85 km).`); return; }
+      if (tEI === null || el.periapsisAlt > 85e3) { this._fail(`Didn't slow down enough: lowest point ${(el.periapsisAlt / 1e3).toFixed(0)} km is still too high to enter Earth's air (needs under 85 km).`); return; }
       const e = S.keplerPropagate(st.r, st.v, tEI);
       const fake = { theta0: st.theta0, t: st.t + tEI, r: e.r, v: e.v, flight: { alpha: 40 * DEG, sigma: 50 * DEG } };
       const pred = S.predictEntry(fake, 55 * DEG, { dt: 4, mass: S.vehicleMass(st) });
       const gam = Math.asin(dot(unit(e.r), unit(S.airVel(e.r, e.v))));
       this.guid.eiPred = { tEI: st.t + tEI, gamma: gam, rangeErr: pred.rangeErr, cross: pred.cross };
       if (pred.skip || pred.crashed || Math.abs(pred.rangeErr) > 450e3) {
-        this._fail(`Deorbit miss: predicted to arrive ${pred.skip ? "too shallow (skip)" : (Math.abs(pred.rangeErr) / 1e3).toFixed(0) + " km " + (pred.rangeErr > 0 ? "long" : "short")} of the KSC handover point — entry cannot recover more than ~450 km. Check ignition timing.`, { quantity: "rangeErr" });
+        this._fail(`Missed landing zone: predicted to come down ${pred.skip ? "too high (skipping off air)" : (Math.abs(pred.rangeErr) / 1e3).toFixed(0) + " km " + (pred.rangeErr > 0 ? "long" : "short")} of Florida — steering during re-entry can only fix ~450 km. Try firing the burn closer to target time.`, { quantity: "rangeErr" });
         return;
       }
       this._done("entry_corridor");
-      this._say(`Deorbit burn complete. Perigee ${(el.periapsisAlt / 1e3).toFixed(0)} km; entry interface in ${(tEI / 60).toFixed(1)} min at γ ${(gam / DEG).toFixed(2)}°. Nominal-bank prediction ${(pred.rangeErr / 1e3).toFixed(0)} km. Autopilot now pitches to the 40° entry attitude.`, "info");
+      this._say(`Return burn finished. Low point ${(el.periapsisAlt / 1e3).toFixed(0)} km; hitting upper air in ${(tEI / 60).toFixed(1)} min (estimated offset ${(pred.rangeErr / 1e3).toFixed(0)} km). Autopilot now tilts nose 40° up for re-entry.`, "info");
     }
 
     _phaseLogic() {
@@ -432,10 +432,10 @@
               st.burn = null;
               this._setPhase("payload");
               this._saveCheckpoint("orbit");
-              this._say(`Orbit verified ${(el.periapsisAlt / 1e3).toFixed(0)} × ${(el.apoapsisAlt / 1e3).toFixed(0)} km. Attitude control handed to you (DAP FREE, residual rates). Tasks: open bay, power satellite, null rates, align, release, separate.`, "info");
+              this._say(`Stable orbit reached (${(el.periapsisAlt / 1e3).toFixed(0)} × ${(el.apoapsisAlt / 1e3).toFixed(0)} km). Steering handed to you. Next: open cargo doors, power satellite, stop spin, aim, release, and drift clear.`, "info");
             }
           }
-          if (norm(st.r) - S.RE < 95e3) this._fail("Orbit not established: the vehicle re-entered without an insertion burn.");
+          if (norm(st.r) - S.RE < 95e3) this._fail("Did not reach orbit: the ship fell back into Earth's air without an orbit-push burn.");
           break;
         }
         case "payload": {
@@ -455,9 +455,9 @@
               this._setPhase("deorbit");
               this._planDeorbit();
               this._saveCheckpoint("payload");
-              this._say("Deployment verified at safe range. Prepare for return: close the bay doors [Y], coast to TIG [T], point retrograde, authorize the burn [B].", "info");
+              this._say("Satellite safely away! Ready to head home: close cargo doors [Y], jump to burn spot [T], point backward, and start return burn [B].", "info");
             }
-            if (p.range > 600 && this.obj.separation !== "done") this._fail(`Separation burn not performed: satellite at ${p.range.toFixed(0)} m without your departure burn (${(p.sepDv || 0).toFixed(2)} of ≥0.30 m/s away from it).`);
+            if (p.range > 600 && this.obj.separation !== "done") this._fail(`Forgot to drift away: satellite is ${p.range.toFixed(0)} m out without your move-away thrust (${(p.sepDv || 0).toFixed(2)} of ≥0.30 m/s needed).`);
           }
           break;
         }
@@ -466,7 +466,7 @@
           if (this.plan && st.t >= this.plan.tig - 400) this._done("coast_tig");
           if (!(st.burn && st.burn.authorized)) {
             this.obj.retro_att = this._retroErr() <= 5 * DEG && this._relRate() <= 0.2 * DEG ? "done" : "pending";
-            if (this.plan && st.t > this.plan.tig + 60 && !this.flags.missWarned) { this.flags.missWarned = true; this._say("TIG passed — opportunity missed. Use COAST TO TIG [T] for the next landing opportunity.", "warn"); }
+            if (this.plan && st.t > this.plan.tig + 60 && !this.flags.missWarned) { this.flags.missWarned = true; this._say("Return burn window passed. Press JUMP TO BURN [T] to catch the next landing window.", "warn"); }
           }
           if (st.burn && st.burn.complete && st.burn.kind === "DEORBIT") {
             const va = S.airVel(st.r, st.v);
@@ -477,7 +477,7 @@
             if (alt <= S.EI_ALT) {
               S.enterAtmo(st); st.autoAttitude = null; st.burn = null;
               this._done("entry_interface"); this._setPhase("entry");
-              this._say("ENTRY INTERFACE. AoA assist holds 40°. YOU command bank: magnitude manages range/energy, reversals manage crossrange. Follow the bank cue.", "info");
+              this._say("ENTERING EARTH'S AIR. Auto-nose holds 40° up. YOU tilt the wings [A/D]: steeper tilt drops sooner, flip sides when arrows switch.", "info");
             }
           }
           break;
@@ -523,25 +523,25 @@
       if (g.bankSign && Math.abs(st.flight.sigma) > 10 * DEG && Math.sign(st.flight.sigma) !== g.bankSign) es.wrong++;
       if (Math.abs(relBrg) > 60 * DEG && d.airspeedMps > 4000 && d.rangeToRunwayM < 2500e3) {
         const meanBank = es.absBank / es.n / DEG, wrongFrac = es.wrong / es.n;
-        const why = wrongFrac > 0.35 ? `bank was held AWAY from the site ${(wrongFrac * 100).toFixed(0)}% of the time (reverse toward KSC when cued)` :
-          meanBank < 35 ? `mean bank only ${meanBank.toFixed(0)}° kept the lift vector up and the energy high` : "the trajectory kept too much energy";
-        return this._fail(`Missed KSC: passing ${(d.rangeToRunwayM / 1e3).toFixed(0)} km abeam/beyond the site still at ${d.airspeedMps.toFixed(0)} m/s — ${why}.`, { quantity: "range" });
+        const why = wrongFrac > 0.35 ? `wings were tilted AWAY from the runway ${(wrongFrac * 100).toFixed(0)}% of the time (flip sides toward runway when cued)` :
+          meanBank < 35 ? `gentle wing tilt (${meanBank.toFixed(0)}°) kept too much lift and speed` : "kept too much speed";
+        return this._fail(`Missed Florida runway: passing ${(d.rangeToRunwayM / 1e3).toFixed(0)} km past the site still at ${d.airspeedMps.toFixed(0)} m/s — ${why}.`, { quantity: "range" });
       }
       if (!behind && Math.abs(relBrg) > 60 * DEG && d.rangeToRunwayM > 150e3 && crossKm > 300 && d.airspeedMps > 1200)
-        return this._fail(`Crossrange miss: KSC is ${crossKm.toFixed(0)} km to the ${relBrg > 0 ? "right" : "left"} — after each reversal cue, bank TOWARD the site.`, { quantity: "crossrange" });
-      if (d.rangeToRunwayM < 25e3 && d.airspeedMps > 1500) return this._fail(`Overflying KSC at ${d.airspeedMps.toFixed(0)} m/s: far too much energy — bank more steeply earlier.`, { quantity: "range" });
-      if (behind && d.rangeToRunwayM > 150e3 && d.airspeedMps > 1200) return this._fail(`Overshot: KSC is ${(d.rangeToRunwayM / 1e3).toFixed(0)} km behind the vehicle at ${d.airspeedMps.toFixed(0)} m/s — too little bank (too much lift up) kept the energy high.`, { quantity: "range" });
+        return this._fail(`Off course: the runway is ${crossKm.toFixed(0)} km to your ${relBrg > 0 ? "right" : "left"} — flip your wing tilt toward the target when cued.`, { quantity: "crossrange" });
+      if (d.rangeToRunwayM < 25e3 && d.airspeedMps > 1500) return this._fail(`Passing Florida too fast at ${d.airspeedMps.toFixed(0)} m/s — tilt wings steeper earlier to slow down.`, { quantity: "range" });
+      if (behind && d.rangeToRunwayM > 150e3 && d.airspeedMps > 1200) return this._fail(`Overshot: the runway is ${(d.rangeToRunwayM / 1e3).toFixed(0)} km behind you at ${d.airspeedMps.toFixed(0)} m/s — tilt wings steeper to drop speed.`, { quantity: "range" });
       if (d.airspeedMps < S.TAEM_V && d.altitudeM < 60e3) {
         const D = d.rangeToRunwayM;
-        if (D > 190e3) return this._fail(`Low energy at the terminal-area gate: ${(D / 1e3).toFixed(0)} km from KSC at ${d.airspeedMps.toFixed(0)} m/s (gate ≤ 190 km). Bank less to stretch range.`, { quantity: "range" });
-        if (D < 35e3) return this._fail(`High energy at the gate: only ${(D / 1e3).toFixed(0)} km from KSC (gate ≥ 35 km).`, { quantity: "range" });
+        if (D > 190e3) return this._fail(`Too slow & far from the runway approach zone: ${(D / 1e3).toFixed(0)} km from Florida at ${d.airspeedMps.toFixed(0)} m/s (needs ≤ 190 km). Tilt wings flatter to glide farther.`, { quantity: "range" });
+        if (D < 35e3) return this._fail(`Too fast & close at the approach zone: only ${(D / 1e3).toFixed(0)} km from the runway (needs ≥ 35 km).`, { quantity: "range" });
         this._done("taem_gate");
         S.beginApproach(st);
         const rw = S.toRunway(st, st.r);
         this.guid.side = rw.y >= 0 ? 1 : -1;
         this._setPhase("approach");
         this._saveCheckpoint("approach");
-        this._say(`TERMINAL AREA: ${(D / 1e3).toFixed(0)} km from KSC, ${(d.altitudeM / 1e3).toFixed(1)} km, Mach ${d.mach.toFixed(1)}. AoA assist OFF — you now fly PITCH and BANK (rate command, attitude hold). Speed brake [Q/E], gear [G]. Unpowered: no go-around.`, "info");
+        this._say(`APPROACH ZONE: ${(D / 1e3).toFixed(0)} km from Florida, ${(d.altitudeM / 1e3).toFixed(1)} km high, Mach ${d.mach.toFixed(1)}. Auto-nose OFF — steer nose up/down [W/S] & wing tilt [A/D]. Air brake [X/Z], wheels [G]. Glider mode: one shot to land!`, "info");
       }
     }
 
@@ -567,7 +567,7 @@
       const st = this.st, g = st.ground;
       this.result = {
         success: this.integrity === "normal", integrity: this.integrity,
-        summary: this.integrity === "normal" ? "WHEELS STOP — mission complete" : "REHEARSAL — PRESET STATE (not a valid flight)",
+        summary: this.integrity === "normal" ? "LANDED & STOPPED — mission complete" : "PRACTICE MODE — QUICK START (not a full flight)",
         stopX: g.x, stopY: g.y, touchdown: this.touchdown, maxG: st.log.maxG, maxHeat: st.log.maxHeat, maxQ: st.maxQ,
         dvOMS: st.log.dvOMS, dvRCS: st.log.dvRCS, retries: this.retries, rejections: this.rejections, failures: this.failures.slice(),
         assists: Object.assign({}, this.assistLog), met: st.t,
@@ -713,48 +713,48 @@
       return step("cdr", c.key, `Hold [${c.key}] — ${c.what} ${c.deg.toFixed(0)}°`, `${goal}. Total error ${(norm(rot) / DEG).toFixed(0)}°, needs < ${lim}°. Release the key to stop turning.`);
     };
     switch (ph) {
-      case "briefing": return step("cdr", "Enter", "Commander: START THE COUNT", "Everyone else: read your seat duties on the left");
-      case "prelaunch": return step("all", "", `Launch sequence T-${Math.max(0, this.countdown || 0).toFixed(0)} s — automatic`, "Drag the mouse to look around");
-      case "ascent": return step("all", "", "Automatic ascent — monitor", "Drag to look around · wheel zoom · F recentre");
+      case "briefing": return step("cdr", "Enter", "Commander: START THE COUNTDOWN", "Everyone else: check your crew job on the left");
+      case "prelaunch": return step("all", "", `Launch countdown T-${Math.max(0, this.countdown || 0).toFixed(0)} s — automatic`, "Drag mouse to look around");
+      case "ascent": return step("all", "", "Automatic rocket climb — watch the view", "Drag to look · wheel to zoom · [F] recenter");
       case "insertion":
-        if (!st.burn) return step("plt", "B", "Authorize the OMS-2 burn", "Without it the low side of the orbit dips back into the air");
-        if (!st.burn.complete && !st.burn.active && (st.burn.tig - st.t) > 60) return step("plt", "T", "Skip ahead to the burn", `Burn starts in ${(st.burn.tig - st.t).toFixed(0)} s`);
-        if (!st.burn.complete) return step("all", "", st.burn.active ? "OMS-2 burning — automatic" : "Burn coming up — automatic", "");
-        return step("all", "", "Verifying the orbit…", "");
+        if (!st.burn) return step("plt", "B", "Start the orbit-push burn", "Without it the low side of your path dips back into Earth's air");
+        if (!st.burn.complete && !st.burn.active && (st.burn.tig - st.t) > 60) return step("plt", "T", "Jump ahead to the burn", `Engine fires in ${(st.burn.tig - st.t).toFixed(0)} s`);
+        if (!st.burn.complete) return step("all", "", st.burn.active ? "Orbit engine firing — automatic" : "Burn starting soon — automatic", "");
+        return step("all", "", "Checking your orbit path…", "");
       case "payload": {
         if (st.cfg.payload) {
-          if (st.bay.doors < 0.999) return st.bay.cmd > 0 ? step("ms1", "", `Bay doors opening ${(st.bay.doors * 100).toFixed(0)}%`, "") : step("ms1", "Y", "Open the payload bay doors", "Exposes the radiators and the satellite");
-          if (!st.payload.power) return step("ms2", "P", "Power up the satellite", "");
-          if (!st.payload.ready) return step("ms2", "", "Satellite self-check running…", "PLT can speed up time with [.]");
-          if (!this.flags.payloadGo) return step("ms2", "N", "Give GO for deploy", "Checkout passed: confirm the satellite is healthy");
-          return (() => { const r = holdCue(this._rotTo(S.lvlh(st.r, st.v).q), "Bay facing straight up, nose along the direction of travel", 10);
-            if (r.key === "" && this._releaseErr() <= 10 * DEG && this._relRate() <= 0.15 * DEG) return step("ms1", "R", "RELEASE the satellite", "All interlocks clear");
+          if (st.bay.doors < 0.999) return st.bay.cmd > 0 ? step("ms1", "", `Cargo doors opening ${(st.bay.doors * 100).toFixed(0)}%`, "") : step("ms1", "Y", "Open the cargo bay doors", "Lets the satellite out and cools the ship");
+          if (!st.payload.power) return step("ms2", "P", "Turn on satellite power", "");
+          if (!st.payload.ready) return step("ms2", "", "Satellite self-check running…", "Pilot can speed up time with [.]");
+          if (!this.flags.payloadGo) return step("ms2", "N", "Approve satellite release", "Self-check passed: confirm the satellite is healthy");
+          return (() => { const r = holdCue(this._rotTo(S.lvlh(st.r, st.v).q), "Cargo bay pointing straight up, nose facing forward", 10);
+            if (r.key === "" && this._releaseErr() <= 10 * DEG && this._relRate() <= 0.15 * DEG) return step("ms1", "R", "RELEASE the satellite", "All safety checks clear");
             return r; })();
         }
-        if ((st.payload.sepDv || 0) < 0.3 || (st.payload.rangeRate || 0) < 0.8) return step("ms1", "K", "Hold [K] — back away from the satellite", `Translate down until you have pulled away at ≥ 0.8 m/s (now ${(st.payload.rangeRate || 0).toFixed(2)})`);
-        return step("plt", ".", `Separating — ${((st.payload.range || 0)).toFixed(0)} / 150 m`, "Pilot can speed up time with [.]");
+        if ((st.payload.sepDv || 0) < 0.3 || (st.payload.rangeRate || 0) < 0.8) return step("ms1", "K", "Hold [K] — drift down away from the satellite", `Move away until pulling apart at ≥ 0.8 m/s (now ${(st.payload.rangeRate || 0).toFixed(2)})`);
+        return step("plt", ".", `Drifting clear — ${((st.payload.range || 0)).toFixed(0)} / 150 m`, "Pilot can speed up time with [.]");
       }
       case "deorbit": {
-        if (st.burn && st.burn.complete) return step("all", "", "Deorbit burn done — falling toward entry", `Entry interface in ${(gv.tEI || 0).toFixed(0)} s`);
-        if (st.burn) return step("all", "", st.burn.active ? "Deorbit burn — automatic" : `Deorbit burn in ${(st.burn.tig - st.t).toFixed(0)} s`, "Guidance holds the nose retrograde");
-        if (st.bay.doors > 0) return step("ms1", "Y", "Close the payload bay doors", "Required before entry");
-        if (this.plan && this.plan.tig - st.t > 400) return step("plt", "T", "Skip ahead to the deorbit opportunity", "");
+        if (st.burn && st.burn.complete) return step("all", "", "Return burn finished — dropping toward Earth's air", `Re-entry starts in ${(gv.tEI || 0).toFixed(0)} s`);
+        if (st.burn) return step("all", "", st.burn.active ? "Return braking burn — automatic" : `Return burn in ${(st.burn.tig - st.t).toFixed(0)} s`, "Auto-steer holds nose pointing backward");
+        if (st.bay.doors > 0) return step("ms1", "Y", "Close the cargo bay doors", "Needed before hitting the air");
+        if (this.plan && this.plan.tig - st.t > 400) return step("plt", "T", "Fast-forward to return burn spot", "");
         if (this._retroErr() > 5 * DEG) {
           const tgt = S.quat.qrot(S.quat.qconj(st.q), scl(unit(st.v), -1)), ang = Math.acos(clamp(tgt[2], -1, 1)), h = Math.hypot(tgt[0], tgt[1]) || 1;
           const rot = [-tgt[1] / h * ang, tgt[0] / h * ang, 0];      // axis = z × target (no roll needed)
-          const r = holdCue(rot, "Nose pointing backwards along the orbit (retrograde)", 5);
+          const r = holdCue(rot, "Point nose backward along the flight path", 5);
           return r;
         }
-        if (this._relRate() > 0.18 * DEG) return step("cdr", "", "Hands off — let it settle", `Nose is retrograde; attitude hold is stopping the rotation (${(this._relRate() / DEG).toFixed(2)}°/s, needs < 0.20)`);
-        return step("plt", "B", "Authorize the DEORBIT burn", "Nose is retrograde and steady");
+        if (this._relRate() > 0.18 * DEG) return step("cdr", "", "Hands off — let it settle", `Nose pointed backward; steady hold is stopping spin (${(this._relRate() / DEG).toFixed(2)}°/s, needs < 0.20)`);
+        return step("plt", "B", "Start the RETURN burn", "Nose pointed backward and steady");
       }
-      case "entry": return step("cdr", "A/D", gv.reverseCue ? `REVERSE — roll ${gv.bankCmd >= 0 ? "RIGHT [D]" : "LEFT [A]"}` : `Hold bank ${Math.abs((gv.bankCmd || 0) / DEG).toFixed(0)}° ${gv.bankCmd >= 0 ? "right" : "left"}`, "Bank steers the lift: more bank = drop faster and shorter");
+      case "entry": return step("cdr", "A/D", gv.reverseCue ? `FLIP SIDE — roll ${gv.bankCmd >= 0 ? "RIGHT [D]" : "LEFT [A]"}` : `Tilt wings ${Math.abs((gv.bankCmd || 0) / DEG).toFixed(0)}° ${gv.bankCmd >= 0 ? "right" : "left"}`, "Tilting your wings steers lift: steeper tilt drops faster to land sooner");
       case "approach": {
         const a = gv.appr;
-        if (a && a.gearCue && !st.flight.gearCmd) return step("plt", "G", "Landing gear DOWN", "");
-        return step("cdr", "W/S A/D", a && (a.mode === "FLARE" || a.mode === "PREFLARE") ? "FLARE — shallow the glide with [S]" : "Follow the yellow line: glide [W/S], bank [A/D]", "W/S set the glide angle and it holds when you let go · Pilot: speed brake X open / Z close if fast");
+        if (a && a.gearCue && !st.flight.gearCmd) return step("plt", "G", "Lower landing wheels [G]", "");
+        return step("cdr", "W/S A/D", a && (a.mode === "FLARE" || a.mode === "PREFLARE") ? "PULL UP GENTLY — ease nose up [S] before touching down" : "Follow yellow aim line: nose down/up [W/S], tilt wings [A/D]", "W/S sets glide slope and holds when you let go · Speed brake [X] open / [Z] close if fast");
       }
-      case "rollout": return step("cdr", "Space", st.ground && st.ground.noseDown ? "Brake [Space] and steer with Q/E to the centreline" : "Lower the nose [W]", "");
+      case "rollout": return step("cdr", "Space", st.ground && st.ground.noseDown ? "Hold brakes [Space] and steer [Q/E] down the center line" : "Lower the nose [W]", "");
       default: return step("all", "", "", "");
     }
   };
@@ -766,10 +766,10 @@
   const CREW = {
     roles: ["cdr", "plt", "ms1", "ms2"],
     info: {
-      cdr: { title: "Commander", short: "CDR", duty: "Flies the orbiter: RCS attitude, entry bank, approach pitch/bank, rollout steering & brakes; calls retries" },
-      plt: { title: "Pilot", short: "PLT", duty: "OMS-2 & deorbit burns, coast to TIG / time acceleration, AoA assist, speed brake, landing gear" },
-      ms1: { title: "Mission Specialist 1", short: "MS1", duty: "Aft flight deck: payload bay doors, satellite release, RCS translation for separation" },
-      ms2: { title: "Mission Specialist 2", short: "MS2", duty: "Payload systems: satellite power, checkout review and GO for deploy" },
+      cdr: { title: "Commander", short: "CDR", duty: "Steers the ship in space, tilts wings during re-entry, glides onto the runway & brakes; picks retries" },
+      plt: { title: "Pilot", short: "PLT", duty: "Starts big engine burns, speeds up wait time, toggles auto nose angle, air brakes & landing wheels" },
+      ms1: { title: "Mission Specialist 1", short: "MS1", duty: "Cargo bay crew: opens cargo doors, releases satellite, steers gently away afterward" },
+      ms2: { title: "Mission Specialist 2", short: "MS2", duty: "Satellite lead: turns on satellite power, checks self-test & approves release" },
     },
     commandRole: {
       START: "cdr", PAUSE: "cdr", RETRY_CHECKPOINT: "cdr", RESTART: "cdr", DAP_HOLD: "cdr",

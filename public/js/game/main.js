@@ -237,10 +237,30 @@
     role: "commander",
     color: "#67e8f9",
     isEva: false,
+    isZeroG: false,
     suitLights: true,
     magBoots: true,
     walkCycle: 0
   };
+
+  // The ISS interior is a zero-g environment: the crew hover clear of the
+  // deck and carry a little momentum instead of walking. The bob is applied to
+  // the model, not the root, so network updates stay quiet while idle.
+  const ZERO_G_HOVER_Y = 0.32;
+  const zeroGVelocity = { x: 0, z: 0 };
+
+  function isISSInteriorViewActive() {
+    const interior = window.shipInterior;
+    return !!(
+      interior &&
+      interior.isInteriorActive &&
+      interior.issInteriorModel &&
+      interior.group &&
+      interior.group.visible &&
+      !interior.isMoonLandingActive &&
+      !(window.spaceCenter && window.spaceCenter.isGroundMode)
+    );
+  }
 
   function setLocalMeshVisibility(visible) {
     if (localCrew.helmetMeshGroup) localCrew.helmetMeshGroup.visible = visible;
@@ -252,11 +272,13 @@
     if (localCrew.rig && localCrew.rig.modelContainer) {
       localCrew.rig.modelContainer.visible = visible;
     }
+    const poseStillFloating = localCrew.rig && localCrew.rig.zeroGBlend > 0.05;
+    const grounded = visible && !localCrew.isZeroG && !poseStillFloating;
     if (localCrew.rig && localCrew.rig.shadowMesh) {
-      localCrew.rig.shadowMesh.visible = visible;
+      localCrew.rig.shadowMesh.visible = grounded;
     }
     if (localCrew.rig && localCrew.rig.accentRing) {
-      localCrew.rig.accentRing.visible = visible;
+      localCrew.rig.accentRing.visible = grounded;
     }
     if (localCrew.rig && localCrew.rig.emoteBubble) {
       localCrew.rig.emoteBubbleHidden = !visible;
@@ -436,7 +458,7 @@
 
     const lobbyHint = document.querySelector(".lobby-controls-hint");
     if (lobbyHint) {
-      lobbyHint.innerHTML = "<strong>Thumbstick</strong> Move &bull; <strong>Drag</strong> Look &bull; <strong>Tap</strong> Console &bull; <strong>EMOTE</strong> &bull; <strong>CAM</strong>";
+      lobbyHint.innerHTML = "<strong>Thumbstick</strong> Move &bull; <strong>Push Far</strong> Sprint &bull; <strong>Drag</strong> Look &bull; <strong>Tap</strong> Console &bull; <strong>EMOTE</strong> &bull; <strong>CAM</strong>";
     }
 
     const voiceKeyHint = document.querySelector(".voice-key-hint");
@@ -1968,21 +1990,21 @@
       if (window.gameplay) {
         if (typeof window.gameplay.updateTaskListUI === "function") window.gameplay.updateTaskListUI();
         if (typeof window.gameplay.showToast === "function") {
-          const actor = ev.byName || "LCC GROUND";
+          const actor = ev.byName || "EARTH CONTROL";
           if (ev.type === "go_nogo_poll") {
-            window.gameplay.showToast("GO/NO-GO LAUNCH POLL INITIATED · GROUND HAS 8s TO RESPOND");
+            window.gameplay.showToast("ASKING EARTH CONTROL FOR LAUNCH OK · 8s TO REPLY");
           } else if (ev.type === "go_nogo_launch") {
-            window.gameplay.showToast(`${actor}: GO FOR LAUNCH CONFIRMED`);
+            window.gameplay.showToast(`${actor}: LAUNCH CLEARED FOR LIFTOFF!`);
           } else if (ev.type === "docking_clearance") {
-            window.gameplay.showToast(`${actor}: DOCKING CORRIDOR CLEARED`);
+            window.gameplay.showToast(`${actor}: STATION PARKING LANE CLEARED`);
           } else if (ev.type === "dsn_lock") {
-            window.gameplay.showToast(`${actor}: DSN TELEMETRY ANTENNA LOCKED`);
+            window.gameplay.showToast(`${actor}: EARTH DISH SIGNAL LOCKED`);
           } else if (ev.type === "power_route") {
-            window.gameplay.showToast(`${actor}: EPS SOLAR POWER TELEMETRY ROUTED`);
+            window.gameplay.showToast(`${actor}: SOLAR POWER CHECK COMPLETE`);
           } else if (ev.type === "science_downlink") {
-            window.gameplay.showToast(`${actor}: PAYLOAD SCIENCE DOWNLINK AUTHORIZED`);
+            window.gameplay.showToast(`${actor}: SCIENCE DATA SHARING READY`);
           } else if (ev.type === "ping_room" && ev.ping) {
-            window.gameplay.showToast(`LCC PING -> ${String(ev.ping.roomLabel || ev.ping.roomId || "HUB").toUpperCase()}`);
+            window.gameplay.showToast(`EARTH ALERT -> ${String(ev.ping.roomLabel || ev.ping.roomId || "HUB").toUpperCase()}`);
           } else if (ev.type === "board_blocked_ground" && ev.message) {
             window.gameplay.showToast(ev.message);
           }
@@ -2064,11 +2086,11 @@
           if (phase === "station") {
             banner.textContent = "STATION INTERIOR — ALL CREW ABOARD. BEGIN MISSION OPERATIONS.";
           } else if (phase === "docking") {
-            banner.textContent = "PHASE 3: ORBITAL APPROACH — ALIGN WITH PMA-2 AND COMPLETE DOCKING";
+            banner.textContent = "STEP 3: SPACE RENDEZVOUS — LINE UP WITH THE STATION DOOR AND CONNECT";
           } else if (phase === "launch") {
-            banner.textContent = "PHASE 2: ASCENT IN PROGRESS — CREW STRAPPED IN";
+            banner.textContent = "STEP 2: ROCKET LAUNCH — HOLD ON TIGHT, HEADING TO SPACE!";
           } else {
-            banner.textContent = "PHASE 1: KENNEDY SPACE CENTER LC-39A — FOLLOW THE GLOWING MARKERS TO BOARD THE ORBITER";
+            banner.textContent = "STEP 1: LAUNCH PAD — FOLLOW THE GLOWING PATH TO BOARD THE SPACESHIP";
           }
           banner.style.display = "flex";
           setTimeout(() => { banner.style.display = "none"; }, 3000);
@@ -2120,17 +2142,17 @@
         typeof window.gameplay.showToast === "function"
       ) {
         if (payload.action === "board") {
-          window.gameplay.showToast(`${payload.playerName || "CREW"} BOARDED THE ORBITER`);
+          window.gameplay.showToast(`${payload.playerName || "TEAMMATE"} BOARDED THE SPACESHIP`);
         } else if (payload.action === "dock") {
           window.gameplay.showToast(
             payload.mission.dockLocked
-              ? "CREW LOCKED THE ORBITER ACCESS ARM"
-              : "ORBITER ACCESS ARM RETRACTED"
+              ? "TEAM LOCKED THE BOARDING BRIDGE"
+              : "BOARDING BRIDGE PULLED BACK"
           );
         } else if (payload.action === "reset") {
-          window.gameplay.showToast(`${payload.playerName || "CREW"} RETURNED THE CREW TO LC-39A`);
+          window.gameplay.showToast(`${payload.playerName || "TEAMMATE"} BROUGHT THE TEAM BACK TO THE LAUNCH PAD`);
         } else if (payload.action === "design_revised" || payload.action === "design_sync") {
-          window.gameplay.showToast(`${payload.playerName || "CREW"} SYNCED MISSION POINT DESIGN`);
+          window.gameplay.showToast(`${payload.playerName || "TEAMMATE"} UPDATED THE MISSION PLAN`);
         }
       }
     });
@@ -2200,12 +2222,12 @@
     const btnStart = document.getElementById("btn-start-mission");
     if (opsMode === "shuttle_flight") {
       if (selectedLabel) {
-        selectedLabel.textContent = "STS_OS · SHUTTLE LAUNCH & RUNWAY 15 LANDING";
+        selectedLabel.textContent = "SPACE SHUTTLE · LAUNCH & RUNWAY LANDING";
       }
       if (hint) {
         hint.textContent = canSelect
-          ? "HOST CONTROL — SHUTTLE FLIGHT OPS"
-          : "HOST SELECTED SHUTTLE OPS — CREW VIEW";
+          ? "HOST PICKS — SPACE SHUTTLE FLIGHT"
+          : "HOST PICKED SPACE SHUTTLE — CREW VIEW";
         hint.style.color = canSelect ? "#67e8f9" : "#9aa4ae";
       }
       if (difficultyContainer) difficultyContainer.style.display = "none";
@@ -2213,22 +2235,22 @@
       if (difficultyHint) difficultyHint.style.display = "none";
       cards.innerHTML = `
         <div class="shuttle-mode-card">
-          <div class="shuttle-mode-card-title">STS_OS CO-OP FLIGHT · LC-39A TO KSC SLF RWY 15</div>
+          <div class="shuttle-mode-card-title">SPACE SHUTTLE CO-OP FLIGHT · LAUNCH TO RUNWAY LANDING</div>
           <div class="shuttle-mode-card-desc">
-            Interactive 60 Hz orbital flight, payload deployment, atmospheric entry &amp; manual Runway 15 landing with real-time STS_OS flight telemetry HUD.
+            Fly into space, release a satellite, dive back through the sky, and steer your Space Shuttle safely onto the landing runway!
           </div>
           <div class="shuttle-mode-seats">
-            <div><strong>CDR</strong> (Command) · Ascent, Entry &amp; Gear</div>
-            <div><strong>PLT</strong> (Engineer) · OMS Burn, RCS &amp; Brakes</div>
-            <div><strong>MS1</strong> (Specialist) · Bay Doors &amp; Satellite</div>
-            <div><strong>MS2</strong> (FDIR/Sci) · Time Warp &amp; Guidance</div>
+            <div><strong>CAPT</strong> (Commander) · Launch, Re-entry &amp; Wheels</div>
+            <div><strong>PILOT</strong> (Engineer) · Space Engines, Steering &amp; Brakes</div>
+            <div><strong>SPEC 1</strong> (Cargo) · Cargo Doors &amp; Satellite Release</div>
+            <div><strong>SPEC 2</strong> (Science) · Speed-Up Time &amp; Flight Guide</div>
           </div>
         </div>
       `;
       if (btnStart && isHost && status === "lobby") {
-        btnStart.textContent = "LAUNCH SHUTTLE OPS →";
+        btnStart.textContent = "FLY SPACE SHUTTLE →";
       } else if (btnStart && status === "playing") {
-        btnStart.textContent = "JOIN SHUTTLE OPS →";
+        btnStart.textContent = "JOIN SHUTTLE FLIGHT →";
       }
       return;
     }
@@ -2252,8 +2274,8 @@
     }
     if (hint) {
       hint.textContent = canSelect
-        ? "HOST CONTROL — SELECT EXPEDITION PROFILE"
-        : "HOST SELECTS THE EXPEDITION — CREW VIEW";
+        ? "HOST PICKS — CHOOSE MISSION"
+        : "HOST PICKS THE MISSION — CREW VIEW";
       hint.style.color = canSelect ? "#67e8f9" : "#9aa4ae";
     }
 
@@ -2360,17 +2382,19 @@
     const btnBegin = document.getElementById("btn-briefing-begin");
 
     if (title) {
-      title.textContent = `${mission.scenarioCode || "LUNASPIS"} · ${mission.scenarioName || "CO-OP EXPEDITION"}`;
+      title.textContent = `${mission.scenarioCode || "LUNASPIS"} · ${mission.scenarioName || "TEAM MISSION"}`;
     }
     if (meta) {
       const crew = window.netManager && window.netManager.roomState && Array.isArray(window.netManager.roomState.players)
         ? window.netManager.roomState.players.length
         : 0;
-      meta.textContent = `DIFFICULTY: ${String(mission.difficultyId || "engineer").toUpperCase()} · CREW: ${crew}/6 · SEED: ${mission.seed || "—"}`;
+      const diffLabels = { cadet: "BEGINNER", engineer: "NORMAL", director: "EXPERT" };
+      const diffText = diffLabels[mission.difficultyId] || String(mission.difficultyId || "NORMAL").toUpperCase();
+      meta.textContent = `LEVEL: ${diffText} · TEAM: ${crew}/6`;
     }
     if (summary) {
       summary.textContent = mission.scenarioSummary ||
-        "Complete the shared mission objectives across the station before the expedition window closes.";
+        "Finish the shared mission steps across the Space Station before launch day.";
     }
     if (list) {
       const objectives = Array.isArray(mission.objectives) ? mission.objectives : [];
@@ -2404,10 +2428,10 @@
         }
         const isCadet = String(mission.difficultyId || "").toLowerCase() === "cadet";
         coach.innerHTML = `
-          <strong>${isCadet ? "CADET COACH" : "MISSION COACH"}:</strong>
-          ${escapeHtml(scenarioTip || "Every design choice trades mass, power, data and cost. Keep all resource bars green before committing.")}
+          <strong>${isCadet ? "BEGINNER HELPER" : "QUICK TIP"}:</strong>
+          ${escapeHtml(scenarioTip || "Every choice trades weight, power, radio strength, and budget. Keep all status bars green before locking in!")}
           <div class="briefing-coach-actions">
-            <button type="button" id="btn-briefing-academy">OPEN MISSION ACADEMY [F1]</button>
+            <button type="button" id="btn-briefing-academy">OPEN BEGINNER GUIDE [F1]</button>
           </div>
         `;
         coach.style.display = "block";
@@ -2626,20 +2650,20 @@
     groundGroup.className = "lobby-zone-group";
     groundGroup.innerHTML = `
       <div class="lobby-zone-header zone-ground">
-        <span>GROUND CONTROL · KENNEDY LCC</span>
-        <span>${groundPlayers.length} / ${groundTarget} STAFFED (${players.length <= 1 ? "SOLO STANDBY" : "CAP 2"})</span>
+        <span>EARTH CONTROL TEAM</span>
+        <span>${groundPlayers.length} / ${groundTarget} FILLED (${players.length <= 1 ? "SOLO MODE" : "MAX 2"})</span>
       </div>
       <div class="lobby-zone-rows"></div>
     `;
     const groundRows = groundGroup.querySelector(".lobby-zone-rows");
     if (groundPlayers.length === 0) {
       groundRows.appendChild(renderManifestRow(null, players.length <= 1
-        ? "Auto-assigned when 2+ crew join (1 Ground at 2-3P, 2 Ground at 4-6P)."
-        : "Open Ground Control seat."));
+        ? "Auto-assigned with 2+ players (1 Earth Control at 2-3 players, 2 at 4-6)."
+        : "Open Earth Control spot."));
     } else {
-      groundPlayers.forEach((p) => groundRows.appendChild(renderManifestRow(p, "GO/NO-GO, DSN Lock, EPS & Science Downlink")));
+      groundPlayers.forEach((p) => groundRows.appendChild(renderManifestRow(p, "Launch OK, Earth Dish Lock, Power & Data Relay")));
       if (groundPlayers.length < groundTarget) {
-        groundRows.appendChild(renderManifestRow(null, "Second Ground Control seat fills dynamically."));
+        groundRows.appendChild(renderManifestRow(null, "Second Earth Control spot fills automatically."));
       }
     }
     slotsContainer.appendChild(groundGroup);
@@ -2648,8 +2672,8 @@
     flightGroup.className = "lobby-zone-group";
     flightGroup.innerHTML = `
       <div class="lobby-zone-header zone-crew">
-        <span>FLIGHT CREW · SHIP &amp; STATION</span>
-        <span>${flightPlayers.length} ASSIGNED</span>
+        <span>SPACE CREW · STATION</span>
+        <span>${flightPlayers.length} JOINED</span>
       </div>
       <div class="lobby-zone-rows"></div>
     `;
@@ -2733,7 +2757,7 @@
         const remotePeer = net && net.remotePlayers ? net.remotePlayers[p.id] : null;
         const radioTag = (isSelf ? (window.voiceManager && window.voiceManager.isRadioTransmitting) : (remotePeer && remotePeer.isRadio)) ? " [TX]" : "";
         const statusHint = pIsGround
-          ? "LCC"
+          ? "EARTH"
           : (phase === "gantry" ? (boarded.includes(p.id) ? "ABOARD" : "PAD") : (phase === "station" ? "STATION" : "ORBIT"));
         return `
           <div class="crew-role-chip${isSelf ? " is-self" : ""}" title="${escapeHtml(meta.label)} · ${statusHint}">
@@ -2826,7 +2850,7 @@
           ? `<strong>YOUR TURN (${escapeHtml(myRole.toUpperCase())}):</strong> Walk to ${escapeHtml(names)}.`
           : `<strong>UP NEXT (${escapeHtml(myRole.toUpperCase())}):</strong> ${escapeHtml(names)} (wait for earlier step).`;
       } else {
-        callout = `<strong>SPACE STATION:</strong> ${anyPending.length ? `${anyPending.length} tasks remaining with crew.` : "Walk with [WASD] and press [E] at computers."} Ground support: ${groundBadges.length ? groundBadges.join(" · ") : "STANDBY"}.`;
+        callout = `<strong>SPACE STATION:</strong> ${anyPending.length ? `${anyPending.length} tasks remaining with crew.` : "Float with [WASD] and press [E] at computers."} Ground support: ${groundBadges.length ? groundBadges.join(" · ") : "STANDBY"}.`;
       }
     }
 
@@ -3037,7 +3061,7 @@
         if (window.shipInterior) {
           const vis = window.shipInterior.toggleInterior();
           if (window.showActionToast) {
-            window.showActionToast(vis ? "ISS INTERIOR: ACTIVE" : "EXTERIOR / EVA VIEW: ACTIVE");
+            window.showActionToast(vis ? "ISS INTERIOR: ZERO-G ACTIVE" : "EXTERIOR / EVA VIEW: ACTIVE");
           }
         }
       }
@@ -3371,9 +3395,17 @@
   // ============================================================================
   function updatePlayerPhysics(delta) {
     if (!localCrew.group) return;
+
+    // Zero-g is a property of the constructed ISS interior, not of the model.
+    // Compute it before the early-out branches so opening a task console does
+    // not snap a floating crewmate back onto the deck.
+    const zeroGNow = isISSInteriorViewActive() && !localCrew.isEva;
+    const wasZeroG = !!localCrew.isZeroG;
+    localCrew.isZeroG = zeroGNow;
+
     if (!isGameStarted) {
       if (localCrew.rig && typeof localCrew.rig.updateAnimation === "function") {
-        localCrew.rig.updateAnimation(delta, false, localCrew.isEva, !localCrew.isEva);
+        localCrew.rig.updateAnimation(delta, false, localCrew.isEva, !localCrew.isEva, null, zeroGNow);
       }
       return;
     }
@@ -3391,15 +3423,19 @@
       (window.spaceCenter && window.spaceCenter.isGroundMode && window.spaceCenter.crewBoarded)
     ) {
       if (localCrew.rig && typeof localCrew.rig.updateAnimation === "function") {
-        localCrew.rig.updateAnimation(delta, false, localCrew.isEva, !localCrew.isEva);
+        localCrew.rig.updateAnimation(delta, false, localCrew.isEva, !localCrew.isEva, null, zeroGNow);
       }
       return;
     }
 
     const joyMag = window.virtualJoyActive ? Math.hypot(window.virtualJoyX || 0, window.virtualJoyY || 0) : 0;
-    const isRunning = keys["ShiftLeft"] || keys["ShiftRight"] || joyMag > 0.82;
-    const inISSInterior = !!(window.shipInterior && window.shipInterior.issInteriorModel && window.shipInterior.group && window.shipInterior.group.visible);
-    const speed = localCrew.isEva ? 4.8 : (inISSInterior ? (isRunning ? 3.0 : 1.8) : (isRunning ? 5.6 : 3.9));
+    // Hold Shift (or push the mobile thumbstick to its outer ring) to sprint.
+    const isSprinting = !!(keys["ShiftLeft"] || keys["ShiftRight"] || joyMag > 0.82);
+    const inISSInterior = isISSInteriorViewActive();
+    const isZeroG = zeroGNow && inISSInterior;
+    const speed = localCrew.isEva
+      ? (isSprinting ? 7.2 : 4.8)
+      : (inISSInterior ? (isSprinting ? 3.4 : 1.8) : (isSprinting ? 7.8 : 3.9));
 
     const isRight = keys["KeyD"] || keys["ArrowRight"] || keys["d"] || window.virtualMoveRight;
     const isLeft = keys["KeyA"] || keys["ArrowLeft"] || keys["a"] || window.virtualMoveLeft;
@@ -3414,21 +3450,62 @@
       strafe += window.virtualJoyX || 0;
     }
 
-    const isMoving = Math.abs(fwd) > 0.05 || Math.abs(strafe) > 0.05;
-
     const sinY = Math.sin(camYaw);
     const cosY = Math.cos(camYaw);
 
     let dx = fwd * sinY - strafe * cosY;
     let dz = fwd * cosY + strafe * sinY;
     const len = Math.hypot(dx, dz);
+    let stepX = 0;
+    let stepZ = 0;
+    let facingX = 0;
+    let facingZ = 0;
+
     if (len > 0.001) {
       const moveScale = window.virtualJoyActive ? Math.min(1.0, len) : 1.0;
-      dx = (dx / len) * speed * moveScale * delta;
-      dz = (dz / len) * speed * moveScale * delta;
+      const dirX = dx / len;
+      const dirZ = dz / len;
+      const targetX = dirX * speed * moveScale;
+      const targetZ = dirZ * speed * moveScale;
 
-      // Smoothly turn astronaut to face movement vector
-      const targetFacing = Math.atan2(dx, dz);
+      if (isZeroG) {
+        // Ease into the push-off instead of setting velocity instantly. On
+        // release the remaining velocity decays gently, so a crewmate drifts
+        // a short way and then settles against a handrail.
+        const blend = 1 - Math.exp(-3.6 * delta);
+        zeroGVelocity.x += (targetX - zeroGVelocity.x) * blend;
+        zeroGVelocity.z += (targetZ - zeroGVelocity.z) * blend;
+      } else {
+        zeroGVelocity.x = 0;
+        zeroGVelocity.z = 0;
+        stepX = targetX * delta;
+        stepZ = targetZ * delta;
+        facingX = stepX;
+        facingZ = stepZ;
+      }
+    } else if (isZeroG) {
+      const decay = Math.exp(-1.35 * delta);
+      zeroGVelocity.x *= decay;
+      zeroGVelocity.z *= decay;
+      if (Math.hypot(zeroGVelocity.x, zeroGVelocity.z) < 0.015) {
+        zeroGVelocity.x = 0;
+        zeroGVelocity.z = 0;
+      }
+    } else {
+      zeroGVelocity.x = 0;
+      zeroGVelocity.z = 0;
+    }
+
+    if (isZeroG) {
+      stepX = zeroGVelocity.x * delta;
+      stepZ = zeroGVelocity.z * delta;
+      facingX = zeroGVelocity.x;
+      facingZ = zeroGVelocity.z;
+    }
+
+    // Smoothly turn astronaut to face movement vector
+    if (Math.hypot(facingX, facingZ) > 0.025) {
+      const targetFacing = Math.atan2(facingX, facingZ);
       let diff = targetFacing - localCrew.group.rotation.y;
       while (diff > Math.PI) diff -= Math.PI * 2;
       while (diff < -Math.PI) diff += Math.PI * 2;
@@ -3440,7 +3517,17 @@
     const currentPos = localCrew.group.position;
     const previousX = currentPos.x;
     const previousZ = currentPos.z;
-    const proposedPos = new THREE.Vector3(currentPos.x + dx, currentPos.y, currentPos.z + dz);
+
+    if (isZeroG) {
+      currentPos.y = ZERO_G_HOVER_Y;
+    } else if (wasZeroG) {
+      // Leaving the interior hands locomotion back to the ground controller.
+      zeroGVelocity.x = 0;
+      zeroGVelocity.z = 0;
+      currentPos.y = 0;
+    }
+
+    const proposedPos = new THREE.Vector3(currentPos.x + stepX, currentPos.y, currentPos.z + stepZ);
 
     if (window.spaceCenter && window.spaceCenter.isGroundMode && typeof window.spaceCenter.resolveGroundCollision === "function") {
       const resolvedGround = window.spaceCenter.resolveGroundCollision(currentPos, proposedPos);
@@ -3449,10 +3536,16 @@
       } else {
         currentPos.copy(proposedPos);
       }
-    } else if (window.shipInterior && window.shipInterior.group && window.shipInterior.group.visible && typeof window.resolveShipInteriorCollision === "function") {
+    } else if (inISSInterior && typeof window.resolveShipInteriorCollision === "function") {
       const resolved = window.resolveShipInteriorCollision(currentPos, proposedPos, 0.32);
       if (resolved && typeof resolved.x === "number") {
-        currentPos.set(resolved.x, 0.0, resolved.z);
+        currentPos.set(resolved.x, currentPos.y, resolved.z);
+        if (isZeroG) {
+          // Kill only the blocked axis so a glancing push slides along the
+          // module wall instead of stopping the whole drift.
+          if (Math.abs(resolved.x - proposedPos.x) > 0.0001) zeroGVelocity.x *= 0.15;
+          if (Math.abs(resolved.z - proposedPos.z) > 0.0001) zeroGVelocity.z *= 0.15;
+        }
       } else {
         currentPos.copy(proposedPos);
       }
@@ -3460,10 +3553,10 @@
       currentPos.copy(proposedPos);
     }
 
-    // Update SpaceShip skeletal animations ('idle' / 'walk')
+    // Update SpaceShip skeletal animations ('idle' / 'walk' / zero-g float)
     if (localCrew.rig && typeof localCrew.rig.updateAnimation === "function") {
-      const actuallyMoving = isMoving && Math.hypot(currentPos.x - previousX, currentPos.z - previousZ) > 0.0001;
-      localCrew.rig.updateAnimation(delta, actuallyMoving, localCrew.isEva, !localCrew.isEva);
+      const actuallyMoving = Math.hypot(currentPos.x - previousX, currentPos.z - previousZ) > 0.0001;
+      localCrew.rig.updateAnimation(delta, actuallyMoving, localCrew.isEva, !localCrew.isEva, null, isZeroG, isSprinting);
     }
 
     // Send coordinate update to network
@@ -3473,7 +3566,8 @@
         localCrew.group.rotation.y,
         camPitch,
         localCrew.isEva,
-        localCrew.suitLights
+        localCrew.suitLights,
+        isSprinting
       );
     }
 
@@ -3562,9 +3656,16 @@
       }
 
       const desiredX = headX + fullOffsetX * safeFrac;
-      const maxCameraHeight = window.shipInterior && window.shipInterior.issInteriorModel && window.shipInterior.group && window.shipInterior.group.visible ? 1.85 : 3.2;
-      const desiredY = Math.max(py + 0.5, Math.min(py + maxCameraHeight, headY + 0.25 + vertOffset * safeFrac));
       const desiredZ = headZ + fullOffsetZ * safeFrac;
+      const maxCameraHeight = window.shipInterior && window.shipInterior.issInteriorModel && window.shipInterior.group && window.shipInterior.group.visible ? 1.85 : 3.2;
+      let camFloorY = py;
+      if (window.spaceCenter && window.spaceCenter.isGroundMode && (window.spaceCenter.siteTourActive || (typeof window.spaceCenter._isLocalGroundCrew === "function" && window.spaceCenter._isLocalGroundCrew()))) {
+        const terrain = window.SpaceCenterModules && window.SpaceCenterModules.terrain;
+        if (terrain && typeof terrain.getSurfaceHeightAt === "function") {
+          camFloorY = Math.max(py, terrain.getSurfaceHeightAt(desiredX, desiredZ, py));
+        }
+      }
+      const desiredY = Math.max(camFloorY + 0.5, Math.min(py + maxCameraHeight, headY + 0.25 + vertOffset * safeFrac));
 
       if (!localCrew.isEva && window.shipInterior && window.shipInterior.issInteriorModel && window.shipInterior.group && window.shipInterior.group.visible && typeof window.shipInterior.cameraClearFraction === "function") {
         const origin = new THREE.Vector3(headX, headY, headZ);
@@ -3888,7 +3989,7 @@
               // targetPos would keep the walk cycle looping while an idle avatar
               // is briefly held/extrapolated ahead of its last packet.
               const isMoving = !!(rp.lastMoveAt && (performance.now() - rp.lastMoveAt) < 300);
-              rp.rig.updateAnimation(delta, isMoving, rp.isEva, !rp.isEva);
+              rp.rig.updateAnimation(delta, isMoving, rp.isEva, !rp.isEva, null, isISSInteriorViewActive() && !rp.isEva, !!rp.isSprinting);
             }
             if (rp.rig && typeof rp.rig.playEmote === "function" && rp.emoteSerial && rp.lastEmoteSerial !== rp.emoteSerial) {
               rp.lastEmoteSerial = rp.emoteSerial;

@@ -877,7 +877,7 @@
         '<div class="ss-name">Solar System</div>' +
         '<div class="ss-kind">12 destinations - select a body</div>' +
         '<div class="ss-section">' + rows + "</div>" +
-        '<div class="ss-note">Distances and transfer times are approximate educational values. Delta-v is an in-space transfer from low Earth orbit.</div>';
+        '<div class="ss-note">Distances and travel times are approximate educational values. Fuel push is the extra speed needed once already in orbit around Earth.</div>';
     }
 
     _renderDossier(id) {
@@ -902,16 +902,16 @@
         '<div class="ss-row"><span>Distance from Earth</span><b>' + entry.facts.distanceFromEarth + "</b></div>" +
         '<div class="ss-row"><span>Distance</span><b>' + entry.facts.distanceAu + "</b></div>" +
         '<div class="ss-row"><span>One-way light time</span><b>' + entry.facts.lightDelay + "</b></div>" +
-        '<div class="ss-row"><span>Transfer time</span><b>' + formatMonths(entry.transit.months) + "</b></div>" +
+        '<div class="ss-row"><span>Travel time</span><b>' + formatMonths(entry.transit.months) + "</b></div>" +
         '<div class="ss-row"><span>Launch window</span><b>' + entry.transit.window + "</b></div>" +
         "</div>" +
 
         '<div class="ss-section">' +
-        '<div class="ss-section-title">PROPULSION</div>' +
-        '<div class="ss-row"><span>Delta-v class</span><b>' + entry.transit.deltaVClass.toUpperCase() + "</b></div>" +
-        '<div class="ss-row"><span>Transfer delta-v</span><b>' + formatInt(entry.transit.deltaVms) + " m/s</b></div>" +
-        propellantRow("Chemical (318 s)", chemKg) +
-        propellantRow("Ion (1850 s)", ionKg) +
+        '<div class="ss-section-title">ROCKET FUEL &amp; PUSH</div>' +
+        '<div class="ss-row"><span>Fuel-push size</span><b>' + entry.transit.deltaVClass.toUpperCase() + "</b></div>" +
+        '<div class="ss-row"><span>Needed speed push</span><b>' + formatInt(entry.transit.deltaVms) + " m/s</b></div>" +
+        propellantRow("Standard rocket fuel", chemKg) +
+        propellantRow("Electric ion fuel", ionKg) +
         "</div>" +
 
         '<div class="ss-section">' +

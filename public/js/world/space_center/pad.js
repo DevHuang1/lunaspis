@@ -112,9 +112,8 @@
     site.cyl(g, 0.12, 5.2, 36, apronTop + 3.6, 108, steel, 8, "LightCartMast");
     site.box(g, 1.3, 0.45, 0.45, 36, apronTop + 6.3, 108, m("lamp"), "LightCartHead");
 
-    for (let i = -3; i <= 3; i++) {
-      if (Math.abs(i) <= 1) continue;
-      site.box(g, 4.8, 1.0, 0.7, i * 11, apronTop + 0.5, 128, m("concrete_curb"), "JerseyBarrier");
+    for (const bx of [-40, -34, 34, 40]) {
+      site.box(g, 4.8, 1.0, 0.7, bx, apronTop + 0.5, 128, m("concrete_curb"), "JerseyBarrier");
     }
 
     // -------------------------------------------------------------------------
@@ -204,28 +203,25 @@
     site.cone(g, 0.5, 7.8, 3.6, wt.x, 46.6, wt.z, white, 24, "WaterTankRoof");
     site.sphere(g, 0.4, wt.x, 48.8, wt.z, m("red"), 8, "WaterTankBeacon");
     site.label(g, "WATER TANK 39A", wt.x, 3.6, wt.z - 12, { width: 9, height: 1.6, fontSize: 40 });
-    site.addCircleCollider(wt.x, wt.z, 8, "Water tower");
+    site.addCircleCollider(wt.x, wt.z, 8, "Water tower", { maxY: 8.0 });
 
-    // Hardstand / grass berm is 92 m across at its base, so block the walker
-    // at the foot of the slope rather than 18 m inside it.
-    site.addCircleCollider(0, 0, 90, "Pad 39A berm");
-    // Crawlerway ramp and its flanking grass embankments are solid.
-    site.addBoxCollider(0, 123.5, 33, 128, "Pad 39A crawlerway ramp");
-    site.addBoxCollider(21, 122, 11.5, 120, "Pad 39A ramp embankment");
-    site.addBoxCollider(-21, 122, 11.5, 120, "Pad 39A ramp embankment");
+    // Berm slope, ramp side embankments, and pad summit perimeter/obstacles
+    // are enforced with elevation awareness in SpaceCenterModules.terrain so
+    // the south ramp corridor and top hardstand deck stay smoothly traversable.
+    const groundOnly = { maxY: 8.0 };
     // Cryogenic propellant farm containment deck.
-    site.addBoxCollider(prop.x, prop.z, 70, 44, "Propellant farm");
+    site.addBoxCollider(prop.x, prop.z, 70, 44, "Propellant farm", groundOnly);
     // Egress bunker, floodlight cart and jersey barrier row.
-    site.addBoxCollider(-108, -22, 12, 13, "Pad egress bunker");
-    site.addBoxCollider(36, 108, 3.2, 2.4, "Pad light cart");
-    site.addBoxCollider(-27.5, 128, 15.4, 1.2, "Pad jersey barriers");
-    site.addBoxCollider(27.5, 128, 15.4, 1.2, "Pad jersey barriers");
+    site.addBoxCollider(-108, -22, 12, 13, "Pad egress bunker", groundOnly);
+    site.addBoxCollider(36, 108, 3.2, 2.4, "Pad light cart", groundOnly);
+    site.addBoxCollider(-37, 128, 11.4, 1.2, "Pad jersey barriers", groundOnly);
+    site.addBoxCollider(37, 128, 11.4, 1.2, "Pad jersey barriers", groundOnly);
     // Lightning masts, guard kiosk, sign and pad support vehicles are solid.
-    for (const p of masts) site.addCircleCollider(p.x, p.z, 2.4, "Lightning mast");
-    for (const a of anchors) site.addBoxCollider(a.x, a.z, 3.4, 3.4, "Mast guy anchor");
-    site.addBoxCollider(-52, 112, 7, 5, "Pad 39A guard kiosk");
-    site.addBoxCollider(48, 92, 6.2, 3.0, "Pad fire truck");
-    site.addBoxCollider(-44, 102, 6.0, 3.0, "Pad crew van");
-    site.addBoxCollider(62, 64, 6.2, 3.0, "Pad support truck");
+    for (const p of masts) site.addCircleCollider(p.x, p.z, 2.4, "Lightning mast", groundOnly);
+    for (const a of anchors) site.addBoxCollider(a.x, a.z, 3.4, 3.4, "Mast guy anchor", groundOnly);
+    site.addBoxCollider(-52, 112, 7, 5, "Pad 39A guard kiosk", groundOnly);
+    site.addBoxCollider(48, 92, 6.2, 3.0, "Pad fire truck", groundOnly);
+    site.addBoxCollider(-44, 102, 6.0, 3.0, "Pad crew van", groundOnly);
+    site.addBoxCollider(62, 64, 6.2, 3.0, "Pad support truck", groundOnly);
   });
 })(window);

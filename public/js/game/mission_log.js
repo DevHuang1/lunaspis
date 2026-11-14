@@ -65,10 +65,11 @@
   function recordVictory(data) {
     if (!data || !data.debrief) return;
     const debrief = data.debrief;
+    const serverResult = debrief.result && typeof debrief.result === "object" ? debrief.result : null;
     const design = window.gameplay && typeof window.gameplay.evaluateMissionDesign === "function"
       ? window.gameplay.evaluateMissionDesign()
       : null;
-    if (!design) return;
+    if (!design && !serverResult) return;
 
     const completedAt = Number(debrief.completedAt || Date.now());
     const roomId = (window.netManager && window.netManager.roomId) || null;
@@ -84,22 +85,25 @@
       solo: !!(window.netManager && window.netManager.isSoloRoom),
       completedAt,
       recordedAt: new Date().toISOString(),
-      scenarioId: debrief.scenarioId || design.scenarioId || "lunar_south_pole",
-      scenarioCode: debrief.scenarioCode || design.scenario.code || "LUNASPIS",
-      scenarioName: debrief.scenarioName || design.scenario.name || "Mission",
-      difficultyId: debrief.difficultyId || design.difficultyId || "engineer",
-      score: Number(design.overallScore) || 0,
-      scienceScore: Number(design.scienceScore) || 0,
-      engineeringScore: Number(design.engineeringScore) || 0,
-      cmlLevel: Number(design.cmlLevel) || 1,
-      budgetM: Number(design.totalCostM) || 0,
-      budgetCapM: Number(design.budgetCapM) || 0,
-      wetMassKg: Number(design.wetMassKg) || 0,
-      lvCapacityKg: Number(design.lvCapacityKg) || 0,
-      dataGeneratedGbPerDay: Number(design.dataGeneratedGbPerDay) || 0,
-      downlinkCapGbPerDay: Number(design.downlinkCapGbPerDay) || 0,
-      achievedDeltaV: Number(design.achievedDeltaV) || 0,
-      requiredDeltaV: Number(design.requiredDeltaV) || 0,
+      validated: !!serverResult,
+      validator: serverResult ? serverResult.validator || "server" : null,
+      scenarioId: debrief.scenarioId || (serverResult && serverResult.scenarioId) || (design && design.scenarioId) || "lunar_south_pole",
+      scenarioCode: debrief.scenarioCode || (serverResult && serverResult.scenarioCode) || (design && design.scenario.code) || "LUNASPIS",
+      scenarioName: debrief.scenarioName || (serverResult && serverResult.scenarioName) || (design && design.scenario.name) || "Mission",
+      difficultyId: debrief.difficultyId || (serverResult && serverResult.difficultyId) || (design && design.difficultyId) || "engineer",
+      score: Number(serverResult ? serverResult.overallScore : design && design.overallScore) || 0,
+      scienceScore: Number(serverResult ? serverResult.scienceScore : design && design.scienceScore) || 0,
+      engineeringScore: Number(serverResult ? serverResult.engineeringScore : design && design.engineeringScore) || 0,
+      cmlLevel: Number(serverResult ? serverResult.cmlLevel : design && design.cmlLevel) || 1,
+      budgetM: Number(serverResult ? serverResult.budget && serverResult.budget.totalCostM : design && design.totalCostM) || 0,
+      budgetCapM: Number(serverResult ? serverResult.budget && serverResult.budget.capM : design && design.budgetCapM) || 0,
+      wetMassKg: Number(serverResult ? serverResult.mass && serverResult.mass.wetMassKg : design && design.wetMassKg) || 0,
+      lvCapacityKg: Number(serverResult ? serverResult.mass && serverResult.mass.capacityKg : design && design.lvCapacityKg) || 0,
+      dataGeneratedGbPerDay: Number(serverResult ? serverResult.comms && serverResult.comms.dataGeneratedGbPerDay : design && design.dataGeneratedGbPerDay) || 0,
+      downlinkCapGbPerDay: Number(serverResult ? serverResult.comms && serverResult.comms.downlinkCapGbPerDay : design && design.downlinkCapGbPerDay) || 0,
+      achievedDeltaV: Number(serverResult ? serverResult.deltaV && serverResult.deltaV.achievedMs : design && design.achievedDeltaV) || 0,
+      requiredDeltaV: Number(serverResult ? serverResult.deltaV && serverResult.deltaV.requiredMs : design && design.requiredDeltaV) || 0,
+      event: serverResult && serverResult.event ? serverResult.event : null,
       completedObjectives: Array.isArray(debrief.completedObjectives) ? debrief.completedObjectives.length : 0,
       totalObjectives: Number(debrief.totalObjectives) || 7,
       durationMs: Number(debrief.durationMs) || 0,
@@ -118,22 +122,28 @@
   }
 
   function recordQualifier(record) {
-    if (record.score >= 75) return { label: "FLIGHT QUALIFIED", color: "#86efac" };
-    if (record.score >= 60) return { label: "MISSION READY", color: "#fde68a" };
+    if (record.score >= 75) return { label: "LAUNCH READY", color: "#86efac" };
+    if (record.score >= 60) return { label: "ALMOST READY", color: "#fde68a" };
     return { label: "NEEDS WORK", color: "#fca5a5" };
   }
 
+  function friendlyDiffLabel(id) {
+    const map = { cadet: "BEGINNER", engineer: "NORMAL", director: "EXPERT" };
+    return map[String(id || "").toLowerCase()] || String(id || "NORMAL").toUpperCase();
+  }
+
   function buildShareText(record) {
-    const mode = record.solo ? "SOLO" : "CREW";
+    const mode = record.solo ? "SOLO" : "TEAM";
     return [
       `LUNASPIS // MISSION REPORT`,
       `${record.scenarioCode} · ${record.scenarioName}`,
-      `Difficulty: ${String(record.difficultyId || "engineer").toUpperCase()} · ${mode}`,
-      `Score: ${record.score}/100 (Science ${record.scienceScore} · Engineering ${record.engineeringScore} · CML ${record.cmlLevel})`,
-      `Objectives: ${record.completedObjectives}/${record.totalObjectives}`,
+      `Level: ${friendlyDiffLabel(record.difficultyId)} · ${mode}`,
+      `Score: ${record.score}/100 (Science ${record.scienceScore} · Engineering ${record.engineeringScore} · Stage ${record.cmlLevel})`,
+      `Server Verified: ${record.validated ? "YES" : "NO"}`,
+      `Steps Done: ${record.completedObjectives}/${record.totalObjectives}`,
       `Budget: $${record.budgetM}M / $${record.budgetCapM}M`,
-      `Mass: ${record.wetMassKg} / ${record.lvCapacityKg} kg`,
-      `Crew: ${record.crew && record.crew.length ? record.crew.map((c) => c.name).join(", ") : "Solo"}`,
+      `Weight: ${record.wetMassKg} / ${record.lvCapacityKg} kg`,
+      `Team: ${record.crew && record.crew.length ? record.crew.map((c) => c.name).join(", ") : "Solo"}`,
       `Recorded: ${formatDate(record.completedAt)}`
     ].join("\n");
   }
@@ -147,8 +157,8 @@
     if (!records.length) {
       els.content.innerHTML = `
         <div class="mission-log-empty">
-          <div class="mission-log-empty-badge">NO FLIGHT RECORDS YET</div>
-          <p>Complete a solo or crew mission to populate your local leaderboard. Every run stores the mission profile, score, constraints and crew.</p>
+          <div class="mission-log-empty-badge">NO PAST FLIGHTS YET</div>
+          <p>Finish a solo or team mission to save your score here! Each flight records your score, plan limits, and teammates.</p>
         </div>
       `;
       return;
@@ -157,21 +167,21 @@
     els.content.innerHTML = `
       <div class="mission-log-summary">
         <div>
-          <div class="mission-log-summary-label">LOCAL FLIGHT RECORDS</div>
-          <div class="mission-log-summary-value">${records.length} MISSION${records.length === 1 ? "" : "S"} LOGGED</div>
+          <div class="mission-log-summary-label">PAST FLIGHTS</div>
+          <div class="mission-log-summary-value">${records.length} MISSION${records.length === 1 ? "" : "S"} SAVED</div>
         </div>
         <div>
           <div class="mission-log-summary-label">PERSONAL BEST</div>
           <div class="mission-log-summary-value mission-log-best">${best ? `${best.score}/100 · ${escapeHtml(best.scenarioCode)}` : "—"}</div>
         </div>
         <div>
-          <div class="mission-log-summary-label">STORAGE</div>
-          <div class="mission-log-summary-value">THIS DEVICE</div>
+          <div class="mission-log-summary-label">SERVER VERIFIED</div>
+          <div class="mission-log-summary-value">${records.filter((record) => record.validated).length} / ${records.length} RUNS</div>
         </div>
       </div>
       <div class="mission-log-table">
         <div class="mission-log-row mission-log-head">
-          <span>#</span><span>MISSION</span><span>DIFF</span><span>SCORE</span><span>SCI / ENG</span><span>MODE</span><span>DATE</span><span></span>
+          <span>#</span><span>MISSION</span><span>LEVEL</span><span>SCORE</span><span>SCI / ENG</span><span>TEAM</span><span>DATE</span><span></span>
         </div>
         ${records.map((record, index) => {
           const qualifier = recordQualifier(record);
@@ -181,19 +191,19 @@
               <span class="mission-log-rank">${index + 1}${isBest ? " ★" : ""}</span>
               <span>
                 <b>${escapeHtml(record.scenarioCode)}</b>
-                <em>${record.completedObjectives}/${record.totalObjectives} OBJ · CML ${record.cmlLevel}</em>
+                <em>${record.completedObjectives}/${record.totalObjectives} STEPS · STAGE ${record.cmlLevel}</em>
               </span>
-              <span class="mission-log-diff">${escapeHtml(String(record.difficultyId || "engineer").toUpperCase())}</span>
-              <span class="mission-log-score" style="color:${qualifier.color};">${record.score}</span>
+              <span class="mission-log-diff">${escapeHtml(friendlyDiffLabel(record.difficultyId))}</span>
+              <span class="mission-log-score" style="color:${qualifier.color};">${record.validated ? '<span class="mission-log-verified" title="Score validated by the mission server">✓</span> ' : ""}${record.score}</span>
               <span class="mission-log-sci">${record.scienceScore} / ${record.engineeringScore}</span>
-              <span>${record.solo ? "SOLO" : `${(record.crew || []).length || 1} CREW`}</span>
+              <span>${record.solo ? "SOLO" : `${(record.crew || []).length || 1} PLAYERS`}</span>
               <span class="mission-log-date">${formatDate(record.completedAt)}</span>
               <span><button type="button" class="mission-log-copy" data-copy-record="${escapeHtml(record.id)}">COPY</button></span>
             </div>
           `;
         }).join("")}
       </div>
-      <div class="mission-log-note">Rankings are saved locally in this browser. When authentication is enabled, the same records can be synced to <code>/api/leaderboard</code>.</div>
+      <div class="mission-log-note">Rankings are saved locally in this browser. <span style="color:#86efac;">✓</span> means the run passed the server's LDR flight-qualification validation. When authentication is enabled, validated records can sync to <code>/api/leaderboard</code>.</div>
     `;
   }
 

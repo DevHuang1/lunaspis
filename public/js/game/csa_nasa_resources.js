@@ -617,7 +617,7 @@
           <div style="margin-bottom:12px;padding:10px 12px;border-radius:8px;background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.35);">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
               <span style="font-family:monospace;font-size:10px;font-weight:700;color:#7dd3fc;letter-spacing:0.8px;">
-                🛰️ STUDENT SHOEBOX SATELLITE (CUBESAT 101) 5-STEP CHECKLIST (${doneCount}/5)
+                🛰️ STUDENT SHOEBOX SATELLITE 5-STEP CHECKLIST (${doneCount}/5)
               </span>
               <button type="button" class="btn-open-csa-lab-inline" data-tab="gmat" style="padding:3px 8px;border-radius:4px;border:1px solid rgba(103,232,249,0.45);background:rgba(103,232,249,0.14);color:#67e8f9;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">
                 VIEW FULL GUIDE

@@ -800,18 +800,24 @@
       return grp;
     }
 
-    addBoxCollider(cx, cz, width, depth, name) {
-      this.boxColliders.push({
+    addBoxCollider(cx, cz, width, depth, name, opts) {
+      const entry = {
         minX: cx - width * 0.5,
         maxX: cx + width * 0.5,
         minZ: cz - depth * 0.5,
         maxZ: cz + depth * 0.5,
         name: name || "structure"
-      });
+      };
+      if (opts && typeof opts.minY === "number") entry.minY = opts.minY;
+      if (opts && typeof opts.maxY === "number") entry.maxY = opts.maxY;
+      this.boxColliders.push(entry);
     }
 
-    addCircleCollider(x, z, radius, name) {
-      this.circleColliders.push({ x, z, r: radius, name: name || "structure" });
+    addCircleCollider(x, z, radius, name, opts) {
+      const entry = { x, z, r: radius, name: name || "structure" };
+      if (opts && typeof opts.minY === "number") entry.minY = opts.minY;
+      if (opts && typeof opts.maxY === "number") entry.maxY = opts.maxY;
+      this.circleColliders.push(entry);
     }
 
     railing(parent, ax, az, bx, bz, y, material) {

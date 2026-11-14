@@ -7,6 +7,7 @@ const { Server } = require("socket.io");
 const db = require("./server/db");
 const storage = require("./server/storage");
 const { MISSION_DESIGN_KEYS, sanitizeDesignPatch } = require("./server/design_sanitizer");
+const { validateFinalReport } = require("./server/mission_validation");
 const { ShuttleMission, CREW: SHUTTLE_CREW } = require("./public/js/game/shuttle_mission.js");
 
 const SHUTTLE_SNAPSHOT_HZ = 15;
@@ -534,52 +535,52 @@ const COOP_OBJECTIVE_IDS = new Set(MISSION_OBJECTIVES.map((o) => o.id));
 const MISSION_CATALOG = {
   lunar_south_pole: {
     id: "lunar_south_pole",
-    name: "Artemis Lunar South Pole Volatiles Orbiter",
-    code: "ARTEMIS-LSP",
-    badge: "LUNAR EXPLORATION",
-    summary: "Map water-ice deposits inside permanently shadowed craters and characterize landing hazards for crewed Artemis surface missions."
+    name: "Moon Water Hunter",
+    code: "MOON-ICE",
+    badge: "MOON MISSION",
+    summary: "Search dark craters at the Moon's South Pole for frozen water and safe spots for future astronauts to land."
   },
   earth_climate: {
     id: "earth_climate",
-    name: "Earth Climate & Cryosphere Observatory",
-    code: "EARTH-EO",
-    badge: "EARTH OBSERVATION",
-    summary: "Monitor polar ice sheet mass balance, sea-surface height, and greenhouse gas columns with global sun-synchronous coverage."
+    name: "Earth Weather & Ice Tracker",
+    code: "EARTH-TRACK",
+    badge: "EARTH WATCH",
+    summary: "Measure melting polar ice, sea levels, and Earth's air quality from a pole-to-pole orbit around our planet."
   },
   asteroid_rendezvous: {
     id: "asteroid_rendezvous",
-    name: "Near-Earth Asteroid (Bennu/Apophis) Rendezvous",
-    code: "NEA-PROBE",
+    name: "Close-Up Asteroid Explorer",
+    code: "ASTEROID",
     badge: "DEEP SPACE",
-    summary: "Rendezvous with a carbon-rich Near-Earth Asteroid to map regolith composition, gravity anomalies, and orbital drift."
+    summary: "Fly alongside a nearby rocky asteroid to study its surface dust, gravity pull, and path near Earth."
   },
   space_telescope: {
     id: "space_telescope",
-    name: "Deep-Space Infrared & Exoplanet Observatory",
-    code: "COSMOS-L2",
-    badge: "ASTROPHYSICS",
-    summary: "Couple science targets to wavelength bands, cryo-optics, and sunshield geometry in a Sun-Earth L2 halo orbit."
+    name: "Deep-Space Planet Telescope",
+    code: "TELESCOPE",
+    badge: "STAR GAZING",
+    summary: "Pair super-cold cameras, big mirrors, and sunshades far away from Earth to study planets around other stars."
   },
   cubesat_101: {
     id: "cubesat_101",
-    name: "CSLI 6U/12U CubeSat 101 Pathfinder",
-    code: "CUBESAT-101",
-    badge: "SMALLSAT / CSLI",
-    summary: "Design a mass-constrained university CubeSat from ConOps through ISS/rideshare deployment and 5-year deorbit compliance."
+    name: "Pocket Mini-Satellite Builder",
+    code: "MINI-SAT",
+    badge: "STARTER KIT",
+    summary: "Design a tiny shoebox-sized student satellite from start to finish, launched from the Space Station and cleanly retired in 5 years."
   },
   bionutrients_2: {
     id: "bionutrients_2",
-    name: "BioNutrients-2 ISS Nutrient Production",
+    name: "BioNutrients-2 Space Food Lab",
     code: "BIONUTRIENTS-2",
-    badge: "ISS BIO / SMD",
-    summary: "Launch soft-stowed FEP production bags on Cygnus NG-18, hydrate yeast from ISS PWD, incubate at 30°C (+6h shake) for ≥3 µg/mL beta-carotene, freeze in MELFI (-80°C), and slash mass (<250g) & volume (<300mL)."
+    badge: "SPACE STATION LAB",
+    summary: "Send compact clear pouches on a supply ship, add Space Station drinking water, keep warm at 30°C with a 6-hour shake to make fresh Vitamin A nutrients, and freeze at -80°C for Earth lab testing."
   },
   sandbox: {
     id: "sandbox",
-    name: "Open Engineering Sandbox (Custom Mission)",
+    name: "Free-Build Sandbox (Custom Plan)",
     code: "SANDBOX",
-    badge: "UNCONSTRAINED LAB",
-    summary: "Experiment freely with spacecraft buses, instruments, launchers, and orbital regimes without strict budget caps."
+    badge: "OPEN PLAY",
+    summary: "Test any rocket, spacecraft body, camera, or destination freely without tight money limits."
   }
 };
 
@@ -589,38 +590,38 @@ const DIFFICULTY_IDS = new Set(["cadet", "engineer", "director"]);
 const ROLE_INFO = {
   flight_director: {
     id: "flight_director",
-    short: "FDIR",
+    short: "BOSS",
     team: "ground",
-    title: "Flight Director",
-    callsign: "LCC-FLIGHT",
+    title: "Mission Boss",
+    callsign: "EARTH-BOSS",
     color: "#38bdf8",
-    primaryDuty: "LCC Firing Room Authority: GO/NO-GO Launch & Latch Calls, Room Pings & Mission Charter Review",
-    padDuty: "Monitor LC-39A Pad Readiness & Issue GO/NO-GO Launch Release from LCC",
-    dockDuty: "Issue Orbital Approach & Capture Latch Clearance from LCC Console",
+    primaryDuty: "Earth Control Lead: Give final Launch & Docking OK, alert rooms, and review the mission plan",
+    padDuty: "Check launch pad readiness and give final GO for liftoff from Earth Control",
+    dockDuty: "Give final clearance for orbital approach and station hook-up from Earth Control",
     stationRooms: ["LCC", "ORBIT", "HUB"]
   },
   ground_capcom: {
     id: "ground_capcom",
-    short: "CAP",
+    short: "RADIO",
     team: "ground",
-    title: "Ground CAPCOM",
-    callsign: "LCC-CAPCOM",
+    title: "Earth Radio Helper",
+    callsign: "EARTH-RADIO",
     color: "#60a5fa",
-    primaryDuty: "LCC DSN & Systems Desk: S-Band Relay [R], DSN Link Lock, Power/Thermal Routing & Science Downlink",
-    padDuty: "Verify Telemetry Carrier, Weather Go & Pad Trunk Status in Firing Room",
-    dockDuty: "Track Crew Positions, Ping Station Bays & Lock DSN Telemetry Link",
+    primaryDuty: "Earth Dish & Systems Helper: Connect radio [R], lock Earth dishes, route power, and clear science downloads",
+    padDuty: "Check radio signal, clear skies, and launch pad cables from Earth Control",
+    dockDuty: "Watch crew locations, ping station rooms, and lock Earth dish signal",
     stationRooms: ["LCC", "COMMS", "PWR"]
   },
   commander: {
     id: "commander",
-    short: "CMD",
+    short: "CAPT",
     team: "crew",
-    title: "Commander",
-    callsign: "FLIGHT-CDR",
+    title: "Captain",
+    callsign: "SHIP-CAPT",
     color: "#c08a8a",
-    primaryDuty: "Initiate Liftoff [L], Pilot Orbital Docking [WASD/QE] & Charter/Navigation Consoles [HUB, CMD]",
-    padDuty: "Board White Room & Initiate Liftoff [L]",
-    dockDuty: "Primary 6DOF Docking Pilot & Capture Latch [SPACE]",
+    primaryDuty: "Start Liftoff [L], Fly Space Docking [WASD/QE] & run Goal / Flight Path desks [HUB, CMD]",
+    padDuty: "Board the spaceship and trigger Liftoff [L]",
+    dockDuty: "Main Docking Pilot & Lock Hatch Latches [SPACE]",
     stationRooms: ["HUB", "CMD", "LDR"]
   },
   engineer: {
@@ -628,11 +629,11 @@ const ROLE_INFO = {
     short: "ENG",
     team: "crew",
     title: "Flight Engineer",
-    callsign: "SYSTEMS-ENG",
+    callsign: "SHIP-ENG",
     color: "#d0a15c",
-    primaryDuty: "Operate Pad Access Arm [F], Stabilize Docking RCS [1/2] & Power/Hull Consoles [PWR, HULL]",
-    padDuty: "Extend & Lock Orbiter Access Arm [F]",
-    dockDuty: "RCS Attitude Stabilizer [1] & Fine Trim [2]",
+    primaryDuty: "Move Boarding Bridge [F], Steady Thrusters [1/2] & run Power / Engine desks [PWR, HULL]",
+    padDuty: "Extend & lock the Boarding Bridge [F]",
+    dockDuty: "Steadier Thrusters [1] & Fine Steering [2]",
     stationRooms: ["PWR", "HULL", "LDR"]
   },
   scientist: {
@@ -640,23 +641,23 @@ const ROLE_INFO = {
     short: "SCI",
     team: "crew",
     title: "Science Officer",
-    callsign: "PAYLOAD-SCI",
+    callsign: "LAB-SCI",
     color: "#7fb8a6",
-    primaryDuty: "White Room Bio-Check, Boresight Lidar Telemetry [3/4] & Science/ECLSS Consoles [SCI, LSS]",
-    padDuty: "Complete White Room Ingress & Bio-Check",
-    dockDuty: "Boresight Auto-Align [3] & Corridor Telemetry Ping [4]",
+    primaryDuty: "Pre-launch Health Check, Auto-Line-Up Helper [3/4] & run Science / Cooling desks [SCI, LSS]",
+    padDuty: "Finish boarding prep and health check before launch",
+    dockDuty: "Auto-Align Guide [3] & Tunnel Signal Check [4]",
     stationRooms: ["SCI", "LSS", "LDR"]
   },
   specialist: {
     id: "specialist",
-    short: "SPC",
+    short: "SPEC",
     team: "crew",
-    title: "Mission Specialist",
-    callsign: "ORBIT-SPEC",
+    title: "Spacewalk Specialist",
+    callsign: "CREW-SPEC",
     color: "#a78bfa",
-    primaryDuty: "EVA & Docking Corridor Assist [3/4], Cross-Console Systems & Comms Relay [SCI, COMMS, HULL]",
-    padDuty: "Assist Access Arm Verification & White Room Ingress",
-    dockDuty: "Corridor Telemetry Ping [4] & Hatch Readiness",
+    primaryDuty: "Spacewalk & Docking Helper [3/4], All-Around Backup & Radio Relay [SCI, COMMS, HULL]",
+    padDuty: "Help check boarding bridge and cabin seal",
+    dockDuty: "Tunnel Signal Check [4] & Hatch Readiness",
     stationRooms: ["EVA", "SCI", "HUB"]
   }
 };
@@ -939,6 +940,7 @@ function serializeMission(mission) {
     completedObjectives: completedMissionObjectiveIds(m),
     availableObjectives: availableMissionObjectiveIds(m),
     design: m.design || null,
+    result: m.result || null,
     startedAt: m.startedAt || null,
     completedAt: m.completedAt || null
   };
@@ -972,6 +974,7 @@ function buildMissionDebrief(room) {
     launchedBy: nameFor(mission.launchedBy),
     dockedBy: nameFor(mission.dockedBy),
     groundSupport: mission.groundSupport || createGroundSupportState(),
+    result: mission.result || null,
     completedAt: mission.completedAt || now
   };
 }
@@ -1240,6 +1243,7 @@ function repositionPlayersForGantry(room) {
     }
     p.pitch = 0;
     p.isEva = false;
+    p.sprinting = false;
   });
 }
 
@@ -2121,6 +2125,7 @@ io.on("connection", (socket) => {
     if (Number.isFinite(data.pitch)) p.pitch = data.pitch;
     if (typeof data.isEva === "boolean") p.isEva = data.isEva;
     if (typeof data.suitLights === "boolean") p.suitLights = data.suitLights;
+    if (typeof data.sprinting === "boolean") p.sprinting = data.sprinting;
     if (typeof data.moving === "boolean") p.moving = data.moving;
 
     socket.to(currentRoomId).volatile.emit("player_moved", {
@@ -2131,6 +2136,7 @@ io.on("connection", (socket) => {
       pitch: p.pitch,
       isEva: p.isEva,
       suitLights: p.suitLights,
+      sprinting: !!p.sprinting,
       moving: p.moving
     });
   });
@@ -2210,7 +2216,7 @@ io.on("connection", (socket) => {
     if (getTeamForRole(p.role) === "ground") {
       socket.emit("ground_support_event", {
         type: "board_blocked_ground",
-        message: "Ground Control operates from Kennedy LCC Firing Room during launch and flight."
+        message: "Earth Control stays inside the Control Room during launch and flight."
       });
       return;
     }
@@ -2769,6 +2775,34 @@ io.on("connection", (socket) => {
       }
     }
 
+    // The LDR final report is validated by the server before the objective can
+    // be completed. The browser provides the compact report; the server owns
+    // the room scenario/difficulty, recomputes the score arithmetic, checks all
+    // resource constraints, validates design ids, and requires every phase to
+    // pass (including the seeded anomaly).
+    if (taskId === "task_landing" || data.evaluation) {
+      const validation = validateFinalReport({
+        report: data.evaluation,
+        scenarioId: room.mission.scenarioId,
+        difficultyId: room.mission.difficultyId
+      });
+      if (!validation.ok) {
+        socket.emit("mission_validation_failed", {
+          taskId,
+          taskName,
+          reasons: validation.reasons,
+          message: `LDR report rejected: ${validation.reasons.slice(0, 3).join(" ")}`
+        });
+        return;
+      }
+      room.mission.design = validation.result.design;
+      room.mission.result = validation.result;
+      room.mission.updatedAt = now;
+      room.mission.scenarioId = validation.result.scenarioId;
+      room.mission.difficultyId = validation.result.difficultyId;
+      console.log(`[VALIDATION] LDR report accepted for room ${currentRoomId}: score ${validation.result.overallScore}/100, CML ${validation.result.cmlLevel}, event ${validation.result.event ? validation.result.event.id : "none"}`);
+    }
+
     // Merge the subsystem choices committed at this console into the shared
     // mission design before checking alreadyCompleted so crew revisions sync.
     const designPatch = sanitizeDesignPatch(data.designPatch);
@@ -2860,8 +2894,9 @@ io.on("connection", (socket) => {
       mission: serializeMission(room.mission)
     });
 
-    // Victory when the whole crew has completed all shared objectives.
-    if (isMissionObjective && isMissionComplete(room.mission)) {
+    // Victory when the whole crew has completed all shared objectives and the
+    // LDR report has passed server-side flight-qualification validation.
+    if (isMissionObjective && isMissionComplete(room.mission) && room.mission.result) {
       room.mission.status = "complete";
       room.mission.completedAt = now;
       room.mission.updatedAt = now;

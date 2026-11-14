@@ -26,54 +26,58 @@
     const stripeYellow = m("stripe_yellow");
 
     // Helper: non-overlapping road segment at top y = 0.12 (ground y = 0.0)
+    // Subdivided along length so procedural noise UVs stay distortion-free.
     const addRoad = (ax, az, bx, bz, width = 12, opts = {}) => {
       const len = Math.hypot(bx - ax, bz - az);
       if (len < 0.5) return;
-      const mx = (ax + bx) * 0.5;
-      const mz = (az + bz) * 0.5;
       const yaw = Math.atan2(bx - ax, bz - az);
       const dx = (bx - ax) / len;
       const dz = (bz - az) / len;
       const nx = -dz;
       const nz = dx;
 
-      site.boxRot(g, width, 0.12, len, mx, 0.06, mz, 0, yaw, 0, asphalt, "RoadAsphalt");
-
-      const curbLen = Math.max(0.5, len - (opts.trimStart || 0) - (opts.trimEnd || 0));
-      const curbOff = ((opts.trimStart || 0) - (opts.trimEnd || 0)) * 0.5;
-      const cmx = mx + dx * curbOff;
-      const cmz = mz + dz * curbOff;
-
-      if (!opts.noCurbs) {
-        for (const side of [-1, 1]) {
-          site.boxRot(
-            g,
-            0.34,
-            0.22,
-            curbLen,
-            cmx + nx * side * (width * 0.5 + 0.17),
-            0.11,
-            cmz + nz * side * (width * 0.5 + 0.17),
-            0,
-            yaw,
-            0,
-            curbMat,
-            "RoadCurb"
-          );
-          site.boxRot(
-            g,
-            0.16,
-            0.02,
-            len - 0.6,
-            mx + nx * side * (width * 0.5 - 0.55),
-            0.132,
-            mz + nz * side * (width * 0.5 - 0.55),
-            0,
-            yaw,
-            0,
-            stripeWhite,
-            "RoadEdgeLine"
-          );
+      const chunks = Math.max(1, Math.ceil(len / 40));
+      const chunkLen = len / chunks;
+      for (let i = 0; i < chunks; i++) {
+        const d0 = (i + 0.5) * chunkLen;
+        const cx = ax + dx * d0;
+        const cz = az + dz * d0;
+        site.boxRot(g, width, 0.12, chunkLen, cx, 0.06, cz, 0, yaw, 0, asphalt, "RoadAsphalt");
+        if (!opts.noCurbs) {
+          const trimS = i === 0 ? (opts.trimStart || 0) : 0;
+          const trimE = i === chunks - 1 ? (opts.trimEnd || 0) : 0;
+          const curbLen = Math.max(0.4, chunkLen - trimS - trimE);
+          const cOff = (trimS - trimE) * 0.5;
+          for (const side of [-1, 1]) {
+            site.boxRot(
+              g,
+              0.34,
+              0.22,
+              curbLen,
+              cx + dx * cOff + nx * side * (width * 0.5 + 0.17),
+              0.11,
+              cz + dz * cOff + nz * side * (width * 0.5 + 0.17),
+              0,
+              yaw,
+              0,
+              curbMat,
+              "RoadCurb"
+            );
+            site.boxRot(
+              g,
+              0.16,
+              0.02,
+              Math.max(0.4, chunkLen - 0.1),
+              cx + nx * side * (width * 0.5 - 0.55),
+              0.132,
+              cz + nz * side * (width * 0.5 - 0.55),
+              0,
+              yaw,
+              0,
+              stripeWhite,
+              "RoadEdgeLine"
+            );
+          }
         }
       }
 
@@ -98,49 +102,102 @@
     };
 
     // -------------------------------------------------------------------------
-    // 1. CRUSHED LIMESTONE CRAWLERWAY (VAB Portal z=591 -> Pad Ramp Toe z=185)
-    //    plus the southern spur that serves Launch Complex 39B.
+    // 1. CRUSHED LIMESTONE CRAWLERWAY (VAB Portal z=591 -> Pad Ramp Toe z=186)
+    //    and non-intersecting LC-39B spur routed cleanly west of Pad 39A.
+    //    Segmented into <=24m chunks so grass/gravel UVs never stretch into streaks.
     // -------------------------------------------------------------------------
-    const cwLen = 406;
-    const cwCenterZ = 388; // 185..591 (stops cleanly at Pad ramp toe)
-    for (const x of [-14, 14]) {
-      site.box(g, 13.5, 0.14, cwLen, x, 0.07, cwCenterZ, gravel, "CrawlerLane");
-      // Heavy bogie tread dark rut stripe (non-overlapping height y=0.145)
-      site.box(g, 4.2, 0.018, cwLen - 4, x, 0.149, cwCenterZ, concreteDark, "CrawlerRut");
-    }
-    // Depressed grassy center median cleanly BELOW gravel top (top = 0.06)
-    site.box(g, 5.2, 0.06, cwLen - 4, 0, 0.03, cwCenterZ, grass, "CrawlerMedian");
-    // Sloped grass shoulder verges flanking crawlerway
-    for (const sx of [-23, 23]) {
-      site.box(g, 4.5, 0.08, cwLen - 4, sx, 0.04, cwCenterZ, grass, "CrawlerShoulder");
+    const addCrawlerwaySegment = (ax, az, bx, bz, suffix = "") => {
+      const len = Math.hypot(bx - ax, bz - az);
+      if (len < 0.5) return;
+      const yaw = Math.atan2(bx - ax, bz - az);
+      const dx = (bx - ax) / len;
+      const dz = (bz - az) / len;
+      const lxX = Math.cos(yaw);
+      const lxZ = -Math.sin(yaw);
+
+      const chunks = Math.max(1, Math.ceil(len / 24));
+      const chunkLen = len / chunks;
+      for (let i = 0; i < chunks; i++) {
+        const dMid = (i + 0.5) * chunkLen;
+        const cx = ax + dx * dMid;
+        const cz = az + dz * dMid;
+        for (const sideX of [-14, 14]) {
+          site.boxRot(
+            g,
+            13.5,
+            0.14,
+            chunkLen,
+            cx + lxX * sideX,
+            0.07,
+            cz + lxZ * sideX,
+            0,
+            yaw,
+            0,
+            gravel,
+            `CrawlerLane${suffix}`
+          );
+          site.boxRot(
+            g,
+            4.2,
+            0.016,
+            chunkLen,
+            cx + lxX * sideX,
+            0.148,
+            cz + lxZ * sideX,
+            0,
+            yaw,
+            0,
+            concreteDark,
+            `CrawlerRut${suffix}`
+          );
+        }
+        // Full 14.5m median fills gap edge-to-edge cleanly between both gravel lanes
+        site.boxRot(g, 14.5, 0.08, chunkLen, cx, 0.04, cz, 0, yaw, 0, grass, `CrawlerMedian${suffix}`);
+        for (const sx of [-23, 23]) {
+          site.boxRot(
+            g,
+            4.5,
+            0.06,
+            chunkLen,
+            cx + lxX * sx,
+            0.03,
+            cz + lxZ * sx,
+            0,
+            yaw,
+            0,
+            grass,
+            `CrawlerShoulder${suffix}`
+          );
+        }
+      }
+    };
+
+    // Main Pad 39A Crawlerway (stops flush at Crossing Slab z=304..288 & Pad 39A ramp toe z=186)
+    addCrawlerwaySegment(0, 591, 0, 304);
+    addCrawlerwaySegment(0, 288, 0, 186);
+
+    // LC-39B Crawlerway Spur routed around west side of Pad 39A & LCC
+    const spurPts = NS.CRAWLERWAY_39B_POINTS;
+    addCrawlerwaySegment(spurPts[0][0], spurPts[0][1], spurPts[1][0], spurPts[1][1], "39B");
+    addCrawlerwaySegment(spurPts[1][0], spurPts[1][1], -315, 304, "39B");
+    addCrawlerwaySegment(-315, 288, spurPts[2][0], spurPts[2][1], "39B");
+    addCrawlerwaySegment(spurPts[2][0], spurPts[2][1], spurPts[3][0], spurPts[3][1], "39B");
+    for (const [vx, vz] of spurPts) {
+      site.cyl(g, 20.8, 0.14, vx, 0.07, vz, gravel, 20, "CrawlerTurnPad39B");
     }
 
-    // LC-39B crawlerway spur: Main Crawlerway toe (z=185) -> Pad 39B ramp (z=-622)
-    const spurLen = 807;
-    const spurCenterZ = -218.5; // 185..-622
-    for (const x of [-14, 14]) {
-      site.box(g, 13.5, 0.14, spurLen, x, 0.07, spurCenterZ, gravel, "CrawlerLane39B");
-      site.box(g, 4.2, 0.018, spurLen - 4, x, 0.149, spurCenterZ, concreteDark, "CrawlerRut39B");
-    }
-    site.box(g, 5.2, 0.06, spurLen - 4, 0, 0.03, spurCenterZ, grass, "CrawlerMedian39B");
-    for (const sx of [-23, 23]) {
-      site.box(g, 4.5, 0.08, spurLen - 4, sx, 0.04, spurCenterZ, grass, "CrawlerShoulder39B");
-    }
-    // Yellow clearance stripes at the 39B pad approach.
-    for (const sx of [-14, 14]) {
-      site.box(g, 13.9, 0.02, 1.2, sx, 0.152, -596, stripeYellow, "CrawlerApproachStripe39B");
-    }
-
     // -------------------------------------------------------------------------
-    // 2. NON-OVERLAPPING ROAD NETWORK & CRAWLERWAY CROSSING
+    // 2. NON-OVERLAPPING ROAD NETWORK & CRAWLERWAY CROSSINGS
     // -------------------------------------------------------------------------
-    // Main KSC West-to-East Avenue at z=296, cleanly split either side of Crawlerway (x=-22..22)
-    addRoad(-692, 296, -24, 296, 14);
+    // Main KSC West-to-East Avenue at z=296, split around both crawlerway crossings
+    addRoad(-692, 296, -339, 296, 14);
+    addRoad(-291, 296, -24, 296, 14);
     addRoad(24, 296, 187, 296, 14);
-    // Heavy steel-reinforced concrete crawlerway crossing apron at (x=-24..24, z=296)
-    site.box(g, 48, 0.15, 16, 0, 0.075, 296, concrete, "CrawlerCrossingSlab");
-    for (const sx of [-23.5, 23.5]) {
-      site.box(g, 0.6, 0.02, 15.6, sx, 0.158, 296, stripeYellow, "CrossingStripe");
+    for (const [cx, tag] of [[0, ""], [-315, "39B"]]) {
+      site.box(g, 48, 0.14, 16, cx, 0.07, 296, concrete, `CrawlerCrossingSlab${tag}`);
+      for (const sx of [-23.5, 23.5]) {
+        site.box(g, 0.6, 0.02, 15.6, cx + sx, 0.15, 296, stripeYellow, `CrossingStripe${tag}`);
+      }
     }
 
     // East Pad Access Boulevard (from north curb of Avenue z=289 north to Pad ring z=-30)
@@ -189,7 +246,7 @@
 
     // Street lights lining Main Avenue and Pad Boulevard
     for (let x = -540; x <= 140; x += 90) {
-      if (Math.abs(x) < 34) continue;
+      if (Math.abs(x) < 34 || Math.abs(x + 315) < 30) continue;
       site.lightPole(g, x, 287.5, 0, 10.5, false, 0);
     }
     for (let z = -80; z <= 250; z += 75) {
@@ -213,7 +270,7 @@
 
     site.signBoard(
       g,
-      -340,
+      -364,
       1.8,
       287,
       0,
@@ -421,6 +478,7 @@
       const z = 325 + Math.floor(i / 2) * 11.5;
       const x = side * (62 + pseudoRand(i + 400) * 65);
       if (Math.abs(x - (-30)) < 115 && z > 520) continue; // Keep VAB clear
+      if (NS.terrain && NS.terrain.distToPolyline(x, z, NS.CRAWLERWAY_39B_POINTS) < 34) continue;
       pinePlacements.push({ x, z, s: 0.8 + pseudoRand(i + 500) * 0.6 });
     }
     // Western horizon Space Coast preserve belt (around utilities, turn basin, Ave).
@@ -433,6 +491,7 @@
       if (Math.abs(z - 296) < 22 || Math.abs(z - 56) < 34 || Math.abs(z - 92) < 28) continue;
       if (Math.hypot(x - C.ANTENNA.x, z - C.ANTENNA.z) < 42) continue;
       if (Math.hypot(x - C.TURN_BASIN.x, z - C.TURN_BASIN.z) < 58) continue;
+      if (NS.terrain && NS.terrain.distToPolyline(x, z, NS.CRAWLERWAY_39B_POINTS) < 34) continue;
       pinePlacements.push({ x, z, s: 0.85 + pseudoRand(i + 800) * 0.65 });
     }
     // Eastern inland treeline between Pad boulevard & Beach

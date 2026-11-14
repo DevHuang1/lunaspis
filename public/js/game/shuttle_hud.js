@@ -22,22 +22,22 @@
   const esc = (x) => String(x == null ? "" : x).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const SEAT = { cdr: "CDR", plt: "PLT", ms1: "MS1", ms2: "MS2", all: "ALL" };
   const PHASES = ["briefing", "prelaunch", "ascent", "insertion", "payload", "deorbit", "entry", "approach", "rollout", "debrief"];
-  const PHASE_TAG = { briefing: "BRIEFING", prelaunch: "PRELAUNCH", ascent: "ASCENT", insertion: "INSERTION", payload: "PAYLOAD.OPS", deorbit: "DEORBIT.PREP", entry: "ENTRY", approach: "APPROACH", rollout: "ROLLOUT", debrief: "DEBRIEF" };
+  const PHASE_TAG = { briefing: "BRIEFING", prelaunch: "COUNTDOWN", ascent: "LAUNCH", insertion: "ORBIT PUSH", payload: "SATELLITE", deorbit: "RETURN PREP", entry: "RE-ENTRY", approach: "LANDING", rollout: "RUNWAY STOP", debrief: "DEBRIEF" };
   // keys per seat and phase — shown on the DATA page for your own seats only
   const KEYS = {
-    all: [["DRAG", "look around"], ["WHEEL", "zoom"], ["RMB", "hold: scope (sky view)"], ["F", "recentre camera"], ["C", "camera view"], ["/", "crew chat"], ["V", "mic on/off"], ["F3", "this page"]],
-    cdr: { briefing: [["ENTER", "start the count"]], orbit: [["W / S", "pitch down / up"], ["A / D", "roll left / right"], ["Q / E", "yaw left / right"], ["H", "attitude hold"]],
-      entry: [["A / D", "bank left / right"], ["W / S", "pitch (AoA assist off)"]], approach: [["W / S", "glide steeper / shallower (holds when released)"], ["A / D", "bank left / right"]],
-      rollout: [["W", "lower the nose"], ["Q / E", "steer (rudder)"], ["SPACE", "brakes"]], any: [["ESC", "pause / checkpoints"]] },
-    plt: { orbit: [["B", "authorize burn"], ["T", "skip to burn"], [", / .", "time slower / faster"]], entry: [["M", "AoA assist"]], approach: [["X / Z", "speed brake open / close"], ["G", "landing gear"]],
-      rollout: [["X / Z", "speed brake"]], ascent: [[", / .", "time slower / faster"]] },
-    ms1: { orbit: [["Y", "payload bay doors"], ["R", "release satellite"], ["I / K", "translate up / down"], ["J / L", "translate left / right"], ["U / O", "translate fwd / aft"]] },
-    ms2: { orbit: [["P", "satellite power"], ["N", "GO for deploy"]] },
+    all: [["DRAG", "look around"], ["WHEEL", "zoom"], ["RMB", "hold: scope (sky view)"], ["F", "recenter camera"], ["C", "camera view"], ["/", "crew chat"], ["V", "mic on/off"], ["F3", "this page"]],
+    cdr: { briefing: [["ENTER", "start countdown"]], orbit: [["W / S", "nose down / up"], ["A / D", "roll left / right"], ["Q / E", "turn left / right"], ["H", "steady hold"]],
+      entry: [["A / D", "tilt wings left / right"], ["W / S", "nose up/down (if auto off)"]], approach: [["W / S", "glide steeper / gentler (holds when released)"], ["A / D", "tilt wings left / right"]],
+      rollout: [["W", "lower the nose"], ["Q / E", "steer wheels"], ["SPACE", "brakes"]], any: [["ESC", "pause / checkpoints"]] },
+    plt: { orbit: [["B", "start engine burn"], ["T", "jump to burn"], [", / .", "time slower / faster"]], entry: [["M", "auto nose angle"]], approach: [["X / Z", "air brake open / close"], ["G", "landing wheels"]],
+      rollout: [["X / Z", "air brake"]], ascent: [[", / .", "time slower / faster"]] },
+    ms1: { orbit: [["Y", "cargo bay doors"], ["R", "release satellite"], ["I / K", "slide up / down"], ["J / L", "slide left / right"], ["U / O", "slide forward / back"]] },
+    ms2: { orbit: [["P", "satellite power"], ["N", "approve release"]] },
   };
   const keyGroup = (ph) => (["insertion", "payload", "deorbit"].includes(ph) ? "orbit" : ph === "prelaunch" ? "ascent" : ph);
-  const CMDS = [["START", "START THE COUNT", "ENTER"], ["AUTHORIZE_BURN", "AUTHORIZE BURN", "B"], ["COAST_TO_TIG", "SKIP TO BURN", "T"], ["BAY", "BAY DOORS", "Y"], ["PAYLOAD_POWER", "SATELLITE POWER", "P"],
-    ["PAYLOAD_GO", "GO FOR DEPLOY", "N"], ["DAP_HOLD", "ATTITUDE HOLD", "H"], ["RELEASE_PAYLOAD", "RELEASE SATELLITE", "R"], ["TOGGLE_AOA_ASSIST", "AOA ASSIST", "M"], ["DEPLOY_GEAR", "LANDING GEAR", "G"],
-    ["WARP-", "TIME SLOWER", ","], ["WARP+", "TIME FASTER", "."], ["PAUSE", "PAUSE", "ESC"], ["TOUCH", "TOUCH CONTROLS", ""], ["COMMS", "COMMS SETTINGS", ""], ["LEAVE", "LEAVE FLIGHT", ""]];
+  const CMDS = [["START", "START COUNTDOWN", "ENTER"], ["AUTHORIZE_BURN", "START BURN", "B"], ["COAST_TO_TIG", "JUMP TO BURN", "T"], ["BAY", "CARGO DOORS", "Y"], ["PAYLOAD_POWER", "SATELLITE POWER", "P"],
+    ["PAYLOAD_GO", "APPROVE RELEASE", "N"], ["DAP_HOLD", "STEADY HOLD", "H"], ["RELEASE_PAYLOAD", "RELEASE SATELLITE", "R"], ["TOGGLE_AOA_ASSIST", "AUTO NOSE ANGLE", "M"], ["DEPLOY_GEAR", "LANDING WHEELS", "G"],
+    ["WARP-", "TIME SLOWER", ","], ["WARP+", "TIME FASTER", "."], ["PAUSE", "PAUSE", "ESC"], ["TOUCH", "TOUCH CONTROLS", ""], ["COMMS", "MIC & CHAT", ""], ["LEAVE", "LEAVE FLIGHT", ""]];
 
   // physical key positions (row, column in key units) for the pressed-key display
   const KEYPOS = (() => {
@@ -51,10 +51,10 @@
   })();
   // mission timeline milestones: [label, done test, expected seconds from the previous milestone]
   const MILESTONES = [
-    ["LIFTOFF", (sn, o) => o.liftoff === "done", 0], ["MAX Q", (sn) => sn.met !== null && sn.met > 60, 60], ["SRB SEP", (sn, o) => o.srb_sep === "done", 66],
-    ["MECO", (sn, o) => o.meco === "done", 400], ["ET SEP", (sn, o) => o.et_sep === "done", 18], ["OMS-2", (sn, o) => o.orbit_valid === "done", 2700],
-    ["DEPLOY", (sn, o) => o.release === "done", 400], ["DEORBIT", (sn, o) => o.deorbit_burn === "done", 6000], ["ENTRY", (sn, o) => o.entry_interface === "done", 1900],
-    ["TAEM", (sn, o) => o.taem_gate === "done", 1600], ["TOUCHDOWN", (sn, o) => o.touchdown === "done", 400], ["WHEELS STOP", (sn, o) => o.wheels_stop === "done", 60],
+    ["LIFTOFF", (sn, o) => o.liftoff === "done", 0], ["MAX AIR PUSH", (sn) => sn.met !== null && sn.met > 60, 60], ["BOOSTERS OFF", (sn, o) => o.srb_sep === "done", 66],
+    ["MAIN CUTOFF", (sn, o) => o.meco === "done", 400], ["TANK OFF", (sn, o) => o.et_sep === "done", 18], ["ORBIT SET", (sn, o) => o.orbit_valid === "done", 2700],
+    ["SAT RELEASE", (sn, o) => o.release === "done", 400], ["RETURN BURN", (sn, o) => o.deorbit_burn === "done", 6000], ["RE-ENTRY", (sn, o) => o.entry_interface === "done", 1900],
+    ["APPROACH", (sn, o) => o.taem_gate === "done", 1600], ["TOUCHDOWN", (sn, o) => o.touchdown === "done", 400], ["STOPPED", (sn, o) => o.wheels_stop === "done", 60],
   ];
 
   const CSS = `
@@ -134,14 +134,14 @@
       if (!document.getElementById("shuttle-hud-css")) { const st = document.createElement("style"); st.id = "shuttle-hud-css"; st.textContent = CSS; document.head.appendChild(st); }
       const root = document.createElement("div"); root.id = "shuttle-hud"; this.root = root;
       root.innerHTML = `
-        <div class="top"><div class="tl" id="sh-tl"></div><div class="tag"><b id="sh-id">STS</b><span id="sh-phase"></span><span id="sh-met"></span><span id="sh-warp" class="w"></span></div></div>
+        <div class="top"><div class="tl" id="sh-tl"></div><div class="tag"><b id="sh-id">SHUTTLE</b><span id="sh-phase"></span><span id="sh-met"></span><span id="sh-warp" class="w"></span></div></div>
         <div class="kb" id="sh-kb"></div>
         <div class="steer" id="sh-steer"></div>
-        <div class="banner" id="sh-banner">REHEARSAL — PRESET STATE</div>
+        <div class="banner" id="sh-banner">PRACTICE MODE — QUICK START</div>
         <div class="prompt" id="sh-prompt"><div class="l1" id="sh-l1"></div><div class="l2" id="sh-l2"></div></div>
         <div class="log" id="sh-log"></div>
         <div class="chat" id="sh-chat"><input id="sh-chatin" maxlength="140" placeholder="> message the crew, Enter to send" /></div>
-        <div class="hint" id="sh-hint">F3 data · / chat · RMB scope</div>
+        <div class="hint" id="sh-hint">F3 stats · / chat · Right-click zoom</div>
         <div class="toast" id="sh-toast"></div>
         <div class="scope" id="sh-scope"><i></i><em id="sh-scopefov"></em></div>
         <div class="touch" id="sh-touch"></div>
@@ -164,7 +164,7 @@
 
     // ------------------------------------------------------------------ input helpers
     _buildTouch() {
-      const defs = [["pitch", 1, "▲"], ["pitch", -1, "▼"], ["roll", -1, "◀"], ["roll", 1, "▶"], ["yaw", -1, "⟲"], ["yaw", 1, "⟳"], ["ty", -1, "DN"], ["ty", 1, "UP"], ["sb", 1, "SB+"], ["sb", -1, "SB−"], ["brake", 1, "BRK"]];
+      const defs = [["pitch", 1, "▲"], ["pitch", -1, "▼"], ["roll", -1, "◀"], ["roll", 1, "▶"], ["yaw", -1, "⟲"], ["yaw", 1, "⟳"], ["ty", -1, "DN"], ["ty", 1, "UP"], ["sb", 1, "AIR+"], ["sb", -1, "AIR−"], ["brake", 1, "BRAKE"]];
       const box = this.el("sh-touch"); this.touchAxes = {};
       for (const [axis, val, label] of defs) {
         const b = document.createElement("button"); b.textContent = label;
@@ -214,16 +214,16 @@
         return `<li class="${mine ? "me" : ""}">${SEAT[r]}  ${esc(c.name || "--")}${c.name && !c.filled ? " (covering)" : ""}${mine ? "  ◂ you" : ""}<br><span class="done" style="text-transform:none">${esc(info[r].duty)}</span></li>`;
       }).join("");
       const cdr = roles.includes("cdr");
-      this.showModal("briefing", "MISSION.BRIEF", "STS_OS//MISSION//BRIEFING", `
-        <div class="txt"><p>Satellite deployment and return to KSC runway 15. A fictional Shuttle-era flight with simplified physics.</p>
-        <p>Ascent is automatic: look around with the mouse. In orbit each seat has its own job, and the prompt at the bottom of the screen always says what to do next and who does it. Entry and landing are flown by hand.</p></div>
+      this.showModal("briefing", "MISSION BRIEF", "SHUTTLE FLIGHT // BRIEFING", `
+        <div class="txt"><p>Launch to orbit, release a satellite from the cargo bay, and glide back to land on Florida Runway 15.</p>
+        <p>Climbing into space is automatic: drag the mouse to look around. Once in space, each crew seat has its own job, and the prompt at the bottom of the screen always says what to do next and who does it. Re-entry and runway landing are flown by hand.</p></div>
         ${this._sec("CREW", `<ul>${seats}</ul>`)}
         <div style="margin-top:16px">${cdr ? this._btn("START", "Start the count  [Enter]") : '<span class="done">Waiting for the Commander to start the count</span><span class="cur"></span><br><br>'}${this._btn("LEAVE", "Leave flight")}</div>`);
     }
     failureCard(sn) {
       const f = sn.failure, cks = sn.checkpoints.slice().reverse();
       const lobbyBtn = this.opts && this.opts.canReturnLobby ? this._btn("RETURN_LOBBY", "Return to lobby") : "";
-      this.showModal("failure", "MISSION.FAILED", `STS_OS//MISSION//${(f.phase || "").toUpperCase()}//FAILURE`, `
+      this.showModal("failure", "MISSION STOPPED", `SHUTTLE FLIGHT // ${(f.phase || "").toUpperCase()} // STOPPED`, `
         <div class="txt"><p class="bad">${esc(f.reason)}</p><p>Retry from a checkpoint. The Commander chooses${f.checkpoint ? `; suggested: ${esc(f.checkpoint)}` : ""}.</p></div>
         <div>${cks.map((c) => this._btn("RETRY_CHECKPOINT", "Retry from " + c, c)).join("")}</div>
         <div>${this._btn("RESTART", "New mission")}${lobbyBtn}${this._btn("LEAVE", "Leave flight")}</div>`);
@@ -231,7 +231,7 @@
     pauseCard(sn) {
       const cks = sn.checkpoints.slice().reverse();
       const lobbyBtn = this.opts && this.opts.canReturnLobby ? this._btn("RETURN_LOBBY", "Return to lobby") : "";
-      this.showModal("pause", "PAUSED", "STS_OS//MISSION//PAUSED", `
+      this.showModal("pause", "PAUSED", "SHUTTLE FLIGHT // PAUSED", `
         <div class="txt"><p>The Commander paused the flight.</p></div>
         <div>${this._btn("PAUSE", "Resume  [Esc]")}</div>
         <div>${cks.map((c) => this._btn("RETRY_CHECKPOINT", "Restart from " + c, c)).join("")}</div>
@@ -241,11 +241,11 @@
       const r = sn.result, td = r.touchdown || {};
       const done = sn.objectives.filter((o) => o.status === "done").length;
       const lobbyBtn = this.opts && this.opts.canReturnLobby ? this._btn("RETURN_LOBBY", "Return to lobby") : "";
-      this.showModal("debrief", r.success ? "MISSION.COMPLETE" : "MISSION.RESULT", "STS_OS//MISSION//DEBRIEF", `
+      this.showModal("debrief", r.success ? "MISSION COMPLETE" : "MISSION ENDED", "SHUTTLE FLIGHT // DEBRIEF", `
         <div class="txt"><p class="${r.success ? "me" : "bad"}">${esc(r.summary)}</p></div>
         <div class="wb" style="padding:0;margin-bottom:14px">
-        ${this._sec("TOUCHDOWN", this._rows([["Sink rate", f2(td.sink) + " m/s"], ["Groundspeed", f0(td.gs) + " m/s"], ["Past threshold", f0(td.x) + " m"], ["Off centreline", f1(td.y) + " m"], ["Stopped at", f0(r.stopX) + " m"]]))}
-        ${this._sec("FLIGHT", this._rows([["Retries", String(r.retries)], ["Max entry load", f2(r.maxG) + " g"], ["Peak heating", f0(r.maxHeat) + " W/cm²"], ["OMS Δv", f0(r.dvOMS) + " m/s"], ["Tasks", `${done}/${sn.objectives.length}`]]))}
+        ${this._sec("TOUCHDOWN", this._rows([["Landing Drop Speed", f2(td.sink) + " m/s"], ["Groundspeed", f0(td.gs) + " m/s"], ["Past runway start", f0(td.x) + " m"], ["Off center", f1(td.y) + " m"], ["Stopped at", f0(r.stopX) + " m"]]))}
+        ${this._sec("FLIGHT", this._rows([["Retries", String(r.retries)], ["Peak G-force", f2(r.maxG) + " g"], ["Peak heat", f0(r.maxHeat) + " W/cm²"], ["Engine fuel used", f0(r.dvOMS) + " m/s"], ["Tasks", `${done}/${sn.objectives.length}`]]))}
         </div>
         ${r.failures.length ? `<div class="txt"><p>${r.failures.map((x) => `${esc(x.phase)}: ${esc(x.reason)}`).join("<br>")}</p></div>` : ""}
         <div>${this._btn("RESTART", "Fly again")}${lobbyBtn}${this._btn("LEAVE", "Leave flight")}</div>`);
@@ -254,27 +254,27 @@
     // ------------------------------------------------------------------ the DATA page (F3)
     _dataPage(sn, extra) {
       const t = sn.telemetry, g = sn.guidance, ph = sn.phase, v = sn.vehicle, roles = extra.roles || [];
-      const tel = [["Altitude", t.altitudeM > 20000 ? f1(t.altitudeM / 1000) + " km" : f0(t.altitudeM) + " m"], ["Air speed", f0(t.airspeedMps) + " m/s"], ["Mach", f2(t.mach)]];
-      if (v.regime !== "ground") tel.push(["Orbital speed", f0(t.inertialSpeedMps) + " m/s"]);
+      const tel = [["Height", t.altitudeM > 20000 ? f1(t.altitudeM / 1000) + " km" : f0(t.altitudeM) + " m"], ["Air speed", f0(t.airspeedMps) + " m/s"], ["Mach", f2(t.mach)]];
+      if (v.regime !== "ground") tel.push(["Space speed", f0(t.inertialSpeedMps) + " m/s"]);
       if (["prelaunch", "ascent", "insertion", "payload", "deorbit"].includes(ph)) {
-        tel.push(["Vertical speed", f0(t.verticalSpeedMps) + " m/s"]);
-        tel.push(["Apoapsis", t.bound ? f1(t.apoapsisAltitudeM / 1000) + " km" : "--"], ["Periapsis", t.periapsisAltitudeM < 0 ? "below surface" : f1(t.periapsisAltitudeM / 1000) + " km"], ["Inclination", deg(t.inclinationRad)]);
-        if (ph === "ascent" || ph === "prelaunch") tel.push(["Dyn. pressure", f1(t.dynPressPa / 1000) + " kPa"], ["Throttle", f0((v.eng.throttle || 0) * 100) + "%"]);
+        tel.push(["Climb / fall speed", f0(t.verticalSpeedMps) + " m/s"]);
+        tel.push(["Highest Point", t.bound ? f1(t.apoapsisAltitudeM / 1000) + " km" : "--"], ["Lowest Point", t.periapsisAltitudeM < 0 ? "below ground" : f1(t.periapsisAltitudeM / 1000) + " km"], ["Path tilt", deg(t.inclinationRad)]);
+        if (ph === "ascent" || ph === "prelaunch") tel.push(["Air push", f1(t.dynPressPa / 1000) + " kPa"], ["Throttle", f0((v.eng.throttle || 0) * 100) + "%"]);
       }
       if (v.regime === "orbit") {
-        tel.push(["Rotation rate", f2(t.relRateRad / DEG) + " °/s"]);
-        if (ph === "payload" && sn.payload.attached) tel.push(["Release att. error", deg(t.releaseErrRad)]);
-        if (ph === "deorbit") tel.push(["Retrograde error", deg(t.retroErrRad)]);
-        if (sn.payload.released) tel.push(["Satellite range", f1(sn.payload.range) + " m"], ["Range rate", f2(sn.payload.rangeRate) + " m/s"]);
+        tel.push(["Spin speed", f2(t.relRateRad / DEG) + " °/s"]);
+        if (ph === "payload" && sn.payload.attached) tel.push(["Release aim error", deg(t.releaseErrRad)]);
+        if (ph === "deorbit") tel.push(["Backward aim error", deg(t.retroErrRad)]);
+        if (sn.payload.released) tel.push(["Satellite distance", f1(sn.payload.range) + " m"], ["Drift speed", f2(sn.payload.rangeRate) + " m/s"]);
       }
-      if (ph === "entry") tel.push(["Bank", LR(t.bankRad)], ["Bank command", LR(g.bankCmd)], ["Angle of attack", deg(t.angleOfAttackRad)], ["Load", f2(t.loadG) + " g"], ["Heating", f0(t.heat) + " W/cm²"], ["Range to KSC", f0(t.rangeToRunwayM / 1000) + " km"]);
-      if (ph === "approach" || ph === "rollout") tel.push(["EAS", f0(t.eas) + " m/s"], ["Vertical speed", f1(t.verticalSpeedMps) + " m/s"], ["Pitch", deg(t.pitchRad)], ["Bank", LR(t.bankRad)], ["Runway x", f0(t.runwayX) + " m"], ["Centreline", f1(t.runwayCrossTrackM) + " m"]);
-      const sys = [["Time", `${sn.warp}× (max ${sn.warpMax}×)`]];
-      if (v.regime === "orbit") sys.push(["DAP", v.dap], ["Bay doors", f0(v.doors * 100) + "%"], ["OMS prop", f0(sn.resources.oms) + " kg"], ["RCS prop", f0(sn.resources.rcs) + " kg"]);
-      if (ph === "entry") sys.push(["AoA assist", v.alphaAssist ? "ON" : "OFF"]);
-      if (ph === "approach" || ph === "rollout") sys.push(["Speed brake", f0(v.sb * 100) + "%"], ["Gear", v.gear >= 1 ? "DOWN" : v.gearCmd ? "MOVING" : "UP"]);
+      if (ph === "entry") tel.push(["Wing tilt", LR(t.bankRad)], ["Target wing tilt", LR(g.bankCmd)], ["Nose angle up", deg(t.angleOfAttackRad)], ["G-force", f2(t.loadG) + " g"], ["Heat", f0(t.heat) + " W/cm²"], ["Distance to runway", f0(t.rangeToRunwayM / 1000) + " km"]);
+      if (ph === "approach" || ph === "rollout") tel.push(["Airspeed", f0(t.eas) + " m/s"], ["Sink speed", f1(t.verticalSpeedMps) + " m/s"], ["Nose angle", deg(t.pitchRad)], ["Wing tilt", LR(t.bankRad)], ["Down runway", f0(t.runwayX) + " m"], ["Off center", f1(t.runwayCrossTrackM) + " m"]);
+      const sys = [["Speed", `${sn.warp}× (max ${sn.warpMax}×)`]];
+      if (v.regime === "orbit") sys.push(["Auto-Steer", v.dap], ["Cargo doors", f0(v.doors * 100) + "%"], ["Big engine fuel", f0(sn.resources.oms) + " kg"], ["Steering fuel", f0(sn.resources.rcs) + " kg"]);
+      if (ph === "entry") sys.push(["Auto nose angle", v.alphaAssist ? "ON" : "OFF"]);
+      if (ph === "approach" || ph === "rollout") sys.push(["Speed brake", f0(v.sb * 100) + "%"], ["Wheels", v.gear >= 1 ? "DOWN" : v.gearCmd ? "MOVING" : "UP"]);
       const assets = extra.assets ? Object.entries(extra.assets).filter(([, s]) => s !== "ok") : [];
-      sys.push(["Models", assets.length ? assets.map(([k, s]) => `${k} ${s}`).join(", ") : "OK"], ["Ping", f0(extra.ping) + " ms"], ["FPS", f0(extra.fps)], ["Comms", esc(extra.comms)]);
+      sys.push(["3D Models", assets.length ? assets.map(([k, s]) => `${k} ${s}`).join(", ") : "OK"], ["Ping", f0(extra.ping) + " ms"], ["FPS", f0(extra.fps)], ["Comms", esc(extra.comms)]);
       const objs = sn.objectives.filter((o) => o.phase === (ph === "prelaunch" ? "ascent" : ph));
       const nextId = (objs.find((o) => o.status !== "done") || {}).id;
       const tasks = objs.length ? `<ul>${objs.map((o) => `<li class="${o.status === "done" ? "done" : o.id === nextId ? "now" : ""}">${o.status === "done" ? "[x]" : o.id === nextId ? "[>]" : "[ ]"} ${esc(o.label)}</li>`).join("")}</ul>` : `<span class="done">No tasks in this phase</span>`;
@@ -288,9 +288,9 @@
       const cmds = CMDS.filter(([c]) => (c in can ? can[c] : al.has(c) && owns(c))).map(([c, label, k]) => `<button data-cmd="${c}">${label}${k ? `<span class="k">${k}</span>` : ""}</button>`).join("");
       const pi = PHASES.indexOf(ph);
       return {
-        frame: this._win("FLIGHT.DATA", "INTERFELLAS.SHUTTLE_OS", `STS_OS//DATA.DISPLAY//${roles.map((r) => SEAT[r]).join("+") || "CREW"}//${PHASE_TAG[ph] || ph}`, `P.${String(pi).padStart(3, "0")}`,
-          '<div id="sh-dlive" style="display:contents"></div>' + this._sec(`TASKS.${PHASE_TAG[ph] || ph}`, tasks) + this._sec("CREW", crewL) + this._sec("YOUR KEYS", this._rows(keys)) + this._sec("COMMANDS", `<div>${cmds}</div>`), Math.max(0, pi - 1)),
-        live: this._sec("TELEMETRY", this._rows(tel)) + this._sec("SYSTEMS", this._rows(sys)),
+        frame: this._win("FLIGHT STATS", "SHUTTLE MISSION DISPLAY", `SHUTTLE // ${roles.map((r) => SEAT[r]).join("+") || "CREW"} // ${PHASE_TAG[ph] || ph}`, `P.${String(pi).padStart(3, "0")}`,
+          '<div id="sh-dlive" style="display:contents"></div>' + this._sec(`TASKS · ${PHASE_TAG[ph] || ph}`, tasks) + this._sec("CREW", crewL) + this._sec("YOUR KEYS", this._rows(keys)) + this._sec("CONTROLS", `<div>${cmds}</div>`), Math.max(0, pi - 1)),
+        live: this._sec("LIVE NUMBERS", this._rows(tel)) + this._sec("SYSTEMS", this._rows(sys)),
       };
     }
 
@@ -310,9 +310,9 @@
       // the flight phases need one live number pair in the prompt (no other gauges on screen)
       const t = sn.telemetry, g = sn.guidance;
       // steering lives in the arrows next to the orbiter; the prompt keeps only context
-      if (sn.phase === "entry") l2 = `Follow the arrows: bank toward them, reverse when they flip · ${f0(t.rangeToRunwayM / 1000)} km to KSC`;
+      if (sn.phase === "entry") l2 = `Follow the arrows: tilt wings toward them, flip sides when they switch · ${f0(t.rangeToRunwayM / 1000)} km to runway`;
       if (sn.phase === "approach" && g.appr) { const a = g.appr, fin = /FINAL|PREFLARE|SHALLOW|FLARE/.test(a.mode || "");
-        l2 = `Follow the arrows next to the shuttle · ${f0(t.altitudeM)} m${fin ? (t.eas < 138 ? " · SLOW: arrows will ask for a steeper glide" : t.eas > 168 ? " · FAST: Pilot opens speed brake [X]" : "") : ""}`; }
+        l2 = `Follow the arrows next to the shuttle · ${f0(t.altitudeM)} m${fin ? (t.eas < 138 ? " · SLOW: arrows will ask for a gentler drop" : t.eas > 168 ? " · FAST: Pilot opens air brake [X]" : "") : ""}`; }
       return { l1, l2, cls };
     }
     _timeline(sn) {

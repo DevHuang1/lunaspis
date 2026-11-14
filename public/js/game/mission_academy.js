@@ -25,159 +25,159 @@
   const STEPS = [
     {
       nav: "MISSION",
-      kicker: "FIRST FLIGHT BRIEF · 1 OF 5",
-      title: "DESIGN A MISSION THAT FITS REALITY",
+      kicker: "QUICK GUIDE · 1 OF 5",
+      title: "BALANCE YOUR CHOICES LIKE A REAL MISSION",
       body: `
         <p class="academy-lede">
-          You are the mission architect. Choose what to learn, how to fly, and what to leave out.
-          Every decision spends the same five resources — and improving one usually costs another.
+          You are the mission planner. Pick what to explore, how to get there, and what tools to bring.
+          Every choice draws from the same limited resources — upgrading one thing usually costs another.
         </p>
         <div class="academy-resource-grid">
           <div class="academy-resource" style="--rc:#7fb8a6;">
             <div class="academy-resource-code">BUDGET</div>
-            <p>Money for the spacecraft, instruments, rocket and ground network. Cheaper parts leave reserve for fixes.</p>
+            <p>Money for your spacecraft, tools, rocket, and Earth dishes. Saving here leaves wiggle room for later.</p>
           </div>
           <div class="academy-resource" style="--rc:#67e8f9;">
-            <div class="academy-resource-code">MASS</div>
-            <p>Everything you launch must fit under the rocket's lift capacity for your chosen orbit.</p>
+            <div class="academy-resource-code">WEIGHT</div>
+            <p>Everything you pack must be light enough for your chosen rocket to lift into space.</p>
           </div>
           <div class="academy-resource" style="--rc:#d0a15c;">
-            <div class="academy-resource-code">POWER</div>
-            <p>Solar arrays must run the spacecraft and recharge the battery for eclipse. More instruments need more power.</p>
+            <div class="academy-resource-code">ELECTRICITY</div>
+            <p>Solar panels power everything in sunlight and charge batteries so lights stay on in Earth's shadow.</p>
           </div>
           <div class="academy-resource" style="--rc:#9a8fc4;">
-            <div class="academy-resource-code">DATA &amp; COMMS</div>
-            <p>Instruments generate data. The antenna and ground stations must downlink it with a safe link margin.</p>
+            <div class="academy-resource-code">RADIO &amp; DATA</div>
+            <p>Science tools gather data. Your radio and Earth dishes must be strong enough to send it all home.</p>
           </div>
           <div class="academy-resource" style="--rc:#38bdf8;">
-            <div class="academy-resource-code">DELTA-V</div>
-            <p>Propulsion must cover orbit insertion, station-keeping and safe end-of-mission disposal.</p>
+            <div class="academy-resource-code">PUSH SPEED</div>
+            <p>Thrusters must carry enough fuel to reach your destination, stay on track, and clean up safely afterward.</p>
           </div>
           <div class="academy-resource" style="--rc:#4ade80;">
             <div class="academy-resource-code">SCIENCE</div>
-            <p>Your instruments must cover the science types the mission was chosen to deliver.</p>
+            <p>Pack the exact tools or lab pouches needed to answer the mission's main goal.</p>
           </div>
         </div>
         <div class="academy-callout">
-          <strong>No single perfect design.</strong> A bigger instrument buys more science, but also adds mass,
-          power use, data volume and cost. A cheaper rocket saves money but may not lift the spacecraft.
+          <strong>It's all about trade-offs.</strong> Bigger cameras gather better data, but add weight,
+          power draw, file size, and cost. A smaller rocket saves money, but might not lift heavy gear.
         </div>
       `
     },
     {
       nav: "DESIGN",
-      kicker: "FIRST FLIGHT BRIEF · 2 OF 5",
-      title: "BUILD THE MISSION IN SIX DECISIONS",
+      kicker: "QUICK GUIDE · 2 OF 5",
+      title: "BUILD YOUR PLAN IN SIX SIMPLE STEPS",
       body: `
         <ol class="academy-flow">
-          <li><b>01 · SCENARIO</b><span>The science goal sets the budget, lifetime, required instruments, delta-v and radiation environment.</span></li>
-          <li><b>02 · ORBIT &amp; LAUNCH</b><span>Pick the orbit first, then a rocket that can lift your wet mass to that orbit.</span></li>
-          <li><b>03 · BUS &amp; POWER</b><span>The bus is the chassis. Solar arrays and batteries must cover the load through eclipse.</span></li>
-          <li><b>04 · INSTRUMENTS</b><span>Science value comes from matching instruments to the required science types — not just adding the most expensive payload.</span></li>
-          <li><b>05 · THERMAL &amp; COMMS</b><span>Heat rejection and shielding keep the spacecraft alive. The antenna and ground network move the data home.</span></li>
-          <li><b>06 · PROPULSION &amp; DISPOSAL</b><span>Delta-v must close, and the end-of-mission plan must meet orbital-debris rules.</span></li>
+          <li><b>01 · GOAL</b><span>Pick what you want to discover. This sets your budget, trip length, radiation risk, and needed tools.</span></li>
+          <li><b>02 · FLIGHT PATH &amp; ROCKET</b><span>Pick where you are flying first, then choose a rocket strong enough to carry your weight there.</span></li>
+          <li><b>03 · BODY &amp; POWER</b><span>Choose the main frame or pouch kit, plus enough solar panels and batteries to survive Earth's night side.</span></li>
+          <li><b>04 · SCIENCE GEAR</b><span>Score points by packing the tools that match your mission goal — not just the priciest hardware.</span></li>
+          <li><b>05 · COOLING &amp; RADIOS</b><span>Heat shields and cooling protect sensitive parts. Your radio and Earth dishes send the data back home.</span></li>
+          <li><b>06 · ENGINES &amp; CLEANUP</b><span>Make sure you have enough fuel to steer, plus a safe end-of-mission cleanup plan with no space junk.</span></li>
         </ol>
         <div class="academy-callout">
-          <strong>Fast start:</strong> in any design console, click <em>APPLY RECOMMENDED BASELINE</em>.
-          It gives you a safe starting point for the selected scenario. Then change one part at a time and
-          watch the live resource strip.
+          <strong>Easy starting tip:</strong> at any workstation, click <em>LOAD RECOMMENDED PLAN</em>.
+          It loads a working starter setup for your mission. From there, tweak one item at a time and
+          watch the live status bars.
         </div>
         <div class="academy-callout academy-callout-amber">
-          <strong>Never edit blind.</strong> The strip at the top of every console is live. A red bar means a real
-          constraint is broken; the mission simulation will penalize it.
+          <strong>Keep an eye on the top bar.</strong> Red warning bars mean something won't work in real life
+          (like being too heavy or running out of battery), so fix those before launch!
         </div>
       `
     },
     {
       nav: "TRADE-OFFS",
-      kicker: "FIRST FLIGHT BRIEF · 3 OF 5",
-      title: "EVERY UPGRADE HAS A PRICE",
+      kicker: "QUICK GUIDE · 3 OF 5",
+      title: "EVERY UPGRADE HAS A COST",
       body: `
         <div class="academy-tradeoff-table">
-          <div class="academy-tradeoff-row academy-tradeoff-head"><span>IF YOU INCREASE…</span><span>EXPECT TO PAY IN…</span></div>
-          <div class="academy-tradeoff-row"><span>Instrument science capability</span><span>Mass · power · data rate · cost</span></div>
-          <div class="academy-tradeoff-row"><span>Orbit altitude or delta-v</span><span>Launch energy · lighter payload · longer comms distance</span></div>
-          <div class="academy-tradeoff-row"><span>Power generation</span><span>Array mass · cost · stowed volume</span></div>
-          <div class="academy-tradeoff-row"><span>Mission lifetime</span><span>Radiation shielding · propellant · budget</span></div>
-          <div class="academy-tradeoff-row"><span>Data downlink</span><span>Antenna mass · power · ground-network cost</span></div>
-          <div class="academy-tradeoff-row"><span>Launch vehicle lift capacity</span><span>Cost · schedule · infrastructure</span></div>
+          <div class="academy-tradeoff-row academy-tradeoff-head"><span>IF YOU UPGRADE…</span><span>EXPECT TO PAY IN…</span></div>
+          <div class="academy-tradeoff-row"><span>Better cameras or sensors</span><span>More weight · more electricity · bigger files · higher cost</span></div>
+          <div class="academy-tradeoff-row"><span>Higher flight path or more fuel</span><span>Needs bigger rocket · carries less gear · longer radio reach</span></div>
+          <div class="academy-tradeoff-row"><span>More solar power</span><span>Heavier panels · higher cost · takes up more room</span></div>
+          <div class="academy-tradeoff-row"><span>Longer trip in space</span><span>Thicker radiation shield · extra fuel · higher budget</span></div>
+          <div class="academy-tradeoff-row"><span>Faster downloads to Earth</span><span>Bigger dish · more electricity · pricier Earth antennas</span></div>
+          <div class="academy-tradeoff-row"><span>Bigger rocket</span><span>Higher launch price · heavier ground support</span></div>
         </div>
         <div class="academy-callout">
-          <strong>Green bars are necessary, not sufficient.</strong> The final score also rewards required science
-          coverage, mass margin, data downlink, lifetime and a compliant end-of-mission disposal plan.
+          <strong>All green bars is step one — not the finish line!</strong> Your final score also checks whether
+          you packed the right science gear, left spare room for safety, lasted long enough, and planned a clean finish.
         </div>
         <div class="academy-callout academy-callout-cyan">
-          <strong>Iterate like an engineer:</strong> save Option A, make one change, then compare the live trade
-          delta (cost, mass, power, ΔV, science, grade) before committing.
+          <strong>Compare before locking in:</strong> click <em>Save Plan A</em>, try a swap, and compare your
+          cost, weight, electricity, fuel, and science score side by side!
         </div>
       `
     },
     {
       nav: "FLY",
-      kicker: "FIRST FLIGHT BRIEF · 4 OF 5",
-      title: "FROM THE PAD TO THE STATION",
+      kicker: "QUICK GUIDE · 4 OF 5",
+      title: "FROM LAUNCH PAD TO SPACE STATION",
       body: `
         <div class="academy-phase-grid">
-          <div class="academy-phase"><b>01 · BOARD</b><span>Follow the glowing marker to the orbiter. Press <kbd>E</kbd> at the hatch.</span></div>
-          <div class="academy-phase"><b>02 · LAUNCH</b><span>The host releases launch with <kbd>L</kbd>. Flight crew is strapped in automatically.</span></div>
-          <div class="academy-phase"><b>03 · DOCK</b><span>Align with PMA-2 using RCS translation and rotation, then latch with <kbd>SPACE</kbd>.</span></div>
-          <div class="academy-phase"><b>04 · STATION</b><span>Walk to the seven consoles and press <kbd>E</kbd>. Commit each subsystem design.</span></div>
-          <div class="academy-phase"><b>05 · EVALUATE</b><span>Run the full mission simulation at <b>[LDR]</b>, then read the debrief and iterate.</span></div>
+          <div class="academy-phase"><b>01 · BOARD</b><span>Follow the glowing arrows to the spaceship door and press <kbd>E</kbd> to climb aboard.</span></div>
+          <div class="academy-phase"><b>02 · LAUNCH</b><span>Press <kbd>L</kbd> to launch when ready. Everyone on board straps in automatically.</span></div>
+          <div class="academy-phase"><b>03 · PARK AT STATION</b><span>Line up carefully with the Space Station doorway, then press <kbd>SPACE</kbd> to connect.</span></div>
+          <div class="academy-phase"><b>04 · BUILD PLAN</b><span>Walk to each of the 7 glowing stations inside and press <kbd>E</kbd> to make your choices.</span></div>
+          <div class="academy-phase"><b>05 · TEST FLIGHT</b><span>Run the full mission check at <b>[FINAL]</b>, see your report card, and try improvements.</span></div>
         </div>
         <div class="academy-controls">
-          <span><kbd>WASD</kbd> MOVE</span>
-          <span><kbd>DRAG</kbd> LOOK</span>
-          <span><kbd>E</kbd> CONSOLE</span>
-          <span><kbd>R</kbd> S-BAND</span>
+          <span><kbd>WASD</kbd> WALK</span>
+          <span><kbd>DRAG</kbd> LOOK AROUND</span>
+          <span><kbd>E</kbd> USE DESK</span>
+          <span><kbd>R</kbd> TEAM RADIO</span>
           <span><kbd>M</kbd> MIC</span>
-          <span><kbd>C</kbd> VIEW</span>
-          <span><kbd>U</kbd> ORBIT VIZ</span>
-          <span><kbd>P</kbd> DIAGNOSTICS</span>
-          <span><kbd>F1</kbd> ACADEMY</span>
+          <span><kbd>C</kbd> CAMERA</span>
+          <span><kbd>U</kbd> 3D PATH</span>
+          <span><kbd>P</kbd> CONNECTION</span>
+          <span><kbd>F1</kbd> GUIDE</span>
         </div>
         <div class="academy-callout">
-          <strong>Stuck?</strong> Press <kbd>F1</kbd> or click <em>GUIDE</em> in the HUD at any time.
-          The mission checklist at the top-left always shows the next available objective.
+          <strong>Need help anytime?</strong> Press <kbd>F1</kbd> or click <em>HELP</em> in the top bar.
+          The checklist on the top-left always shows what step comes next.
         </div>
       `
     },
     {
-      nav: "CREW & SCORE",
-      kicker: "FIRST FLIGHT BRIEF · 5 OF 5",
-      title: "FLY SOLO OR BRING A CREW",
+      nav: "TEAM & SCORE",
+      kicker: "QUICK GUIDE · 5 OF 5",
+      title: "PLAY ALONE OR WITH FRIENDS",
       body: `
         <div class="academy-two-col">
           <div class="academy-panel">
             <h3>SOLO</h3>
-            <p>You can run every console yourself. Use this guide, keep the resource strip green, and finish with the full simulation.</p>
+            <p>You can run every station yourself! Watch the colored resource bars stay green, then run the final test flight.</p>
           </div>
           <div class="academy-panel">
-            <h3>CREW</h3>
-            <p>Choose <em>HOST CREW</em>, share the expedition code, and assign roles. Ground Control runs LCC launch authority and ground support while Flight Crew works the station consoles.</p>
+            <h3>WITH A TEAM</h3>
+            <p>Pick <em>CREATE TEAM</em>, share the room code, and split roles. Earth Control handles launch clearance and radio support while the Space Crew works inside the station.</p>
           </div>
         </div>
         <div class="academy-role-map">
-          <div><b>[HUB]</b> mission architecture &amp; scenario</div>
-          <div><b>[CMD]</b> orbit, launch vehicle &amp; navigation</div>
-          <div><b>[PWR]</b> spacecraft bus, solar power &amp; batteries</div>
-          <div><b>[SCI]</b> instruments &amp; science return</div>
-          <div><b>[ECLSS]</b> thermal control &amp; radiation shielding</div>
-          <div><b>[HULL]</b> communications, ground network &amp; propulsion</div>
-          <div><b>[LDR]</b> full simulation &amp; evaluation</div>
+          <div><b>[MAIN HUB]</b> pick mission goal &amp; overall plan</div>
+          <div><b>[FLIGHT PATH]</b> where to fly &amp; which rocket</div>
+          <div><b>[POWER]</b> spacecraft body, solar panels &amp; batteries</div>
+          <div><b>[LAB &amp; GEAR]</b> cameras, sensors &amp; Space Food pouches</div>
+          <div><b>[COOLING]</b> temperature control &amp; space shielding</div>
+          <div><b>[ENGINES]</b> radios, Earth dishes, fuel &amp; cleanup</div>
+          <div><b>[FINAL CHECK]</b> run test flight &amp; get your score</div>
         </div>
         <div class="academy-callout">
-          <strong>The debrief scores Science (45%) + Engineering (55%).</strong>
-          A mission can be fully green and still score poorly if it misses required science or the end-of-mission disposal rules.
-          Aim for <strong>75+</strong> for a Flight-Qualified result.
+          <strong>Your final grade combines Science (45%) + Engineering (55%).</strong>
+          Even if every bar is green, your score drops if you pack the wrong tool or forget clean retirement.
+          Aim for <strong>75+</strong> to earn a Launch-Ready badge!
         </div>
         <div class="academy-callout academy-callout-cyan">
-          <strong>Try, compare, improve.</strong> Export your MDL point design as JSON, save Option A,
-          and run another architecture. Different combinations can reach the same objective.
+          <strong>Try, compare, improve.</strong> Download your mission plan file, save a backup as Plan A,
+          and test a second setup — there's often more than one smart way to solve a mission.
         </div>
         <div class="academy-callout">
-          <strong>Flight Records:</strong> every completed solo or crew run is saved in the local
-          <em>Mission Log</em> with score, constraints, CML and crew. Open it from the title screen or
-          the victory debrief, then use <em>COPY</em> to share a mission report.
+          <strong>Past Flights:</strong> every finished solo or team run is saved in your
+          <em>Past Flights</em> log with scores, stages, and teammates. Open it anytime from the home screen or
+          after finishing a mission!
         </div>
       `
     }
@@ -194,11 +194,11 @@
   };
 
   const PREFLIGHT_TIPS = {
-    arch: "Start here. The scenario sets the budget, lifetime, required science, delta-v and radiation environment. Difficulty changes the budget multiplier and mass margin.",
-    orbit: "Choose the orbit, then the launcher. The launcher must lift your spacecraft's wet mass to that exact orbit. A cheaper rocket is only a bargain if it can carry the payload.",
-    bus: "The bus and power system are the chassis. More instruments, a stronger computer or ion propulsion need more power, battery capacity and mass.",
-    viz: "This preview shows risk and expected science. Use it to spot a weak subsystem before you commit the design.",
-    generic: "Use the live resource strip at the top. Apply the recommended baseline for a safe starting point, then change one decision at a time and compare the trade delta."
+    arch: "Start here. Your mission goal sets your budget, trip length, science needs, fuel push, and radiation risk. Difficulty adjusts how much spare budget and weight room you get.",
+    orbit: "Pick where to fly first, then pick your rocket. The rocket must be strong enough to carry your full loaded weight to that destination.",
+    bus: "The spacecraft body and solar panels power everything on board. More science tools, a faster computer, or electric thrusters need more solar panels, battery storage, and weight.",
+    viz: "This preview shows potential trouble spots and expected science results so you can fix weak areas before locking in your plan.",
+    generic: "Watch the live status bars at the top! Click Load Recommended Plan for an easy starting setup, then swap one part at a time to see how it changes your numbers."
   };
 
   function safeGet(key) {
@@ -366,12 +366,12 @@
       ? window.gameplay.missionDesign.scenarioId
       : "lunar_south_pole";
     return `
-      <div class="cadet-coach" role="note" aria-label="Cadet coach tip">
+      <div class="cadet-coach" role="note" aria-label="Helpful tip">
         <div class="cadet-coach-head">
-          <span class="cadet-coach-badge">CADET COACH</span>
+          <span class="cadet-coach-badge">HELPFUL TIP</span>
           <span class="cadet-coach-actions">
-            <button type="button" class="cadet-coach-btn" data-cadet-baseline data-scenario-id="${escapeHtml(scenarioId)}">USE RECOMMENDED BASELINE</button>
-            <button type="button" class="cadet-coach-btn" data-open-academy>OPEN GUIDE</button>
+            <button type="button" class="cadet-coach-btn" data-cadet-baseline data-scenario-id="${escapeHtml(scenarioId)}">LOAD RECOMMENDED PLAN</button>
+            <button type="button" class="cadet-coach-btn" data-open-academy>HOW TO PLAY</button>
             <button type="button" class="cadet-coach-btn cadet-coach-hide" data-cadet-hide-tips>HIDE TIPS</button>
           </span>
         </div>

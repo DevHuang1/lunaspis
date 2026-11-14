@@ -77,24 +77,25 @@
       }
     }, 3, 5);
     const rampMat = new THREE.MeshStandardMaterial({ color: 0xffffff, map: rampTex, roughness: 0.92, metalness: 0.05 });
-    const ramp = new THREE.Mesh(new THREE.BoxGeometry(34, 1.2, 70), rampMat);
-    ramp.position.set(wx(0, 95), 2.95, wz(0, 95));
-    ramp.rotation.set(-0.085, ROT, 0, "YXZ");
+    const rampSlope = Math.atan2(6.3, 70);
+    const ramp = new THREE.Mesh(new THREE.BoxGeometry(34, 1.2, 70.3), rampMat);
+    ramp.position.set(wx(0, 95), 2.672, wz(0, 95));
+    ramp.rotation.set(rampSlope, ROT, 0, "YXZ");
     ramp.castShadow = true;
     ramp.receiveShadow = true;
     g.add(ramp);
     for (const sx of [-23, 23]) {
       const wing = new THREE.Mesh(new THREE.BoxGeometry(12, 4.2, 68), m("grass"));
-      wing.position.set(wx(sx, 95), 1.4, wz(sx, 95));
-      wing.rotation.set(-0.085, ROT, 0, "YXZ");
+      wing.position.set(wx(sx, 95), 1.18, wz(sx, 95));
+      wing.rotation.set(rampSlope, ROT, sx > 0 ? -0.22 : 0.22, "YXZ");
       wing.receiveShadow = true;
       g.add(wing);
     }
     // Yellow lead-in lines painted on the ramp surface.
     for (const sx of [-9, 9]) {
       const lead = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.04, 64), m("stripe_yellow"));
-      lead.position.set(wx(sx, 95), 3.55, wz(sx, 95));
-      lead.rotation.set(-0.085, ROT, 0, "YXZ");
+      lead.position.set(wx(sx, 95), 3.29, wz(sx, 95));
+      lead.rotation.set(rampSlope, ROT, 0, "YXZ");
       g.add(lead);
     }
 
@@ -632,19 +633,21 @@
     // 6. SERVICE ROAD, GATEHOUSE, GSE & PERIMETER LIGHTING
     // -------------------------------------------------------------------------
     // Duplicate the road helper locally so 39B is self-contained.
-    const addRoad = (ax, az, bx, bz, width = 12) => {
+    const addRoad = (ax, az, bx, bz, width = 12, noCurbs = false) => {
       const len = Math.hypot(bx - ax, bz - az);
       if (len < 0.5) return;
       const mx = (ax + bx) * 0.5;
       const mz = (az + bz) * 0.5;
       const yaw = Math.atan2(bx - ax, bz - az);
       site.boxRot(g, width, 0.12, len, mx, 0.06, mz, 0, yaw, 0, asphalt, "Pad39BRoad");
-      for (const side of [-1, 1]) {
-        site.boxRot(g, 0.32, 0.22, len - 0.6, mx + Math.cos(yaw) * side * (width * 0.5 + 0.16), 0.11, mz - Math.sin(yaw) * side * (width * 0.5 + 0.16), 0, yaw, 0, curb, "Pad39BRoadCurb");
+      if (!noCurbs) {
+        for (const side of [-1, 1]) {
+          site.boxRot(g, 0.32, 0.22, len - 0.6, mx + Math.cos(yaw) * side * (width * 0.5 + 0.16), 0.11, mz - Math.sin(yaw) * side * (width * 0.5 + 0.16), 0, yaw, 0, curb, "Pad39BRoadCurb");
+        }
       }
     };
-    // Spur-to-ramp connector so the crawlerway lines up with the hardstand.
-    addRoad(-120, -622, wx(0, 130), wz(0, 130), 18);
+    // Spur-to-ramp connector so the crawlerway lines up smoothly with the ramp toe.
+    addRoad(-120, -622, wx(0, 130), wz(0, 130), 22, true);
     addRoad(wx(46, 196), wz(46, 196), wx(46, 112), wz(46, 112), 11);
     addRoad(wx(46, 112), wz(46, 112), wx(58, 44), wz(58, 44), 11);
     addRoad(wx(58, 44), wz(58, 44), wx(80, -6), wz(80, -6), 10);
@@ -707,29 +710,26 @@
 
     // -------------------------------------------------------------------------
     // 7. COLLISION VOLUMES
-    //    The hardstand mound, ramp and every facility are solid; the crawlerway,
-    //    service road and grass perimeter stay walkable for the ground tour.
+    //    Ground facilities use standard ground colliders; the 39B hardstand berm,
+    //    ramp, and summit deck use elevation-aware collision in SpaceCenterModules.terrain.
     // -------------------------------------------------------------------------
-    // Octagonal hardstand / berm (blocked at the foot of the grass slope).
-    site.addCircleCollider(wx(0, 0), wz(0, 0), 74, "39B hardstand");
-    // Rotated crawlerway ramp approximated by its world-space AABB.
-    site.addBoxCollider(wx(0, 95), wz(0, 95), 62, 78, "39B crawlerway ramp");
+    const groundOnly = { maxY: 5.0 };
     // Crawler transporter and its parked footprint.
-    site.addBoxCollider(wx(71, 143), wz(71, 143), 26, 38, "39B crawler transporter");
+    site.addBoxCollider(wx(71, 143), wz(71, 143), 26, 38, "39B crawler transporter", groundOnly);
     // Lightning protection masts.
     for (const p of masts) {
-      site.addCircleCollider(wx(p.x, p.z), wz(p.x, p.z), 3.2, "39B lightning mast");
+      site.addCircleCollider(wx(p.x, p.z), wz(p.x, p.z), 3.2, "39B lightning mast", groundOnly);
     }
     // Deluge water tower and propellant farm hardware.
-    site.addCircleCollider(wx(wt.x, wt.z), wz(wt.x, wt.z), 9.5, "39B water tower");
-    site.addBoxCollider(wx(farm.x, farm.z), wz(farm.x, farm.z), 78, 48, "39B propellant farm");
-    site.addCircleCollider(wx(farm.x - 17, farm.z), wz(farm.x - 17, farm.z), 8.8, "39B LOX sphere");
-    site.addCircleCollider(wx(farm.x + 17, farm.z), wz(farm.x + 17, farm.z), 8.8, "39B LH2 sphere");
+    site.addCircleCollider(wx(wt.x, wt.z), wz(wt.x, wt.z), 9.5, "39B water tower", groundOnly);
+    site.addBoxCollider(wx(farm.x, farm.z), wz(farm.x, farm.z), 78, 48, "39B propellant farm", groundOnly);
+    site.addCircleCollider(wx(farm.x - 17, farm.z), wz(farm.x - 17, farm.z), 8.8, "39B LOX sphere", groundOnly);
+    site.addCircleCollider(wx(farm.x + 17, farm.z), wz(farm.x + 17, farm.z), 8.8, "39B LH2 sphere", groundOnly);
     // Service structures.
-    site.addBoxCollider(wx(66, 24), wz(66, 24), 20, 14, "39B pump house");
-    site.addBoxCollider(wx(58, 168), wz(58, 168), 9, 7, "39B gatehouse");
-    site.addBoxCollider(wx(52, 184), wz(52, 184), 10, 4, "39B entrance sign");
-    // Fixed service structure base (inside the hardstand, kept for safety).
-    site.addBoxCollider(wx(T.x, T.z), wz(T.x, T.z), 15, 15, "39B fixed service structure");
+    site.addBoxCollider(wx(66, 24), wz(66, 24), 20, 14, "39B pump house", groundOnly);
+    site.addBoxCollider(wx(58, 168), wz(58, 168), 9, 7, "39B gatehouse", groundOnly);
+    site.addBoxCollider(wx(52, 184), wz(52, 184), 10, 4, "39B entrance sign", groundOnly);
+    // Fixed service structure base (on the upper 39B hardstand deck).
+    site.addBoxCollider(wx(T.x, T.z), wz(T.x, T.z), 15, 15, "39B fixed service structure", { minY: 4.5 });
   });
 })(window);

@@ -233,7 +233,7 @@
     const bones = {};
     model.traverse((obj) => {
       if (!obj.name) return;
-      if (/^(hips|spine|spine1|chest|neck|head|shoulder_[LR]|upperarm_[LR]|forearm_[LR]|hand_[LR])$/.test(obj.name)) {
+      if (/^(hips|spine|spine1|chest|neck|head|shoulder_[LR]|upperarm_[LR]|forearm_[LR]|hand_[LR]|thigh_[LR]|calf_[LR]|foot_[LR]|toe_[LR])$/.test(obj.name)) {
         bones[obj.name] = obj;
       }
     });
@@ -469,6 +469,90 @@
       const handWorldQuat = new T.Quaternion().setFromRotationMatrix(handMatrix);
       aimEmoteHand(hand, handWorldQuat, weight);
     }
+  }
+
+  // Limb chains used by the zero-g sculling pose. Astronauts aboard the ISS
+  // drift instead of walking, so the arms sweep slowly and the legs trail and
+  // flutter rather than running through a planted walk cycle.
+  const ZERO_G_SIDES = [
+    { side: 1, upper: "upperarm_L", fore: "forearm_L", hand: "hand_L", thigh: "thigh_L", calf: "calf_L", foot: "foot_L" },
+    { side: -1, upper: "upperarm_R", fore: "forearm_R", hand: "hand_R", thigh: "thigh_R", calf: "calf_R", foot: "foot_R" }
+  ];
+
+  function applyZeroGPose(rig, elapsed, moveWeight, weight) {
+    const T = window.THREE;
+    if (!T || !rig || !rig.bones || !rig.modelContainer || weight <= 0.002) return;
+    const bones = rig.bones;
+    if (!bones.hips || !bones.chest) return;
+
+    rig.root.updateMatrixWorld(true);
+
+    const hipsPos = bones.hips.getWorldPosition(new T.Vector3());
+    const chestPos = bones.chest.getWorldPosition(new T.Vector3());
+    const modelQuat = rig.modelContainer.getWorldQuaternion(new T.Quaternion());
+    const scale = rig.modelScale || 1;
+    const move = Math.max(0, Math.min(1, moveWeight));
+    const point = (origin, x, y, z) => origin.clone()
+      .add(new T.Vector3(x, y, z).multiplyScalar(scale).applyQuaternion(modelQuat));
+
+    const armPhase = elapsed * 2.6;
+    const legPhase = elapsed * 5.2;
+
+    ZERO_G_SIDES.forEach((limb) => {
+      const upper = bones[limb.upper];
+      const fore = bones[limb.fore];
+      const hand = bones[limb.hand];
+      if (upper && fore && hand) {
+        // Slow breaststroke-style scull: hands sweep from in front of the
+        // chest out to the sides. When the crewmate is not moving the arms
+        // settle into a relaxed, slightly bent float.
+        const phase = armPhase + (limb.side < 0 ? 0.9 : 0);
+        const spread = 0.5 + 0.5 * Math.sin(phase);
+        const idleSway = Math.sin(elapsed * 0.7 + (limb.side < 0 ? 1.1 : 0)) * 0.015;
+        const idleHand = point(chestPos, limb.side * 0.40, -0.16 + idleSway, 0.12);
+        const swimHand = point(
+          chestPos,
+          limb.side * (0.13 + 0.36 * spread),
+          -0.16 + Math.sin(phase * 2) * 0.04,
+          0.32 - 0.22 * spread
+        );
+        const idleElbow = point(chestPos, limb.side * 0.52, -0.24, -0.03);
+        const swimElbow = point(
+          chestPos,
+          limb.side * (0.46 + 0.14 * spread),
+          -0.28,
+          0.0 - 0.06 * spread
+        );
+
+        aimEmoteBone(upper, fore, idleElbow.lerp(swimElbow, move), weight);
+        aimEmoteBone(fore, hand, idleHand.lerp(swimHand, move), weight);
+      }
+
+      const thigh = bones[limb.thigh];
+      const calf = bones[limb.calf];
+      const foot = bones[limb.foot];
+      if (thigh && calf && foot) {
+        // Alternating flutter kick, with a lazy bent-knee drift when idle.
+        const phase = legPhase + (limb.side < 0 ? Math.PI : 0);
+        const kick = Math.sin(phase);
+        const drift = Math.sin(elapsed * 0.8 + (limb.side < 0 ? 1.4 : 0)) * 0.015;
+        const kneeTarget = point(
+          hipsPos,
+          limb.side * 0.16,
+          -0.33 + kick * 0.05 * move + drift,
+          0.12 + Math.cos(phase) * 0.05 * move
+        );
+        const footTarget = point(
+          hipsPos,
+          limb.side * 0.15,
+          -0.66 + kick * 0.13 * move + drift * 0.5,
+          Math.cos(phase) * 0.16 * move
+        );
+
+        aimEmoteBone(thigh, calf, kneeTarget, weight);
+        aimEmoteBone(calf, foot, footTarget, weight);
+      }
+    });
   }
 
   let sharedShadowTex = null;
@@ -963,6 +1047,10 @@
         currentColor: suitHexColor,
         emoteBubble,
         emote: null,
+        zeroGBlend: 0,
+        zeroGMoveBlend: 0,
+        zeroGT: 0,
+        wasZeroG: false,
 
         playEmote: (emoteId) => {
           const def = EMOTE_BY_ID[emoteId];
@@ -1002,7 +1090,7 @@
         /**
          * SpaceShip animation clip switcher & procedural fallback update.
          */
-        updateAnimation: (delta, isMoving = false, isEva = false, isGrounded = true, customAction = null) => {
+        updateAnimation: (delta, isMoving = false, isEva = false, isGrounded = true, customAction = null, isZeroG = false, isSprinting = false) => {
           if (rig.emote) {
             rig.emote.elapsed += delta;
             if (rig.emote.elapsed >= rig.emote.def.duration) {
@@ -1010,11 +1098,33 @@
             }
           }
 
+          // Blend into and out of the floating pose so entering the ISS does
+          // not snap the astronaut between a walk cycle and a weightless drift.
+          const zeroGSpeed = 3.4;
+          rig.zeroGBlend += ((isZeroG ? 1 : 0) - rig.zeroGBlend) * Math.min(1, delta * zeroGSpeed);
+          if (rig.zeroGBlend < 0.002) rig.zeroGBlend = 0;
+          rig.zeroGMoveBlend += ((isMoving ? 1 : 0) - rig.zeroGMoveBlend) * Math.min(1, delta * 4.2);
+          rig.zeroGT += delta * (isZeroG && isSprinting ? 1.45 : 1);
+          const floating = isZeroG || rig.zeroGBlend > 0.01;
+
+          // A ground shadow and floor ring would travel through the air with a
+          // floating crewmate; hide them until the astronaut is walking again.
+          if (floating) {
+            if (rig.shadowMesh) rig.shadowMesh.visible = false;
+            if (rig.accentRing) rig.accentRing.visible = false;
+          } else if (rig.wasZeroG) {
+            if (rig.shadowMesh) rig.shadowMesh.visible = true;
+            if (rig.accentRing) rig.accentRing.visible = true;
+          }
+          rig.wasZeroG = floating;
+
           const emoteClip = rig.emote && rig.emote.def.clip ? rig.emote.def.clip : null;
           const emoteSpeed = rig.emote && rig.emote.def.clipSpeed ? rig.emote.def.clipSpeed : 1;
 
           if (rig.mixer) {
-            const desiredClip = customAction || emoteClip || (isMoving ? "walk" : "idle");
+            // In zero-g the walk clip would look like running in place. Keep
+            // the quiet idle base and let the procedural limb pose do the work.
+            const desiredClip = customAction || emoteClip || (isMoving && !floating ? "walk" : "idle");
             if (rig.actions[desiredClip] && rig.activeClipName !== desiredClip) {
               const nextAct = rig.actions[desiredClip];
               const prevAct = rig.activeClipName ? rig.actions[rig.activeClipName] : null;
@@ -1027,7 +1137,7 @@
               rig.activeClipName = desiredClip;
             }
             if (rig.activeClipName === "walk" && rig.actions["walk"] && !emoteClip) {
-              rig.actions["walk"].timeScale = isEva ? 0.75 : 1.15;
+              rig.actions["walk"].timeScale = isEva ? 0.75 : (isSprinting ? 2.05 : 1.15);
             } else if (emoteClip && rig.actions[emoteClip]) {
               rig.actions[emoteClip].timeScale = emoteSpeed;
             }
@@ -1035,20 +1145,35 @@
             modelContainer.position.y = 0;
             modelContainer.rotation.x = 0;
             modelContainer.rotation.z = 0;
+            // A small forward lean sells the extra stride length while sprinting.
+            if (isSprinting && isMoving && !floating && !emoteClip) {
+              modelContainer.rotation.x = 0.075;
+            }
           } else {
             // Procedural bobbing for static GLB models without skeletal clips
             if (isMoving) {
-              rig.walkTime += delta * (isEva ? 3.0 : 8.5);
-              const bob = Math.abs(Math.sin(rig.walkTime)) * 0.04;
+              rig.walkTime += delta * (isSprinting ? 13.5 : (isEva ? 3.0 : 8.5));
+              const bob = Math.abs(Math.sin(rig.walkTime)) * (isSprinting ? 0.055 : 0.04);
               modelContainer.position.y = isEva ? Math.sin(rig.walkTime * 0.5) * 0.05 : bob;
-              modelContainer.rotation.x = isEva ? 0.14 : 0.05;
-              modelContainer.rotation.z = Math.sin(rig.walkTime * 0.5) * 0.03;
+              modelContainer.rotation.x = isEva ? 0.14 : (isSprinting ? 0.1 : 0.05);
+              modelContainer.rotation.z = Math.sin(rig.walkTime * 0.5) * (isSprinting ? 0.045 : 0.03);
             } else {
               rig.walkTime += delta * 1.8;
               modelContainer.position.y = Math.sin(rig.walkTime) * 0.015;
               modelContainer.rotation.x = 0;
               modelContainer.rotation.z = Math.sin(rig.walkTime * 0.7) * 0.01;
             }
+          }
+
+          // Weightless body attitude: a slow drift/roll with a gentle forward
+          // lean once the crewmate pushes off along the module.
+          if (rig.zeroGBlend > 0.002) {
+            const float = rig.zeroGBlend;
+            const move = rig.zeroGMoveBlend;
+            modelContainer.position.y += Math.sin(rig.zeroGT * 0.85) * 0.018 * float;
+            modelContainer.rotation.x += (0.03 + move * 0.20) * float;
+            modelContainer.rotation.z += Math.sin(rig.zeroGT * 0.62) * 0.035 * float;
+            applyZeroGPose(rig, rig.zeroGT, move, float);
           }
 
           // Emote body language & floating expression bubble

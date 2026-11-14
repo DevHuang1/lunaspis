@@ -129,6 +129,15 @@ body.mission-log-open {
   font-weight: 800;
 }
 
+.mission-log-verified {
+  display: inline-block;
+  margin-right: 1px;
+  color: #86efac;
+  font-size: 11px;
+  font-weight: 800;
+  vertical-align: 1px;
+}
+
 .mission-log-sci,
 .mission-log-diff,
 .mission-log-date {
