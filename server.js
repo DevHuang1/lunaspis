@@ -8,6 +8,8 @@ const db = require("./server/db");
 const storage = require("./server/storage");
 const { MISSION_DESIGN_KEYS, sanitizeDesignPatch } = require("./server/design_sanitizer");
 const { validateFinalReport } = require("./server/mission_validation");
+const { propagateCoast } = require("./server/gmat-propagation");
+let activeGmatCalculations = 0;
 const { ShuttleMission, CREW: SHUTTLE_CREW } = require("./public/js/game/shuttle_mission.js");
 
 const SHUTTLE_SNAPSHOT_HZ = 15;
@@ -1027,14 +1029,109 @@ function createNewRoom(roomId, hostId, isPublic = true, opsMode = "iss_expeditio
       total: COOP_OBJECTIVE_IDS.size
     },
     mission: createMissionState("lunar_south_pole", "engineer", opsMode),
+    sideGames: {}, // ISS CSA lab activities: canadarm capture, tomatosphere
     chatHistory: []
   };
 }
 
-// Shuttle Flight Ops seat assignment: maps Lunaspis room roles (commander, engineer,
-// specialist, scientist, flight_director, ground_capcom) onto the 4 Shuttle seats
-// (cdr, plt, ms1, ms2). Unclaimed seats automatically fall back to the Commander/host
-// so solo pilots and 2-6 player crews can fly every Shuttle mission seamlessly.
+// ── ISS CSA LAB CO-OP SIDE ACTIVITIES ───────────────────────────────────────
+// Station-only, room-synchronised mini-games. They are independent of the
+// seven mission objectives: playing them can never soft-lock or advance the
+// mission, and they never count toward victory.
+const SIDE_GAME_IDS = new Set(["canadarm", "tomato"]);
+
+function createCanadarmSideGame() {
+  return {
+    active: false,
+    participants: {},
+    seats: { arm: null, latch: null },
+    yaw: 0,
+    extend: 0.48,
+    targetYaw: 22 + Math.random() * 16,
+    targetExtend: 0.68 + Math.random() * 0.1,
+    captured: false,
+    attempts: 0,
+    captures: 0,
+    message: "Drive the arm into the capture envelope, then latch.",
+    updatedAt: Date.now()
+  };
+}
+
+function createTomatoSideGame() {
+  return {
+    active: false,
+    participants: {},
+    seats: { water: null, climate: null },
+    water: 50,
+    light: 28,
+    temp: 72,
+    growth: 0,
+    health: 100,
+    completed: false,
+    failed: false,
+    message: "Balance water, light and temperature to grow the seedlings.",
+    updatedAt: Date.now()
+  };
+}
+
+function ensureSideGame(room, gameId) {
+  if (!SIDE_GAME_IDS.has(gameId)) return null;
+  room.sideGames = room.sideGames || {};
+  if (!room.sideGames[gameId]) {
+    room.sideGames[gameId] = gameId === "canadarm" ? createCanadarmSideGame() : createTomatoSideGame();
+  }
+  return room.sideGames[gameId];
+}
+
+function broadcastSideGame(room, gameId) {
+  if (!room || !room.id || !SIDE_GAME_IDS.has(gameId)) return;
+  const game = room.sideGames && room.sideGames[gameId];
+  if (!game) return;
+  io.to(room.id).emit("sidegame_state", {
+    gameId,
+    state: game,
+    participants: game.participants,
+    serverTime: Date.now()
+  });
+}
+
+// One-second greenhouse simulation. The arm capture is action-driven, so it
+// only needs a broadcast when a crew member moves or latches.
+setInterval(() => {
+  const now = Date.now();
+  for (const roomId in rooms) {
+    const room = rooms[roomId];
+    if (!room || room.status !== "playing" || !room.sideGames) continue;
+    const game = room.sideGames.tomato;
+    if (!game || !game.active || game.completed || game.failed) continue;
+    if (!game.participants || Object.keys(game.participants).length === 0) continue;
+
+    const waterStress = Math.max(0, Math.abs(game.water - 55) - 14);
+    const lightStress = Math.max(0, Math.abs(game.light - 65) - 14);
+    const tempStress = Math.max(0, Math.abs(game.temp - 45) - 12);
+    const stress = waterStress + lightStress + tempStress;
+
+    game.health = Math.max(0, Math.min(100, game.health - stress * 0.11 + 0.28));
+    game.growth = Math.min(100, game.growth + (game.health > 35 ? 1.7 : 0.25));
+
+    if (game.health <= 0) {
+      game.failed = true;
+      game.message = "Seedling lost. Reset and keep all three bars inside the green band.";
+    } else if (game.growth >= 100) {
+      game.completed = true;
+      game.message = "TOMATOSPHERE COMPLETE — fresh food and oxygen for the station!";
+    } else if (stress === 0) {
+      game.message = "Conditions are stable. The seedlings are growing.";
+    } else {
+      game.message = "Conditions drifting — bring water, light and temperature back into the green band.";
+    }
+    game.updatedAt = now;
+    broadcastSideGame(room, "tomato");
+  }
+}, 1000);
+
+// Flight crew fill the four Shuttle seats. Ground crew monitor from MCC and do
+// not receive flight controls. Unclaimed seats fall back to the Commander/host.
 const SHUTTLE_SEAT_PREFS = {
   cdr: ["commander", "flight_director", "engineer", "ground_capcom", "specialist", "scientist"],
   plt: ["engineer", "ground_capcom", "specialist", "scientist", "flight_director", "commander"],
@@ -1043,7 +1140,7 @@ const SHUTTLE_SEAT_PREFS = {
 };
 
 function assignShuttleSeatMap(room) {
-  const players = Object.values((room && room.players) || {});
+  const players = Object.values((room && room.players) || {}).filter((player) => player && getTeamForRole(player.role) !== "ground");
   const assigned = {};
   if (!players.length) return assigned;
 
@@ -2040,6 +2137,31 @@ io.on("connection", (socket) => {
       io.to(room.id).emit("shuttle_events", ev.filter((e) => e.type !== "COMMAND_ACCEPTED"));
     }
     sendShuttleSnapshot(room);
+  });
+
+  socket.on("shuttle_gmat_coast", async (callback) => {
+    if (typeof callback !== "function") return;
+    const room = currentRoomId && rooms[currentRoomId];
+    if (!room || !room.shuttleMission || !room.players[socket.id]) return callback({ success: false, error: "Join a Shuttle flight first." });
+    if (room.gmatRunning || activeGmatCalculations >= 2) return callback({ success: false, error: "GMAT is busy. Try again shortly." });
+    if (socket.lastGmatRequest && Date.now() - socket.lastGmatRequest < 5000) return callback({ success: false, error: "Wait a few seconds before calculating again." });
+    socket.lastGmatRequest = Date.now();
+    room.gmatRunning = true;
+    activeGmatCalculations++;
+    const snapshot = room.shuttleMission.snapshot();
+    try {
+      const prediction = await propagateCoast(snapshot);
+      if (!room.shuttleMission || room.shuttleMission.missionId !== prediction.missionId) return callback({ success: false, error: "The flight changed while GMAT was running." });
+      callback({ success: true, prediction });
+    } catch (error) {
+      const message = error.code === "ENOENT" ? "GMAT Console is unavailable on this server." :
+        error.message.includes("GMAT coast prediction") ? error.message : "GMAT calculation failed. Check the server logs.";
+      if (message === "GMAT calculation failed. Check the server logs.") console.error("[GMAT]", error.message);
+      callback({ success: false, error: message });
+    } finally {
+      room.gmatRunning = false;
+      activeGmatCalculations--;
+    }
   });
 
   socket.on("shuttle_input", (data = {}, callback) => {

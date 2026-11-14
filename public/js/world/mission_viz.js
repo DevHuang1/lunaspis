@@ -108,6 +108,9 @@
       this.sunDir = new window.THREE.Vector3(1.0, 0.25, -0.55).normalize();
       this.lastDesignKey = "";
       this.cachedSamplePoints = [];
+      this.gmatData = null;
+      this.gmatMode = false;
+      this.gmatStation = null;
       this.uiRoot = null;
       this._savedState = null;
       this._lastHudSync = 0;
@@ -365,6 +368,7 @@
     }
 
     _rebuildTrajectoryFromDesign() {
+      if (this.gmatMode) return;
       const THREE = window.THREE;
       const t = this._getTelemetry();
       if (!t) return;
@@ -565,6 +569,13 @@
     }
 
     _sampleCraftPosition(u) {
+      if (this.gmatMode) {
+        const state = this._gmatState(u);
+        const scale = EARTH_RADIUS / 6378.1363;
+        const pos = new window.THREE.Vector3(state[1], state[3], state[2]).multiplyScalar(scale);
+        const tangent = new window.THREE.Vector3(state[4], state[6], state[5]).normalize();
+        return { pos, tangent };
+      }
       const pts = this.cachedSamplePoints;
       if (!pts.length) return { pos: new window.THREE.Vector3(8, 0, 0), tangent: new window.THREE.Vector3(0, 0, 1) };
       const f = Math.max(0, Math.min(1, u)) * (pts.length - 1);
@@ -574,6 +585,75 @@
       const pos = pts[i0].clone().lerp(pts[i1], alpha);
       const tangent = pts[Math.min(pts.length - 1, i0 + 1)].clone().sub(pts[Math.max(0, i0 - 1)]).normalize();
       return { pos, tangent };
+    }
+
+    _gmatState(progress) {
+      const samples = this.gmatData.samples;
+      const time = samples[0][0] + Math.max(0, Math.min(1, progress)) * (samples[samples.length - 1][0] - samples[0][0]);
+      let low = 0, high = samples.length - 1;
+      while (low + 1 < high) {
+        const middle = Math.floor((low + high) / 2);
+        if (samples[middle][0] <= time) low = middle; else high = middle;
+      }
+      const a = samples[low], b = samples[high];
+      const fraction = Math.max(0, Math.min(1, (time - a[0]) / (b[0] - a[0])));
+      return a.map((value, index) => value + (b[index] - value) * fraction);
+    }
+
+    async _toggleGmat() {
+      const button = this.uiRoot.querySelector("#mv-btn-gmat-training");
+      if (this.gmatMode) {
+        this.gmatMode = false;
+        if (this.gmatStation) this.gmatStation.visible = false;
+        this.groundGroup.visible = true;
+        if (this.rfBeamLine) this.rfBeamLine.visible = true;
+        this.uiRoot.querySelector("#mv-event-chips").style.display = "";
+        button.textContent = "GMAT ISS TRAINING";
+        this.lastDesignKey = "";
+        this._rebuildTrajectoryFromDesign();
+        return;
+      }
+      button.disabled = true;
+      try {
+        if (!this.gmatData) {
+          const response = await fetch("/data/gmat-iss-training.json");
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const data = await response.json();
+          if (!data.samples || data.samples.length < 2) throw new Error("Invalid GMAT data");
+          this.gmatData = data;
+        }
+        this.gmatMode = true;
+        this.progress = 0;
+        this.uiRoot.querySelector("#mv-timeline-slider").value = "0";
+        this.uiRoot.querySelector("#mv-event-chips").style.display = "none";
+        button.textContent = "BACK TO MISSION VIEW";
+        this.moonGroup.visible = false;
+        this.l2Group.visible = false;
+        this.asteroidGroup.visible = false;
+        this.vanAllenGroup.visible = false;
+        this.orbitNodesGroup.clear();
+        this.groundGroup.visible = false;
+        if (this.rfBeamLine) this.rfBeamLine.visible = false;
+        if (this.orbitLine) {
+          this.vizGroup.remove(this.orbitLine);
+          this.orbitLine.geometry.dispose();
+          this.orbitLine.material.dispose();
+        }
+        const scale = EARTH_RADIUS / 6378.1363;
+        const points = this.gmatData.samples.map(row => new window.THREE.Vector3(row[1], row[3], row[2]).multiplyScalar(scale));
+        this.orbitLine = new window.THREE.Line(new window.THREE.BufferGeometry().setFromPoints(points), new window.THREE.LineBasicMaterial({ color: 0x67e8f9 }));
+        this.vizGroup.add(this.orbitLine);
+        if (!this.gmatStation) {
+          this.gmatStation = new window.THREE.Mesh(new window.THREE.SphereGeometry(0.16, 12, 12), new window.THREE.MeshBasicMaterial({ color: 0xffcc66 }));
+          this.vizGroup.add(this.gmatStation);
+        }
+        this.gmatStation.visible = true;
+      } catch (error) {
+        console.error("Unable to load GMAT training data", error);
+        button.textContent = "GMAT DATA UNAVAILABLE";
+      } finally {
+        button.disabled = false;
+      }
     }
 
     _isInEarthShadow(pos) {
@@ -662,6 +742,7 @@
             </div>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+            <button type="button" id="mv-btn-gmat-training" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(37,99,235,0.6);background:rgba(37,99,235,0.16);color:#f8fafc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">GMAT ISS TRAINING</button>
             <button type="button" id="mv-btn-cam-sys" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(37,99,235,0.6);background:rgba(37,99,235,0.16);color:#f8fafc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">FULL EARTH VIEW</button>
             <button type="button" id="mv-btn-cam-craft" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(148,163,184,0.22);background:rgba(8,13,24,0.75);color:#f8fafc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">FOLLOW CRAFT</button>
             <button type="button" id="mv-btn-cam-target" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(148,163,184,0.22);background:rgba(8,13,24,0.75);color:#f8fafc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">ZOOM TARGET</button>
@@ -695,6 +776,7 @@
       this.uiRoot = root;
 
       root.querySelector("#mv-btn-close").addEventListener("click", () => this.close());
+      root.querySelector("#mv-btn-gmat-training").addEventListener("click", () => this._toggleGmat());
       root.querySelector("#mv-btn-cam-sys").addEventListener("click", () => this._setCameraMode("system"));
       root.querySelector("#mv-btn-cam-craft").addEventListener("click", () => this._setCameraMode("craft"));
       root.querySelector("#mv-btn-cam-target").addEventListener("click", () => this._setCameraMode("target"));
@@ -897,7 +979,9 @@
 
       const dt = Math.min(delta || 0.016, 0.05);
       if (this.playing) {
-        this.progress = (this.progress + dt * 0.032 * this.speedMultiplier) % 1.0;
+        this.progress = this.gmatMode
+          ? Math.min(1, this.progress + dt * 0.032 * this.speedMultiplier)
+          : (this.progress + dt * 0.032 * this.speedMultiplier) % 1.0;
         if (this.uiRoot) {
           const slider = this.uiRoot.querySelector("#mv-timeline-slider");
           if (slider) slider.value = String(Math.round(this.progress * 1000));
@@ -916,6 +1000,10 @@
 
       const { pos, tangent } = this._sampleCraftPosition(this.progress);
       this.craftGroup.position.copy(pos);
+      if (this.gmatMode && this.gmatStation) {
+        const state = this._gmatState(this.progress);
+        this.gmatStation.position.set(state[7], state[9], state[8]).multiplyScalar(EARTH_RADIUS / 6378.1363);
+      }
       if (tangent.lengthSq() > 0.0001) {
         this.craftGroup.lookAt(pos.clone().add(tangent));
       }
@@ -924,7 +1012,7 @@
 
       // Update Ground Station RF Beam
       let activeStationName = "OUT OF VIEW";
-      if (this.stationNodes.length > 0 && this.rfBeamLine) {
+      if (!this.gmatMode && this.stationNodes.length > 0 && this.rfBeamLine) {
         const tmpWorld = new window.THREE.Vector3();
         let bestDist = Infinity;
         let bestWorld = null;
@@ -991,6 +1079,17 @@
 
     _updateHudTelemetry(inShadow, activeStationName) {
       if (!this.uiRoot) return;
+      if (this.gmatMode) {
+        const state = this._gmatState(this.progress);
+        const distance = Math.hypot(state[1] - state[7], state[2] - state[8], state[3] - state[9]);
+        const relativeSpeed = Math.hypot(state[4] - state[10], state[5] - state[11], state[6] - state[12]);
+        this.uiRoot.querySelector("#mv-title").textContent = "STATION RENDEZVOUS TRAINING (GMAT)";
+        this.uiRoot.querySelector("#mv-subtitle").textContent = "Sample orbit around Earth · target station shown in amber";
+        this.uiRoot.querySelector("#mv-event-active").textContent = this.progress >= 1 ? "FINAL MATCH BURN PLANNED · DATA ENDS" : "APPROACHING STATION · ORBIT FORECAST";
+        this.uiRoot.querySelector("#mv-telemetry-rows").textContent = `UTC ${new Date(Date.parse(this.gmatData.epoch) + state[0] * 1000).toISOString()} · Range ${distance.toFixed(2)} km · Relative speed ${(relativeSpeed * 1000).toFixed(2)} m/s`;
+        this.uiRoot.querySelector("#mv-segment-badges").textContent = "Training scenario · starts in orbit";
+        return;
+      }
       const t = this._getTelemetry();
       if (!t) return;
 

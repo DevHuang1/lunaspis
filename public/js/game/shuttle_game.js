@@ -46,7 +46,13 @@
       this.view.update(sn, {}, dt);
       this.view.render();
     },
-    resize() { if (this.view) this.view.resize(); },
+    resize() {
+      if (this.view) this.view.resize();
+      if (this.controlCamera) {
+        this.controlCamera.aspect = window.innerWidth / window.innerHeight;
+        this.controlCamera.updateProjectionMatrix();
+      }
+    },
 
     // camera look-around: drag (mouse or touch) on the canvas, wheel / pinch to zoom
     _bindCameraInput() {
@@ -62,7 +68,10 @@
         if (!pts.has(e.pointerId) || !this.view || !this.isActive) return;
         const p = pts.get(e.pointerId);
         const k = this.view.scope && this.view.scope.on ? this.view.scope.fov / 60 : 1;   // finer aim when zoomed
-        if (pts.size === 1) this.view.orbitCamera(-(e.clientX - p.x) * 0.006 * k, (e.clientY - p.y) * 0.005 * k);
+        if (pts.size === 1 && this.controlCenter) {
+          this.controlYaw -= (e.clientX - p.x) * 0.004;
+          this.controlPitch = Math.max(-0.8, Math.min(0.8, this.controlPitch - (e.clientY - p.y) * 0.004));
+        } else if (pts.size === 1) this.view.orbitCamera(-(e.clientX - p.x) * 0.006 * k, (e.clientY - p.y) * 0.005 * k);
         else if (pts.size === 2) {
           const other = [...pts.entries()].find(([id]) => id !== e.pointerId)[1];
           const d0 = Math.hypot(p.x - other.x, p.y - other.y), d1 = Math.hypot(e.clientX - other.x, e.clientY - other.y);
@@ -78,6 +87,16 @@
       if (this.isActive) return;
       this.net = opts.net; this.onLeave = opts.onLeave; this.onReturnToLobby = opts.onReturnToLobby || null;
       this.ensureView(opts && opts.renderer);
+      this.controlCenter = !!(this.net.localPlayer && this.net.localPlayer.team === "ground");
+      this.controlYaw = 0; this.controlPitch = 0;
+      if (!this.controlCamera) {
+        this.controlCamera = new window.THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 3000);
+        this.controlCamera.position.set(-60, 3.5, 246);
+        this.controlCamera.rotation.order = "YXZ";
+        this.controlLight = new window.THREE.HemisphereLight(0xffffff, 0x7892a8, 0.7);
+        this.controlLight.visible = false;
+        window.scene.add(this.controlLight);
+      }
       this.isActive = true; this.keys = {}; this.sbPos = 0; this.snapA = null; this.snapB = null; this.snapBuf = []; this.lastSent = null; this.lastSendT = 0;
       if (this.view) {
         this.view.resize();
@@ -136,7 +155,30 @@
         case "TOUCH": if (this.hud) this.hud.toggleTouch(); return;
         case "MIC": if (window.crewComms) window.crewComms.toggleMic(); return;
         case "COMMS": if (window.crewComms) window.crewComms.openSettings(); return;
+        case "CONTROL_CENTER": this.controlCenter = !this.controlCenter; return;
         case "CHAT": if (arg) this.net.sendChat(arg); return;
+        case "GMAT_COAST": {
+          if (!this.hud || this.hud.gmatLoading) return;
+          const hud = this.hud;
+          hud.gmatLoading = true;
+          hud.gmatMessage = "GMAT calculation in progress…";
+          if (!this.net.socket || !this.net.connected) {
+            hud.gmatLoading = false;
+            hud.gmatMessage = "Connect to the flight before requesting GMAT.";
+            return;
+          }
+          this.net.socket.timeout(25000).emit("shuttle_gmat_coast", (error, result) => {
+            if (this.hud !== hud) return;
+            hud.gmatLoading = false;
+            if (error || !result) hud.gmatMessage = "GMAT request timed out.";
+            else if (!result.success) hud.gmatMessage = result.error || "GMAT calculation failed.";
+            else {
+              hud.gmatPrediction = result.prediction;
+              hud.gmatMessage = "GMAT coast calculation complete.";
+            }
+          });
+          return;
+        }
         case "BAY": { const sn = this.net.snapshot; const close = sn && (sn.vehicle.doors > 0.5 || sn.vehicle.doorsCmd > 0); return this._send(close ? "CLOSE_BAY" : "OPEN_BAY"); }
         case "WARP+": case "WARP-": {
           const sn = this.net.snapshot, cur = sn ? Math.max(0, WARP_STEPS.indexOf(sn.warpReq)) : 0;
@@ -264,8 +306,26 @@
       const sn = this._renderSnapshot();
       if (sn) { this.view.update(sn, this.input, rawDt); }
       else if (this.titleMission) this.view.update(this.titleMission.snapshot(), {}, rawDt);
-      this.view.render();
-      if (this.hud && sn) this.hud.update(sn, rawDt, { assets: this.view.assetStatus, roles: this.myRoles(), crew: sn.crew, me: this.net.socketId, comms: window.crewComms ? window.crewComms.state() : "N/A", ping: this.net.pingMs, fps: this._fps, scope: this.view.scope, keys: this.keys, anchors: this.view.steerAnchors(), aim: this.view.aimBody || null });
+      if (this.controlCenter && window.spaceCenter && window.spaceCenter.group) {
+        const scene = window.scene, group = window.spaceCenter.group;
+        const oldVisible = group.visible, oldFog = scene.fog, oldBackground = scene.background;
+        const oldExposure = this.renderer.toneMappingExposure;
+        group.visible = true;
+        this.controlLight.visible = true;
+        scene.fog = null;
+        scene.background = new window.THREE.Color(0x9eb7c5);
+        this.controlCamera.rotation.set(this.controlPitch, this.controlYaw, 0);
+        this.renderer.toneMappingExposure = 0.5;
+        this.renderer.render(scene, this.controlCamera);
+        this.renderer.toneMappingExposure = oldExposure;
+        scene.background = oldBackground;
+        scene.fog = oldFog;
+        this.controlLight.visible = false;
+        group.visible = oldVisible;
+      } else {
+        this.view.render();
+      }
+      if (this.hud && sn) this.hud.update(sn, rawDt, { assets: this.view.assetStatus, roles: this.myRoles(), crew: sn.crew, me: this.net.socketId, comms: window.crewComms ? window.crewComms.state() : "N/A", ping: this.net.pingMs, fps: this._fps, scope: this.controlCenter ? null : this.view.scope, keys: this.keys, anchors: this.controlCenter ? null : this.view.steerAnchors(), aim: this.view.aimBody || null, controlCenter: this.controlCenter });
       if (window.shuttleSfx && sn) window.shuttleSfx.update(sn, this.input, rawDt);
     },
   };

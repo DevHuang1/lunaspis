@@ -124,6 +124,29 @@
   #shuttle-hud button .k{color:var(--dim);margin-left:8px} #shuttle-hud button:hover .k{color:#000}
   #shuttle-hud .touch{position:absolute;left:50%;transform:translateX(-50%);bottom:132px;display:none;gap:4px;pointer-events:auto}
   #shuttle-hud .touch button{width:46px;height:40px;margin:0;padding:0}
+  #shuttle-hud .control-toggle,#shuttle-hud .control-view{position:absolute;top:22px;pointer-events:auto;background:#152331;color:#eaf3f7;border:1px solid #3c5363;border-radius:8px;padding:9px 14px;font:500 13px/1.2 "DM Sans",sans-serif;letter-spacing:0;text-transform:none;box-shadow:0 4px 18px rgba(3,13,21,.2)}
+  #shuttle-hud .control-toggle{right:18px} #shuttle-hud .control-view{right:144px}
+  #shuttle-hud .control-room{position:absolute;right:18px;top:72px;width:min(340px,calc(100vw - 36px));max-height:calc(100vh - 95px);overflow:auto;pointer-events:auto;background:#10202c;color:#ecf4f7;border:1px solid #38515e;border-radius:14px;padding:20px;text-transform:none;letter-spacing:0;font:14px/1.45 "DM Sans",sans-serif;box-shadow:0 16px 45px rgba(0,10,17,.28)}
+  #shuttle-hud .control-room .control-eyebrow{font-size:11px;color:#9ab5c0;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+  #shuttle-hud .control-room h2{font-size:21px;line-height:1.2;font-weight:600;letter-spacing:0;margin:5px 0 8px;text-transform:none}
+  #shuttle-hud .control-room p{margin:0;color:#c0d1d8}
+  #shuttle-hud .control-room .control-metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:17px 0 12px}
+  #shuttle-hud .control-room .control-metric{padding:10px 11px;background:#1a303d;border-radius:9px}
+  #shuttle-hud .control-room .control-metric span{display:block;color:#a8c0ca;font-size:12px}
+  #shuttle-hud .control-room .control-metric strong{display:block;color:#f2f8fa;font-size:18px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:3px}
+  #shuttle-hud .control-room .control-stage{color:#a8c0ca;font-size:12px;padding:0 1px 14px}
+  #shuttle-hud .control-room .control-note{color:#a8c0ca;font-size:12px;margin:8px 0}
+  #shuttle-hud .control-room details{border-top:1px solid #38515e;margin-top:12px;padding-top:12px}
+  #shuttle-hud .control-room summary{color:#d8e8ed;cursor:pointer;font-weight:500}
+  #shuttle-hud .control-room .rows{font-size:12px;gap:5px 14px;margin:12px 0;color:#eaf3f7}
+  #shuttle-hud .control-room .rows .n{color:#a8c0ca} #shuttle-hud .control-room .rows .v{color:#f0f7f9}
+  #shuttle-hud .control-room .control-events{margin:10px 0;padding:0;list-style:none;font-size:12px;color:#c0d1d8}
+  #shuttle-hud .control-room .control-events li{margin:7px 0} #shuttle-hud .control-room .control-events time{color:#80cbd5;margin-right:6px}
+  #shuttle-hud .control-room button{font:600 13px/1.3 "DM Sans",sans-serif;letter-spacing:0;text-transform:none;border-radius:8px;padding:10px 12px;margin:4px 0;min-height:40px;width:100%;border:1px solid #57717d;color:#e9f5f8;background:#213b48}
+  #shuttle-hud .control-room button.control-primary{background:#a7e0dc;border-color:#a7e0dc;color:#123038}
+  #shuttle-hud .control-room button:hover:not(:disabled),#shuttle-hud .control-room button:focus-visible{background:#d8f2ef;color:#10262d;outline:2px solid #8fdbd3;outline-offset:2px}
+  #shuttle-hud .control-room button:disabled{opacity:.45}
+  #shuttle-hud.mcc-view .top,#shuttle-hud.mcc-view .kb,#shuttle-hud.mcc-view .hint,#shuttle-hud.mcc-view .prompt{display:none!important}
   @media (max-width:720px){#shuttle-hud .prompt{bottom:44px}#shuttle-hud .prompt .l1{font-size:14px}#shuttle-hud .log{display:none}#shuttle-hud .hint{display:none}#shuttle-hud .win{inset:4px}}
   @media (prefers-reduced-motion:reduce){#shuttle-hud .cur{animation:none}}
   `;
@@ -142,6 +165,17 @@
         <div class="log" id="sh-log"></div>
         <div class="chat" id="sh-chat"><input id="sh-chatin" maxlength="140" placeholder="> message the crew, Enter to send" /></div>
         <div class="hint" id="sh-hint">F3 stats · / chat · Right-click zoom</div>
+        <button type="button" class="control-toggle" id="sh-control-toggle" aria-expanded="true">Hide data</button>
+        <button type="button" class="control-view" id="sh-control-view">Control center</button>
+        <section class="control-room" id="sh-control" aria-label="Mission control telemetry">
+          <div id="sh-control-live"></div>
+          <button type="button" class="control-primary" data-control-action="report">Send update to crew</button>
+          <details><summary>More flight data</summary>
+            <div id="sh-control-details"></div>
+            <button type="button" id="sh-gmat-run" data-control-action="gmat">Calculate orbit with GMAT</button>
+            <button type="button" id="sh-gmat-report" data-control-action="gmat-report">Send forecast to crew</button>
+          </details>
+        </section>
         <div class="toast" id="sh-toast"></div>
         <div class="scope" id="sh-scope"><i></i><em id="sh-scopefov"></em></div>
         <div class="touch" id="sh-touch"></div>
@@ -158,6 +192,27 @@
       });
       ci.addEventListener("blur", () => { this.el("sh-chat").style.display = "none"; this.el("sh-log").style.visibility = ""; });
       this.el("sh-data").addEventListener("click", (e) => { const b = e.target.closest("button[data-cmd]"); if (b) { b.blur(); this.onCommand(b.dataset.cmd, b.dataset.arg); } });
+      this.controlOpen = true;
+      this.el("sh-control-view").addEventListener("click", () => this.onCommand("CONTROL_CENTER"));
+      this.el("sh-control-toggle").addEventListener("click", () => {
+        this.controlOpen = !this.controlOpen;
+        this.el("sh-control").style.display = this.controlOpen ? "block" : "none";
+        this.el("sh-control-toggle").setAttribute("aria-expanded", String(this.controlOpen));
+      });
+      this.el("sh-control").addEventListener("click", (event) => {
+        const button = event.target.closest("button[data-control-action]");
+        if (!button || !this.latestSnapshot) return;
+        if (button.dataset.controlAction === "gmat") this.onCommand("GMAT_COAST");
+        if (button.dataset.controlAction === "report") {
+          const sn = this.latestSnapshot, t = sn.telemetry;
+          const time = sn.met == null ? "prelaunch" : `T${met(sn.met)}`;
+          this.onCommand("CHAT", `Flight control ${time}: altitude ${(t.altitudeM / 1000).toFixed(1)} km, airspeed ${t.airspeedMps.toFixed(0)} m/s, dynamic pressure ${(t.dynPressPa / 1000).toFixed(1)} kPa.`);
+        }
+        if (button.dataset.controlAction === "gmat-report" && this.gmatPrediction) {
+          const p = this.gmatPrediction;
+          this.onCommand("CHAT", `GMAT coast forecast from sim time ${p.sourceSimTime.toFixed(0)} s: in ${p.horizonSeconds} s altitude ${p.altitudeKm.toFixed(1)} km, speed ${p.inertialSpeedKmS.toFixed(3)} km/s.`);
+        }
+      });
       this.lines = []; this.lastHtml = {}; this.modalKind = null; this.t = 0; this.dataOpen = false; this.promptKey = "";
     }
     _set(id, html) { if (this.lastHtml[id] !== html) { this.lastHtml[id] = html; this.el(id).innerHTML = html; } }
@@ -184,8 +239,8 @@
     toast(msg) { const el = this.el("sh-toast"); el.textContent = msg; el.style.display = "block"; clearTimeout(this._toastT); this._toastT = setTimeout(() => { el.style.display = "none"; }, 3500); }
     crewLog(log) { if (log.accepted && log.type !== "SET_WARP") this._line(`<span class="me">${esc(log.by)}@${SEAT[log.seat] ? SEAT[log.seat].toLowerCase() : "crew"}</span> ${esc(log.type.replace(/_/g, " ").toLowerCase())}`); }
     events() { /* phase / failure messages arrive in the snapshot log */ }
-    chat(comm) { this._line(`<span class="me">${esc(comm.sender)}:</span> ${esc(comm.text)}`); }
-    _line(html) { this.lines.push({ html, at: performance.now() }); if (this.lines.length > 12) this.lines.shift(); this._drawLog(); }
+    chat(comm) { this._line(`<span class="me">${esc(comm.sender)}:</span> ${esc(comm.text)}`, "chat"); }
+    _line(html, kind = "event") { this.lines.push({ html, kind, at: performance.now() }); if (this.lines.length > 12) this.lines.shift(); this._drawLog(); }
     focusChat() { this.el("sh-chat").style.display = "block"; this.el("sh-log").style.visibility = "hidden"; this.el("sh-chatin").focus(); }
 
     // ------------------------------------------------------------------ windows
@@ -196,6 +251,33 @@
     }
     _sec(title, inner) { return `<div class="sec"><h3>${esc(title)}</h3>${inner}</div>`; }
     _rows(list) { return `<div class="rows">${list.map(([n, v, cls]) => `<span class="n">${esc(n)}</span><span class="v ${cls || ""}">${v}</span>`).join("")}</div>`; }
+
+    _controlRoom(sn) {
+      const t = sn.telemetry, v = sn.vehicle;
+      const done = (id) => sn.objectives.some((objective) => objective.id === id && objective.status === "done");
+      let status;
+      if (sn.failure) status = `Flight stopped: ${sn.failure.reason}`;
+      else if (sn.paused) status = "Flight paused.";
+      else if (sn.phase === "briefing") status = "Awaiting the commander to start the countdown.";
+      else if (sn.phase === "prelaunch") status = "The automatic launch countdown is running.";
+      else if (sn.phase === "ascent" && done("meco")) status = "Main engines are off. Tank separation is next.";
+      else if (sn.phase === "ascent" && done("srb_sep")) status = "Boosters separated. The shuttle continues its climb.";
+      else if (sn.phase === "ascent") status = "The shuttle is climbing toward orbit.";
+      else if (sn.phase === "insertion" && !done("orbit_valid")) status = "Tank separated. The crew is preparing the orbit insertion burn.";
+      else if (sn.phase === "payload") status = "Orbit verified. The crew is preparing the satellite.";
+      else status = (sn.guidance && sn.guidance.next && sn.guidance.next.text) || `Flight phase: ${sn.phase}.`;
+      const metText = sn.phase === "prelaunch" ? `T-${f0(sn.countdown)} s` : sn.met == null ? "—" : `T${met(sn.met)}`;
+      const q = Number.isFinite(t.dynPressPa) ? `${f1(t.dynPressPa / 1000)} kPa` : "—";
+      const fields = [["Vertical speed", `${f0(t.verticalSpeedMps)} m/s`], ["Orbit speed", `${f0(t.inertialSpeedMps)} m/s`], ["Engine throttle", `${f0((v.eng.throttle || 0) * 100)}%`]];
+      const events = (sn.messages || []).filter((m) => !/^(SET_WARP|SET_CONTROL_INPUT)/.test(m.text)).slice(-2).reverse().map((m) => `<li><time>${esc(met(m.t - (sn.simTime - (sn.met || 0))))}</time>${esc(m.text)}</li>`).join("");
+      const prediction = this.gmatPrediction && this.gmatPrediction.missionId === sn.missionId ? this.gmatPrediction : null;
+      const predictionHtml = prediction ? `<p>At +${prediction.horizonSeconds} s from simulation time ${f0(prediction.sourceSimTime)} s: height ${f1(prediction.altitudeKm)} km · speed ${prediction.inertialSpeedKmS.toFixed(3)} km/s</p>` : "";
+      const metric = (name, value) => `<div class="control-metric"><span>${name}</span><strong>${value}</strong></div>`;
+      return {
+        main: `<div class="control-eyebrow">Mission control · ${esc(metText)}</div><h2>${esc(PHASE_TAG[sn.phase] || sn.phase)}</h2><p>${esc(status)}</p><div class="control-metrics">${metric("Height", `${f1(t.altitudeM / 1000)} km`)}${metric("Air speed", `${f0(t.airspeedMps)} m/s`)}${metric("Sound speed (Mach)", f2(t.mach))}${metric("Air push", q)}</div><div class="control-stage">Boosters ${v.cfg.srb ? "attached" : "separated"} · Tank ${v.cfg.et ? "attached" : "separated"}</div>`,
+        details: `${this._rows(fields)}<p class="control-note">GMAT estimates a 2-minute coast above 150 km with engines off.</p><p class="control-note">${esc(this.gmatMessage || "")}</p>${predictionHtml}<ul class="control-events">${events}</ul>`
+      };
+    }
     showModal(kind, title, crumb, body) {
       this.modalKind = kind;
       const m = this.el("sh-modal");
@@ -383,13 +465,16 @@
     }
     _drawLog() {
       const now = performance.now();
-      const html = this.lines.slice(-4).map((x) => `<div style="opacity:${now - x.at > 9000 ? 0 : 1}">${x.html}</div>`).join("");
+      const lines = this.inControlCenter ? this.lines.filter((line) => line.kind === "chat") : this.lines;
+      const html = lines.slice(-4).map((x) => `<div style="opacity:${now - x.at > 9000 ? 0 : 1}">${x.html}</div>`).join("");
       this._set("sh-log", html);
     }
 
     // ------------------------------------------------------------------ per frame
     update(sn, dt, extra) {
       this.t += dt; extra = extra || {};
+      this.latestSnapshot = sn;
+      this.inControlCenter = !!extra.controlCenter;
       const roles = extra.roles || [];
       const pi = PHASES.indexOf(sn.phase); this._page = `P.${String(pi).padStart(3, "0")}`; this._prog = Math.max(0, pi - 1);
       if (sn.failure) { if (this.modalKind !== "failure") this.failureCard(sn); }
@@ -418,6 +503,22 @@
         this._line(`<span class="t">${met(m.t - (sn.simTime - (sn.met || 0)))}</span> <span class="${m.level === "fail" ? "bad" : ""}">${esc(m.text)}</span>`);
       }
       this._drawLog();
+      if (this.controlOpen && !this.modalKind) {
+        const control = this._controlRoom(sn);
+        this._set("sh-control-live", control.main);
+        this._set("sh-control-details", control.details);
+        const engine = sn.vehicle.eng;
+        const canPredict = !["briefing", "prelaunch", "ascent"].includes(sn.phase) && sn.telemetry.altitudeM >= 150000 && !engine.ssme && !engine.srb && !engine.oms && !(sn.burn && sn.burn.active);
+        this.el("sh-gmat-run").disabled = !canPredict || !!this.gmatLoading;
+        this.el("sh-gmat-run").textContent = this.gmatLoading ? "Calculating…" : "Calculate orbit with GMAT";
+        this.el("sh-gmat-report").style.display = this.gmatPrediction && this.gmatPrediction.missionId === sn.missionId ? "" : "none";
+      }
+      this.el("sh-control").style.display = this.controlOpen && !this.modalKind ? "block" : "none";
+      this.el("sh-control-toggle").style.display = this.modalKind ? "none" : "block";
+      this.el("sh-control-view").style.display = this.modalKind ? "none" : "block";
+      this.el("sh-control-view").textContent = extra.controlCenter ? "Shuttle view" : "Control center";
+      this.el("sh-control-toggle").textContent = this.controlOpen ? "Hide data" : "Show data";
+      this.root.classList.toggle("mcc-view", !!extra.controlCenter);
       const sc = extra.scope;
       this.el("sh-scope").style.display = sc && sc.on ? "flex" : "none";
       if (sc && sc.on) this._set("sh-scopefov", `SCOPE ${f1(60 / sc.fov)}× · FOV ${f2(sc.fov)}° · wheel to zoom`);
