@@ -2272,56 +2272,8 @@
     // ============================================================================
     _buildWaterDelugeSystem() {
       const THREE = window.THREE;
-      const delugeGroup = new THREE.Group();
-      delugeGroup.name = "WaterDelugeSystem";
-      delugeGroup.position.set(78, 0, -70);
-      this.padGroup.add(delugeGroup);
 
-      const tankMat = new THREE.MeshStandardMaterial({ color: 0xdfe7ec, roughness: 0.5, metalness: 0.28 });
-      const legMat = new THREE.MeshStandardMaterial({ color: 0x8d99a3, roughness: 0.55, metalness: 0.4 });
-
-      // Four support legs and cross-braced water tower.
-      const legGeo = new THREE.CylinderGeometry(0.7, 0.95, 45, 10);
-      [
-        [-8, -8], [8, -8], [-8, 8], [8, 8]
-      ].forEach(([x, z]) => {
-        const leg = new THREE.Mesh(legGeo, legMat);
-        leg.position.set(x, 22.5, z);
-        delugeGroup.add(leg);
-      });
-
-      for (let y = 8; y <= 36; y += 9) {
-        this._makeBeam(delugeGroup, 16, 0.28, 0.28, 0, y, -8, legMat);
-        this._makeBeam(delugeGroup, 16, 0.28, 0.28, 0, y, 8, legMat);
-        this._makeBeam(delugeGroup, 0.28, 0.28, 16, -8, y, 0, legMat);
-        this._makeBeam(delugeGroup, 0.28, 0.28, 16, 8, y, 0, legMat);
-      }
-      this._makeBeam(delugeGroup, 22, 0.25, 0.25, 0, 22, -8, legMat, 0.62, 0, 0);
-      this._makeBeam(delugeGroup, 22, 0.25, 0.25, 0, 22, 8, legMat, -0.62, 0, 0);
-
-      const sphereTank = new THREE.Mesh(new THREE.SphereGeometry(11, 24, 18), tankMat);
-      sphereTank.position.set(0, 54, 0);
-      delugeGroup.add(sphereTank);
-
-      const tankBand = new THREE.Mesh(new THREE.CylinderGeometry(11.05, 11.05, 1.5, 32), new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.6, metalness: 0.2 }));
-      tankBand.position.set(0, 54, 0);
-      delugeGroup.add(tankBand);
-
-      // Vertical riser pipe down from the tank and across toward the pad.
-      const pipeMat = new THREE.MeshStandardMaterial({ color: 0x9aa6b0, roughness: 0.45, metalness: 0.7 });
-      const riser = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 46, 10), pipeMat);
-      riser.position.set(0, 31, 0);
-      delugeGroup.add(riser);
-
-      const feedPipe = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 60, 8), pipeMat);
-      feedPipe.rotation.z = Math.PI / 2;
-      feedPipe.position.set(-30, 2.0, 0);
-      delugeGroup.add(feedPipe);
-
-      const delugeBase = new THREE.Mesh(new THREE.BoxGeometry(20, 1.6, 20), new THREE.MeshStandardMaterial({ color: 0x66727b, roughness: 0.9, metalness: 0.1 }));
-      delugeBase.position.set(0, 0.8, 0);
-      delugeGroup.add(delugeBase);
-
+      // Active water deluge spray under the vehicle launch mount (no giant sphere blocking view)
       const waterSprayMat = new THREE.MeshStandardMaterial({
         color: 0xe0f2fe,
         transparent: true,
@@ -2330,7 +2282,6 @@
       });
       this.delugeWaterMesh = new THREE.Mesh(new THREE.CylinderGeometry(9, 14, 12, 16), waterSprayMat);
       this.delugeWaterMesh.position.set(0, 14, 0);
-      // Keep the deluge effect at the pad, not under the water tower.
       this.padGroup.add(this.delugeWaterMesh);
 
       const steamMat = new THREE.MeshBasicMaterial({

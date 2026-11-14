@@ -3589,11 +3589,11 @@
     } else if (window.shipInterior && window.shipInterior.isMoonLandingActive) {
       // Lunar Touchdown Scene controls camera orbit around Apollo Lunar Module
     } else if (window.spaceCenter && window.spaceCenter.isGroundMode && window.spaceCenter.crewBoarded) {
-      // Cockpit / pad camera while boarded awaiting launch.  Keep the whole
-      // stack in frame instead of parking the camera inside the external tank.
+      // Cockpit / pad camera while boarded awaiting launch. Keep the whole
+      // stack in frame with an unobstructed view from 90° right (North-East perspective).
       const t = performance.now() * 0.001;
       camera.position.lerp(
-        new THREE.Vector3(72 + Math.sin(t * 0.12) * 5, 46, 96 + Math.cos(t * 0.12) * 5),
+        new THREE.Vector3(96 + Math.cos(t * 0.12) * 5, 46, -72 - Math.sin(t * 0.12) * 5),
         0.06
       );
       camera.lookAt(0, 42, 0);
