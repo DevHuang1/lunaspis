@@ -1814,11 +1814,14 @@
       // Walkable bridge floor inside the access arm. The arm runs from the
       // tower face to the orbiter's port-side hatch; its length matches the
       // 19 m reach needed to close the gap to the fuselage at x ~= -2.2.
+      // The floor starts at the staging-deck edge instead of overlapping it.
+      // Both decks share the same walking height, and a coplanar overlap makes
+      // the bridge flicker with depth-buffer z-fighting as the crew crosses.
       const bridgeFloor = new THREE.Mesh(
-        new THREE.BoxGeometry(19.0, 0.3, 2.8),
+        new THREE.BoxGeometry(18.0, 0.3, 2.8),
         new THREE.MeshStandardMaterial({ color: 0x8493a0, roughness: 0.65, metalness: 0.4 })
       );
-      bridgeFloor.position.set(9.5, 0.15, 0);
+      bridgeFloor.position.set(10.0, 0.15, 0);
       this.armPivotGroup.add(bridgeFloor);
 
       // Access-arm side trusses and handrails.
@@ -3724,6 +3727,10 @@
         : "CMD";
       const unboardedNames = crewState.flightRoster.filter((p) => !p.isAboard).map((p) => p.name);
       const stepOutHint = this.crewBoarded && !this.isLaunching ? " · [E/B] STEP OUT" : "";
+      const hatchDistance = this._distanceToGuidancePoint(-7.8, -7.2);
+      const canBoard = !isGround && !this.crewBoarded && this.dockLocked &&
+        this.missionPhase === "gantry" && !this.isLaunching &&
+        hatchDistance !== null && hatchDistance <= 2.6;
       const canUnboard = !isGround && this.crewBoarded && this.missionPhase === "gantry" &&
         !this.isLaunching && !this._launchSequenceStarted;
 
@@ -3821,6 +3828,7 @@
         step1Done,
         step2Done,
         crewBoarded: this.crewBoarded,
+        canBoard,
         canUnboard,
         nearTerm,
         nearElevator,
@@ -3887,8 +3895,8 @@
               <button type="button" id="btn-sc-launch" class="sc-hud-btn sc-btn-launch" style="display:${guidance.canLaunchNow ? "inline-flex" : "none"};">
                 ${guidance.pollActive ? (touchUI ? "OVERRIDE LAUNCH" : "OVERRIDE [L]") : (touchUI ? "LAUNCH" : "LAUNCH [L]")}
               </button>
-              <button type="button" id="btn-sc-unboard" class="sc-hud-btn sc-btn-term" style="display:${guidance.canUnboard ? "inline-flex" : "none"};">
-                ${touchUI ? "STEP OUT" : "STEP OUT [E/B]"}
+              <button type="button" id="btn-sc-boarding" class="sc-hud-btn sc-btn-term" style="display:${guidance.canBoard || guidance.canUnboard ? "inline-flex" : "none"};">
+                ${guidance.canUnboard ? (touchUI ? "STEP OUT" : "STEP OUT [E/B]") : (touchUI ? "BOARD" : "BOARD [E/B]")}
               </button>
             `}
             <button type="button" id="btn-sc-hud-toggle" class="sc-hud-btn sc-btn-collapse" title="${this.hudCollapsed ? "Expand Launch Pad Dock" : "Minimize Launch Pad Dock"}">
@@ -4084,9 +4092,18 @@
         });
       }
 
-      const btnUnboard = this.hudOverlay.querySelector("#btn-sc-unboard");
-      if (btnUnboard) {
-        btnUnboard.addEventListener("click", () => this.unboardSpacecraft());
+      const btnBoarding = this.hudOverlay.querySelector("#btn-sc-boarding");
+      if (btnBoarding) {
+        btnBoarding.addEventListener("click", () => {
+          if (this.crewBoarded) {
+            this.unboardSpacecraft();
+            return;
+          }
+          const distHatch = this._distanceToGuidancePoint(-7.8, -7.2);
+          if (this.dockLocked && distHatch !== null && distHatch <= 2.6) {
+            this.boardSpacecraft();
+          }
+        });
       }
 
       this.hudOverlay.querySelectorAll("[data-ground-op]").forEach((btn) => {
@@ -4149,10 +4166,12 @@
           : (guidance.touchUI ? "LAUNCH" : "LAUNCH [L]");
       }
 
-      const btnUnboard = this.hudOverlay.querySelector("#btn-sc-unboard");
-      if (btnUnboard) {
-        btnUnboard.style.display = guidance.canUnboard ? "inline-flex" : "none";
-        btnUnboard.textContent = guidance.touchUI ? "STEP OUT" : "STEP OUT [E/B]";
+      const btnBoarding = this.hudOverlay.querySelector("#btn-sc-boarding");
+      if (btnBoarding) {
+        btnBoarding.style.display = guidance.canBoard || guidance.canUnboard ? "inline-flex" : "none";
+        btnBoarding.textContent = guidance.canUnboard
+          ? (guidance.touchUI ? "STEP OUT" : "STEP OUT [E/B]")
+          : (guidance.touchUI ? "BOARD" : "BOARD [E/B]");
       }
 
       const btnTermAct = this.hudOverlay.querySelector("#btn-sc-term-act");

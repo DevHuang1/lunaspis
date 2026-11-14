@@ -412,8 +412,9 @@ html, body {
   padding: 0;
   border: none;
   background: transparent;
-  font-size: 9.5px;
-  letter-spacing: 0.7px;
+  font-size: 11px;
+  letter-spacing: 0.6px;
+  line-height: 1.4;
   color: var(--text-slate);
 }
 
@@ -437,11 +438,11 @@ html, body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 9.5px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 1.6px;
+  letter-spacing: 1.3px;
   color: var(--text-slate);
-  padding-bottom: 4px;
+  padding-bottom: 6px;
   border-bottom: 1px solid rgba(148, 163, 184, 0.16);
 }
 
@@ -520,16 +521,16 @@ html, body {
 }
 
 .lobby-row-duty {
-  font-size: 10px;
+  font-size: 11.5px;
   color: var(--text-slate);
-  line-height: 1.3;
+  line-height: 1.45;
 }
 
 .lobby-swap-btn {
-  padding: 3px 8px;
-  font-size: 9px;
+  padding: 5px 10px;
+  font-size: 10.5px;
   font-weight: 700;
-  letter-spacing: 0.9px;
+  letter-spacing: 0.7px;
   cursor: pointer;
 }
 
@@ -583,16 +584,16 @@ html, body {
 .lobby-autoshuffle-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-family: var(--font-mono);
-  font-size: 9.5px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 1px;
+  letter-spacing: 0.8px;
   color: var(--text-slate);
   cursor: pointer;
-  padding: 6px 10px;
+  padding: 7px 12px;
   border: 1px solid var(--border-hairline);
-  border-radius: 4px;
+  border-radius: 5px;
   background: rgba(6, 10, 18, 0.65);
 }
 
@@ -732,14 +733,14 @@ html, body {
   position: fixed;
   inset: calc(52px + var(--safe-top)) auto auto 50%;
   transform: translateX(-50%);
-  width: min(860px, calc(100vw - 32px));
+  width: min(960px, calc(100vw - 32px));
   max-height: calc(var(--app-height, 100dvh) - 165px);
   overflow-y: auto;
   z-index: 980;
-  padding: 14px 16px;
+  padding: 18px 20px;
   display: none;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
   pointer-events: auto;
 }
 
@@ -747,38 +748,40 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding-bottom: 8px;
+  gap: 12px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--border-hairline);
 }
 
 .ground-lcc-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(245px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(275px, 1fr));
+  gap: 12px;
 }
 
 .ground-lcc-card {
-  padding: 10px 11px;
+  padding: 13px 14px;
   background: rgba(5, 8, 16, 0.68);
   border: 1px solid var(--border-hairline);
-  border-radius: 4px;
+  border-radius: 6px;
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 9px;
+  line-height: 1.5;
 }
 
 .ground-ping-banner {
-  padding: 5px 8px;
-  border-radius: 3px;
+  padding: 8px 11px;
+  border-radius: 4px;
   border: 1px solid rgba(37, 99, 235, 0.55);
   background: rgba(37, 99, 235, 0.14);
-  font-size: 9.5px;
+  font-size: 11px;
+  line-height: 1.45;
   color: #dbeafe;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
+  gap: 8px;
 }
 
 /* ---------- Progress & Checklist ---------- */
@@ -919,15 +922,16 @@ a:hover { color: var(--accent-cyan); }
 }
 
 .ops-mode-btn {
-  padding: 8px 10px;
+  padding: 9px 12px;
   border-radius: 7px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(255, 255, 255, 0.03);
   color: #9aa4ae;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 9.5px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
+  line-height: 1.35;
   text-transform: uppercase;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -952,37 +956,38 @@ a:hover { color: var(--accent-cyan); }
 
 .shuttle-mode-card {
   width: 100%;
-  padding: 11px 12px;
+  padding: 14px 16px;
   border-radius: 8px;
   border: 1px solid rgba(103, 232, 249, 0.38);
   background: rgba(103, 232, 249, 0.06);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .shuttle-mode-card-title {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 10px;
+  font-size: 11.5px;
   font-weight: 700;
   color: #67e8f9;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
 }
 
 .shuttle-mode-card-desc {
-  font-size: 11px;
+  font-size: 12.5px;
   color: #d7d2c8;
-  line-height: 1.45;
+  line-height: 1.5;
 }
 
 .shuttle-mode-seats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 5px 10px;
+  gap: 6px 12px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 9px;
+  font-size: 10.5px;
+  line-height: 1.45;
   color: #9aa4ae;
-  padding-top: 4px;
+  padding-top: 6px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
