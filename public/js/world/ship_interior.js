@@ -1686,12 +1686,13 @@
     specs.forEach((spec) => {
       spec.wings.forEach((wing) => {
         const width = wing.end - wing.start;
-        if (width < 0.4) return;
+        if (width < 0.18) return;
         const center = (wing.start + wing.end) / 2;
         [wing.start + 0.06, wing.end - 0.06].forEach((x) => {
           add(entries.ribs, spec, [x, 0.34, -0.025]);
           add(entries.ribs, spec, [x, 0.34, -0.055]);
         });
+        if (width < 0.35) return;
         if (width < 0.62) {
           add(entries.vents, spec, [center, 1.55, -0.02]);
           add(entries.vents, spec, [center, 1.55, -0.06], [0, Math.PI, 0]);
