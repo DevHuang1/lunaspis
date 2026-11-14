@@ -1177,6 +1177,7 @@
 
       this.activeTask = null;
       this.nearbyTask = null;
+      this.nearbyMissionDiorama = false;
       this.activeCleanup = null;
     }
 
@@ -1857,6 +1858,21 @@
     // ========================================================================
     // INTEGRATED SYSTEMS ENGINEERING PHYSICS & RESOURCE SOLVER
     // ========================================================================
+    _syncMissionDiorama(telemetry) {
+      if (!telemetry || !window.shipInterior ||
+        typeof window.shipInterior.setMissionDioramaScenario !== "function") return;
+      const bio = telemetry.bioTelemetry;
+      window.shipInterior.setMissionDioramaScenario(telemetry.scenario.id, {
+        bagId: bio && bio.bag ? bio.bag.id : null,
+        thermalId: bio && bio.thermal ? bio.thermal.id : null,
+        yieldOk: !!(bio && bio.yieldOk),
+        incubateTempC: bio && bio.thermal ? bio.thermal.incubateTempC : null,
+        storageTempC: bio && bio.thermal ? bio.thermal.storageTempC : null,
+        cubesatFormId: telemetry.cubesatForm ? telemetry.cubesatForm.id : null,
+        wavelengthId: telemetry.wavelength ? telemetry.wavelength.id : null
+      });
+    }
+
     evaluateMissionDesign() {
       const md = this.missionDesign;
       const scenario = MISSION_SCENARIOS[md.scenarioId] || MISSION_SCENARIOS.lunar_south_pole;
@@ -2290,6 +2306,7 @@
         baseTelemetry.cmlLabel = cmlEval.reachedTitle;
       }
 
+      this._syncMissionDiorama(baseTelemetry);
       return baseTelemetry;
     }
 
@@ -4137,7 +4154,9 @@
       const btnUse = document.getElementById("btn-proximity-use");
       if (btnUse) {
         btnUse.addEventListener("click", () => {
-          if (this.nearbyTask) {
+          if (this.nearbyMissionDiorama) {
+            this.inspectMissionDiorama();
+          } else if (this.nearbyTask) {
             this.openTaskModal(this.nearbyTask);
           } else if (this.nearbySideGame && window.issSideGames) {
             window.issSideGames.open(this.nearbySideGame === "csa-lab" ? "canadarm" : this.nearbySideGame);
@@ -4172,6 +4191,8 @@
           if (window.issSideGames && window.issSideGames.isOpen) return;
           if (this.activeTask) {
             this.closeTaskModal();
+          } else if (this.nearbyMissionDiorama) {
+            this.inspectMissionDiorama();
           } else if (this.nearbyTask) {
             this.openTaskModal(this.nearbyTask);
           } else if (this.nearbySideGame && window.issSideGames) {
@@ -4216,20 +4237,38 @@
         }
       }
 
+      const diorama = window.shipInterior && window.shipInterior.missionDiorama;
+      let payloadCloser = false;
+      if (diorama && diorama.root && window.shipInterior.isInteriorActive) {
+        const payloadDistance = Math.hypot(
+          playerPos.x - diorama.root.position.x,
+          playerPos.z - diorama.root.position.z
+        );
+        payloadCloser = payloadDistance < 1.65 && (!closest || payloadDistance < minDistance);
+        if (payloadCloser) closest = null;
+      }
+
       const sideGame = window.issSideGames && typeof window.issSideGames.getNearby === "function"
         ? window.issSideGames.getNearby(playerPos)
         : null;
       const sideGameCloser = !!(sideGame && (!closest || sideGame.distance < minDistance));
-      if (sideGameCloser) closest = null;
+      if (sideGameCloser) {
+        closest = null;
+        payloadCloser = false;
+      }
       this.nearbyTask = closest;
       this.nearbySideGame = sideGameCloser ? sideGame.id : null;
+      this.nearbyMissionDiorama = payloadCloser;
 
       const btnUse = document.getElementById("btn-proximity-use");
       const labelUse = document.getElementById("proximity-task-label");
       const crosshair = document.getElementById("hud-crosshair");
 
       if (btnUse && labelUse) {
-        if (sideGameCloser) {
+        if (this.nearbyMissionDiorama) {
+          btnUse.style.display = "flex";
+          labelUse.textContent = "[E] INSPECT MISSION PAYLOAD";
+        } else if (sideGameCloser) {
           btnUse.style.display = "flex";
           labelUse.textContent = "[E] OPEN CSA LAB · CANADARM2 / TOMATOSPHERE";
         } else if (closest) {
@@ -4245,11 +4284,33 @@
       }
 
       if (crosshair) {
-        if (closest || sideGameCloser) {
+        if (closest || sideGameCloser || this.nearbyMissionDiorama) {
           crosshair.classList.add("target-locked");
         } else {
           crosshair.classList.remove("target-locked");
         }
+      }
+    }
+
+    inspectMissionDiorama() {
+      const t = this.evaluateMissionDesign();
+      this.telemetry = t;
+      const presentation = this.getMissionPresentation(t.scenario.id);
+      let detail = "";
+      if (t.scenario.isBioPayload && t.bioTelemetry) {
+        const bio = t.bioTelemetry;
+        detail = `${bio.yieldOk ? "VITAMIN A GOAL MET" : "YIELD NEEDS WORK"} · ${bio.thermal.incubateTempC}°C / ${bio.thermal.storageTempC}°C · ${bio.protocol.replicates} BAGS`;
+      } else if (t.scenario.isCubesat) {
+        detail = `${String(t.cubesatForm.name || "CUBESAT").toUpperCase()} · ${t.dryMassKg} KG · ${t.overallScore}/100`;
+      } else if (t.scenario.requiresWavelength) {
+        detail = `${t.wavelength.shortLabel} · ${t.telescopeOk ? "COLD OPTICS READY" : "CHECK COOLING"} · ${t.scienceScore}/100 SCI`;
+      } else {
+        detail = `${t.orbit.name} · ${t.overallScore}/100 · ${t.lv.name}`;
+      }
+      this.showToast(`${presentation.destination} · ${presentation.title} — ${detail}`);
+      if (window.spaceAudio) window.spaceAudio.playClick();
+      if (window.shipInterior && typeof window.shipInterior.pingMissionDiorama === "function") {
+        window.shipInterior.pingMissionDiorama();
       }
     }
 
@@ -6629,6 +6690,7 @@
       this._renderResourceMeters();
       this.activeTask = null;
       this.nearbyTask = null;
+      this.nearbyMissionDiorama = false;
       this.lastSyncedTaskCount = 0;
       if (window.shipInterior && window.shipInterior.isMoonLandingActive) {
         window.shipInterior.toggleMoonLandingScene(false);

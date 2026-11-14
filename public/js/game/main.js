@@ -506,7 +506,7 @@
     const defs = window.ASTRONAUT_EMOTES || [];
     grid.innerHTML = defs.map((def, index) => `
       <button type="button" class="emote-btn" data-emote="${def.id}">
-        <span class="emote-hotkey">${index + 1}</span>
+        <span class="emote-hotkey">${index === 9 ? 0 : index + 1}</span>
         <span class="emote-icon">${def.icon}</span>
         <span class="emote-label">${def.label}</span>
       </button>
@@ -1361,13 +1361,6 @@
       });
     });
 
-    const btnHangarMenu = document.getElementById("btn-open-hangar-menu");
-    if (btnHangarMenu) {
-      btnHangarMenu.addEventListener("click", () => {
-        if (window.glbManager) window.glbManager.openHangar();
-      });
-    }
-
     const btnHangarLobby = document.getElementById("btn-open-hangar-lobby");
     if (btnHangarLobby) {
       btnHangarLobby.addEventListener("click", () => {
@@ -2048,15 +2041,25 @@
 
     window.netManager.on("room_joined", (data) => {
       if (inputCode) inputCode.value = "";
-      screenMenu.style.display = "none";
-      screenLobby.style.display = "flex";
-      screenGame.style.display = "none";
-      applySoloLobbyChrome(false);
       if (lobbyRoomCode) lobbyRoomCode.textContent = data.roomId;
-      syncLocalRigWithServer();
+      applySoloLobbyChrome(false);
       updateLobbySlots(data.room.players, data.hostId, data.room.status);
       renderLobbyMission(data.room.mission);
       updateLocalBadge();
+
+      if (data && data.room && data.room.status === "playing") {
+        if (isGameStarted) {
+          syncLocalRigWithServer();
+          return;
+        }
+        window.netManager.emitEvent("game_started", data.room);
+        return;
+      }
+
+      screenMenu.style.display = "none";
+      screenLobby.style.display = "flex";
+      screenGame.style.display = "none";
+      syncLocalRigWithServer();
     });
 
     window.netManager.on("join_error", (err) => {
@@ -2534,7 +2537,11 @@
 
     window.netManager.on("disconnected", () => {
       setCrewCommsOpen(false);
-      if (window.shuttleGame && window.shuttleGame.isActive) {
+    });
+
+    window.netManager.on("rejoin_failed", () => {
+      setCrewCommsOpen(false);
+      if (isGameStarted || (window.shuttleGame && window.shuttleGame.isActive)) {
         cleanupGameWorldForLobby();
         if (screenLobby) screenLobby.style.display = "none";
         if (screenGame) screenGame.style.display = "none";
@@ -3537,7 +3544,7 @@
 
       // The site tour owns 1-9 fast travel; don't fire emote shortcuts.
       if (window.spaceCenter && window.spaceCenter.siteTourActive) {
-        if (/^Digit[1-9]$/.test(e.code) || e.code === "KeyT") return;
+        if (e.code === "Digit0" || /^Digit[1-9]$/.test(e.code) || e.code === "KeyT") return;
       }
 
       // Solar Atlas is a full-screen takeover; close it before another view hotkey opens.
@@ -3557,15 +3564,16 @@
         return;
       }
 
-      // Crew emotes [X] to open the wheel, [1]-[6] to express
+      // Crew emotes [X] to open the wheel, [1]-[9] and [0] to express
       if (e.code === "KeyX" || e.key === "x" || e.key === "X") {
         e.preventDefault();
         setEmoteWheelOpen(!emoteWheelOpen);
         return;
       }
-      if (/^Digit[1-6]$/.test(e.code)) {
+      if (e.code === "Digit0" || /^Digit[1-9]$/.test(e.code)) {
         const emoteDefs = window.ASTRONAUT_EMOTES || [];
-        const emoteDef = emoteDefs[Number(e.code.slice(5)) - 1];
+        const emoteIndex = e.code === "Digit0" ? 9 : Number(e.code.slice(5)) - 1;
+        const emoteDef = emoteDefs[emoteIndex];
         if (emoteDef) {
           e.preventDefault();
           playLocalEmote(emoteDef.id);

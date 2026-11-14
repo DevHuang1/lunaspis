@@ -10,7 +10,7 @@
   <title>Lunaspis — Orbital Transit &amp; ISS Simulator</title>
   <link rel="stylesheet" href="css/style.css?v=4.7.9" />
   <link rel="stylesheet" href="css/premium.css?v=1.2.4" />
-  <link rel="stylesheet" href="css/academy.css?v=1.0.0" />
+  <link rel="stylesheet" href="css/academy.css?v=1.1.0" />
   <link rel="stylesheet" href="css/mission_log.css?v=1.0.0" />
   <link rel="stylesheet" href="css/lunar-glass.css?v=5.1.3" />
   <link rel="stylesheet" href="css/mobile.css?v=1.0.1" />
@@ -99,7 +99,6 @@
         <button class="title-chip-btn" id="btn-open-academy" title="How to play, controls &amp; simple cheat sheet [F1]">BEGINNER GUIDE</button>
         <button class="title-chip-btn" id="btn-open-mission-log" title="Past flights, personal bests &amp; shareable mission reports">PAST FLIGHTS</button>
         <button class="title-chip-btn" id="btn-open-nasa-csa-menu" title="Space Games &amp; Activities + 3D Path &amp; Telescope Lab">GAMES &amp; TOOLS</button>
-        <button class="title-chip-btn" id="btn-open-hangar-menu">3D MODELS</button>
         <div class="title-region-toggle" id="region-toggle" role="group" aria-label="Server region">
           <span class="region-status-dot" aria-hidden="true"></span>
           <span class="region-toggle-label" data-region-label>SERVER</span>
@@ -399,7 +398,7 @@
     <div id="emote-wheel" aria-hidden="true">
       <div class="emote-wheel-header">
         <span>CREW EMOTES</span>
-        <span class="emote-wheel-hint">[X] CLOSE &middot; [1-6] QUICK</span>
+        <span class="emote-wheel-hint">[X] CLOSE &middot; [1-0] QUICK</span>
       </div>
       <div id="emote-grid" class="emote-grid"></div>
     </div>
@@ -787,6 +786,7 @@
         <div class="cc-sub">EARTH CONTROL ↔ FLIGHT CREW</div>
       </div>
       <div class="cc-head-actions">
+        <button type="button" id="crew-comms-video" title="Start or stop the live Earth ↔ Flight crew video link">VIDEO OFF</button>
         <button type="button" id="crew-comms-mic" title="Toggle microphone">MIC ON</button>
         <button type="button" id="crew-comms-close" aria-label="Close crew comms">×</button>
       </div>
@@ -815,10 +815,11 @@
   <script src="js/core/cinematic_pass.js?v=4.3.2"></script>
   <script src="js/core/audio_synth.js?v=5.0.0"></script>
   <script src="js/core/ui_theme.js?v=5.1.3"></script>
-  <script src="js/core/glb_manager.js?v=4.3.0"></script>
+  <script src="js/core/glb_manager.js?v=4.3.5"></script>
   <script src="js/core/regions.js?v=1.1.0"></script>
-  <script src="js/core/network.js?v=4.10.0"></script>
+  <script src="js/core/network.js?v=4.11.0"></script>
   <script src="js/core/voice.js?v=4.5.1"></script>
+  <script src="js/core/video_link.js?v=1.0.0"></script>
   <script src="js/core/cml_framework.js?v=1.0.0"></script>
 
   <!-- 3D World & Environments (Space Center LC-39A, Launch, Docking, Ship Interior, ISS Showcase & Earth) -->
@@ -838,27 +839,27 @@
   <script src="js/world/space_center/ground_map.js?v=1.0.4"></script>
   <script src="js/world/launch_cutscene.js?v=4.9.3"></script>
   <script src="js/world/docking_simulator.js?v=4.8.0"></script>
-  <script src="js/world/ship_interior.js?v=4.8.4"></script>
+  <script src="js/world/ship_interior.js?v=4.8.5"></script>
   <script src="js/world/mission_viz.js?v=1.1.1"></script>
-  <script src="js/world/specialist_planet_mission.js?v=4.2.0"></script>
+  <script src="js/world/specialist_planet_mission.js?v=4.3.0"></script>
   <script src="js/world/solar_system.js?v=3.0.0"></script>
   <script src="js/world/vr_mode.js?v=1.1.0"></script>
 
   <!-- Shuttle Flight Ops Simulation, World View, SFX, STS_OS HUD & Controller (Nov 14) -->
   <script src="js/game/shuttle_simulation.js?v=1.0.0"></script>
-  <script src="js/game/shuttle_mission.js?v=1.0.2"></script>
+  <script src="js/game/shuttle_mission.js?v=1.0.3"></script>
   <script src="js/world/shuttle_view.js?v=1.0.0"></script>
   <script src="js/game/shuttle_sfx.js?v=2.0.0"></script>
   <script src="js/game/shuttle_hud.js?v=1.0.5"></script>
-  <script src="js/game/shuttle_game.js?v=1.0.3"></script>
+  <script src="js/game/shuttle_game.js?v=1.0.4"></script>
 
   <!-- Mission Simulation & Main Loop -->
   <script src="js/game/csa_nasa_resources.js?v=1.1.0"></script>
   <script src="js/game/iss_side_games.js?v=1.1.0"></script>
-  <script src="js/game/gameplay.js?v=5.1.4"></script>
-  <script src="js/game/mission_academy.js?v=1.1.1"></script>
+  <script src="js/game/gameplay.js?v=5.1.5"></script>
+  <script src="js/game/mission_academy.js?v=1.2.0"></script>
   <script src="js/game/mission_log.js?v=1.0.0"></script>
-  <script src="js/game/main.js?v=5.2.5"></script>
+  <script src="js/game/main.js?v=5.2.9"></script>
 
 </body>
 </html>

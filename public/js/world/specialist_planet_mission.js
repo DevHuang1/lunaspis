@@ -210,7 +210,7 @@
       if (payload.action === "forecast") payload.burn = { v: values.v, n: values.n, b: values.b, delayDays: values.hours / 24 };
       button.disabled = true;
       status.textContent = payload.action === "forecast" ? "GMAT is calculating…" : "Sending…";
-      connection.socket.timeout(25000).emit("specialist_flight_action", payload, (error, result) => {
+      connection.socket.timeout(75000).emit("specialist_flight_action", payload, (error, result) => {
         if (error || !result || !result.ok) { button.disabled = false; status.textContent = (result && result.error) || "Connection problem. Please try again."; }
         else if (payload.action === "forecast" && window.solarSystem && window.solarSystem.isActive) {
           window.solarSystem.following = false;

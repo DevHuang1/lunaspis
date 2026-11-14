@@ -382,9 +382,40 @@
         if (window.voiceManager) {
           window.voiceManager.init(this.socket);
         }
+        if (window.videoLink) {
+          window.videoLink.init(this.socket);
+          window.videoLink.setRoom(this.roomId);
+        }
 
         // Sync persistent user profile with server DB
         this.syncUser();
+
+        // Automatically rejoin an active room after a transient disconnect or server restart.
+        if (this.roomId && !this._intentionalLeave) {
+          const savedRoomId = this.roomId;
+          this._autoRejoining = true;
+          const normalized = normalizeRole(this.localPlayer.role, "commander");
+          this.socket.emit(
+            "join_room",
+            {
+              roomId: savedRoomId,
+              playerName: this.localPlayer.name,
+              suitColor: this.localPlayer.color,
+              role: this.explicitRoleSelected ? normalized : "",
+              explicitRole: !!this.explicitRoleSelected,
+              reconnect: true
+            },
+            (res) => {
+              this._autoRejoining = false;
+              if (!res || !res.success) {
+                this.roomId = null;
+                this.roomState = null;
+                this.mission = null;
+                this.emitEvent("rejoin_failed", res || { message: "Session expired." });
+              }
+            }
+          );
+        }
 
         // Check if URL has an explicit ?room=CODE query parameter (only once on initial connect)
         if (!this._didAutoJoinUrl) {
@@ -470,6 +501,8 @@
       };
 
       this.socket.on("room_created", (data) => {
+        this._intentionalLeave = false;
+        this._autoRejoining = false;
         applyAuthoritativeRoomMembership(data);
         if (window.voiceManager) {
           if (window.voiceManager.isEnabled && this.socket) {
@@ -477,18 +510,28 @@
           }
           window.voiceManager.connectToExistingRoomPeers();
         }
+        if (window.videoLink) {
+          window.videoLink.init(this.socket);
+          window.videoLink.setRoom(this.roomId);
+        }
         this.emitEvent("room_created", data);
         this._sfxSeeded = false;
         if (window.spaceAudio) window.spaceAudio.play("join");
       });
 
       this.socket.on("room_joined", (data) => {
+        this._intentionalLeave = false;
+        this._autoRejoining = false;
         applyAuthoritativeRoomMembership(data);
         if (window.voiceManager) {
           if (window.voiceManager.isEnabled && this.socket) {
             this.socket.emit("voice_join", { roomId: this.roomId });
           }
           window.voiceManager.connectToExistingRoomPeers();
+        }
+        if (window.videoLink) {
+          window.videoLink.init(this.socket);
+          window.videoLink.setRoom(this.roomId);
         }
         this.emitEvent("room_joined", data);
         this._sfxSeeded = false;
@@ -922,6 +965,8 @@
     }
 
     leaveRoom() {
+      this._intentionalLeave = true;
+      this._autoRejoining = false;
       if (this.socket && this.roomId) {
         this.socket.emit("voice_leave", { roomId: this.roomId });
         this.socket.emit("leave_room");
@@ -930,6 +975,9 @@
         for (const peerId in window.voiceManager.peers) {
           window.voiceManager.cleanupPeer(peerId);
         }
+      }
+      if (window.videoLink) {
+        window.videoLink.setRoom(null);
       }
       this.roomId = null;
       this.roomState = null;

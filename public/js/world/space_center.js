@@ -6531,6 +6531,7 @@
             </button>
             ${guidance.isGround ? `
               <button type="button" id="btn-sc-comms" class="sc-hud-btn sc-btn-comms" title="Open the shared Earth ↔ Flight crew comms channel">COMMS</button>
+              <button type="button" id="btn-sc-video" class="sc-hud-btn sc-btn-comms" title="Open the live flight-deck crew video link">VIDEO ${window.videoLink && window.videoLink.enabled ? "ON" : "OFF"}</button>
             ` : ""}
             <button type="button" id="btn-sc-hud-toggle" class="sc-hud-btn sc-btn-collapse" title="${this.hudCollapsed ? (touring ? "Open fast travel destinations" : "Expand Launch Pad Dock") : (touring ? "Hide fast travel destinations" : "Minimize Launch Pad Dock")}">
               ${this.hudCollapsed ? (touring ? "TRAVEL" : "+") : (touring ? "CLOSE" : "-")}
@@ -6641,6 +6642,16 @@
           if (window.crewComms && typeof window.crewComms.openPanel === "function") {
             window.crewComms.openPanel();
           }
+        });
+      }
+
+      const btnScVideo = this.hudOverlay.querySelector("#btn-sc-video");
+      if (btnScVideo) {
+        btnScVideo.addEventListener("click", () => {
+          if (window.videoLink && typeof window.videoLink.startCamera === "function" && !window.videoLink.enabled) {
+            window.videoLink.startCamera();
+          }
+          this.openLccConsole(true);
         });
       }
 
@@ -6913,6 +6924,8 @@
         this.lccConsoleOverlay.style.display = next ? "flex" : "none";
         if (next) {
           this._renderLccConsole();
+        } else if (window.videoLink && typeof window.videoLink.detachCabinView === "function") {
+          window.videoLink.detachCabinView();
         }
       }
       this._renderGroundHUD();
@@ -6969,6 +6982,7 @@
             </div>
           </div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <button type="button" class="ground-action-btn" id="btn-lcc-video" style="border-color:rgba(74,222,128,0.55);color:#bbf7d0;">${(window.videoLink && window.videoLink.enabled) ? "CAMERA ON" : "START CAMERA"}</button>
             <button type="button" class="ground-action-btn" id="btn-lcc-comms" style="border-color:rgba(56,189,248,0.65);color:#7dd3fc;">CREW COMMS</button>
             <button type="button" class="ground-action-btn" id="btn-lcc-open-viz">3D PATH VIEW [U]</button>
             <button type="button" class="ground-action-btn" id="btn-lcc-open-planner">MISSION PLAN [M]</button>
@@ -6985,6 +6999,10 @@
         ` : ""}
 
         <div class="ground-lcc-grid">
+          <div class="ground-lcc-card" style="grid-column:1/-1;padding:0;overflow:hidden;background:#02070d;">
+            <div id="lcc-cabin-video" style="width:100%;"></div>
+          </div>
+
           <div class="ground-lcc-card${roleId === "flight_director" ? " is-role-focus" : ""}">
             <div style="font-family:var(--font-mono);font-size:11.5px;letter-spacing:1px;color:#94a3b8;">LAUNCH & DOCKING OK · FLIGHT DIRECTOR</div>
             <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.goNoGoLaunch, pollActive)}" ${this._groundActionLockAttrs("go_nogo_launch")} data-lcc-op="go_nogo_launch" style="text-align:left;padding:9px 12px;font-size:11.5px;">
@@ -7047,6 +7065,14 @@
           window.crewComms.openPanel();
         }
       });
+      const btnLccVideo = this.lccConsoleOverlay.querySelector("#btn-lcc-video");
+      if (btnLccVideo) btnLccVideo.addEventListener("click", () => {
+        if (window.videoLink && typeof window.videoLink.toggleCamera === "function") window.videoLink.toggleCamera();
+      });
+      const cabinVideoSlot = this.lccConsoleOverlay.querySelector("#lcc-cabin-video");
+      if (cabinVideoSlot && window.videoLink && typeof window.videoLink.attachCabinView === "function") {
+        window.videoLink.attachCabinView(cabinVideoSlot);
+      }
       const btnViz = this.lccConsoleOverlay.querySelector("#btn-lcc-open-viz");
       if (btnViz) btnViz.addEventListener("click", () => {
         if (window.missionViz && typeof window.missionViz.toggle === "function") window.missionViz.toggle();

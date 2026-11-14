@@ -2108,6 +2108,10 @@
       this.issInteriorModelGroup = null;
       this.issInteriorModel = null;
       this.savedExteriorLights = null;
+      // Mission-specific payload diorama in Destiny. It swaps its hologram
+      // whenever the crew changes the selected scenario or a key payload
+      // choice, so the station visibly reflects the mission being flown.
+      this.missionDiorama = null;
 
       // UI Overlays
       this.hudPill = null;
@@ -2152,6 +2156,7 @@
       // It now points to a constructed scene, never an imported GLB.
       this.issInteriorModel = this._buildISSInterior();
       this.issInteriorModelGroup.add(this.issInteriorModel);
+      this._buildMissionDiorama(interiorGroup);
 
       // Build Moon Landing Scene & SunFlare in main scene
       this.moonLanding = buildMoonLandingScene();
@@ -3117,6 +3122,527 @@
     }
 
     // ============================================================================
+    // 8B. MISSION-SPECIFIC PAYLOAD DIORAMA (DESTINY LABORATORY)
+    // ============================================================================
+    _missionDioramaInfo(scenarioId) {
+      const fallback = {
+        earth_climate: { code: "EARTH", title: "ICE WATCH", accent: "#60a5fa" },
+        lunar_south_pole: { code: "MOON", title: "ICE HUNTER", accent: "#67e8f9" },
+        asteroid_rendezvous: { code: "ASTEROID", title: "ROCK EXPLORER", accent: "#d0a15c" },
+        space_telescope: { code: "DEEP SPACE", title: "TELESCOPE", accent: "#a78bfa" },
+        cubesat_101: { code: "LOW ORBIT", title: "POCKET SAT", accent: "#7fb8a6" },
+        bionutrients_2: { code: "STATION", title: "VITAMIN LAB", accent: "#fb7185" },
+        sandbox: { code: "ANYWHERE", title: "FREE BUILD", accent: "#94a3b8" }
+      };
+      const local = fallback[scenarioId] || fallback.lunar_south_pole;
+      if (window.gameplay && typeof window.gameplay.getMissionPresentation === "function") {
+        const presentation = window.gameplay.getMissionPresentation(scenarioId);
+        if (presentation && presentation.destination && presentation.title) {
+          return {
+            code: presentation.destination,
+            title: presentation.title,
+            accent: presentation.accent || local.accent
+          };
+        }
+      }
+      return local;
+    }
+
+    _buildMissionDiorama(parent) {
+      const THREE = window.THREE;
+      const md = (window.gameplay && window.gameplay.missionDesign) || {};
+      const initialScenario = md.scenarioId || "lunar_south_pole";
+      const info = this._missionDioramaInfo(initialScenario);
+
+      const root = new THREE.Group();
+      root.name = "ISS_MissionPayloadDiorama";
+      root.position.set(-0.74, 0, 4.9);
+      // Face the corridor (+X) so the label and hologram greet the crew.
+      root.rotation.y = Math.PI / 2;
+
+      const pedestalMat = new THREE.MeshStandardMaterial({ color: 0x1b2933, roughness: 0.5, metalness: 0.55 });
+      const trimMat = new THREE.MeshStandardMaterial({ color: 0x93a4aa, roughness: 0.32, metalness: 0.75 });
+      const topMat = new THREE.MeshStandardMaterial({ color: 0x0b1720, roughness: 0.18, metalness: 0.25 });
+      const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.42, 0.72, 18), pedestalMat);
+      pedestal.position.y = 0.36;
+      root.add(pedestal);
+      const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.05, 20), trimMat);
+      collar.position.y = 0.73;
+      root.add(collar);
+      const top = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.42, 0.08, 24), topMat);
+      top.position.y = 0.8;
+      root.add(top);
+
+      const screenTex = createStationLabelTexture({ text: info.code, subtext: info.title, accent: info.accent });
+      const screenMat = new THREE.MeshBasicMaterial({ map: screenTex });
+      const screenFrame = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.19, 0.03),
+        new THREE.MeshStandardMaterial({ color: 0x111c24, roughness: 0.4, metalness: 0.45 }));
+      screenFrame.position.set(0, 0.55, 0.38);
+      root.add(screenFrame);
+      const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.56, 0.15), screenMat);
+      screen.position.set(0, 0.55, 0.398);
+      root.add(screen);
+
+      const rimMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(info.accent), transparent: true, opacity: 0.8 });
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.012, 8, 48), rimMat);
+      rim.rotation.x = Math.PI / 2;
+      rim.position.y = 0.845;
+      root.add(rim);
+
+      const holo = new THREE.Group();
+      holo.position.y = 0.99;
+      root.add(holo);
+
+      const discMat = new THREE.MeshBasicMaterial({
+        color: new THREE.Color(info.accent),
+        transparent: true,
+        opacity: 0.11,
+        side: THREE.DoubleSide,
+        depthWrite: false
+      });
+      const disc = new THREE.Mesh(new THREE.CircleGeometry(0.4, 32), discMat);
+      disc.rotation.x = -Math.PI / 2;
+      disc.position.y = -0.14;
+      holo.add(disc);
+
+      const orbitMat = new THREE.MeshBasicMaterial({
+        color: new THREE.Color(info.accent),
+        transparent: true,
+        opacity: 0.45
+      });
+      const orbit = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.005, 6, 48), orbitMat);
+      orbit.rotation.x = Math.PI / 2;
+      orbit.position.y = 0.16;
+      holo.add(orbit);
+
+      const modelGroup = new THREE.Group();
+      modelGroup.position.y = 0.13;
+      holo.add(modelGroup);
+
+      let holoLight = null;
+      if (!window.isMobileDevice) {
+        holoLight = new THREE.PointLight(new THREE.Color(info.accent).getHex(), 0.45, 2.2, 2);
+        holoLight.position.set(0, 0.45, 0);
+        holo.add(holoLight);
+      }
+
+      parent.add(root);
+      this.missionDiorama = {
+        root,
+        holo,
+        modelGroup,
+        screenMat,
+        screenFrame,
+        rim,
+        rimMat,
+        discMat,
+        orbitMat,
+        holoLight,
+        model: null,
+        pulseMats: [],
+        key: "",
+        scenarioId: initialScenario,
+        baseY: modelGroup.position.y
+      };
+
+      this.setMissionDioramaScenario(initialScenario, {
+        bagId: md.bioBagId || null,
+        thermalId: md.bioThermalId || null,
+        cubesatFormId: md.cubesatFormId || null,
+        wavelengthId: md.wavelengthId || null,
+        yieldOk: false
+      });
+    }
+
+    setMissionDioramaScenario(scenarioId, state = {}) {
+      const diorama = this.missionDiorama;
+      if (!diorama) return;
+      const id = scenarioId || "lunar_south_pole";
+      const info = this._missionDioramaInfo(id);
+
+      if (diorama.scenarioId !== id) {
+        diorama.scenarioId = id;
+        const nextTex = createStationLabelTexture({ text: info.code, subtext: info.title, accent: info.accent });
+        if (diorama.screenMat.map) diorama.screenMat.map.dispose();
+        diorama.screenMat.map = nextTex;
+        diorama.screenMat.needsUpdate = true;
+        diorama.rimMat.color.set(info.accent);
+        diorama.discMat.color.set(info.accent);
+        diorama.orbitMat.color.set(info.accent);
+        if (diorama.holoLight) diorama.holoLight.color.set(info.accent);
+      }
+
+      const keyParts = [id];
+      if (id === "bionutrients_2") {
+        keyParts.push(state.bagId || "", state.thermalId || "", state.yieldOk ? "1" : "0");
+      } else if (id === "cubesat_101") {
+        keyParts.push(state.cubesatFormId || "");
+      } else if (id === "space_telescope") {
+        keyParts.push(state.wavelengthId || "");
+      }
+      const key = keyParts.join("|");
+      if (key === diorama.key) return;
+      diorama.key = key;
+
+      if (diorama.model) {
+        diorama.modelGroup.remove(diorama.model);
+        this._disposeMissionDioramaObject(diorama.model);
+        diorama.model = null;
+      }
+      const built = this._buildMissionDioramaModel(id, state, info.accent);
+      diorama.model = built.group;
+      diorama.pulseMats = built.pulseMats || [];
+      diorama.modelGroup.add(built.group);
+    }
+
+    pingMissionDiorama() {
+      if (!this.missionDiorama) return;
+      this.missionDiorama.pingUntil = performance.now() + 2600;
+    }
+
+    _disposeMissionDioramaObject(object) {
+      if (!object || !object.traverse) return;
+      object.traverse((child) => {
+        if (child.geometry && child.geometry.dispose) child.geometry.dispose();
+        const materials = child.material
+          ? (Array.isArray(child.material) ? child.material : [child.material])
+          : [];
+        materials.forEach((material) => {
+          if (material && material.map && typeof material.map.dispose === "function") material.map.dispose();
+          if (material && typeof material.dispose === "function") material.dispose();
+        });
+      });
+    }
+
+    _buildMissionDioramaModel(scenarioId, state, accent) {
+      const THREE = window.THREE;
+      const group = new THREE.Group();
+      const pulseMats = [];
+      const mat = (color, options = {}) => new THREE.MeshStandardMaterial(
+        Object.assign({ color, roughness: 0.48, metalness: 0.28 }, options)
+      );
+      const glow = (color, intensity = 0.8) => {
+        const material = new THREE.MeshStandardMaterial({
+          color,
+          emissive: color,
+          emissiveIntensity: intensity,
+          roughness: 0.3,
+          metalness: 0.15
+        });
+        material.userData = { baseGlow: intensity };
+        pulseMats.push(material);
+        return material;
+      };
+      const ring = (radius, color, opacity = 0.35) => {
+        const material = new THREE.MeshBasicMaterial({ color, transparent: true, opacity });
+        const mesh = new THREE.Mesh(new THREE.TorusGeometry(radius, 0.004, 6, 64), material);
+        mesh.rotation.x = Math.PI / 2;
+        group.add(mesh);
+        return mesh;
+      };
+
+      if (scenarioId === "earth_climate") {
+        const earthMat = mat(0x1d4ed8, { roughness: 0.72, metalness: 0.05, emissive: 0x0a1a3a, emissiveIntensity: 0.4 });
+        group.add(new THREE.Mesh(new THREE.SphereGeometry(0.27, 24, 16), earthMat));
+        const landMat = mat(0x2f9e6b, { roughness: 0.85, metalness: 0 });
+        [
+          [0.1, 0.13, 0.18, 0.11, 0.03, 0.09],
+          [-0.16, 0.04, 0.17, 0.1, 0.035, 0.08],
+          [0.05, -0.12, 0.22, 0.08, 0.03, 0.1]
+        ].forEach(([x, y, z, sx, sy, sz]) => {
+          const land = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 8), landMat);
+          land.position.set(x, y, z);
+          land.scale.set(sx, sy, sz);
+          group.add(land);
+        });
+        const capMat = mat(0xeff6ff, { roughness: 0.6, metalness: 0, emissive: 0xbfdbfe, emissiveIntensity: 0.18 });
+        [-1, 1].forEach((sign) => {
+          const cap = new THREE.Mesh(new THREE.SphereGeometry(0.11, 12, 8), capMat);
+          cap.position.set(0, sign * 0.245, 0);
+          cap.scale.set(1, 0.24, 1);
+          group.add(cap);
+        });
+        const satellite = new THREE.Group();
+        satellite.position.set(0.45, 0.06, 0);
+        satellite.add(new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.07, 0.07),
+          mat(0xd4a446, { metalness: 0.6, roughness: 0.3 })));
+        const panelMat = mat(0x2563eb, { metalness: 0.4, roughness: 0.3, emissive: 0x0b1e4a, emissiveIntensity: 0.3 });
+        [-1, 1].forEach((side) => {
+          const panel = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.006, 0.06), panelMat);
+          panel.position.x = side * 0.12;
+          satellite.add(panel);
+        });
+        group.add(satellite);
+        const beam = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.005, 0.12, 0.45, 16, 1, true),
+          new THREE.MeshBasicMaterial({ color: 0x67e8f9, transparent: true, opacity: 0.14, side: THREE.DoubleSide, depthWrite: false })
+        );
+        beam.position.set(0.32, -0.2, 0);
+        beam.rotation.z = -0.35;
+        group.add(beam);
+        [-0.22, 0.18].forEach((x, index) => {
+          const light = new THREE.Mesh(new THREE.SphereGeometry(0.012, 8, 6), glow(0xfde68a, 0.7));
+          light.position.set(x, 0.08 + index * 0.04, 0.23);
+          group.add(light);
+        });
+        ring(0.46, 0x67e8f9, 0.32);
+      } else if (scenarioId === "lunar_south_pole") {
+        group.add(new THREE.Mesh(new THREE.SphereGeometry(0.27, 20, 14),
+          mat(0x9ca3af, { roughness: 0.95, metalness: 0.02 })));
+        const craterMat = mat(0x6b7280, { roughness: 0.95, metalness: 0 });
+        [
+          [0.12, 0.14, 0.2, 0.05],
+          [-0.15, 0.02, 0.21, 0.062],
+          [0.04, -0.1, 0.25, 0.045]
+        ].forEach(([x, y, z, radius]) => {
+          const crater = new THREE.Mesh(new THREE.SphereGeometry(radius, 10, 8), craterMat);
+          crater.position.set(x, y, z);
+          crater.scale.set(1, 1, 0.28);
+          group.add(crater);
+        });
+        const iceMat = glow(0x67e8f9, 0.9);
+        [
+          [0.02, -0.24, 0.12, 0.055],
+          [-0.09, -0.225, 0.08, 0.035]
+        ].forEach(([x, y, z, radius]) => {
+          const ice = new THREE.Mesh(new THREE.SphereGeometry(radius, 10, 8), iceMat);
+          ice.position.set(x, y, z);
+          ice.scale.set(1, 0.28, 1);
+          group.add(ice);
+        });
+        const lander = new THREE.Group();
+        lander.position.set(0.32, 0.05, 0.06);
+        lander.rotation.z = -0.14;
+        const body = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.075, 0.09, 12),
+          mat(0xd4a446, { metalness: 0.55, roughness: 0.3 }));
+        lander.add(body);
+        const legMat = mat(0x94a3b8, { metalness: 0.6, roughness: 0.3 });
+        [-1, 1].forEach((side) => {
+          const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.13, 6), legMat);
+          leg.position.set(side * 0.06, -0.08, 0);
+          leg.rotation.z = side * 0.45;
+          lander.add(leg);
+        });
+        const dish = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.05, 0.025, 12), mat(0xe2e8f0, { metalness: 0.4 }));
+        dish.position.y = 0.07;
+        lander.add(dish);
+        group.add(lander);
+        ring(0.44, 0x67e8f9, 0.3);
+      } else if (scenarioId === "asteroid_rendezvous") {
+        const rockGeo = new THREE.IcosahedronGeometry(0.24, 1);
+        const pos = rockGeo.attributes.position;
+        for (let i = 0; i < pos.count; i++) {
+          const factor = 0.84 + Math.abs(Math.sin(i * 12.9898)) * 0.22;
+          pos.setXYZ(i, pos.getX(i) * factor, pos.getY(i) * factor, pos.getZ(i) * factor);
+        }
+        rockGeo.computeVertexNormals();
+        group.add(new THREE.Mesh(rockGeo, mat(0x8b7d6b, { roughness: 0.95, metalness: 0.08 })));
+        const probe = new THREE.Group();
+        probe.position.set(0.38, 0.08, 0);
+        probe.add(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.09, 0.08),
+          mat(0xd4a446, { metalness: 0.55, roughness: 0.3 })));
+        const panelMat = mat(0x2563eb, { metalness: 0.4, roughness: 0.3 });
+        [-1, 1].forEach((side) => {
+          const panel = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.006, 0.07), panelMat);
+          panel.position.x = side * 0.11;
+          probe.add(panel);
+        });
+        const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.15, 6),
+          mat(0xcbd5e1, { metalness: 0.6, roughness: 0.3 }));
+        arm.position.set(-0.08, -0.02, 0);
+        arm.rotation.z = Math.PI / 2;
+        probe.add(arm);
+        const drill = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.05, 8), glow(0xfbbf24, 0.55));
+        drill.position.set(-0.16, -0.02, 0);
+        drill.rotation.z = Math.PI / 2;
+        probe.add(drill);
+        group.add(probe);
+        const dustMat = glow(0xd6c6a8, 0.45);
+        [
+          [-0.28, 0.2, 0.1], [0.08, 0.26, -0.1], [0.24, -0.18, 0.12],
+          [-0.2, -0.16, -0.08], [0.02, -0.26, 0.16], [0.3, 0.04, -0.16]
+        ].forEach(([x, y, z], index) => {
+          const dust = new THREE.Mesh(new THREE.SphereGeometry(index % 2 ? 0.01 : 0.014, 6, 4), dustMat);
+          dust.position.set(x, y, z);
+          group.add(dust);
+        });
+        ring(0.46, 0xd0a15c, 0.34);
+      } else if (scenarioId === "space_telescope") {
+        const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.5, 18),
+          mat(0xcbd5e1, { metalness: 0.7, roughness: 0.28 }));
+        tube.rotation.z = Math.PI / 2;
+        tube.position.y = 0.05;
+        group.add(tube);
+        const bandColors = {
+          uv_optical: 0xa78bfa,
+          near_ir: 0xc084fc,
+          mid_ir: 0x67e8f9,
+          xray: 0xf472b6
+        };
+        const mirror = new THREE.Mesh(new THREE.CircleGeometry(0.095, 24), glow(bandColors[state.wavelengthId] || 0xc084fc, 0.9));
+        mirror.rotation.y = Math.PI / 2;
+        mirror.position.set(0.26, 0.05, 0);
+        group.add(mirror);
+        const tubeRim = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.008, 6, 24),
+          mat(0x64748b, { metalness: 0.7, roughness: 0.3 }));
+        tubeRim.rotation.y = Math.PI / 2;
+        tubeRim.position.set(0.255, 0.05, 0);
+        group.add(tubeRim);
+        const shadeMat = mat(0x1e293b, { metalness: 0.4, roughness: 0.5 });
+        [-0.08, -0.13].forEach((y, index) => {
+          const shade = new THREE.Mesh(new THREE.BoxGeometry(0.58 - index * 0.06, 0.012, 0.34 + index * 0.04), shadeMat);
+          shade.position.set(-0.02, y, 0);
+          group.add(shade);
+        });
+        [-1, 1].forEach((side) => {
+          const fin = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.07, 0.012), glow(0x67e8f9, 0.5));
+          fin.position.set(-0.08, 0.0, side * 0.14);
+          group.add(fin);
+        });
+        const starMat = glow(0xfef3c7, 0.9);
+        [
+          [-0.34, 0.26, 0.1], [-0.27, 0.15, -0.12], [0.12, 0.32, -0.15],
+          [0.34, 0.22, 0.14], [0.3, -0.16, 0.2]
+        ].forEach(([x, y, z], index) => {
+          const star = new THREE.Mesh(new THREE.SphereGeometry(index % 2 ? 0.009 : 0.013, 6, 4), starMat);
+          star.position.set(x, y, z);
+          group.add(star);
+        });
+        const planet = new THREE.Mesh(new THREE.SphereGeometry(0.055, 12, 8), mat(0x8b5cf6, { emissive: 0x4c1d95, emissiveIntensity: 0.5, roughness: 0.5 }));
+        planet.position.set(-0.3, -0.13, 0.06);
+        group.add(planet);
+        ring(0.43, 0xa78bfa, 0.32);
+      } else if (scenarioId === "cubesat_101") {
+        const lengths = { "3u": 0.24, "6u": 0.36, "12u": 0.5 };
+        const length = lengths[state.cubesatFormId] || lengths["6u"];
+        const body = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.13, length),
+          mat(0xd4a446, { metalness: 0.65, roughness: 0.28 }));
+        body.position.y = 0.05;
+        group.add(body);
+        const panelMat = mat(0x2563eb, { metalness: 0.4, roughness: 0.3, emissive: 0x0b1e4a, emissiveIntensity: 0.35 });
+        [-1, 1].forEach((side) => {
+          const panel = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.06, length * 0.88), panelMat);
+          panel.position.set(side * 0.09, 0.05, 0);
+          group.add(panel);
+        });
+        const frame = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, length + 0.08),
+          new THREE.MeshBasicMaterial({ color: 0x94a3b8, wireframe: true, transparent: true, opacity: 0.32 }));
+        frame.position.y = 0.05;
+        group.add(frame);
+        const status = new THREE.Mesh(new THREE.SphereGeometry(0.014, 8, 6), glow(0x86efac, 0.9));
+        status.position.set(0, 0.125, length * 0.35);
+        group.add(status);
+        ring(0.42, 0x7fb8a6, 0.32);
+      } else if (scenarioId === "bionutrients_2") {
+        const rack = new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.36, 0.16),
+          mat(0x334155, { metalness: 0.55, roughness: 0.4 }));
+        rack.position.y = 0.04;
+        group.add(rack);
+        const back = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.3, 0.012),
+          mat(0x0f172a, { metalness: 0.3, roughness: 0.6 }));
+        back.position.set(0, 0.04, 0.085);
+        group.add(back);
+
+        const incubateC = state.incubateTempC == null ? 30 : state.incubateTempC;
+        const storageC = state.storageTempC == null ? -80 : state.storageTempC;
+        const thinBag = !String(state.bagId || "").includes("5mil");
+        const pouchMat = new THREE.MeshStandardMaterial({
+          color: 0xe0f2fe,
+          transparent: true,
+          opacity: thinBag ? 0.34 : 0.56,
+          roughness: 0.12,
+          metalness: 0.06
+        });
+        const fillMat = glow(state.yieldOk ? 0xfb923c : 0xfde68a, 0.55);
+        [-1, 0, 1].forEach((slot) => {
+          const x = slot * 0.16;
+          const pouch = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.2, 0.024), pouchMat);
+          pouch.position.set(x, 0.0, 0.1);
+          group.add(pouch);
+          const fill = new THREE.Mesh(new THREE.BoxGeometry(0.088, 0.1, 0.014), fillMat);
+          fill.position.set(x, -0.035, 0.114);
+          group.add(fill);
+          const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.025, 8),
+            mat(0xf8fafc, { metalness: 0.2, roughness: 0.35 }));
+          cap.position.set(x, 0.115, 0.105);
+          group.add(cap);
+        });
+
+        const incubator = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.09, 0.11),
+          mat(0x1e293b, { metalness: 0.45, roughness: 0.4 }));
+        incubator.position.set(-0.23, -0.13, 0.04);
+        group.add(incubator);
+        const incubatorFace = new THREE.Mesh(new THREE.PlaneGeometry(0.09, 0.05),
+          glow(incubateC === 30 ? 0xfbbf24 : 0xef4444, 0.55));
+        incubatorFace.position.set(-0.23, -0.13, 0.096);
+        group.add(incubatorFace);
+
+        const freezer = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.09, 0.11),
+          mat(0x1e293b, { metalness: 0.45, roughness: 0.4 }));
+        freezer.position.set(0.23, -0.13, 0.04);
+        group.add(freezer);
+        const freezerFace = new THREE.Mesh(new THREE.PlaneGeometry(0.09, 0.05),
+          glow(storageC === -80 ? 0x67e8f9 : 0xef4444, 0.55));
+        freezerFace.position.set(0.23, -0.13, 0.096);
+        group.add(freezerFace);
+        const snowMat = glow(0xa5f3fc, 0.8);
+        for (let i = 0; i < 3; i++) {
+          const bar = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.08, 0.008), snowMat);
+          bar.position.set(0.23, -0.13, 0.104);
+          bar.rotation.z = i * Math.PI / 3;
+          group.add(bar);
+        }
+
+        const dropMat = glow(0x67e8f9, 0.7);
+        [
+          [-0.12, 0.27, 0.11], [0.05, 0.3, 0.11], [0.17, 0.24, 0.11]
+        ].forEach(([x, y, z], index) => {
+          const drop = new THREE.Mesh(new THREE.SphereGeometry(index % 2 ? 0.014 : 0.018, 8, 6), dropMat);
+          drop.position.set(x, y, z);
+          drop.scale.set(1, 1.35, 1);
+          group.add(drop);
+        });
+        const betaMat = glow(0xfb923c, 0.75);
+        [
+          [-0.14, 0.11, 0.12], [-0.02, 0.15, 0.12], [0.1, 0.09, 0.12],
+          [0.18, 0.14, 0.12], [0.04, 0.04, 0.13]
+        ].forEach(([x, y, z], index) => {
+          const beta = new THREE.Mesh(new THREE.SphereGeometry(index % 2 ? 0.009 : 0.012, 6, 4), betaMat);
+          beta.position.set(x, y, z);
+          group.add(beta);
+        });
+        ring(0.4, 0xfb7185, 0.34);
+      } else {
+        const colors = [0x67e8f9, 0xfbbf24, 0x7fb8a6, 0xc08a8a, 0x9a8fc4];
+        const shapes = [
+          new THREE.BoxGeometry(0.16, 0.16, 0.16),
+          new THREE.TorusGeometry(0.1, 0.035, 8, 20),
+          new THREE.ConeGeometry(0.1, 0.18, 12),
+          new THREE.SphereGeometry(0.1, 14, 10),
+          new THREE.OctahedronGeometry(0.12, 0)
+        ];
+        shapes.forEach((geometry, index) => {
+          const mesh = new THREE.Mesh(geometry, mat(colors[index], {
+            metalness: 0.35,
+            roughness: 0.4,
+            emissive: colors[index],
+            emissiveIntensity: 0.12
+          }));
+          const angle = (index / shapes.length) * Math.PI * 2;
+          mesh.position.set(Math.cos(angle) * 0.18, 0.02 + (index % 3) * 0.08, Math.sin(angle) * 0.18);
+          mesh.rotation.set(index * 0.4, index * 0.7, index * 0.2);
+          group.add(mesh);
+        });
+        const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.07, 1), glow(accent, 0.7));
+        core.position.y = 0.08;
+        group.add(core);
+        ring(0.42, accent, 0.36);
+      }
+
+      return { group, pulseMats };
+    }
+
+    // ============================================================================
     // 9. STATION FAULT / TASK SYNCHRONIZATION
     // ============================================================================
     syncStationFaults(tasks = []) {
@@ -3463,6 +3989,8 @@
       if (Object.values(STATIONS).some((station) =>
         Math.hypot(x - station.position[0], z - station.position[2]) < 0.4 + margin
       )) return true;
+      if (this.missionDiorama && this.missionDiorama.root &&
+        Math.hypot(x - this.missionDiorama.root.position.x, z - this.missionDiorama.root.position.z) < 0.44 + margin) return true;
       if (ISS_HATCH_LEAVES.some((leaf) => Math.abs(x - leaf.x) < 0.08 + margin &&
         z >= leaf.zMin - margin && z <= leaf.zMax + margin)) return true;
       return ISS_HATCHES.some((hatch) => {
@@ -3626,6 +4154,28 @@
       const interiorDelta = Math.min(0.1, Number(delta) || 0);
       if (this.cupolaEarth) this.cupolaEarth.rotation.y += interiorDelta * 0.0011;
       if (this.cupolaClouds) this.cupolaClouds.rotation.y += interiorDelta * 0.0035;
+
+      // Mission payload diorama: slow hologram rotation, bob, and pulsing
+      // status materials keep the current experiment visually alive.
+      if (this.missionDiorama) {
+        const nowMs = performance.now();
+        const ping = !!(this.missionDiorama.pingUntil && nowMs < this.missionDiorama.pingUntil);
+        const model = this.missionDiorama.model;
+        if (model) {
+          model.rotation.y += interiorDelta * (ping ? 0.9 : 0.16);
+          model.position.y = this.missionDiorama.baseY + Math.sin(t * 1.1) * (ping ? 0.03 : 0.012);
+        }
+        this.missionDiorama.pulseMats.forEach((material, index) => {
+          const base = (material.userData && material.userData.baseGlow) || 0.6;
+          material.emissiveIntensity = base + Math.sin(t * (ping ? 4.2 : 2.1) + index * 0.7) * (ping ? 0.35 : 0.16);
+        });
+        if (this.missionDiorama.orbitMat) {
+          this.missionDiorama.orbitMat.opacity = (ping ? 0.55 : 0.34) + Math.sin(t * 1.4) * 0.1;
+        }
+        if (this.missionDiorama.discMat) {
+          this.missionDiorama.discMat.opacity = (ping ? 0.16 : 0.08) + Math.sin(t * 1.2) * 0.03;
+        }
+      }
 
       // Update Minimap player marker
       if (window.localCrew && window.localCrew.group) {

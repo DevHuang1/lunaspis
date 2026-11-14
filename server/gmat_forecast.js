@@ -16,15 +16,18 @@ const PLANETS = {
   uranus: { name: "Uranus", mu: 5793939, radius: 25559 },
   neptune: { name: "Neptune", mu: 6836529, radius: 24764 }
 };
+const gmatQueue = require("./gmat_queue");
+
 const G0 = 9.80665;
-let running = false;
+const FORECAST_TIMEOUT_MS = Number(process.env.GMAT_TIMEOUT_MS) || 30000;
 
 function executable() {
-  const candidate = process.env.GMAT_CONSOLE_PATH || (process.platform === "win32" ? "E:\\gmat-R2026a-local\\bin\\GmatConsole.exe" : "");
-  return candidate && path.isAbsolute(candidate) && fs.existsSync(candidate) ? candidate : null;
+  return gmatQueue.findGmatExecutable();
 }
 
-function status() { return { available: !!executable(), busy: running }; }
+function status() {
+  return gmatQueue.getStatus();
+}
 function validNumber(value, min, max, label) {
   if (typeof value !== "number" || !Number.isFinite(value) || value < min || value > max) throw new Error(label + " is out of range.");
   return value;
@@ -70,8 +73,7 @@ function orbitAssessment(row, planet) {
   return { bound: energy < 0, periapsisAltitudeKm: periapsisKm - planet.radius, safeCapture: energy < 0 && periapsisKm > planet.radius, method: `${planet.name} two-body osculating estimate at burn` };
 }
 
-async function forecast(input) {
-  if (running) throw new Error("GMAT is busy with another forecast. Please retry shortly.");
+async function forecast(input, options = {}) {
   const exe = executable();
   if (!exe) throw new Error("GMAT is not configured. Set GMAT_CONSOLE_PATH to the local GmatConsole executable.");
   if (!input || !PLANETS[input.planet] || !["transfer", "insertion"].includes(input.mode) || !input.current || !Array.isArray(input.current.state) || input.current.state.length !== 6) throw new Error("Invalid spacecraft state or destination.");
@@ -92,8 +94,9 @@ async function forecast(input) {
   const origin = input.mode === "transfer" ? "Earth" : planet.name;
   const step = input.mode === "transfer" ? Math.max(21600, Math.ceil(horizonDays * 86400 / 8000)) : 60;
   const burnEpoch = epoch + Math.round(delayDays * 86400000);
-  running = true;
-  let dir, scratch;
+  return gmatQueue.enqueue(
+    async () => {
+      let dir, scratch;
   try {
     scratch = path.resolve(process.env.GMAT_TEMP_DIR || path.join(__dirname, ".gmat-runtime"));
     await fs.promises.mkdir(scratch, { recursive: true });
@@ -126,7 +129,13 @@ async function forecast(input) {
         `Maneuver Burn(Sat);\nPropagate Prop(Sat) {Sat.ElapsedDays = ${horizonDays - delayDays}};\n`);
     const scriptPath = path.join(dir, "forecast.script");
     await fs.promises.writeFile(scriptPath, script, "utf8");
-    const result = await execFileAsync(exe, ["-r", scriptPath], { cwd: path.dirname(exe), timeout: 15000, maxBuffer: 2 * 1024 * 1024, windowsHide: true });
+    const result = await execFileAsync(exe, ["-r", scriptPath], {
+      cwd: path.dirname(exe),
+      env: gmatQueue.buildGmatChildEnv(exe),
+      timeout: FORECAST_TIMEOUT_MS,
+      maxBuffer: 2 * 1024 * 1024,
+      windowsHide: true,
+    });
     if (!result.stdout.includes("Mission run completed.")) throw new Error("GMAT did not complete the forecast.");
     const sunRows = parseOem(await fs.promises.readFile(path.join(dir, "Sun.oem"), "utf8"), "Sun");
     const targetRows = parseOem(await fs.promises.readFile(path.join(dir, "Target.oem"), "utf8"), planet.name);
@@ -167,9 +176,15 @@ async function forecast(input) {
     if (error.code && error.code !== "ENOENT") throw new Error("GMAT could not complete this forecast. Try a different burn.");
     throw error;
   } finally {
-    running = false;
     if (dir && path.dirname(path.resolve(dir)) === scratch) await fs.promises.rm(dir, { recursive: true, force: true }).catch(() => {});
   }
+    },
+    {
+      label: options.label || "forecast",
+      queueTimeoutMs: options.queueTimeoutMs,
+      shouldRun: options.shouldRun,
+    }
+  );
 }
 
 module.exports = { forecast, status, orbitAssessment, PLANETS };
