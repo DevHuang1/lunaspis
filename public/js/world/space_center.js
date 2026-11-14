@@ -2704,6 +2704,9 @@
             <button type="button" id="btn-sc-mdl-desk" class="sc-hud-btn sc-btn-mdl">
               MDL DESK
             </button>
+            <button type="button" id="btn-sc-cml-workbench" class="sc-hud-btn sc-btn-plan">
+              CML GATE
+            </button>
             <button type="button" id="btn-sc-orbit-viz" class="sc-hud-btn sc-btn-viz">
               ${touchUI ? "ORBIT VIZ" : "ORBIT VIZ [U]"}
             </button>
@@ -2788,6 +2791,15 @@
         btnMdl.addEventListener("click", () => {
           if (window.gameplay && typeof window.gameplay.openPreFlightMdlDesk === "function") {
             window.gameplay.openPreFlightMdlDesk("bus");
+          }
+        });
+      }
+
+      const btnScCml = this.hudOverlay.querySelector("#btn-sc-cml-workbench");
+      if (btnScCml) {
+        btnScCml.addEventListener("click", () => {
+          if (window.gameplay && typeof window.gameplay.openCmlWorkbench === "function") {
+            window.gameplay.openCmlWorkbench("checklist");
           }
         });
       }
@@ -2994,9 +3006,10 @@
               PHASE ${phaseUpper} · CHECKLIST ${sum.completed}/${sum.total} · READINESS ${sum.readiness}%
             </div>
           </div>
-          <div style="display:flex;gap:6px;align-items:center;">
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
             <button type="button" class="ground-action-btn" id="btn-lcc-open-viz">ORBIT VIZ [U]</button>
             <button type="button" class="ground-action-btn" id="btn-lcc-open-planner">ARCHITECTURE [M]</button>
+            <button type="button" class="ground-action-btn" id="btn-lcc-cml-review" style="border-color:rgba(251,191,36,0.55);color:#fde68a;">CML ASSESSOR</button>
             <button type="button" class="ground-action-btn" id="btn-lcc-close">CLOSE [C]</button>
           </div>
         </div>
@@ -3073,6 +3086,13 @@
       if (btnPlanner) btnPlanner.addEventListener("click", () => {
         if (window.gameplay && typeof window.gameplay.openMissionPlannerFromGround === "function") {
           window.gameplay.openMissionPlannerFromGround();
+        }
+      });
+      const btnLccCml = this.lccConsoleOverlay.querySelector("#btn-lcc-cml-review");
+      if (btnLccCml) btnLccCml.addEventListener("click", () => {
+        this.openLccConsole(false);
+        if (window.gameplay && typeof window.gameplay.openCmlWorkbench === "function") {
+          window.gameplay.openCmlWorkbench("checklist", { assessorMode: true });
         }
       });
       const btnClearPing = this.lccConsoleOverlay.querySelector("#btn-lcc-clear-ping");

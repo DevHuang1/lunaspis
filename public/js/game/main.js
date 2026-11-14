@@ -1213,6 +1213,15 @@
       });
     }
 
+    const btnCmlHUD = document.getElementById("btn-hud-cml");
+    if (btnCmlHUD) {
+      btnCmlHUD.addEventListener("click", () => {
+        if (window.gameplay && typeof window.gameplay.openCmlWorkbench === "function") {
+          window.gameplay.openCmlWorkbench("checklist");
+        }
+      });
+    }
+
     const btnSolarHUD = document.getElementById("btn-hud-solar");
     if (btnSolarHUD) {
       btnSolarHUD.addEventListener("click", () => {

@@ -27,6 +27,15 @@
     { t: 0.96, id: "eom", label: "END-OF-MISSION", desc: "Deorbit / Disposal Maneuver Compliance" }
   ];
 
+  const BIO_TIMELINE_EVENTS = [
+    { t: 0.02, id: "launch", label: "NG-18 LAUNCH", desc: "Cygnus NG-18 Ambient Soft-Stow Kit -> ISS" },
+    { t: 0.18, id: "burn", label: "PWD HYDRATION", desc: "1L Bag -> Syringe -> 0.2µm Filter & Barb Valve" },
+    { t: 0.42, id: "eclipse", label: "30°C INCUBATE", desc: "Shake ~1 min & Incubate + Ground Console Watch" },
+    { t: 0.62, id: "cme", label: "6H YEAST SHAKE", desc: "Mandatory 6-Hour Agitation (~1 min Shake)" },
+    { t: 0.80, id: "science", label: "MELFI -80°C", desc: "Protective Foil Package & ISS Freezer Storage" },
+    { t: 0.96, id: "eom", label: "USER ASSAY", desc: "Delivery -> Thaw -> Wash -> Centrifuge (>=3 µg/mL)" }
+  ];
+
   const GROUND_STATION_COORDS = {
     regional_vhs: [
       { name: "Wallops Regional", lat: 37.9, lon: -75.5 },
@@ -477,13 +486,13 @@
           pts.push(new THREE.Vector3(x * Math.cos(inc), z0, x * Math.sin(inc) * 0.35 + z0 * 0.15));
         }
       } else {
-        // leo_400 or iss_cubesat_418 (with end-of-mission decay spiral cue)
+        // leo_400 or iss_cubesat_418 (with end-of-mission decay spiral cue for deployable cubesats)
         const baseR = orbitId === "iss_cubesat_418" ? 7.55 : 7.4;
         const inc = (51.6 * Math.PI) / 180;
         for (let i = 0; i <= N; i++) {
           const u = i / N;
           const theta = u * Math.PI * 2;
-          const decay = orbitId === "iss_cubesat_418" && u > 0.78 ? (u - 0.78) * 1.8 : 0;
+          const decay = orbitId === "iss_cubesat_418" && !t.scenario.isBioPayload && u > 0.78 ? (u - 0.78) * 1.8 : 0;
           const r = Math.max(EARTH_RADIUS + 0.35, baseR - decay);
           const x = r * Math.cos(theta);
           const z0 = r * Math.sin(theta);
@@ -501,6 +510,7 @@
       const lineMat = new THREE.LineBasicMaterial({ color: orbitColor, transparent: true, opacity: 0.92 });
       this.orbitLine = new THREE.Line(lineGeo, lineMat);
       this.vizGroup.add(this.orbitLine);
+      this._syncTimelineChips();
 
       // Maneuver & Timeline Nodes along the curve
       this.orbitNodesGroup.clear();
@@ -649,6 +659,8 @@
             <button type="button" id="mv-btn-cam-sys" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(37,99,235,0.6);background:rgba(37,99,235,0.16);color:#f8fafc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">EARTH / SYSTEM</button>
             <button type="button" id="mv-btn-cam-craft" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(148,163,184,0.22);background:rgba(8,13,24,0.75);color:#f8fafc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">FOLLOW CRAFT</button>
             <button type="button" id="mv-btn-cam-target" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(148,163,184,0.22);background:rgba(8,13,24,0.75);color:#f8fafc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">TARGET BODY</button>
+            <button type="button" id="mv-btn-gmat" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(52,211,153,0.48);background:rgba(16,185,129,0.16);color:#a7f3d0;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;" title="Download NASA GMAT Trajectory & Maneuver Script (.script)">GMAT .SCRIPT</button>
+            <button type="button" id="mv-btn-csa-lab" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(103,232,249,0.48);background:rgba(103,232,249,0.14);color:#67e8f9;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;" title="Open CSA Digital Games & Activities + NASA Resource Lab">CSA / NASA</button>
             <button type="button" id="mv-btn-vr" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(148,163,184,0.28);background:rgba(8,13,24,0.75);color:#93c5fd;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">VR MODE</button>
             <button type="button" id="mv-btn-close" style="padding:5px 12px;border-radius:4px;border:1px solid rgba(220,38,38,0.55);background:rgba(220,38,38,0.14);color:#fecaca;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">EXIT [U]</button>
           </div>
@@ -687,6 +699,24 @@
         }
       });
 
+      const gmatBtn = root.querySelector("#mv-btn-gmat");
+      if (gmatBtn) {
+        gmatBtn.addEventListener("click", () => {
+          if (window.csaNasaLab && typeof window.csaNasaLab.exportGmatScript === "function") {
+            window.csaNasaLab.exportGmatScript();
+          }
+        });
+      }
+
+      const csaBtn = root.querySelector("#mv-btn-csa-lab");
+      if (csaBtn) {
+        csaBtn.addEventListener("click", () => {
+          if (window.csaNasaLab && typeof window.csaNasaLab.openModal === "function") {
+            window.csaNasaLab.openModal("gmat");
+          }
+        });
+      }
+
       const playBtn = root.querySelector("#mv-btn-play");
       playBtn.addEventListener("click", () => {
         this.playing = !this.playing;
@@ -706,14 +736,23 @@
         this.progress = Number(slider.value) / 1000;
       });
 
-      const chipsHost = root.querySelector("#mv-event-chips");
-      chipsHost.innerHTML = TIMELINE_EVENTS.map((ev) => `
+      this._syncTimelineChips();
+    }
+
+    _syncTimelineChips() {
+      if (!this.uiRoot) return;
+      const chipsHost = this.uiRoot.querySelector("#mv-event-chips");
+      const slider = this.uiRoot.querySelector("#mv-timeline-slider");
+      if (!chipsHost) return;
+      const t = this._getTelemetry();
+      const events = (t && t.scenario && t.scenario.isBioPayload) ? BIO_TIMELINE_EVENTS : TIMELINE_EVENTS;
+      chipsHost.innerHTML = events.map((ev) => `
         <button type="button" data-ev-t="${ev.t}" title="${ev.desc}" style="padding:3px 7px;border-radius:4px;border:1px solid rgba(255,255,255,0.14);background:rgba(255,255,255,0.04);color:#cbd5e1;font-family:inherit;font-size:9px;cursor:pointer;">${ev.label}</button>
       `).join("");
       chipsHost.querySelectorAll("[data-ev-t]").forEach((btn) => {
         btn.addEventListener("click", () => {
           this.progress = Number(btn.dataset.evT);
-          slider.value = String(Math.round(this.progress * 1000));
+          if (slider) slider.value = String(Math.round(this.progress * 1000));
         });
       });
     }
@@ -949,11 +988,16 @@
       const titleEl = this.uiRoot.querySelector("#mv-title");
       const subEl = this.uiRoot.querySelector("#mv-subtitle");
       if (titleEl) titleEl.textContent = `NASA MISSION VIZ // ${t.scenario.code} · ${t.orbit.name.toUpperCase()}`;
-      if (subEl) subEl.textContent = `${t.bus.name} · ${t.lv.name.split("(")[0].trim()} · ${t.gnd.name}`;
+      if (subEl) {
+        subEl.textContent = t.scenario.isBioPayload && t.bioTelemetry
+          ? `${t.bioTelemetry.bag.shortLabel} · ${t.lv.name.split("(")[0].trim()} · ${t.gnd.name}`
+          : `${t.bus.name} · ${t.lv.name.split("(")[0].trim()} · ${t.gnd.name}`;
+      }
 
-      let activeEv = TIMELINE_EVENTS[0];
-      for (let i = 0; i < TIMELINE_EVENTS.length; i++) {
-        if (this.progress >= TIMELINE_EVENTS[i].t) activeEv = TIMELINE_EVENTS[i];
+      const timelineList = t.scenario.isBioPayload ? BIO_TIMELINE_EVENTS : TIMELINE_EVENTS;
+      let activeEv = timelineList[0];
+      for (let i = 0; i < timelineList.length; i++) {
+        if (this.progress >= timelineList[i].t) activeEv = timelineList[i];
       }
       const evEl = this.uiRoot.querySelector("#mv-event-active");
       if (evEl) evEl.textContent = `${activeEv.label} — ${activeEv.desc}`;
@@ -975,8 +1019,12 @@
           cell("ORBIT VELOCITY", orbVel),
           cell("ILLUMINATION", inShadow ? "UMBRA ECLIPSE" : "SOLAR DAYLIGHT", inShadow ? "#fbbf24" : "#4ade80"),
           cell("GROUND LINK", activeStationName, activeStationName.includes("OCCULTED") ? "#94a3b8" : (t.commsOk ? "#34d399" : "#f87171")),
-          cell("PROPULSION ΔV", `${t.achievedDeltaV} / ${t.requiredDeltaV} m/s`, t.deltaVOk ? "#38bdf8" : "#f87171"),
-          cell("RAD / LIFE", `${t.orbit.radiationEnvKrad} krad · ${t.estimatedLifetimeMonths} mo`, t.radiationOk ? "#7fb8a6" : "#f87171")
+          t.scenario.isBioPayload && t.bioTelemetry
+            ? cell("INCUBATE / MELFI", `${t.bioTelemetry.thermal.incubateTempC}°C / ${t.bioTelemetry.thermal.storageTempC}°C`, (t.bioTelemetry.tempMatch && t.bioTelemetry.melfiOk) ? "#38bdf8" : "#f87171")
+            : cell("PROPULSION ΔV", `${t.achievedDeltaV} / ${t.requiredDeltaV} m/s`, t.deltaVOk ? "#38bdf8" : "#f87171"),
+          t.scenario.isBioPayload && t.bioTelemetry
+            ? cell("BETA-CAROTENE", `${t.bioTelemetry.betaCaroteneUgMl} µg/mL (${t.bioTelemetry.protocol.replicates}r)`, t.bioTelemetry.yieldOk ? "#7fb8a6" : "#f87171")
+            : cell("RAD / LIFE", `${t.orbit.radiationEnvKrad} krad · ${t.estimatedLifetimeMonths} mo`, t.radiationOk ? "#7fb8a6" : "#f87171")
         ].join("");
       }
 

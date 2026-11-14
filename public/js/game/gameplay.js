@@ -1127,7 +1127,8 @@
         ),
         requiredScienceTypes: scenario.requiredScienceTypes || [],
         minDeltaV: scenario.minDeltaV,
-        minRadiationKrad: scenario.minRadiationKrad
+        minRadiationKrad: scenario.minRadiationKrad,
+        tradeoffTip: scenario.tradeoffTip || ""
       }));
     }
 
@@ -1879,48 +1880,54 @@
           val: `$${t.totalCostM}/${t.budgetCapM}M`,
           pct: Math.min(100, Math.round((t.totalCostM / Math.max(1, t.budgetCapM)) * 100)),
           ok: t.budgetOk,
-          color: t.budgetOk ? "#7fb8a6" : "#ef4444"
+          color: t.budgetOk ? "#7fb8a6" : "#ef4444",
+          tip: "Total mission cost vs the scenario budget. Cheaper parts leave reserve for upgrades or unexpected fixes."
         },
         {
           label: isPhone ? "MASS" : "MASS",
           val: `${t.wetMassKg}/${t.lvCapacityKg}kg`,
           pct: Math.min(100, Math.round((t.wetMassKg / Math.max(1, t.lvCapacityKg)) * 100)),
           ok: t.massOk,
-          color: t.massOk ? "#67e8f9" : "#ef4444"
+          color: t.massOk ? "#67e8f9" : "#ef4444",
+          tip: "Wet mass (spacecraft + propellant + instruments) must fit under the selected rocket's lift capacity to this orbit."
         },
         {
           label: isPhone ? "PWR" : "POWER",
           val: `${t.totalPowerLoadW}/${t.daylightGenW}W`,
           pct: Math.min(100, Math.round((t.totalPowerLoadW / Math.max(1, t.daylightGenW)) * 100)),
           ok: t.powerOk,
-          color: t.powerOk ? "#d0a15c" : "#ef4444"
+          color: t.powerOk ? "#d0a15c" : "#ef4444",
+          tip: "Solar generation must run all loads and recharge the battery for eclipse. Battery depth-of-discharge must stay at or below 80%."
         },
         {
           label: isPhone ? "DATA" : "COMMS/DATA",
           val: `${t.linkMarginDb}dB`,
           pct: Math.min(100, Math.max(10, Math.round((t.downlinkCapGbPerDay / Math.max(1, t.dataGeneratedGbPerDay)) * 55))),
           ok: t.commsOk,
-          color: t.commsOk ? "#9a8fc4" : "#f59e0b"
+          color: t.commsOk ? "#9a8fc4" : "#f59e0b",
+          tip: "Instruments generate data; the antenna and ground network must downlink it with a link margin above 3 dB."
         },
         {
           label: isPhone ? "ΔV" : "DELTA-V",
           val: `${t.achievedDeltaV}m/s`,
           pct: Math.min(100, Math.round((t.achievedDeltaV / Math.max(1, t.requiredDeltaV)) * 80)),
           ok: t.deltaVOk,
-          color: t.deltaVOk ? "#38bdf8" : "#ef4444"
+          color: t.deltaVOk ? "#38bdf8" : "#ef4444",
+          tip: "Propulsion must cover orbit insertion plus end-of-mission disposal. Ion engines are efficient but power-hungry."
         },
         {
           label: isPhone ? "SCI" : "SCIENCE",
           val: `${t.scienceScore}/100`,
           pct: t.scienceScore,
           ok: t.scienceScore >= 60,
-          color: "#4ade80"
+          color: "#4ade80",
+          tip: "Science score rises when the selected instruments cover the scenario's required science types."
         }
       ];
 
       bar.innerHTML = metrics
         .map((m) => `
-          <div class="lunaspis-res-item">
+          <div class="lunaspis-res-item" title="${m.tip}" style="cursor:help;">
             <div class="lunaspis-res-head">
               <span style="color:${m.color};font-weight:700;">${m.label}</span>
               <span>${m.val}</span>
@@ -2079,8 +2086,13 @@
         queueMicrotask(() => this._syncConsoleWidgets());
       }
 
+      const cadetCoachHtml = (window.missionAcademy && typeof window.missionAcademy.getConsoleTipHtml === "function")
+        ? window.missionAcademy.getConsoleTipHtml(this.activeTask, this._activeMdlTab)
+        : "";
+
       return `
         ${roleStrip}
+        ${cadetCoachHtml}
         <div style="margin-bottom:14px;padding:10px 12px;border-radius:4px;background:rgba(8,13,24,0.82);border:1px solid rgba(148,163,184,0.22);">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px;">
             <span style="font-family:var(--font-mono,monospace);font-size:10px;font-weight:700;letter-spacing:1.2px;color:#93c5fd;">
@@ -2089,6 +2101,7 @@
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
               <button type="button" id="btn-mdl-snapshot-a" style="padding:3px 8px;border-radius:4px;border:1px solid rgba(148,163,184,0.28);background:rgba(15,23,42,0.85);color:#e2e8f0;font-family:var(--font-mono,monospace);font-size:9px;font-weight:700;cursor:pointer;">${this.tradeBaselineA ? "UPDATE OPTION A" : "SAVE OPTION A"}</button>
               <button type="button" id="btn-open-cml-workbench" style="padding:3px 8px;border-radius:4px;border:1px solid rgba(251,191,36,0.55);background:rgba(245,158,11,0.16);color:#fde68a;font-family:var(--font-mono,monospace);font-size:9px;font-weight:700;cursor:pointer;" title="Open JPL CML 1-9 Workbench, 24x7 Matrix & Checklists">CML ${targetPct}% @ L${targetLvl}${critCount ? ` · !${critCount}` : ""}</button>
+              <button type="button" id="btn-mdl-open-csa-lab" style="padding:3px 8px;border-radius:4px;border:1px solid rgba(52,211,153,0.5);background:rgba(16,185,129,0.16);color:#a7f3d0;font-family:var(--font-mono,monospace);font-size:9px;font-weight:700;cursor:pointer;" title="Open CSA Digital Games & Activities, GMAT Script Generator & Webb Telescope Lab">CSA / NASA LAB</button>
               <button type="button" id="btn-mdl-open-viz" style="padding:3px 8px;border-radius:4px;border:1px solid rgba(59,130,246,0.5);background:rgba(37,99,235,0.2);color:#dbeafe;font-family:var(--font-mono,monospace);font-size:9px;font-weight:700;cursor:pointer;">3D ORBIT VIZ [U]</button>
               <span style="font-family:var(--font-mono,monospace);font-size:10px;font-weight:700;color:${t.overallScore >= 75 ? "#86efac" : "#fde68a"};">
                 SCORE ${t.overallScore}/100 (SCI ${t.scienceScore} · ENG ${t.engineeringScore})
@@ -2170,6 +2183,16 @@
           if (window.missionViz && typeof window.missionViz.open === "function") {
             this.closeTaskModal();
             window.missionViz.open();
+          }
+        });
+      }
+
+      const btnCsaLab = container.querySelector("#btn-mdl-open-csa-lab");
+      if (btnCsaLab && !btnCsaLab.dataset.bound) {
+        btnCsaLab.dataset.bound = "1";
+        btnCsaLab.addEventListener("click", () => {
+          if (window.csaNasaLab && typeof window.csaNasaLab.openModal === "function") {
+            window.csaNasaLab.openModal("csa");
           }
         });
       }
@@ -2899,6 +2922,7 @@
           `;
         }
 
+        this._activeMdlTab = activeTab;
         body.innerHTML = `
           ${this._renderLiveTradeoffStrip({ onRerender: renderDesk })}
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
@@ -4526,10 +4550,15 @@
             </div>`
           : "";
 
+        const csaContextualHtml = window.csaNasaLab && typeof window.csaNasaLab.renderContextualConsoleWidget === "function"
+          ? window.csaNasaLab.renderContextualConsoleWidget(t.scenario.id)
+          : "";
+
         container.innerHTML = `
           ${this._renderLiveTradeoffStrip({ onRerender: render })}
           ${waveBanner}
           ${bioProtoBanner}
+          ${csaContextualHtml}
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
             <span style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#9aa4ae;">
               SELECT SCIENTIFIC INSTRUMENTS (BAYS USED: ${t.selectedInsts.length} / ${t.maxInstruments} MAX ON ${t.bus.name.toUpperCase()})
@@ -4556,6 +4585,10 @@
             </button>
           </div>
         `;
+
+        if (window.csaNasaLab && typeof window.csaNasaLab.bindContextualConsoleEvents === "function") {
+          window.csaNasaLab.bindContextualConsoleEvents(container, render);
+        }
 
         container.querySelectorAll(".md-bioproto-card").forEach((card) => {
           card.addEventListener("click", () => {
@@ -5121,6 +5154,9 @@
               <button type="button" id="btn-sim-export-json" style="padding:9px 12px;border-radius:4px;border:1px solid rgba(148,163,184,0.28);background:rgba(255,255,255,0.04);color:#cbd5e1;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
                 EXPORT MDL (.JSON)
               </button>
+              <button type="button" id="btn-sim-export-gmat" style="padding:9px 12px;border-radius:4px;border:1px solid rgba(103,232,249,0.45);background:rgba(103,232,249,0.12);color:#67e8f9;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
+                EXPORT GMAT (.SCRIPT)
+              </button>
               <button type="button" id="btn-sim-edit-arch" style="padding:9px 12px;border-radius:4px;border:1px solid rgba(148,163,184,0.28);background:rgba(255,255,255,0.04);color:#f8fafc;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
                 EDIT DESIGN
               </button>
@@ -5134,6 +5170,15 @@
         const btnExportSim = container.querySelector("#btn-sim-export-json");
         if (btnExportSim) {
           btnExportSim.addEventListener("click", () => this.exportMdlPointDesignJson());
+        }
+
+        const btnExportGmat = container.querySelector("#btn-sim-export-gmat");
+        if (btnExportGmat) {
+          btnExportGmat.addEventListener("click", () => {
+            if (window.csaNasaLab && typeof window.csaNasaLab.exportGmatScript === "function") {
+              window.csaNasaLab.exportGmatScript();
+            }
+          });
         }
 
         const btnLunar = container.querySelector("#btn-sim-lunar-3d");
@@ -5379,7 +5424,10 @@
             <div style="margin-top:2px;"><strong>${evalSummary.analogue.missions}</strong> — ${evalSummary.analogue.productTitle}</div>
             <div style="margin-top:6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
               <span style="font-family:monospace;font-size:9.5px;color:#86efac;">EoM Disposal: ${evalSummary.disposal.name.split("(")[0].trim()} (${evalSummary.disposal.deorbitYears} yr)</span>
-              <button type="button" id="btn-victory-export-mdl" style="padding:4px 9px;border-radius:4px;border:1px solid rgba(103,232,249,0.5);background:rgba(103,232,249,0.14);color:#7dd3fc;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">EXPORT MDL (.JSON)</button>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <button type="button" id="btn-victory-open-cml" style="padding:4px 9px;border-radius:4px;border:1px solid rgba(251,191,36,0.55);background:rgba(245,158,11,0.16);color:#fde68a;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">CML REPORT</button>
+                <button type="button" id="btn-victory-export-mdl" style="padding:4px 9px;border-radius:4px;border:1px solid rgba(103,232,249,0.5);background:rgba(103,232,249,0.14);color:#7dd3fc;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">EXPORT MDL (.JSON)</button>
+              </div>
             </div>
           </div>
           <div style="font-family:monospace;font-size:9px;color:#9aa4ae;letter-spacing:0.8px;margin-bottom:8px;text-align:left;">
@@ -5389,6 +5437,13 @@
           <div style="font-family:monospace;font-size:10px;color:#9aa4ae;letter-spacing:1px;margin-bottom:4px;text-align:left;">CREW MANIFEST</div>
           <div style="text-align:left;max-height:130px;overflow:auto;margin-bottom:6px;">${crewRows}</div>
         `;
+        const btnVCml = details.querySelector("#btn-victory-open-cml");
+        if (btnVCml) {
+          btnVCml.addEventListener("click", () => {
+            if (modal) modal.style.display = "none";
+            this.openCmlWorkbench("checklist");
+          });
+        }
         const btnVExp = details.querySelector("#btn-victory-export-mdl");
         if (btnVExp) {
           btnVExp.addEventListener("click", () => this.exportMdlPointDesignJson());
@@ -5432,6 +5487,12 @@
       this.tasks.forEach((t) => {
         t.completed = false;
       });
+      this.cmlState = {
+        targetCml: 4,
+        assessorSignedOff: false,
+        overrides: {},
+        notes: { launchWindowDays: "20" }
+      };
       this._renderResourceMeters();
       this.activeTask = null;
       this.nearbyTask = null;

@@ -402,7 +402,9 @@
           ? window.gameplay.evaluateMissionDesign()
           : null;
         const payloadName = designTelem
-          ? `${designTelem.bus.name.split("(")[0].trim().toUpperCase()} (${designTelem.scenario.code})`
+          ? (designTelem.scenario && designTelem.scenario.isBioPayload
+            ? `BIONUTRIENTS-2 KIT → ISS 418 KM (${designTelem.scenario.code})`
+            : `${designTelem.bus.name.split("(")[0].trim().toUpperCase()} (${designTelem.scenario.code})`)
           : "DEEP SPACE COMM SATELLITE";
         const statusMsg = t < 27.0 ?
           `T+24s: ORBIT STABILIZED (${designTelem ? designTelem.orbit.id.toUpperCase() : "LEO"}) — OPENING PAYLOAD BAY DOORS [O]` :
