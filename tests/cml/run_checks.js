@@ -258,10 +258,15 @@ check("5x5 Risk Matrix creates 25 cells (1x1..5x5) and scores high risks when fa
   `highRisks=${failingEval.risk5x5.highCount}`);
 const jsonRep = CML.generateCmlReportPayload(strongTelemetry, strongCertified);
 const mdRep = CML.formatCmlMarkdownReport(strongTelemetry, strongCertified);
-check("Report exporters emit valid JSON schema and Markdown sections",
+check("Report exporters emit valid JSON schema and beginner-friendly Markdown sections",
   jsonRep.schema === "lunaspis.jpl-cml-assessment.v1" &&
-  mdRep.includes("Official JPL Caveats") &&
-  mdRep.includes("Technical Margin Gate"));
+  mdRep.includes("Three Golden Rules (JPL Caveats)") &&
+  mdRep.includes("Safety Buffers (Technical Margin Gate)"));
+
+check("Beginner-friendly stages, phases, and plain-English labels are active",
+  CML.CML_LEVELS.every((l) => l.shortTitle.startsWith("Stage ")) &&
+  !CML.CML_LEVELS.some((l) => /Pre-Phase A|NPR 7120|Step 2 Submittal/.test(l.phase + " " + l.competedGate)) &&
+  !CML.CML_CHECKLIST_ITEMS.some((i) => /\b(DP 6\.1\.2\.2|NPR 8580\.1|QQCL|BOEs at lowest WBS)\b/.test(i.text)));
 
 console.log("\n=== 5. SERVER SANITIZER & HTML WIRING ===");
 check("MISSION_DESIGN_KEYS includes bio and CML keys",

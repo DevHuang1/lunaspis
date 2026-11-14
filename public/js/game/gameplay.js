@@ -1,66 +1,65 @@
 /**
  * ============================================================================
- * NASA SPACE MISSION DESIGN, SYSTEMS ENGINEERING & SIMULATION CONSOLES
+ * SPACE MISSION DESIGNER & SCIENCE SIMULATOR CONSOLES
  * ============================================================================
- * Replaces arcade twitch mini-games with a realistic, understandable Space
- * Mission Design & Systems Engineering simulator across all 7 station consoles:
- * 1. [HUB] Mission Architecture, Scenario & 4-Role Team Strategy (`task_antenna`)
- * 2. [CMD] Orbit Selection, Launch Vehicle & Delta-V Compatibility (`task_nav`)
- * 3. [PWR] Spacecraft Bus, Solar/RTG Power & Eclipse Battery Sizing (`task_wires`)
- * 4. [LSS-SCI] Scientific Payload & Instrument Trade-Off Lab (`task_science`)
- * 5. [LSS-ECLSS] Thermal Rejection, Radiation Shielding & Life Support (`task_lss`)
- * 6. [HULL] Communications Link Budget, Ground Network & Propulsion (`task_hull`)
- * 7. [LDR] Full Mission Simulation, Orbital Stress Events & Evaluation (`task_landing`)
+ * Interactive, plain-English mission building and science simulator across 7 stations:
+ * 1. [HUB] Mission Goal, Pick & Team Plan (`task_antenna`)
+ * 2. [CMD] Orbit Path & Rocket Ride (`task_nav`)
+ * 3. [PWR] Frame, Bags, Solar Power & Batteries (`task_wires`)
+ * 4. [LSS-SCI] Science Tools & Experiment Setup (`task_science`)
+ * 5. [LSS-ECLSS] Heating, Freezing & Radiation Shielding (`task_lss`)
+ * 6. [HULL] Earth Antennas, Steering Fuel & Safe Return (`task_hull`)
+ * 7. [LDR] Full Mission Test Run & Results (`task_landing`)
  *
- * Every decision updates live telemetry across 6 interconnected resources:
- * - BUDGET ($M) vs. Mission Cap
- * - MASS (kg) vs. Launch Vehicle Capacity to Target Orbit
- * - POWER (W) Daylight Generation & Battery Depth-of-Discharge in Eclipse
- * - DATA (GB/day) Generated vs. Ground Station Downlink Capacity
- * - COMMS LINK MARGIN (dB) & Propulsive Delta-V (m/s)
- * - MISSION LIFETIME (Months) & Scientific Return Score
+ * Every choice updates live gauges across 6 everyday mission limits:
+ * - BUDGET ($M) vs. Available Money
+ * - WEIGHT (kg) vs. What Your Rocket Can Lift
+ * - POWER (W) Daylight Electricity & Shadow Battery Drain (%)
+ * - DATA (GB/day) Collected vs. Ground Dish Download Limit
+ * - SIGNAL CLARITY (dB) & Steering Speed Boost (m/s)
+ * - MISSION LIFE (Months) & Science Quality Score
  */
 
 (function (window) {
   "use strict";
 
   // ==========================================================================
-  // REAL-WORLD AEROSPACE CATALOGS & TRADE-OFF DATABASES
+  // PLAIN-ENGLISH SPACE & SCIENCE EQUIPMENT CATALOGS
   // ==========================================================================
 
   const MISSION_SCENARIOS = {
     earth_climate: {
       id: "earth_climate",
-      name: "Earth Climate & Cryosphere Observatory",
-      code: "EARTH-EO",
-      badge: "EARTH OBSERVATION",
+      name: "Earth Weather & Melting Ice Watcher",
+      code: "EARTH WATCH",
+      badge: "EARTH & CLIMATE",
       baseBudgetM: 380,
       targetLifetimeMonths: 36,
       recommendedOrbits: ["sso_705", "leo_400"],
       requiredScienceTypes: ["optical", "radar", "altimetry", "spectrometer"],
       minDeltaV: 420,
       minRadiationKrad: 25,
-      summary: "Monitor polar ice sheet mass balance, sea-surface height, and greenhouse gas columns with global sun-synchronous coverage.",
-      tradeoffTip: "Sun-Synchronous Orbit (705 km) gives consistent lighting and global polar coverage, while SAR + Laser Altimeter provide all-weather ice thickness data at the cost of high power and data rates."
+      summary: "Watch polar ice sheets, sea levels, and greenhouse gases across the whole Earth from space.",
+      tradeoffTip: "The Pole-to-Pole Daylight Orbit (705 km) sees all of Earth in steady sunlight. Pairing Cloud-Seeing Radar with the Laser Height Scanner tracks ice thickness day and night."
     },
     lunar_south_pole: {
       id: "lunar_south_pole",
-      name: "Artemis Lunar South Pole Volatiles Orbiter",
-      code: "ARTEMIS-LSP",
-      badge: "LUNAR EXPLORATION",
+      name: "Moon South Pole Water-Ice Hunter",
+      code: "MOON ICE",
+      badge: "MOON MISSION",
       baseBudgetM: 500,
       targetLifetimeMonths: 24,
       recommendedOrbits: ["lunar_polar_100", "gto_heo"],
       requiredScienceTypes: ["neutron", "altimetry", "spectrometer", "optical"],
       minDeltaV: 1150,
       minRadiationKrad: 50,
-      summary: "Map water-ice deposits inside permanently shadowed craters at Shackleton & Shoemaker and characterize landing hazards for crewed Artemis surface missions.",
-      tradeoffTip: "Lunar Polar Orbit requires high Delta-V (>1,150 m/s) for lunar orbit insertion and a Deep-Space X/Ka-Band link across 384,400 km."
+      summary: "Search dark craters at the Moon's South Pole for hidden water ice and safe landing zones for future astronauts.",
+      tradeoffTip: "Circling the Moon takes extra steering push (1,150+ m/s) and a strong radio link to reach Earth across 384,400 km."
     },
     asteroid_rendezvous: {
       id: "asteroid_rendezvous",
-      name: "Near-Earth Asteroid (Bennu/Apophis) Rendezvous",
-      code: "NEA-PROBE",
+      name: "Asteroid Rock & Dust Explorer",
+      code: "ASTEROID",
       badge: "DEEP SPACE",
       baseBudgetM: 540,
       targetLifetimeMonths: 48,
@@ -68,14 +67,14 @@
       requiredScienceTypes: ["spectrometer", "altimetry", "magnetometer", "neutron"],
       minDeltaV: 1650,
       minRadiationKrad: 75,
-      summary: "Rendezvous with a carbon-rich Near-Earth Asteroid to map regolith composition, gravity field anomalies, and Yarkovsky orbital drift.",
-      tradeoffTip: "Long 48-month deep-space lifetime demands high radiation shielding (75+ krad), Hall-Effect Ion or Bipropellant propulsion, and Deep Space Network (DSN) communications."
+      summary: "Fly alongside a rocky asteroid to map its surface minerals, gravity pull, and slow path drift.",
+      tradeoffTip: "A 4-year deep-space trip needs heavy radiation shielding (level 75+), high-efficiency fuel, and giant NASA dishes on Earth."
     },
     space_telescope: {
       id: "space_telescope",
-      name: "Deep-Space Infrared & Exoplanet Observatory",
-      code: "COSMOS-L2",
-      badge: "ASTROPHYSICS",
+      name: "Deep-Space Star & Planet Telescope",
+      code: "SPACE TELESCOPE",
+      badge: "STARS & PLANETS",
       requiresWavelength: true,
       baseBudgetM: 620,
       targetLifetimeMonths: 60,
@@ -83,14 +82,14 @@
       requiredScienceTypes: ["optical", "spectrometer"],
       minDeltaV: 1480,
       minRadiationKrad: 55,
-      summary: "Couple astrophysics targets to wavelength bands, cryo-optics, and sunshield geometry in a Sun-Earth L2 halo orbit.",
-      tradeoffTip: "Like NASA's JWST & Hubble build-it-yourself simulation, Mid-IR / Near-IR wavelengths require cryogenic cooling and deep-space cold sky away from Earth's thermal glow."
+      summary: "Choose what type of light your telescope sees, keep its mirrors super cold, and block Earth's glow in deep space.",
+      tradeoffTip: "Heat-glow cameras need active cooling pipes and a cold dark spot far from warm Earth so stray heat does not blur faint planets."
     },
     cubesat_101: {
       id: "cubesat_101",
-      name: "CSLI 6U/12U CubeSat 101 Pathfinder",
-      code: "CUBESAT-101",
-      badge: "SMALLSAT / CSLI",
+      name: "Pocket-Size Student Satellite",
+      code: "MINI SATELLITE",
+      badge: "MINI SATELLITE",
       isCubesat: true,
       baseBudgetM: 105,
       targetLifetimeMonths: 18,
@@ -98,14 +97,14 @@
       requiredScienceTypes: ["optical", "magnetometer"],
       minDeltaV: 85,
       minRadiationKrad: 15,
-      summary: "Design a mass-constrained university CubeSat from ConOps through ISS/rideshare deployment and 5-year deorbit compliance.",
-      tradeoffTip: "Choose 3U, 6U, or 12U form factors to balance mass, volume, and power while meeting NASA CSLI rideshare & 5-year End-of-Mission disposal rules."
+      summary: "Build a compact shoebox-size science satellite, catch a shared ride to orbit, and make sure it burns up cleanly within 5 years.",
+      tradeoffTip: "Pick Shoebox (6 kg), Briefcase (14 kg), or Backpack (28 kg) size to fit your budget and follow clean-orbit end-of-mission safety rules."
     },
     bionutrients_2: {
       id: "bionutrients_2",
-      name: "BioNutrients-2 ISS Nutrient Production",
+      name: "Space Station Vitamin Maker (BioNutrients-2)",
       code: "BIONUTRIENTS-2",
-      badge: "ISS BIO / SMD",
+      badge: "SPACE STATION SCIENCE",
       isBioPayload: true,
       baseBudgetM: 18,
       targetLifetimeMonths: 12,
@@ -113,180 +112,180 @@
       requiredScienceTypes: ["optical", "spectrometer"],
       minDeltaV: 120,
       minRadiationKrad: 10,
-      summary: "Launch soft-stowed 3mil FEP production bags on Cygnus NG-18, hydrate engineered yeast from the ISS PWD via 0.2µm filter, incubate at 30°C (+6h shake) for ≥3 µg/mL beta-carotene, store in MELFI (-80°C), and slash container mass (<250g) & volume (<300mL) vs BioNutrients-1.",
-      tradeoffTip: "Switch to thin Instant Systems 3mil FEP bags with swabable barb valves (-002) and execute the mandatory 6-hour mid-incubation yeast shake + MELFI (-80°C) cryopreservation to meet all ≥12 replicate and ≥3 µg/mL beta-carotene requirements."
+      summary: "Launch light soft bags of sleeping yeast to the Space Station, add clean drinking water through a germ-blocking filter, warm at 30°C (+ 6-hour shake) to make beta-carotene (Vitamin A nutrient), and freeze at -80°C — using less weight (<250 g) and space (<300 mL) per bag.",
+      tradeoffTip: "Pick the thin breathable bag with its Space Station safety lock cap, add the germ-blocking filter, warm to 30°C, do the 6-hour shake, and store in the -80°C ultra-cold freezer so 12+ bags hit 3.0+ mg/L Vitamin A nutrient."
     },
     sandbox: {
       id: "sandbox",
-      name: "Open Engineering Sandbox (Custom Mission)",
-      code: "SANDBOX",
-      badge: "UNCONSTRAINED LAB",
+      name: "Free-Build Test Lab (Custom Mission)",
+      code: "FREE PLAY",
+      badge: "OPEN PLAYGROUND",
       baseBudgetM: 950,
       targetLifetimeMonths: 24,
       recommendedOrbits: ["leo_400", "iss_cubesat_418", "sso_705", "gto_heo", "lunar_polar_100", "sun_earth_l2"],
       requiredScienceTypes: ["optical", "spectrometer"],
       minDeltaV: 300,
       minRadiationKrad: 20,
-      summary: "Experiment freely with spacecraft buses, instruments, launchers, and orbital regimes without strict budget caps.",
-      tradeoffTip: "Use Sandbox Mode to test extreme payload combinations and see how Tsiolkovsky's rocket equation and link budgets behave."
+      summary: "Mix and match any frames, rockets, science tools, and orbits freely with a huge budget.",
+      tradeoffTip: "Use Free-Build mode to experiment without limits and see how weight, electricity, signal strength, and fuel trade off."
     }
   };
 
   const WAVELENGTH_BANDS = {
     uv_optical: {
       id: "uv_optical",
-      name: "Ultraviolet & Visible (0.1–0.8 µm · Hubble / HabWorlds)",
-      shortLabel: "UV / VISIBLE",
+      name: "Visible & UV Light (Like Hubble)",
+      shortLabel: "VISIBLE LIGHT",
       reqThermal: null,
       avoidLowEarthThermal: false,
       minBus: "smallsat_12u",
       preferredInstIds: ["inst_multispectral", "inst_lidar"],
-      explain: "Captures hot young stars, aurorae, and exoplanet reflected spectra. Operates near room temperature (~290 K) in LEO, SSO, or L2."
+      explain: "Captures crisp color and ultraviolet photos of bright young stars and planets. Works comfortably near normal room temperature."
     },
     near_ir: {
       id: "near_ir",
-      name: "Near-Infrared (0.6–5.0 µm · JWST NIRCam / Roman)",
-      shortLabel: "NEAR-IR",
+      name: "Warm Heat-Glow Light (Near-Infrared)",
+      shortLabel: "HEAT-GLOW LIGHT",
       reqThermal: "pumped_loop_50",
       avoidLowEarthThermal: false,
       minBus: "modular_hex",
       preferredInstIds: ["inst_ir_spec", "inst_multispectral"],
-      explain: "Peeks through cosmic dust clouds to measure high-redshift galaxies and exoplanet atmospheres. Requires active heat rejection + IR Spectrometer."
+      explain: "Sees through dusty space clouds to study distant galaxies and planet air. Needs Pipe Heat Coolers plus the Mineral & Gas Light Reader."
     },
     mid_ir: {
       id: "mid_ir",
-      name: "Mid-Infrared Cryo (5–28 µm · JWST MIRI)",
-      shortLabel: "MID-IR CRYO",
+      name: "Deep-Cold Heat Light (Mid-Infrared)",
+      shortLabel: "DEEP-COLD LIGHT",
       reqThermal: "cryo_rad_90",
       avoidLowEarthThermal: true,
       minBus: "modular_hex",
       preferredInstIds: ["inst_ir_spec"],
-      explain: "Observes protoplanetary disks and biosignature molecules. Strictly requires the Two-Phase Cryo-Cooler Loop and a cold L2/deep-space orbit away from Earth's 290 K heat."
+      explain: "Spots newborn planets and signs of life. Strictly requires Deep-Freeze Cooling Pipes and a cold spot far away from Earth's warmth."
     },
     xray: {
       id: "xray",
-      name: "Soft X-Ray High-Energy (0.1–10 keV · Chandra)",
-      shortLabel: "X-RAY",
+      name: "High-Energy X-Ray Light",
+      shortLabel: "X-RAY LIGHT",
       reqThermal: "pumped_loop_50",
       avoidLowEarthThermal: false,
       minBus: "modular_hex",
       preferredInstIds: ["inst_neutron", "inst_mag"],
-      explain: "Grazing-incidence nested mirrors trace black hole accretion disks and supernova remnants. Needs large hexagonal/heavy optical bench + active thermal control."
+      explain: "Special mirrors track black holes and exploding stars. Needs at least a Medium Frame and active Pipe Heat Coolers."
     }
   };
 
   const CUBESAT_FORMS = {
     "3u": {
       id: "3u",
-      name: "3U Standard CubeSat (10×10×34 cm · Max 6 kg)",
-      shortLabel: "3U (6 kg)",
+      name: "Shoebox Size (10×10×34 cm · Max 6 kg)",
+      shortLabel: "SHOEBOX (6 kg)",
       maxMassKg: 6,
       maxInst: 2,
       costFactor: 0.34,
       massScale: 0.022,
       powerScale: 0.16,
-      explain: "Ultra-compact university form factor (~6 kg). Ideal for Kibo Canadarm2 / Nanoracks ISS deployment; fits at most 2 lightweight instruments."
+      explain: "Tiny student satellite (~6 kg). Great for release from the Space Station robot arm; holds at most 2 small science tools."
     },
     "6u": {
       id: "6u",
-      name: "6U Exploration CubeSat (10×20×34 cm · Max 14 kg)",
-      shortLabel: "6U (14 kg)",
+      name: "Briefcase Size (10×20×34 cm · Max 14 kg)",
+      shortLabel: "BRIEFCASE (14 kg)",
       maxMassKg: 14,
       maxInst: 3,
       costFactor: 0.44,
       massScale: 0.032,
       powerScale: 0.28,
-      explain: "Workhorse NASA CSLI science bus (~14 kg) supporting deployable solar wings, X-band patch or cold-gas/monoprop propulsion."
+      explain: "Popular mini-satellite (~14 kg) with fold-out solar panels and room for up to 3 lightweight science tools."
     },
     "12u": {
       id: "12u",
-      name: "12U Deep-Space MicroSat (20×20×34 cm · Max 28 kg)",
-      shortLabel: "12U (28 kg)",
+      name: "Backpack Size (20×20×34 cm · Max 28 kg)",
+      shortLabel: "BACKPACK (28 kg)",
       maxMassKg: 28,
       maxInst: 3,
       costFactor: 0.54,
       massScale: 0.068,
       powerScale: 0.45,
-      explain: "High-volume CubeSat (~28 kg) capable of cislunar rideshares, gimbaled high-gain dishes, and 3-instrument science suites."
+      explain: "Roomy mini-satellite (~28 kg) capable of shared Moon rides, motorized radio dishes, and 3 science tools."
     }
   };
 
   const DISPOSAL_OPTIONS = {
     none_drift: {
       id: "none_drift",
-      name: "No End-of-Mission Disposal (Uncontrolled Drift)",
+      name: "Leave Drifting (No Cleanup Plan)",
       dvCostMs: 0,
       massKg: 0,
       costM: 0,
       deorbitYears: 85,
       leoOnly: false,
-      explain: "Leaves spacecraft derelict for ~85 years — non-compliant with FCC 5-Year & NASA-STD-8719.14 orbital debris mitigation standards."
+      explain: "Leaves the dead spacecraft circling Earth for ~85 years — breaks clean-space 5-year safety rules."
     },
     drag_sail: {
       id: "drag_sail",
-      name: "Passive Gossamer Drag Sail / Tether (<5 yr LEO Reentry)",
+      name: "Pop-Out Drag Sail (Burns Up in <5 Years)",
       dvCostMs: 15,
       massKg: 4,
       costM: 4,
       deorbitYears: 3.5,
       leoOnly: true,
-      explain: "Lightweight deployable membrane deorbits LEO/ISS/SSO spacecraft within 3.5 years without heavy fuel reserves (ineffective above 750 km)."
+      explain: "Opens a thin sheet like a kite that catches faint upper air and brings low satellites down to burn up safely in 3.5 years (does not work above 750 km)."
     },
     controlled_deorbit: {
       id: "controlled_deorbit",
-      name: "Propulsive Deorbit / Safe Graveyard Disposal Burn",
+      name: "Steered Safe Return / Graveyard Parking",
       dvCostMs: 95,
       massKg: 10,
       costM: 9,
       deorbitYears: 0.2,
       leoOnly: false,
-      explain: "Reserves +95 m/s ΔV for targeted atmospheric demise (Point Nemo) or safe graveyard / heliocentric disposal in any orbit."
+      explain: "Saves extra steering fuel (+95 m/s) to aim cleanly over open ocean or park safely away from working orbits."
     }
   };
 
   const MISSION_ANALOGUES = {
     earth_climate: {
-      missions: "NASA/CNES SWOT, ICESat-2 & CSA RADARSAT Constellation",
-      productTitle: "Polar Ice-Sheet Freeboard & Sea-Level Anomaly Swath",
-      agencyTag: "NASA / CSA EO"
+      missions: "Earth Ice & Ocean Satellites (ICESat-2, SWOT, RADARSAT)",
+      productTitle: "Polar Ice Sheet Height & Sea-Level Change Over Time",
+      agencyTag: "EARTH SCIENCE"
     },
     lunar_south_pole: {
-      missions: "NASA Lunar Reconnaissance Orbiter (LRO) & Lunar Trailblazer",
-      productTitle: "Shackleton Crater Permanent-Shadow Water-Ice PSR Map",
-      agencyTag: "NASA ARTEMIS"
+      missions: "Moon Polar Scout Satellites (Lunar Reconnaissance Orbiter)",
+      productTitle: "Dark Moon Crater Hidden Water-Ice Map",
+      agencyTag: "MOON MISSION"
     },
     asteroid_rendezvous: {
-      missions: "NASA OSIRIS-REx (with CSA OLA Laser Altimeter) & APEX",
-      productTitle: "Regolith Hydration Spectrum & Shape Model Altimetry",
-      agencyTag: "NASA / CSA"
+      missions: "Asteroid Sample-Return Explorer (OSIRIS-REx)",
+      productTitle: "Asteroid Rock Water Map & 3D Shape Scan",
+      agencyTag: "ASTEROID LAB"
     },
     space_telescope: {
-      missions: "NASA/ESA/CSA James Webb Space Telescope & Roman Space Telescope",
-      productTitle: "Deep-Field Diffraction Image & Exoplanet Transmission Spectrum",
-      agencyTag: "NASA / ESA / CSA"
+      missions: "James Webb & Hubble Space Telescopes",
+      productTitle: "Sharp Starlight Photo & Distant Planet Air Reading",
+      agencyTag: "SPACE TELESCOPE"
     },
     cubesat_101: {
-      missions: "NASA CSLI CAPSTONE / Dellingr & CSA NEOSSat (Kibo/Canadarm2)",
-      productTitle: "Multi-Pass Beacon Link Closure & Earth-Limb Nadir Strip",
-      agencyTag: "NASA CSLI / CSA"
+      missions: "Student Mini-Satellites Released from the Space Station",
+      productTitle: "Daily Radio Check-In & Earth Horizon Photo",
+      agencyTag: "MINI SATELLITE"
     },
     bionutrients_2: {
-      missions: "NASA BioNutrients-2 Flight Payload (Cygnus NG-18 -> ISS PWD / MELFI -80C)",
-      productTitle: "Beta-Carotene Concentration (>=3 ug/mL) & Dry Cell Weight Assay",
-      agencyTag: "NASA ARC / ISS"
+      missions: "NASA BioNutrients-2 Supply Flight (Space Station Lab)",
+      productTitle: "Vitamin A Nutrient (3.0+ mg/L) & Yeast Weight Check",
+      agencyTag: "SPACE STATION LAB"
     },
     sandbox: {
-      missions: "NASA Goddard Mission Design Lab (MDL) Rapid Concept Archive",
-      productTitle: "Multi-Discipline Systems Envelope & Trade-Space Projection",
-      agencyTag: "NASA GSFC MDL"
+      missions: "NASA Mission Playground",
+      productTitle: "Custom Spacecraft Limits & Output Chart",
+      agencyTag: "OPEN LAB"
     }
   };
 
-  // BioNutrients-2 Hardware, Protocol & Thermal Profiles (NASA "Design and Develop Science Missions", 2025)
+  // BioNutrients-2 Yeast, Bag, Recipe & Freezer Choices (grounded in NASA 2025 PDF)
   const BIO_ORGANISM_OPTIONS = {
     yeast_beta_carotene: {
       id: "yeast_beta_carotene",
-      name: "Engineered Yeast Spores (Beta-Carotene Target)",
+      name: "Vitamin-Making Yeast Spores (Mission Target)",
       shortLabel: "YEAST (30°C + 6h SHAKE)",
       targetTempC: 30,
       recommendedBagId: "fep_3mil_iss_002",
@@ -295,11 +294,11 @@
       goalAligned: true,
       baseBetaCaroteneUgMl: 4.4,
       baseDcwMg: 2.3,
-      explain: "Primary BioNutrients-2 goal: enable yeast growth aboard ISS and produce >=3 µg/mL targeted beta-carotene using dormant spores hydrated from PWD. Requires 3mil FEP bag, 30°C incubation, and ~1 min shake at 6 hours."
+      explain: "Main BioNutrients-2 goal: wake up sleeping yeast with clean drinking water on the Space Station so they make at least 3.0 mg/L of beta-carotene (Vitamin A nutrient). Needs the thin breathable bag, 30°C warmer, and a 1-minute shake at 6 hours."
     },
     yogurt_culture: {
       id: "yogurt_culture",
-      name: "Thermophilic Yogurt Culture (42°C)",
+      name: "Warm Yogurt Culture (42°C)",
       shortLabel: "YOGURT (42°C)",
       targetTempC: 42,
       recommendedBagId: "fep_5mil_hd_002",
@@ -308,12 +307,12 @@
       goalAligned: false,
       baseBetaCaroteneUgMl: 0.2,
       baseDcwMg: 1.7,
-      explain: "Dairy probiotic fermentation tested in BioNutrients-2 follow-on bags: 5mil FEP film at 42°C, no 6h shake required. Validates probiotic growth, but does NOT achieve the yeast beta-carotene synthesis goal."
+      explain: "Follow-up probiotic yogurt test in thick bags warmed at 42°C (no 6-hour shake needed). Great for yogurt bacteria, but does NOT make the yeast Vitamin A nutrient."
     },
     kefir_culture: {
       id: "kefir_culture",
-      name: "Mesophilic Kefir Consortium (Ambient)",
-      shortLabel: "KEFIR (AMBIENT)",
+      name: "Room-Temp Kefir Culture (22°C)",
+      shortLabel: "KEFIR (ROOM TEMP)",
       targetTempC: 22,
       recommendedBagId: "fep_5mil_hd_002",
       recommendedThermalId: "ambient_melfi_80c",
@@ -321,15 +320,15 @@
       goalAligned: false,
       baseBetaCaroteneUgMl: 0.1,
       baseDcwMg: 1.5,
-      explain: "Ambient cabin fermentation (5mil FEP, zero incubator heater draw). Useful low-power probiotic comparator, but does NOT fulfill the BioNutrients-2 yeast beta-carotene objective."
+      explain: "Room-temperature fermented drink test (thick bag, zero heater electricity). Useful low-power probiotic test, but does NOT make the yeast Vitamin A nutrient."
     }
   };
 
   const BIO_BAG_CONFIGS = {
     fep_3mil_iss_002: {
       id: "fep_3mil_iss_002",
-      name: "3mil FEP Bag + Needlefree Swabable Barb Valve (P/N 110596-002 ISS)",
-      shortLabel: "3mil FEP (-002 ISS)",
+      name: "Thin Breathable Plastic Bag + Safety Lock Valve (Station Ready)",
+      shortLabel: "THIN BAG + LOCK CAP",
       filmMil: 3,
       dimensions: '8.5" L × 3.25" W',
       containerMassG: 42,
@@ -338,12 +337,12 @@
       sterileInterfaceOk: true,
       costM: 2,
       yeastGrowthFactor: 1.0,
-      explain: "Instant Systems 3mil FEP bag (8.5\"×3.25\") with polycarbonate/silicone needlefree swabable barb valve + ISS non-Luer thread cover (-002), color-coded serial border & metallic O2/H2O barrier pouch. Empty container 42g (<250g) & 185mL kit volume (<300mL)."
+      explain: "Thin breathable plastic pouch (8.5\"×3.25\") with a wipe-clean snap valve, leak-proof Space Station safety lock cap, color border, and protective silver storage pouch. Empty bag weighs 42 g (<250 g limit) and kit takes 185 mL (<300 mL limit)."
     },
     fep_5mil_hd_002: {
       id: "fep_5mil_hd_002",
-      name: "5mil Heavy-Duty FEP Bag + Swabable Barb Valve (-002 ISS)",
-      shortLabel: "5mil FEP (-002 ISS)",
+      name: "Thick Sturdy Plastic Bag + Safety Lock Valve",
+      shortLabel: "THICK BAG + LOCK CAP",
       filmMil: 5,
       dimensions: '8.5" L × 3.25" W',
       containerMassG: 54,
@@ -352,12 +351,12 @@
       sterileInterfaceOk: true,
       costM: 2,
       yeastGrowthFactor: 0.66,
-      explain: "Thicker 5mil FEP film designed for Yogurt & Kefir cultures. Meets <250g mass & <300mL volume caps, but reduced gas exchange compared to 3mil limits yeast beta-carotene yield."
+      explain: "Thicker plastic pouch built for yogurt and kefir. Meets the <250 g weight and <300 mL space limits, but lets less oxygen through, lowering yeast Vitamin A nutrient output."
     },
     fep_earth_001: {
       id: "fep_earth_001",
-      name: "3mil FEP Bag — Earth Ground Config (P/N 110596-001)",
-      shortLabel: "3mil FEP (-001 GND)",
+      name: "Thin Plastic Bag — Earth Test Only (Missing Lock Cap)",
+      shortLabel: "EARTH TEST BAG",
       filmMil: 3,
       dimensions: '8.5" L × 3.25" W',
       containerMassG: 40,
@@ -366,29 +365,29 @@
       sterileInterfaceOk: false,
       costM: 1,
       yeastGrowthFactor: 0.95,
-      explain: "Earth ground-control (-001) valve assembly without the ISS non-Luer thread cover and flight lot acceptance. Fails ISS Potable Water Dispenser (PWD) sterile crew-interface verification."
+      explain: "Earth ground-lab test bag without the special leak-proof Space Station valve cover. Fails Space Station clean water tap safety inspection."
     },
     bn1_legacy_canister: {
       id: "bn1_legacy_canister",
-      name: "BioNutrients-1 Rigid Growth Pack (Legacy Reference)",
-      shortLabel: "BN-1 RIGID PACK",
+      name: "Old BioNutrients-1 Hard Plastic Canister",
+      shortLabel: "OLD HARD CANISTER",
       filmMil: 0,
-      dimensions: "Rigid Polycarbonate Housing",
+      dimensions: "Rigid Plastic Housing",
       containerMassG: 340,
       kitVolumeMl: 520,
       hasIssNonLuerCover: true,
       sterileInterfaceOk: true,
       costM: 4,
       yeastGrowthFactor: 0.9,
-      explain: "Legacy BioNutrients-1 rigid container baseline (340 g empty container mass, 520 mL occupied volume). Violates BioNutrients-2 Goal #3 and hardware caps (<250 g mass, <300 mL volume)."
+      explain: "Older hard canister from the earlier BioNutrients-1 flight (340 g empty weight, 520 mL space taken). Breaks the upgrade goal (<250 g weight and <300 mL size)."
     }
   };
 
   const BIO_PROTOCOL_OPTIONS = {
     pwd_syringe_filter_6h_16rep: {
       id: "pwd_syringe_filter_6h_16rep",
-      name: "Full Flight Protocol · 16 Replicates × 35 mL + 0.2µm Filter + 6h Shake",
-      shortLabel: "16×35mL + FILTER + 6h SHAKE",
+      name: "Full Space Recipe · 16 Bags × 35 mL + Germ Filter + 6h Shake",
+      shortLabel: "16 BAGS · FILTER · 6h SHAKE",
       replicates: 16,
       sampleVolMl: 35,
       sterileFiltered: true,
@@ -397,12 +396,12 @@
       contaminationCfu: 0,
       yieldFactor: 1.0,
       dcwFactor: 1.0,
-      explain: "Nominal ISS Space ops: draw water from PWD into 1L bag -> syringe draw -> inject via 0.2µm filter -> remove filter -> 1-min shake -> incubate -> 1-min shake at 6h -> protective pouch -> MELFI (-80°C)."
+      explain: "Full Space Station steps: fill transfer bag from clean water tap -> push with syringe through germ-blocking filter -> remove filter -> 1-min shake -> warm -> 1-min shake at 6 hours -> seal in foil pouch -> freeze at -80°C."
     },
     pwd_12rep_30ml_std: {
       id: "pwd_12rep_30ml_std",
-      name: "Minimum Threshold Protocol · 12 Replicates × 30 mL + 0.2µm Filter + 6h Shake",
-      shortLabel: "12×30mL MIN SPEC",
+      name: "Minimum Passing Recipe · 12 Bags × 30 mL + Germ Filter + 6h Shake",
+      shortLabel: "12 BAGS · MIN PASSING",
       replicates: 12,
       sampleVolMl: 30,
       sterileFiltered: true,
@@ -411,12 +410,12 @@
       contaminationCfu: 0,
       yieldFactor: 0.82,
       dcwFactor: 0.72,
-      explain: "Meets exact publication requirements (12 replicates, 30 mL each, 0.2µm sterile filter, 6h shake), yielding ~3.6 µg/mL beta-carotene with no spare replicates for handling anomalies."
+      explain: "Meets exact scientific publication rules (12 bags, 30 mL each, germ filter, 6-hour shake), making ~3.6 mg/L Vitamin A nutrient, with zero spare bags if one leaks."
     },
     skip_6h_shake_protocol: {
       id: "skip_6h_shake_protocol",
-      name: "No 6h Shake Protocol · 16 Replicates × 35 mL (Skip Mid-Incubation Shake)",
-      shortLabel: "OMIT 6h SHAKE",
+      name: "Skip the 6-Hour Shake · 16 Bags × 35 mL",
+      shortLabel: "SKIP 6h SHAKE",
       replicates: 16,
       sampleVolMl: 35,
       sterileFiltered: true,
@@ -425,12 +424,12 @@
       contaminationCfu: 0,
       yieldFactor: 0.42,
       dcwFactor: 0.38,
-      explain: "Skips the critical 6-hour 1-minute agitation for Yeast. Microgravity cell settling starves oxygen/nutrient transfer, collapsing beta-carotene (<3 µg/mL) and dry cell weight (<1 mg)."
+      explain: "Skips stirring the yeast bags at hour 6. In weightless space, yeast settles into clumps and cannot reach fresh nutrients, dropping Vitamin A (<3.0 mg/L) and yeast weight (<1 mg)."
     },
     low_rep_6_unfiltered: {
       id: "low_rep_6_unfiltered",
-      name: "Under-Sampled Unfiltered · 6 Replicates × 20 mL (No 0.2µm Filter)",
-      shortLabel: "6×20mL UNFILTERED",
+      name: "Too Few Bags & No Filter · 6 Bags × 20 mL",
+      shortLabel: "6 BAGS · NO FILTER",
       replicates: 6,
       sampleVolMl: 20,
       sterileFiltered: false,
@@ -439,85 +438,85 @@
       contaminationCfu: 140,
       yieldFactor: 0.55,
       dcwFactor: 0.5,
-      explain: "Fails statistical publication power (<12 replicates), insufficient liquid (<30 mL/sample) for User wash/centrifuge/assay, and unsterilized PWD feed introduces microbial contamination."
+      explain: "Fails minimum test count (<12 bags), too little water (<30 mL per bag) for lab tests back on Earth, and skipping the germ filter lets unwanted bacteria contaminate the yeast."
     }
   };
 
   const BIO_THERMAL_OPTIONS = {
     inc_30c_melfi_80c: {
       id: "inc_30c_melfi_80c",
-      name: "ISS Incubator 30°C + Protective Foil + MELFI (-80°C)",
-      shortLabel: "30°C + MELFI -80°C",
+      name: "Warm at 30°C + Protective Pouch + -80°C Ultra-Cold Freezer",
+      shortLabel: "30°C + -80°C FREEZER",
       incubateTempC: 30,
       storageTempC: -80,
       melfiFrozen: true,
       powerW: 115,
       preservationFactor: 1.0,
-      explain: "Exact Yeast thermal profile: 30°C precision incubation monitored live from Ground console, then sealed inside protective packaging and frozen in ISS MELFI (-80°C) until Earth thaw & centrifuge."
+      explain: "Exact yeast heating & freezing plan: warm gently at 30°C while Earth watches live, seal inside protective foil pouches, and freeze in the -80°C ultra-cold freezer until lab testing back on Earth."
     },
     inc_42c_melfi_80c: {
       id: "inc_42c_melfi_80c",
-      name: "ISS Incubator 42°C + MELFI (-80°C)",
-      shortLabel: "42°C + MELFI -80°C",
+      name: "Hot Warmer 42°C + -80°C Ultra-Cold Freezer",
+      shortLabel: "42°C + -80°C FREEZER",
       incubateTempC: 42,
       storageTempC: -80,
       melfiFrozen: true,
       powerW: 155,
       preservationFactor: 0.45,
-      explain: "Yogurt fermentation setpoint (42°C) + MELFI (-80°C). Thermal stress denatures engineered Yeast metabolic pathways if misapplied to Yeast beta-carotene runs."
+      explain: "Hotter 42°C temperature made for yogurt. Too hot for engineered yeast and sharply lowers Vitamin A nutrient output."
     },
     ambient_melfi_80c: {
       id: "ambient_melfi_80c",
-      name: "ISS Ambient Cabin (~22°C) + MELFI (-80°C)",
-      shortLabel: "AMBIENT + MELFI -80°C",
+      name: "Room Temperature (~22°C) + -80°C Ultra-Cold Freezer",
+      shortLabel: "22°C ROOM + -80°C FREEZER",
       incubateTempC: 22,
       storageTempC: -80,
       melfiFrozen: true,
       powerW: 12,
       preservationFactor: 0.48,
-      explain: "Kefir ambient incubation profile (~22°C) + MELFI (-80°C). Minimal ISS power draw, but insufficient temperature to achieve Yeast beta-carotene target within timeline."
+      explain: "Uses normal cabin air (~22°C) plus -80°C freezer. Saves heater power for kefir, but too cool for yeast to make enough Vitamin A nutrient."
     },
     inc_30c_coldbag_4c: {
       id: "inc_30c_coldbag_4c",
-      name: "ISS Incubator 30°C + +4°C Cold Bag (Omit MELFI -80°C)",
-      shortLabel: "30°C + +4°C NO MELFI",
+      name: "Warm at 30°C + Cool +4°C Ice Bag (Skip Ultra-Cold Freezer)",
+      shortLabel: "30°C + +4°C COOL BAG",
       incubateTempC: 30,
       storageTempC: 4,
       melfiFrozen: false,
       powerW: 105,
       preservationFactor: 0.52,
-      explain: "Omits ISS MELFI (-80°C) cryopreservation in favor of a +4°C cold stowage bag. Continued metabolic drift and oxidative breakdown degrade beta-carotene prior to User centrifuge analysis."
+      explain: "Skips the -80°C ultra-cold freezer in favor of a +4°C fridge bag. Yeast keeps drifting and breaking down Vitamin A nutrient before Earth lab tests."
     }
   };
 
   const DIFFICULTY_LEVELS = {
     cadet: {
       id: "cadet",
-      name: "Cadet (Guided Systems)",
+      name: "Beginner (Extra Room & Hints)",
       budgetMultiplier: 1.25,
       massMarginPct: 5,
-      desc: "+25% funding reserve and forgiving mass/power margins with plain-language engineering hints."
+      desc: "+25% extra budget and forgiving limits with friendly everyday explanations."
     },
     engineer: {
       id: "engineer",
-      name: "Systems Engineer (Standard NASA Phase-A)",
+      name: "Standard (Real-World Budget)",
       budgetMultiplier: 1.0,
       massMarginPct: 10,
-      desc: "Realistic NASA Phase-A mission design constraints requiring balanced trade-offs across all subsystems."
+      desc: "Balanced real-world limits where every weight, cost, and power choice matters."
     },
     director: {
       id: "director",
-      name: "Flight Director (Strict Margins & Anomalies)",
+      name: "Expert (Tight Budget & Space Storms)",
       budgetMultiplier: 0.88,
       massMarginPct: 15,
-      desc: "Tighter budget cap (-12%), strict 15% dry-mass reserve requirement, and severe orbital solar storm stress tests."
+      desc: "12% tighter budget, strict 15% safety reserves, and tougher space storm checks."
     }
   };
 
   const ORBIT_OPTIONS = {
     leo_400: {
       id: "leo_400",
-      name: "Low Earth Orbit (LEO · 400 km · 51.6° ISS)",
+      name: "Low Orbit Around Earth (400 km · Space Station Height)",
       altitudeKm: 400,
       inclinationDeg: 51.6,
       periodMin: 92.6,
@@ -527,11 +526,11 @@
       pathLossDb: 152,
       contactMinPerDay: 110,
       solarFluxFactor: 1.0,
-      explain: "Low altitude maximizes launch vehicle payload capacity and optical resolution, but atmospheric drag requires regular reboost and ground station passes are short (~9 min each)."
+      explain: "Close to Earth so rockets can carry heavy gear and cameras see sharp detail, though faint upper air pulls it down over time and passes over antennas are short (~9 min)."
     },
     sso_705: {
       id: "sso_705",
-      name: "Sun-Synchronous Polar Orbit (SSO · 705 km · 98.2°)",
+      name: "Pole-to-Pole Daylight Orbit (705 km · Global Map)",
       altitudeKm: 705,
       inclinationDeg: 98.2,
       periodMin: 98.8,
@@ -541,11 +540,11 @@
       pathLossDb: 157,
       contactMinPerDay: 145,
       solarFluxFactor: 1.0,
-      explain: "Precesses at 0.9856°/day to match Earth's orbit around the Sun, crossing every latitude at the exact same local solar time—ideal for global climate & polar ice mapping."
+      explain: "Circles over both North and South Poles at the same local time of day every pass — ideal for tracking Earth ice, forests, and oceans."
     },
     gto_heo: {
       id: "gto_heo",
-      name: "High Elliptical / Geostationary Transfer (HEO · 500×35,786 km)",
+      name: "Tall Stretched Oval Orbit (500–35,786 km)",
       altitudeKm: 35786,
       inclinationDeg: 27.0,
       periodMin: 635.0,
@@ -555,11 +554,11 @@
       pathLossDb: 188,
       contactMinPerDay: 420,
       solarFluxFactor: 1.0,
-      explain: "Long dwell time over hemisphere apogee with short eclipses, but passes twice per orbit through the Van Allen radiation belts (requiring heavy shielding and high Delta-V)."
+      explain: "Spends hours high over one side of Earth with short shadows, but flies twice per lap through strong radiation belts — needs tough shielding and extra fuel."
     },
     lunar_polar_100: {
       id: "lunar_polar_100",
-      name: "Lunar Polar Mapping Orbit (LPO · 100 km · 90.0°)",
+      name: "Moon North-to-South Orbit (100 km above Moon)",
       altitudeKm: 384400,
       inclinationDeg: 90.0,
       periodMin: 118.0,
@@ -569,11 +568,11 @@
       pathLossDb: 211,
       contactMinPerDay: 540,
       solarFluxFactor: 1.0,
-      explain: "Orbits directly over the Lunar North and South Poles every 118 minutes. Requires Trans-Lunar Injection + Lunar Orbit Insertion burn and high-gain deep-space communications."
+      explain: "Flies over both poles of the Moon every 2 hours. Needs big braking burns to enter Moon orbit and a strong long-distance radio dish."
     },
     iss_cubesat_418: {
       id: "iss_cubesat_418",
-      name: "ISS Kibo / Nanoracks CubeSat Orbit (418 km · 51.6°)",
+      name: "Space Station Orbit (418 km · Resupply & Release)",
       altitudeKm: 418,
       inclinationDeg: 51.6,
       periodMin: 92.9,
@@ -583,11 +582,11 @@
       pathLossDb: 152,
       contactMinPerDay: 120,
       solarFluxFactor: 1.0,
-      explain: "Deployed directly from the ISS Kibo airlock via CSA Canadarm2 & NRCSD. Low insertion ΔV, <5 yr natural decay, ideal for CSLI university CubeSats."
+      explain: "Orbits right with the International Space Station at 418 km. Low steering fuel needed, low space radiation, and clean 5-year safe reentry."
     },
     sun_earth_l2: {
       id: "sun_earth_l2",
-      name: "Sun-Earth L2 Halo Orbit (1,500,000 km · Cryo Dark-Sky)",
+      name: "Deep-Space Cold Balance Point (1,500,000 km)",
       altitudeKm: 1500000,
       inclinationDeg: 0.0,
       periodMin: 180.0,
@@ -597,356 +596,356 @@
       pathLossDb: 218,
       contactMinPerDay: 680,
       solarFluxFactor: 0.99,
-      explain: "Deep-space gravitational balance point 1.5M km anti-sunward (JWST / Roman). Keeps Earth and Sun on one side of the sunshield for cryogenic infrared astronomy."
+      explain: "Quiet gravity balance spot 1.5 million km past Earth (where Webb orbits). Keeps both Earth and Sun behind your heat shield for super-cold telescopes."
     }
   };
 
   const LAUNCH_VEHICLES = {
     cygnus_ng18: {
       id: "cygnus_ng18",
-      name: "Cygnus NG-18 Commercial Resupply (Antares 230+)",
+      name: "Space Station Supply Ship (Cygnus Cargo Flight)",
       costM: 48,
       fairingM: 3.0,
       reliabilityPct: 98,
       capacityKg: { leo_400: 3750, iss_cubesat_418: 3750, sso_705: 0, gto_heo: 0, lunar_polar_100: 0, sun_earth_l2: 0 },
-      explain: "NASA Commercial Resupply (CRS) ISS freighter used by BioNutrients-2 (NG-18): soft-stowed ambient payload kits protected from O₂ & moisture up to 418 km ISS orbit."
+      explain: "NASA cargo ship that delivered BioNutrients-2 to the Space Station: carries soft-packed experiment kits kept away from oxygen and moisture up to 418 km."
     },
     electron_light: {
       id: "electron_light",
-      name: "Light Commercial Launcher (Electron / Minotaur Class)",
+      name: "Small Dedicated Rocket (Electron Class)",
       costM: 28,
       fairingM: 1.8,
       reliabilityPct: 95,
       capacityKg: { leo_400: 320, iss_cubesat_418: 310, sso_705: 220, gto_heo: 90, lunar_polar_100: 55, sun_earth_l2: 45 },
-      explain: "Low-cost dedicated smallsat launcher. Great for budget missions, but strictly limits total spacecraft wet mass to under 320 kg in LEO."
+      explain: "Budget-friendly small rocket. Great for lightweight craft, but strictly caps total fueled weight below 320 kg in low Earth orbit."
     },
     falcon_medium: {
       id: "falcon_medium",
-      name: "Medium Reusable Workhorse (Falcon 9 / Vulcan Class)",
+      name: "Medium Reusable Rocket (Falcon 9 Class)",
       costM: 72,
       fairingM: 5.2,
       reliabilityPct: 99,
       capacityKg: { leo_400: 2200, iss_cubesat_418: 2150, sso_705: 1650, gto_heo: 950, lunar_polar_100: 680, sun_earth_l2: 640 },
-      explain: "Industry-standard partially reusable orbital workhorse with 99% flight heritage and generous payload capacity across LEO, SSO, and Lunar transfer."
+      explain: "Dependable workhorse rocket with a 99% safety record and roomy lift capacity to Earth, Polar, and Moon orbits."
     },
     ariane_heavy: {
       id: "ariane_heavy",
-      name: "Heavy Deep-Space Launcher (Falcon Heavy / New Glenn Class)",
+      name: "Heavy Deep-Space Rocket (Falcon Heavy Class)",
       costM: 118,
       fairingM: 5.4,
       reliabilityPct: 98,
       capacityKg: { leo_400: 4800, iss_cubesat_418: 4700, sso_705: 3600, gto_heo: 2200, lunar_polar_100: 1600, sun_earth_l2: 1550 },
-      explain: "High-energy multi-core launch vehicle capable of injecting heavy multi-instrument observatories directly into high-energy lunar or deep-space trajectories."
+      explain: "Multi-booster heavy rocket able to launch big science telescopes directly toward the Moon or deep space."
     },
     sls_superheavy: {
       id: "sls_superheavy",
-      name: "Super-Heavy Exploration Stack (SLS Block 1B / Starship Class)",
+      name: "Giant Mega-Rocket (SLS / Starship Class)",
       costM: 175,
       fairingM: 8.4,
       reliabilityPct: 97,
       capacityKg: { leo_400: 9500, iss_cubesat_418: 9400, sso_705: 7500, gto_heo: 4800, lunar_polar_100: 3800, sun_earth_l2: 3600 },
-      explain: "Maximum lift capacity and 8.4m fairing volume for flagship missions, but consumes a major share of total mission budget ($175M)."
+      explain: "Biggest lift power and cargo nose cone (8.4 m wide) for giant flagship missions, though it uses a huge piece of the budget ($175M)."
     }
   };
 
   const SPACECRAFT_BUSES = {
     smallsat_12u: {
       id: "smallsat_12u",
-      name: "12U / ESPA MicroSat Bus",
+      name: "Compact Mini Frame",
       glbId: "modular_spacecraft_bus_smallsat",
       dryMassKg: 85,
       costM: 22,
       maxInstruments: 3,
       basePowerLoadW: 65,
       structuralRating: 75,
-      explain: "Compact, agile aluminum-lithium microsatellite bus. Low mass and cost, but limited to 3 instruments and modest internal volume."
+      explain: "Light, affordable aluminum frame. Saves launch money, but only holds up to 3 science tools and a small computer bay."
     },
     modular_hex: {
       id: "modular_hex",
-      name: "Modular Hexagonal Standard Bus",
+      name: "Medium 6-Sided Frame",
       glbId: "modular_spacecraft_bus_hex",
       dryMassKg: 240,
       costM: 52,
       maxInstruments: 4,
       basePowerLoadW: 135,
       structuralRating: 92,
-      explain: "Balanced NASA/ESA hexagonal composite bus with 3-axis reaction wheels, star trackers, and 4 instrument bays."
+      explain: "Well-balanced 6-sided frame with precision aiming wheels, star cameras, and 4 science bays."
     },
     deep_space_heavy: {
       id: "deep_space_heavy",
-      name: "Flagship Deep-Space Heavy Bus",
+      name: "Heavy Deep-Space Frame",
       glbId: "modular_spacecraft_bus_heavy",
       dryMassKg: 460,
       costM: 94,
       maxInstruments: 6,
       basePowerLoadW: 210,
       structuralRating: 99,
-      explain: "Redundant avionics, dual star-tracker optical navigation, and 6 payload bays built for flagship lunar and interplanetary missions."
+      explain: "Backup computers, twin star navigation cameras, and 6 science bays made for tough Moon and deep-space trips."
     }
   };
 
   const POWER_SYSTEMS = {
     body_solar: {
       id: "body_solar",
-      name: "Body-Mounted Triple-Junction GaAs Solar Panels",
+      name: "Flat Body-Mounted Solar Panels",
       genW: 260,
       massKg: 18,
       costM: 14,
       isNuclear: false,
-      explain: "Lightweight and mechanically simple with zero deployment failure risk, but limits continuous payload power to ~260 W."
+      explain: "Simple solar cells glued right onto the body — nothing can jam unfolding, but caps steady electricity around 260 W."
     },
     deployable_rosa: {
       id: "deployable_rosa",
-      name: "Dual Roll-Out Solar Arrays (ROSA · 2-Axis Gimbal)",
+      name: "Fold-Out Sun-Tracking Solar Wings",
       genW: 680,
       massKg: 46,
       costM: 34,
       isNuclear: false,
-      explain: "High-efficiency sun-tracking solar wings generating 680 W in sunlight. Requires battery storage during orbital eclipse."
+      explain: "Two flexible solar wings that turn toward the Sun for 680 W of power. Relies on batteries whenever Earth casts a shadow."
     },
     high_power_wings: {
       id: "high_power_wings",
-      name: "Quad High-Power concentrator Solar Wings + MMRTG Aux",
+      name: "4 Large Solar Wings + Nuclear Heat Battery",
       genW: 1180,
       massKg: 88,
       costM: 68,
       isNuclear: true,
-      explain: "Combines 4 solar wings with a continuous radioisotope baseline—ideal for power-hungry Radar (SAR) and LiDAR payloads."
+      explain: "Combines 4 big solar wings with steady nuclear heat power — built for power-hungry Cloud Radar and Laser Scanners."
     }
   };
 
   const BATTERY_PACKS = {
     li_ion_120: {
       id: "li_ion_120",
-      name: "120 Wh Aerospace Li-Ion Pack",
+      name: "Small 120 Wh Battery Pack",
       capacityWh: 120,
       massKg: 12,
       costM: 8,
-      explain: "Ultra-light battery for low-power instruments, but risks deep discharge (>80% DoD) if high-draw sensors run during eclipse."
+      explain: "Featherweight battery for simple sensors, but drains dangerously low (>80% used) if heavy tools stay on in Earth's shadow."
     },
     li_ion_320: {
       id: "li_ion_320",
-      name: "320 Wh Redundant Li-Ion Battery Bank",
+      name: "Standard 320 Wh Dual Battery Pack",
       capacityWh: 320,
       massKg: 28,
       costM: 19,
-      explain: "Standard flight battery bank keeping eclipse Depth-of-Discharge under 50% for long battery cycle life (36+ months)."
+      explain: "Dependable flight battery that stays safely above half charge in darkness so it lasts 3+ years."
     },
     solid_state_640: {
       id: "solid_state_640",
-      name: "640 Wh High-Density Solid-State Array",
+      name: "Heavy-Duty 640 Wh High-Capacity Battery",
       capacityWh: 640,
       massKg: 52,
       costM: 36,
-      explain: "Supports continuous Radar/LiDAR operation right through shadowed lunar craters and long orbital eclipses."
+      explain: "Powers hungry Cloud Radar and Laser Scanners nonstop through dark lunar craters and long orbital nights."
     }
   };
 
   const SCIENTIFIC_INSTRUMENTS = [
     {
       id: "inst_multispectral",
-      name: "High-Res Multispectral Optical Imager",
+      name: "High-Detail Color & Light Camera",
       type: "optical",
       massKg: 38,
       powerW: 55,
       costM: 32,
       dataMbps: 42,
       scienceVal: 26,
-      explain: "0.5m resolution visible/near-IR pushbroom camera for surface geology, ice sheet fractures, and landing site hazard mapping."
+      explain: "Sharp half-meter color camera for mapping cracks in polar ice, surface geology, and safe landing ground."
     },
     {
       id: "inst_sar",
-      name: "L-Band Synthetic Aperture Radar (SAR Interferometer)",
+      name: "Cloud-Seeing Ground Radar",
       type: "radar",
       massKg: 115,
       powerW: 210,
       costM: 68,
       dataMbps: 95,
       scienceVal: 38,
-      explain: "Penetrates clouds, polar night, and regolith to measure millimeter-scale surface deformation and subsurface ice—very high mass, power, and data volume."
+      explain: "Sees right through clouds, polar night, and surface dust to measure tiny ground shifts and buried ice — uses lots of weight, power, and data."
     },
     {
       id: "inst_lidar",
-      name: "Topographic Laser Altimeter (Multi-Beam LiDAR)",
+      name: "3D Laser Height Scanner",
       type: "altimetry",
       massKg: 64,
       powerW: 110,
       costM: 45,
       dataMbps: 28,
       scienceVal: 31,
-      explain: "Fires 10,000 laser pulses/sec to measure 3D elevation of polar ice sheets, lunar crater slopes, and asteroid shape models with 10 cm vertical precision."
+      explain: "Pulses harmless laser beams 10,000 times per second to build 10-cm accurate 3D height maps of ice sheets, crater cliffs, and asteroids."
     },
     {
       id: "inst_ir_spec",
-      name: "Thermal & Near-IR Fourier Spectrometer",
+      name: "Mineral & Gas Light Reader",
       type: "spectrometer",
       massKg: 42,
       powerW: 65,
       costM: 38,
       dataMbps: 22,
       scienceVal: 29,
-      explain: "Identifies mineral composition, OH/H₂O absorption bands at 3.0 µm, and atmospheric greenhouse gas profiles (CO₂ / CH₄)."
+      explain: "Reads hidden color fingerprints in reflected light to identify minerals, water traces, and greenhouse gases (CO₂ and methane)."
     },
     {
       id: "inst_neutron",
-      name: "Neutron & Gamma-Ray Volatiles Spectrometer",
+      name: "Underground Water & Ice Finder",
       type: "neutron",
       massKg: 34,
       powerW: 38,
       costM: 30,
       dataMbps: 8,
       scienceVal: 28,
-      explain: "Detects hydrogen and water-ice buried up to 1 meter beneath the lunar or asteroid surface by measuring cosmic-ray neutron moderation."
+      explain: "Detects hydrogen and frozen water hidden up to 1 meter under Moon or asteroid dust using tiny background space particles."
     },
     {
       id: "inst_mag",
-      name: "Deployable Fluxgate Magnetometer & Plasma Boom",
+      name: "Magnetic Field Sensor Boom",
       type: "magnetometer",
       massKg: 19,
       powerW: 22,
       costM: 18,
       dataMbps: 5,
       scienceVal: 20,
-      explain: "Low-mass, low-power 6-meter boom measuring planetary magnetic anomalies, solar wind interaction, and space weather radiation events."
+      explain: "Light, low-power 6-meter arm measuring magnetic fields, solar wind gusts, and incoming space storms."
     }
   ];
 
   const THERMAL_RADIATION_PACKAGES = {
     passive_mli: {
       id: "passive_mli",
-      name: "Passive MLI Blankets & Base Spot Shielding (25 krad)",
+      name: "Foil Heat Blankets + Basic Radiation Shield (Level 25)",
       massKg: 22,
       powerW: 12,
       costM: 12,
       radRatingKrad: 25,
       thermalCapW: 380,
       lifetimeBonusMonths: 0,
-      explain: "Multi-Layer Insulation and local tantalum spot-shielding suitable for short LEO missions inside Earth's protective magnetosphere."
+      explain: "Reflective gold-style foil blankets and light computer armor meant for short low-Earth trips safely inside Earth's magnetic bubble."
     },
     pumped_loop_50: {
       id: "pumped_loop_50",
-      name: "Deployable Ammonia Heat-Pipe Radiators + 50 krad Vault",
+      name: "Pipe Heat Coolers + Medium Radiation Vault (Level 55)",
       massKg: 54,
       powerW: 28,
       costM: 28,
       radRatingKrad: 55,
       thermalCapW: 820,
       lifetimeBonusMonths: 12,
-      explain: "Actively rejects up to 820 W of waste heat and protects avionics up to 55 krad Total Ionizing Dose for SSO and Lunar Polar orbits."
+      explain: "Pumps waste heat out through cooling fins (up to 820 W) and shields electronics to level 55 for Polar and Moon missions."
     },
     cryo_rad_90: {
       id: "cryo_rad_90",
-      name: "Two-Phase Cryo-Cooler Loop + 90 krad Deep-Space Vault",
+      name: "Deep-Freeze Cooling Pipes + Heavy Radiation Vault (Level 95)",
       massKg: 92,
       powerW: 48,
       costM: 48,
       radRatingKrad: 95,
       thermalCapW: 1400,
       lifetimeBonusMonths: 24,
-      explain: "Cryogenic thermal stability for IR spectrometers plus hardened 95 krad avionics enclosure for multi-year Van Allen belt or deep-space operations."
+      explain: "Super-cold cooling pipes for sensitive telescopes plus heavy armor (level 95) built for multi-year deep space and radiation belts."
     }
   };
 
   const COMMS_PACKAGES = {
     s_band_omni: {
       id: "s_band_omni",
-      name: "S-Band Patch Antenna (2 GHz · Low-Rate Telemetry)",
+      name: "Basic Wide-Beam Radio (8 Mbps · Slower Data)",
       rateMbps: 8,
       eirpDbw: 162,
       massKg: 9,
       powerW: 18,
       costM: 10,
-      explain: "Wide-beam antenna that works even if spacecraft attitude drifts, but only transmits 8 Mbps—too slow for high-resolution Radar or Imagers."
+      explain: "Wide radio beam that stays connected even if the craft tilts, but downloads only 8 Mbps — too slow for heavy radar or crisp cameras."
     },
     x_band_hga: {
       id: "x_band_hga",
-      name: "X-Band 0.8m High-Gain Parabolic Dish (8.4 GHz)",
+      name: "Fast Science Dish Radio (120 Mbps)",
       rateMbps: 120,
       eirpDbw: 186,
       massKg: 26,
       powerW: 45,
       costM: 26,
-      explain: "Standard science downlink dish delivering 120 Mbps and strong link margin across LEO, SSO, and cislunar distances."
+      explain: "Dependable 0.8m science dish delivering 120 Mbps with clear signal from Earth orbit out to the Moon."
     },
     ka_band_optical: {
       id: "ka_band_optical",
-      name: "Ka-Band Gimbaled Dish + Optical Lasercomm Terminal",
+      name: "Ultra-Fast Aimable Dish + Space Laser (450 Mbps)",
       rateMbps: 450,
       eirpDbw: 204,
       massKg: 48,
       powerW: 78,
       costM: 46,
-      explain: "Ultra-high-bandwidth 450 Mbps downlink with 204 dBW effective isotropic radiated power for SAR interferometry and deep-space missions."
+      explain: "High-speed 450 Mbps radio + laser link with giant signal boost for heavy radar maps and deep-space missions."
     }
   };
 
   const GROUND_NETWORKS = {
     regional_vhs: {
       id: "regional_vhs",
-      name: "University / Regional Ground Network (3 Stations)",
+      name: "Local College Dish Network (3 Stations)",
       gainDb: 18,
       contactMultiplier: 0.65,
       costM: 8,
-      explain: "Low operational cost, but limited contact windows per day."
+      explain: "Low cost to operate, but your spacecraft passes out of sight for long stretches."
     },
     near_space_net: {
       id: "near_space_net",
-      name: "NASA Near Space Network + Polar Svalbard/McMurdo",
+      name: "Global North & South Pole Dish Network",
       gainDb: 34,
       contactMultiplier: 1.15,
       costM: 22,
-      explain: "High-latitude polar ground stations provide frequent passes every orbit for LEO and Sun-Synchronous satellites."
+      explain: "Dishes near Earth's poles catch passing satellites every single lap around Earth."
     },
     dsn_goldstone: {
       id: "dsn_goldstone",
-      name: "NASA Deep Space Network (34m/70m Goldstone · Madrid · Canberra)",
+      name: "Giant Deep-Space Dishes (California · Spain · Australia)",
       gainDb: 52,
       contactMultiplier: 1.6,
       costM: 42,
-      explain: "Three 70m/34m dish complexes spaced 120° around Earth provide continuous 24/7 coverage and +52 dB receiver gain for Lunar and Asteroid missions."
+      explain: "Three huge 70m/34m antenna sites spaced around the globe give nonstop 24/7 contact and massive +52 dB listening boost for Moon and asteroid trips."
     }
   };
 
   const PROPULSION_SYSTEMS = {
     cold_gas: {
       id: "cold_gas",
-      name: "Cold-Gas Nitrogen Thrusters (Isp = 72 s)",
+      name: "Gentle Compressed-Air Jets (Efficiency: 72 s)",
       ispSec: 72,
       dryMassKg: 14,
       propellantKg: 35,
       costM: 10,
       powerW: 10,
-      explain: "Simple, clean thrusters for basic attitude desaturation, but very low specific impulse (72 s) yields minimal Delta-V."
+      explain: "Simple, safe nitrogen puffs for gentle aiming and balance, with only a small amount of push speed."
     },
     hydrazine_mono: {
       id: "hydrazine_mono",
-      name: " Catalyzed Monopropellant Hydrazine (Isp = 230 s)",
+      name: "Standard Liquid Steering Thruster (Efficiency: 230 s)",
       ispSec: 230,
       dryMassKg: 32,
       propellantKg: 140,
       costM: 24,
       powerW: 18,
-      explain: "Reliable orbital insertion and drag-make-up propulsion providing moderate Delta-V for LEO and SSO missions."
+      explain: "Tried-and-true liquid rocket thruster giving medium steering power to hold steady low Earth orbits."
     },
     biprop_nto_mmh: {
       id: "biprop_nto_mmh",
-      name: "Hypergolic Bipropellant Main Engine (MMH/NTO · Isp = 318 s)",
+      name: "Strong Two-Fuel Main Engine (Efficiency: 318 s)",
       ispSec: 318,
       dryMassKg: 58,
       propellantKg: 380,
       costM: 44,
       powerW: 28,
-      explain: "High-thrust chemical propulsion essential for rapid Lunar Orbit Insertion (LOI) and deep-space trajectory maneuvers."
+      explain: "High-power main rocket engine needed for big braking burns into Moon orbit and deep-space course changes."
     },
     hall_ion_sep: {
       id: "hall_ion_sep",
-      name: "Solar Electric Xenon Hall-Effect Thruster (Isp = 1,850 s)",
+      name: "Super-Efficient Electric Ion Engine (Efficiency: 1,850 s)",
       ispSec: 1850,
       dryMassKg: 64,
       propellantKg: 135,
       costM: 58,
       powerW: 145,
-      explain: "Uses electric fields to accelerate Xenon ions to 18 km/s—achieving huge Delta-V (>2,200 m/s) with minimal fuel mass, at the cost of 145 W continuous power."
+      explain: "Uses solar electricity to push Xenon gas at huge speed — reaches massive distance (>2,200 m/s) with little fuel weight, using 145 W steady power."
     }
   };
 
@@ -959,8 +958,8 @@
           kind: "mission-architecture",
           stationId: "hub",
           code: "HUB",
-          name: "1. Mission Objective, Scenario & Team Roles",
-          location: "Destiny Laboratory [HUB]",
+          name: "1. Pick Mission Goal & Team Plan",
+          location: "Main Hub Desk",
           pos: [0, 0.0, 2],
           role: "commander",
           resource: "budget",
@@ -972,8 +971,8 @@
           kind: "orbit-launch",
           stationId: "command",
           code: "CMD",
-          name: "2. Orbit & Launch Vehicle Compatibility",
-          location: "Harmony [CMD]",
+          name: "2. Orbit Path & Rocket Ride",
+          location: "Navigation Desk",
           pos: [0.0, 0.0, -3.5],
           role: "commander",
           resource: "mass",
@@ -985,8 +984,8 @@
           kind: "bus-power",
           stationId: "power",
           code: "PWR",
-          name: "3. Spacecraft Bus, Solar/RTG & Battery Sizing",
-          location: "Columbus Laboratory [PWR]",
+          name: "3. Body Frame, Bags, Solar & Battery",
+          location: "Power & Hardware Bay",
           pos: [-4.6, 0.0, -3.8],
           role: "engineer",
           resource: "power",
@@ -998,8 +997,8 @@
           kind: "science-payload",
           stationId: "life-support",
           code: "SCI",
-          name: "4. Scientific Instruments & Payload Trade-Offs",
-          location: "Kibo Laboratory [SCI]",
+          name: "4. Science Tools & Experiment Recipe",
+          location: "Experiment Lab",
           pos: [6.3, 0.0, -3.5],
           role: "scientist",
           resource: "data",
@@ -1011,8 +1010,8 @@
           kind: "thermal-radiation",
           stationId: "life-support",
           code: "LSS",
-          name: "5. Thermal Rejection, Radiation & ECLSS",
-          location: "Kibo Laboratory [LSS]",
+          name: "5. Heating, Freezing & Radiation Shield",
+          location: "Freezer & Cooling Lab",
           pos: [8.9, 0.0, -3.5],
           role: "scientist",
           resource: "lifetime",
@@ -1024,8 +1023,8 @@
           kind: "comms-propulsion",
           stationId: "hull",
           code: "HULL",
-          name: "6. Comms Link Budget & Propulsion Delta-V",
-          location: "Tranquility [ENG]",
+          name: "6. Earth Antennas, Fuel & Safe Return",
+          location: "Radio & Engine Bay",
           pos: [7.5, 0.0, 8.7],
           role: "engineer",
           resource: "comms",
@@ -1037,8 +1036,8 @@
           kind: "mission-simulation",
           stationId: "lander",
           code: "LDR",
-          name: "7. Full Mission Simulation & Evaluation Report",
-          location: "Zarya [SIM]",
+          name: "7. Full Mission Test Run & Results",
+          location: "Mission Test Simulator",
           pos: [0, 0.0, 24.0],
           role: "all",
           resource: "science",
@@ -1072,6 +1071,7 @@
       };
 
       this.tradeBaselineA = null;
+      this.lastMissionEvent = null;
       this.cmlState = {
         targetCml: 4,
         assessorSignedOff: false,
@@ -1437,8 +1437,8 @@
       const budgetCapM = Math.round(scenario.baseBudgetM * difficulty.budgetMultiplier);
       const instCostM = selectedInsts.reduce((acc, i) => acc + i.costM, 0);
       const rawTotalCostM = lv.costM + bus.costM + pwr.costM + bat.costM + thm.costM + com.costM + gnd.costM + prop.costM + instCostM + disposal.costM;
-      const bioLvCost = lv.id === "cygnus_ng18" ? 6 : Math.max(4, Math.round(lv.costM * 0.12));
-      const bioSubCost = Math.round((bus.costM + pwr.costM + bat.costM + thm.costM + com.costM + gnd.costM + instCostM) * 0.05);
+      const bioLvCost = lv.id === "cygnus_ng18" ? 5 : Math.max(4, Math.round(lv.costM * 0.12));
+      const bioSubCost = Math.round((bus.costM + pwr.costM + bat.costM + thm.costM + com.costM + gnd.costM) * 0.04) + Math.round(instCostM * 0.015);
       const totalCostM = isBio
         ? bioLvCost + bioBag.costM + bioSubCost
         : (scenario.isCubesat ? Math.max(12, Math.round(rawTotalCostM * cubesatForm.costFactor)) : rawTotalCostM);
@@ -1503,37 +1503,37 @@
         : Math.round(prop.ispSec * g0 * Math.log(wetMassKg / Math.max(0.1, dryMassKg)));
       const deltaVOk = achievedDeltaV >= requiredDeltaV;
 
-      // 6. END-OF-MISSION DISPOSAL / ISS MELFI COLD RETURN
+      // 6. END-OF-MISSION CLEANUP / STATION ULTRA-COLD RETURN
       let disposalOk = isBio ? (isIssOrbit && bioThm.melfiFrozen && disposal.id !== "none_drift") : (disposal.id !== "none_drift");
       let disposalNote = isBio
-        ? (disposalOk ? "MELFI (-80°C) cryopreservation + CRS/Dragon Earth sample return" : "Requires ISS LEO + MELFI (-80°C) freezer storage for Earth User assay")
-        : `${disposal.deorbitYears} yr post-mission disposal`;
+        ? (disposalOk ? "-80°C ultra-cold storage + cargo flight back to Earth labs" : "Needs Space Station orbit + -80°C ultra-cold freezer so Earth labs can test it")
+        : `${disposal.deorbitYears} yr safe cleanup`;
       if (!isBio) {
         if (disposal.id === "none_drift") {
-          disposalNote = "No deorbit / graveyard plan — fails FCC 5-yr & NASA-STD-8719.14 compliance";
+          disposalNote = "No cleanup plan — fails space safety rules to clear orbit after mission";
         } else if (disposal.leoOnly && !isLowOrbit) {
           disposalOk = false;
-          disposalNote = "Drag sail only effective in <=750 km LEO/SSO — select Propulsive Disposal";
+          disposalNote = "Braking sail only works in low orbit (750 km or lower) — pick Backup Thrusters";
         }
       }
 
-      // 7. TELESCOPE WAVELENGTH–OPTICS–THERMAL COMPATIBILITY (COSMOS-L2)
+      // 7. TELESCOPE LIGHT–MIRROR–COOLING COMPATIBILITY (COSMOS-L2)
       const telescopeIssues = [];
       if (scenario.requiresWavelength) {
         if (wavelength.reqThermal === "cryo_rad_90" && thm.id !== "cryo_rad_90") {
-          telescopeIssues.push(`${wavelength.shortLabel} optics require Two-Phase Cryo-Cooler thermal control (<40 K)`);
+          telescopeIssues.push(`${wavelength.shortLabel} cameras need the Deep-Freeze Cooler to stay icy cold`);
         } else if (wavelength.reqThermal === "pumped_loop_50" && thm.id === "passive_mli") {
-          telescopeIssues.push(`${wavelength.shortLabel} focal plane requires active Heat-Pipe or Cryo thermal control`);
+          telescopeIssues.push(`${wavelength.shortLabel} sensor needs Active Liquid Cooling or Deep-Freeze Cooler`);
         }
         if (wavelength.avoidLowEarthThermal && (orbit.id === "leo_400" || orbit.id === "iss_cubesat_418")) {
-          telescopeIssues.push(`${wavelength.shortLabel} blinded by Earth IR glow in 400 km LEO — move to Sun-Earth L2`);
+          telescopeIssues.push(`${wavelength.shortLabel} is blinded by Earth's warm glow near 400 km — move to Far Deep Space`);
         }
         if (wavelength.minBus === "modular_hex" && bus.id === "smallsat_12u") {
-          telescopeIssues.push(`${wavelength.shortLabel} aperture exceeds 12U smallsat volume — upgrade Bus`);
+          telescopeIssues.push(`${wavelength.shortLabel} mirror is too wide for Mini Cube-Box body — pick a bigger body`);
         }
         const hasPreferredDetector = selectedInsts.some((i) => wavelength.preferredInstIds.includes(i.id));
         if (!hasPreferredDetector) {
-          telescopeIssues.push(`Select compatible detector for ${wavelength.shortLabel}`);
+          telescopeIssues.push(`Pick a matching camera or sensor for ${wavelength.shortLabel}`);
         }
       }
       const telescopeOk = telescopeIssues.length === 0;
@@ -1680,10 +1680,10 @@
       if (completedTasksCount >= 6 || (segmentsPassed === 4 && overallScore >= 75)) cmlLevel = 4;
 
       const cmlTitles = {
-        1: "CML 1 · Concept Idea",
-        2: "CML 2 · Initial Feasibility",
-        3: "CML 3 · Trade Space & Margins",
-        4: "CML 4 · MDL Point Design"
+        1: "Stage 1 · The Big Idea (CML 1)",
+        2: "Stage 2 · Does the Physics Work? (CML 2)",
+        3: "Stage 3 · Compare Options (CML 3)",
+        4: "Stage 4 · Chosen Blueprint (CML 4)"
       };
 
       const riskMatrix = isBio
@@ -2054,7 +2054,7 @@
         const bg = active ? "rgba(37,99,235,0.24)" : "rgba(255,255,255,0.04)";
         const fg = active ? "#93c5fd" : isTarget ? "#fde68a" : "#64748b";
         const bd = isTarget ? "rgba(251,191,36,0.75)" : (active ? "rgba(59,130,246,0.55)" : "rgba(148,163,184,0.18)");
-        return `<button type="button" class="btn-cml-pill-jump" data-cml-jump="${lvl}" title="Open CML ${lvl} in JPL CML Workbench" style="padding:2px 5px;border-radius:3px;font-family:var(--font-mono,monospace);font-size:8.5px;font-weight:700;background:${bg};color:${fg};border:1px solid ${bd};cursor:pointer;">CML ${lvl}${isTarget ? "*" : ""}</button>`;
+        return `<button type="button" class="btn-cml-pill-jump" data-cml-jump="${lvl}" title="Open Stage ${lvl} in the Mission Readiness Guide" style="padding:2px 5px;border-radius:3px;font-family:var(--font-mono,monospace);font-size:8.5px;font-weight:700;background:${bg};color:${fg};border:1px solid ${bd};cursor:pointer;">STAGE ${lvl}${isTarget ? "*" : ""}</button>`;
       }).join("");
 
       let tradeDeltaHtml = "";
@@ -2101,7 +2101,7 @@
             </span>
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
               <button type="button" id="btn-mdl-snapshot-a" style="padding:3px 8px;border-radius:4px;border:1px solid rgba(148,163,184,0.28);background:rgba(15,23,42,0.85);color:#e2e8f0;font-family:var(--font-mono,monospace);font-size:9px;font-weight:700;cursor:pointer;">${this.tradeBaselineA ? "UPDATE OPTION A" : "SAVE OPTION A"}</button>
-              <button type="button" id="btn-open-cml-workbench" style="padding:3px 8px;border-radius:4px;border:1px solid rgba(251,191,36,0.55);background:rgba(245,158,11,0.16);color:#fde68a;font-family:var(--font-mono,monospace);font-size:9px;font-weight:700;cursor:pointer;" title="Open JPL CML 1-9 Workbench, 24x7 Matrix & Checklists">CML ${targetPct}% @ L${targetLvl}${critCount ? ` · !${critCount}` : ""}</button>
+              <button type="button" id="btn-open-cml-workbench" style="padding:3px 8px;border-radius:4px;border:1px solid rgba(251,191,36,0.55);background:rgba(245,158,11,0.16);color:#fde68a;font-family:var(--font-mono,monospace);font-size:9px;font-weight:700;cursor:pointer;" title="Open step-by-step Mission Readiness Guide (Stages 1-9)">READY ${targetPct}% @ S${targetLvl}${critCount ? ` · ${critCount} KEY` : ""}</button>
               <button type="button" id="btn-mdl-open-csa-lab" style="padding:3px 8px;border-radius:4px;border:1px solid rgba(52,211,153,0.5);background:rgba(16,185,129,0.16);color:#a7f3d0;font-family:var(--font-mono,monospace);font-size:9px;font-weight:700;cursor:pointer;" title="Open CSA Digital Games & Activities, GMAT Script Generator & Webb Telescope Lab">CSA / NASA LAB</button>
               <button type="button" id="btn-mdl-open-viz" style="padding:3px 8px;border-radius:4px;border:1px solid rgba(59,130,246,0.5);background:rgba(37,99,235,0.2);color:#dbeafe;font-family:var(--font-mono,monospace);font-size:9px;font-weight:700;cursor:pointer;">3D ORBIT VIZ [U]</button>
               <span style="font-family:var(--font-mono,monospace);font-size:10px;font-weight:700;color:${t.overallScore >= 75 ? "#86efac" : "#fde68a"};">
@@ -2777,12 +2777,12 @@
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      this.showToast("Exported MDL Point-Design + CML Assessment (.JSON)");
+      this.showToast("Downloaded Full Mission Blueprint & Readiness Report (.JSON)");
     }
 
     exportCmlReport(format = "json") {
       if (!window.CMLFramework) {
-        this.showToast("CML Framework module not loaded.");
+        this.showToast("Mission Readiness Guide is still loading.");
         return;
       }
       const t = this.evaluateMissionDesign();
@@ -2812,7 +2812,7 @@
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      this.showToast(`Exported JPL CML Gate Assessment (.${ext.toUpperCase()})`);
+      this.showToast(`Downloaded Mission Readiness Report (.${ext.toUpperCase()})`);
     }
 
     // Allows crew on the Ground (VAB High Bay, LCC Firing Room, or LC-39A) to explore
@@ -2931,7 +2931,7 @@
             ${mkTab("orbit", "2. ORBIT & LAUNCH")}
             ${mkTab("bus", "3. 3D BUS & POWER")}
             ${mkTab("viz", "4. RISK & SCIENCE PREVIEW")}
-            <button type="button" id="btn-mdl-open-cml" style="padding:6px 10px;border-radius:5px;border:1px solid rgba(251,191,36,0.55);background:rgba(245,158,11,0.14);color:#fde68a;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">5. CML MATURITY (${t.cml ? `${t.cml.activeSummary.percentGreen}% @ L${t.cml.targetCml}` : `L${t.cmlLevel}`})</button>
+            <button type="button" id="btn-mdl-open-cml" style="padding:6px 10px;border-radius:5px;border:1px solid rgba(251,191,36,0.55);background:rgba(245,158,11,0.14);color:#fde68a;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">5. READINESS STAGES (${t.cml ? `${t.cml.activeSummary.percentGreen}% @ S${t.cml.targetCml}` : `Stage ${t.cmlLevel}`})</button>
           </div>
           ${tabContent}
           <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.1);">
@@ -3048,18 +3048,20 @@
         { id: "all", label: "ALL" },
         ...cmlEval.categories.map((c) => ({ id: c.id, label: c.label.toUpperCase() }))
       ];
+      const catLabelMap = Object.fromEntries((cmlEval.categories || []).map((c) => [c.id, c.label.toUpperCase()]));
       const filtered = target.items.filter((i) => filterCat === "all" || i.category === filterCat);
       const pct = target.percentGreen;
       const barColor = target.gateCertified ? "#4ade80" : target.thresholdMet ? "#fbbf24" : "#38bdf8";
 
       const marginStrip = (cmlEval.margins.metrics || []).map((m) => {
         const c = m.status === "G" ? "#86efac" : m.status === "Y" ? "#fde68a" : "#fca5a5";
+        const statusWord = m.status === "G" ? "GOOD" : m.status === "Y" ? "TIGHT" : "LOW";
         const bd = m.status === "G" ? "rgba(74,222,128,0.4)" : m.status === "Y" ? "rgba(251,191,36,0.45)" : "rgba(239,68,68,0.55)";
         return `
           <div style="padding:6px 8px;border-radius:4px;background:rgba(5,8,16,0.72);border:1px solid ${bd};">
-            <div style="display:flex;justify-content:space-between;font-family:monospace;font-size:8.5px;color:#94a3b8;">
+            <div style="display:flex;justify-content:space-between;font-family:monospace;font-size:8.5px;color:#94a3b8;gap:4px;">
               <span>${this._escapeHtml(m.label)}</span>
-              <strong style="color:${c};">${m.status} (${this._escapeHtml(m.required)})</strong>
+              <strong style="color:${c};white-space:nowrap;">${statusWord} (${this._escapeHtml(m.required)})</strong>
             </div>
             <div style="font-family:monospace;font-size:11px;font-weight:700;color:#f8fafc;margin-top:2px;">${this._escapeHtml(m.actual)}</div>
             <div style="font-family:monospace;font-size:8.5px;color:#94a3b8;margin-top:1px;">${this._escapeHtml(m.note)}</div>
@@ -3068,38 +3070,39 @@
       }).join("");
 
       const taskShort = {
-        task_antenna: "HUB [1]",
-        task_nav: "CMD [2]",
-        task_wires: "PWR [3]",
-        task_science: "SCI [4]",
-        task_lss: "LSS [5]",
-        task_hull: "HULL [6]",
-        task_landing: "SIM [7]"
+        task_antenna: "BRIEF [1]",
+        task_nav: "ORBIT [2]",
+        task_wires: "POWER [3]",
+        task_science: "SCIENCE [4]",
+        task_lss: "COOL/RAD [5]",
+        task_hull: "COMMS [6]",
+        task_landing: "RISKS [7]"
       };
 
       const rowsHtml = filtered.map((item) => {
-        const mkPill = (code, active, color, bg) => item.na
+        const mkPill = (code, label, active, color, bg) => item.na
           ? ""
-          : `<button type="button" class="cml-toggle-status" data-item-id="${item.id}" data-status="${code}" style="padding:2px 6px;border-radius:3px;border:1px solid ${active ? color : "rgba(148,163,184,0.22)"};background:${active ? bg : "rgba(15,23,42,0.7)"};color:${active ? "#f8fafc" : "#64748b"};font-family:monospace;font-size:9px;font-weight:800;cursor:pointer;">${code}</button>`;
+          : `<button type="button" class="cml-toggle-status" data-item-id="${item.id}" data-status="${code}" style="padding:2px 6px;border-radius:3px;border:1px solid ${active ? color : "rgba(148,163,184,0.22)"};background:${active ? bg : "rgba(15,23,42,0.7)"};color:${active ? "#f8fafc" : "#64748b"};font-family:monospace;font-size:9px;font-weight:800;cursor:pointer;">${label}</button>`;
         const statusColor = item.status === "G" ? "#4ade80" : item.status === "Y" ? "#fbbf24" : item.status === "R" ? "#f87171" : "#64748b";
+        const catTitle = catLabelMap[item.category] || item.category.toUpperCase();
         return `
           <div style="padding:7px 9px;border-radius:5px;background:${item.na ? "rgba(15,23,42,0.35)" : "rgba(15,23,42,0.72)"};border:1px solid rgba(148,163,184,0.16);border-left:3px solid ${statusColor};opacity:${item.na ? "0.62" : "1"};display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
             <div style="flex:1 1 320px;min-width:220px;">
               <div style="font-size:11px;color:#f1f5f9;font-weight:600;line-height:1.3;">
-                <span style="font-family:monospace;font-size:8.5px;color:#93c5fd;margin-right:4px;">[${this._escapeHtml(item.category.toUpperCase())}]</span>
+                <span style="font-family:monospace;font-size:8.5px;color:#93c5fd;margin-right:4px;">[${this._escapeHtml(catTitle)}]</span>
                 ${this._escapeHtml(item.text)}
-                ${item.critical ? '<span style="margin-left:5px;padding:1px 4px;border-radius:3px;background:rgba(245,158,11,0.2);color:#fde68a;font-family:monospace;font-size:8px;font-weight:800;">CRITICAL</span>' : ""}
-                ${item.overrideStatus ? '<span style="margin-left:4px;padding:1px 4px;border-radius:3px;background:rgba(56,189,248,0.2);color:#7dd3fc;font-family:monospace;font-size:8px;">MANUAL</span>' : ""}
+                ${item.critical ? '<span style="margin-left:5px;padding:1px 4px;border-radius:3px;background:rgba(245,158,11,0.2);color:#fde68a;font-family:monospace;font-size:8px;font-weight:800;">MUST-HAVE</span>' : ""}
+                ${item.overrideStatus ? '<span style="margin-left:4px;padding:1px 4px;border-radius:3px;background:rgba(56,189,248,0.2);color:#7dd3fc;font-family:monospace;font-size:8px;">EDITED</span>' : ""}
               </div>
               <div style="font-family:monospace;font-size:9px;color:#94a3b8;margin-top:2px;">${this._escapeHtml(item.autoReason)}</div>
             </div>
             <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
-              ${item.consoleKey && !item.na ? `<button type="button" class="cml-jump-console" data-console="${item.consoleKey}" style="padding:2px 6px;border-radius:3px;border:1px solid rgba(103,232,249,0.35);background:rgba(103,232,249,0.1);color:#a5f3fc;font-family:monospace;font-size:8.5px;cursor:pointer;" title="Open linked station console / MDL tab">${taskShort[item.consoleKey] || "CONSOLE"}</button>` : ""}
-              ${item.na ? '<span style="padding:2px 8px;border-radius:3px;background:rgba(100,116,139,0.2);color:#94a3b8;font-family:monospace;font-size:9px;font-weight:700;">N/A</span>' : `
-                ${mkPill("G", item.status === "G", "#4ade80", "rgba(22,163,74,0.45)")}
-                ${mkPill("Y", item.status === "Y", "#fbbf24", "rgba(217,119,6,0.45)")}
-                ${mkPill("R", item.status === "R", "#f87171", "rgba(220,38,38,0.45)")}
-                ${item.overrideStatus ? `<button type="button" class="cml-reset-item" data-item-id="${item.id}" style="padding:2px 5px;border-radius:3px;border:1px solid rgba(148,163,184,0.3);background:transparent;color:#94a3b8;font-family:monospace;font-size:8px;cursor:pointer;" title="Revert to live telemetry auto-evaluation">AUTO</button>` : ""}
+              ${item.consoleKey && !item.na ? `<button type="button" class="cml-jump-console" data-console="${item.consoleKey}" style="padding:2px 6px;border-radius:3px;border:1px solid rgba(103,232,249,0.35);background:rgba(103,232,249,0.1);color:#a5f3fc;font-family:monospace;font-size:8.5px;cursor:pointer;" title="Jump straight to this workstation console">${taskShort[item.consoleKey] || "OPEN"}</button>` : ""}
+              ${item.na ? '<span style="padding:2px 8px;border-radius:3px;background:rgba(100,116,139,0.2);color:#94a3b8;font-family:monospace;font-size:9px;font-weight:700;">LATER</span>' : `
+                ${mkPill("G", "DONE", item.status === "G", "#4ade80", "rgba(22,163,74,0.45)")}
+                ${mkPill("Y", "WIP", item.status === "Y", "#fbbf24", "rgba(217,119,6,0.45)")}
+                ${mkPill("R", "TODO", item.status === "R", "#f87171", "rgba(220,38,38,0.45)")}
+                ${item.overrideStatus ? `<button type="button" class="cml-reset-item" data-item-id="${item.id}" style="padding:2px 5px;border-radius:3px;border:1px solid rgba(148,163,184,0.3);background:transparent;color:#94a3b8;font-family:monospace;font-size:8px;cursor:pointer;" title="Switch back to automatic live spacecraft check">AUTO</button>` : ""}
               `}
             </div>
           </div>
@@ -3115,7 +3118,7 @@
             ${[2, 3, 4, 5, 6].map((lvl) => {
               const s = cmlEval.levelsSummary[lvl];
               const active = lvl === cmlEval.targetCml;
-              return `<button type="button" class="cml-target-lvl" data-lvl="${lvl}" style="padding:5px 8px;border-radius:4px;border:1px solid ${active ? "#fbbf24" : "rgba(148,163,184,0.22)"};background:${active ? "rgba(245,158,11,0.18)" : "rgba(15,23,42,0.75)"};color:${active ? "#fde68a" : "#cbd5e1"};font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">CML ${lvl} (${s.percentGreen}%)</button>`;
+              return `<button type="button" class="cml-target-lvl" data-lvl="${lvl}" style="padding:5px 8px;border-radius:4px;border:1px solid ${active ? "#fbbf24" : "rgba(148,163,184,0.22)"};background:${active ? "rgba(245,158,11,0.18)" : "rgba(15,23,42,0.75)"};color:${active ? "#fde68a" : "#cbd5e1"};font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">Stage ${lvl} (${s.percentGreen}%)</button>`;
             }).join("")}
           </div>
           <div style="display:flex;gap:4px;flex-wrap:wrap;">
@@ -3127,33 +3130,33 @@
 
         <div style="padding:8px 10px;border-radius:5px;background:rgba(8,13,24,0.85);border:1px solid rgba(148,163,184,0.2);margin-bottom:8px;">
           <div style="display:flex;justify-content:space-between;align-items:center;font-family:monospace;font-size:10px;color:#e2e8f0;margin-bottom:5px;flex-wrap:wrap;gap:6px;">
-            <span><strong>${this._escapeHtml(target.meta.shortTitle)}</strong> · ${this._escapeHtml(target.meta.competedGate)} / ${this._escapeHtml(target.meta.assignedGate)}</span>
-            <span style="color:${barColor};font-weight:800;">${pct}% GREEN (${target.greenCount}/${target.applicableCount} · ${target.yellowCount}Y · ${target.redCount}R · ${target.naCount} N/A) · GATE: ${target.thresholdMet ? (target.criticalGaps.length ? "80% MET (CRITICAL GAPS!)" : "PASS >=80%") : "NEED >=80%"}</span>
+            <span><strong>${this._escapeHtml(target.meta.shortTitle)}</strong> · Checkpoint: ${this._escapeHtml(target.meta.competedGate)}</span>
+            <span style="color:${barColor};font-weight:800;">${pct}% DONE (${target.greenCount}/${target.applicableCount} Done · ${target.yellowCount} WIP · ${target.redCount} To-Do · ${target.naCount} Later) · PASS LINE: ${target.thresholdMet ? (target.criticalGaps.length ? "80% MET (MUST-HAVES LEFT!)" : "PASSED >=80%") : "NEED 80%"}</span>
           </div>
           <div style="height:8px;border-radius:4px;background:rgba(255,255,255,0.08);overflow:hidden;position:relative;">
             <div style="height:100%;width:${pct}%;background:${barColor};transition:width 0.2s;"></div>
-            <div style="position:absolute;left:80%;top:0;bottom:0;width:2px;background:#f8fafc;" title="JPL 80% Green Gate Threshold"></div>
+            <div style="position:absolute;left:80%;top:0;bottom:0;width:2px;background:#f8fafc;" title="NASA 80% Pass Line"></div>
           </div>
         </div>
 
-        <div style="font-family:monospace;font-size:9px;color:#93c5fd;font-weight:700;margin-bottom:4px;">JPL CML 4 TECHNICAL MARGINS AUDIT (${this._escapeHtml(cmlEval.margins.footnote)})</div>
+        <div style="font-family:monospace;font-size:9px;color:#93c5fd;font-weight:700;margin-bottom:4px;">SAFETY BUFFERS — Extra room so surprises don't break your build (${this._escapeHtml(cmlEval.margins.footnote)})</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:6px;margin-bottom:10px;">
           ${marginStrip}
         </div>
 
-        <div style="display:flex;flex-direction:column;gap:5px;max-height:260px;overflow-y:auto;padding-right:4px;margin-bottom:10px;">
+        <div style="display:flex;flex-direction:column;gap:5px;max-height:255px;overflow-y:auto;padding-right:4px;margin-bottom:10px;">
           ${rowsHtml}
         </div>
 
         <div style="padding:8px 10px;border-radius:5px;background:rgba(30,41,59,0.65);border:1px solid ${cmlEval.assessorSignedOff ? "rgba(74,222,128,0.45)" : "rgba(251,191,36,0.4)"};display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
           <div style="flex:1 1 260px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-            <input id="cml-input-assessor-name" type="text" maxlength="80" placeholder="Independent Assessor (e.g. FDIR / CAPCOM)" value="${assessorName}" style="padding:5px 7px;border-radius:4px;border:1px solid rgba(148,163,184,0.3);background:rgba(5,8,16,0.85);color:#f8fafc;font-family:monospace;font-size:10px;width:190px;" />
-            <input id="cml-input-assessor-notes" type="text" maxlength="320" placeholder="~30-min Independent Review notes..." value="${assessorNotes}" style="padding:5px 7px;border-radius:4px;border:1px solid rgba(148,163,184,0.3);background:rgba(5,8,16,0.85);color:#f8fafc;font-family:monospace;font-size:10px;flex:1 1 180px;" />
+            <input id="cml-input-assessor-name" type="text" maxlength="80" placeholder="Fresh-Eyes Reviewer name (teammate or Ground Control)" value="${assessorName}" style="padding:5px 7px;border-radius:4px;border:1px solid rgba(148,163,184,0.3);background:rgba(5,8,16,0.85);color:#f8fafc;font-family:monospace;font-size:10px;width:210px;" />
+            <input id="cml-input-assessor-notes" type="text" maxlength="320" placeholder="~30-min outside feedback & sanity-check notes..." value="${assessorNotes}" style="padding:5px 7px;border-radius:4px;border:1px solid rgba(148,163,184,0.3);background:rgba(5,8,16,0.85);color:#f8fafc;font-family:monospace;font-size:10px;flex:1 1 180px;" />
           </div>
           <div style="display:flex;gap:6px;align-items:center;">
-            <button type="button" id="btn-cml-reset-overrides" style="padding:5px 8px;border-radius:4px;border:1px solid rgba(148,163,184,0.3);background:rgba(15,23,42,0.8);color:#cbd5e1;font-family:monospace;font-size:9px;cursor:pointer;">CLEAR OVERRIDES (${cmlEval.overrideCount})</button>
+            <button type="button" id="btn-cml-reset-overrides" style="padding:5px 8px;border-radius:4px;border:1px solid rgba(148,163,184,0.3);background:rgba(15,23,42,0.8);color:#cbd5e1;font-family:monospace;font-size:9px;cursor:pointer;">RESET EDITS (${cmlEval.overrideCount})</button>
             <button type="button" id="btn-cml-toggle-assessor" style="padding:6px 10px;border-radius:4px;border:1px solid ${cmlEval.assessorSignedOff ? "#4ade80" : "#fbbf24"};background:${cmlEval.assessorSignedOff ? "rgba(22,163,74,0.28)" : "rgba(245,158,11,0.2)"};color:${cmlEval.assessorSignedOff ? "#bbf7d0" : "#fde68a"};font-family:monospace;font-size:9.5px;font-weight:800;cursor:pointer;">
-              ${cmlEval.assessorSignedOff ? "ASSESSOR SIGNED OFF [VERIFIED]" : "SIGN OFF INDEPENDENT REVIEW"}
+              ${cmlEval.assessorSignedOff ? "FRESH-EYES REVIEW PASSED" : "SIGN OFF FRESH-EYES REVIEW"}
             </button>
           </div>
         </div>
@@ -3166,13 +3169,13 @@
         const headerCols = [1, 2, 3, 4, 5, 6, 7].map((c) => {
           const isReached = c === cmlEval.reachedCml;
           const isTarget = c === cmlEval.targetCml;
-          return `<th style="padding:6px;border:1px solid rgba(148,163,184,0.2);background:${isTarget ? "rgba(245,158,11,0.18)" : isReached ? "rgba(56,189,248,0.16)" : "rgba(15,23,42,0.92)"};color:${isTarget ? "#fde68a" : "#93c5fd"};font-family:monospace;font-size:9px;min-width:165px;">CML ${c}${isTarget ? " (TARGET)" : isReached ? " (NOW)" : ""}</th>`;
+          return `<th style="padding:6px;border:1px solid rgba(148,163,184,0.2);background:${isTarget ? "rgba(245,158,11,0.18)" : isReached ? "rgba(56,189,248,0.16)" : "rgba(15,23,42,0.92)"};color:${isTarget ? "#fde68a" : "#93c5fd"};font-family:monospace;font-size:9px;min-width:165px;">STAGE ${c}${isTarget ? " (ACTIVE)" : isReached ? " (DONE)" : ""}</th>`;
         }).join("");
 
         const bodyRows = cmlEval.matrixRows.map((row) => `
           <tr>
             <td style="position:sticky;left:0;z-index:2;padding:6px 8px;border:1px solid rgba(148,163,184,0.22);background:#0b1120;color:#f1f5f9;font-size:10px;font-weight:700;min-width:170px;">
-              <span style="color:${catColor[row.category] || "#93c5fd"};font-family:monospace;font-size:8.5px;display:block;">${row.category.toUpperCase()}</span>
+              <span style="color:${catColor[row.category] || "#93c5fd"};font-family:monospace;font-size:8.5px;display:block;">${(cmlEval.categories.find((c) => c.id === row.category)?.label || row.category).toUpperCase()}</span>
               ${this._escapeHtml(row.name)}
             </td>
             ${[1, 2, 3, 4, 5, 6, 7].map((c) => {
@@ -3185,12 +3188,12 @@
 
         return `
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
-            <span style="font-family:monospace;font-size:10px;color:#cbd5e1;">FULL 24-ROW x 7-COLUMN JPL CML MATRIX (Figures 3-7)</span>
-            <button type="button" class="cml-matrix-mode" data-mode="column" style="padding:4px 9px;border-radius:4px;border:1px solid #38bdf8;background:rgba(56,189,248,0.14);color:#e0f2fe;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">SWITCH TO GATE COLUMN VIEW</button>
+            <span style="font-family:monospace;font-size:10px;color:#cbd5e1;">7-STAGE MISSION ROADMAP — Every team area from Quick Idea (Stage 1) to Early Build Blueprint (Stage 7)</span>
+            <button type="button" class="cml-matrix-mode" data-mode="column" style="padding:4px 9px;border-radius:4px;border:1px solid #38bdf8;background:rgba(56,189,248,0.14);color:#e0f2fe;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">VIEW ONE STAGE AT A TIME</button>
           </div>
           <div style="overflow:auto;max-height:360px;border:1px solid rgba(148,163,184,0.22);border-radius:5px;">
             <table style="border-collapse:collapse;width:100%;text-align:left;">
-              <thead><tr><th style="position:sticky;left:0;z-index:3;padding:6px 8px;border:1px solid rgba(148,163,184,0.22);background:#0f172a;color:#e2e8f0;font-family:monospace;font-size:9px;">DISCIPLINE ROW (24)</th>${headerCols}</tr></thead>
+              <thead><tr><th style="position:sticky;left:0;z-index:3;padding:6px 8px;border:1px solid rgba(148,163,184,0.22);background:#0f172a;color:#e2e8f0;font-family:monospace;font-size:9px;">MISSION TOPIC (24 AREAS)</th>${headerCols}</tr></thead>
               <tbody>${bodyRows}</tbody>
             </table>
           </div>
@@ -3219,13 +3222,13 @@
         <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
           <div style="display:flex;gap:4px;flex-wrap:wrap;">
             ${[1, 2, 3, 4, 5, 6, 7].map((c) => `
-              <button type="button" class="cml-matrix-col" data-col="${c}" style="padding:4px 8px;border-radius:4px;border:1px solid ${focusColumn === c ? "#fbbf24" : "rgba(148,163,184,0.22)"};background:${focusColumn === c ? "rgba(245,158,11,0.18)" : "rgba(15,23,42,0.75)"};color:${focusColumn === c ? "#fde68a" : "#cbd5e1"};font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">CML ${c}</button>
+              <button type="button" class="cml-matrix-col" data-col="${c}" style="padding:4px 8px;border-radius:4px;border:1px solid ${focusColumn === c ? "#fbbf24" : "rgba(148,163,184,0.22)"};background:${focusColumn === c ? "rgba(245,158,11,0.18)" : "rgba(15,23,42,0.75)"};color:${focusColumn === c ? "#fde68a" : "#cbd5e1"};font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">Stage ${c}</button>
             `).join("")}
           </div>
-          <button type="button" class="cml-matrix-mode" data-mode="grid" style="padding:4px 9px;border-radius:4px;border:1px solid #38bdf8;background:rgba(56,189,248,0.14);color:#e0f2fe;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">VIEW FULL 24x7 GRID</button>
+          <button type="button" class="cml-matrix-mode" data-mode="grid" style="padding:4px 9px;border-radius:4px;border:1px solid #38bdf8;background:rgba(56,189,248,0.14);color:#e0f2fe;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">VIEW FULL 7-STAGE TABLE</button>
         </div>
         <div style="padding:7px 9px;border-radius:4px;background:rgba(37,99,235,0.12);border:1px solid rgba(59,130,246,0.35);margin-bottom:8px;font-size:10.5px;color:#dbeafe;">
-          <strong>${this._escapeHtml(colMeta.shortTitle)}</strong> (${this._escapeHtml(colMeta.phase)}) — Competed Gate: ${this._escapeHtml(colMeta.competedGate)} | Assigned Gate: ${this._escapeHtml(colMeta.assignedGate)}
+          <strong>${this._escapeHtml(colMeta.shortTitle)}</strong> (${this._escapeHtml(colMeta.phase)}) — Checkpoint: ${this._escapeHtml(colMeta.competedGate)} | Review: ${this._escapeHtml(colMeta.assignedGate)}
         </div>
         <div style="max-height:330px;overflow-y:auto;padding-right:4px;">
           ${rowsByCat}
@@ -3237,7 +3240,7 @@
       const notes = cmlEval.notes || {};
       const spineCards = cmlEval.levels.map((lvl) => {
         const reached = lvl.level <= cmlEval.reachedCml;
-        const loopTag = lvl.feedbackLoopGroup === "trade-loop" ? '<span style="color:#fbbf24;font-family:monospace;font-size:8px;font-weight:700;">CML 2-4 TRADE LOOP</span>' : "";
+        const loopTag = lvl.feedbackLoopGroup === "trade-loop" ? '<span style="color:#fbbf24;font-family:monospace;font-size:8px;font-weight:700;">COMPARE &amp; LOOP (2-4)</span>' : "";
         return `
           <div style="padding:7px 9px;border-radius:5px;background:${reached ? "rgba(37,99,235,0.16)" : "rgba(15,23,42,0.7)"};border:1px solid ${reached ? "rgba(59,130,246,0.55)" : "rgba(148,163,184,0.18)"};">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
@@ -3246,7 +3249,7 @@
             </div>
             <div style="font-family:monospace;font-size:8.5px;color:#94a3b8;margin-top:2px;">${this._escapeHtml(lvl.phase)} · ${this._escapeHtml(lvl.teamContext)}</div>
             <div style="font-size:9.5px;color:#cbd5e1;margin-top:3px;">${this._escapeHtml(lvl.summary)}</div>
-            <div style="font-family:monospace;font-size:8.5px;color:#a5f3fc;margin-top:3px;">AO: ${this._escapeHtml(lvl.competedGate)} | Assigned: ${this._escapeHtml(lvl.assignedGate)}</div>
+            <div style="font-family:monospace;font-size:8.5px;color:#a5f3fc;margin-top:3px;">Pitch Milestone: ${this._escapeHtml(lvl.competedGate)} | Review: ${this._escapeHtml(lvl.assignedGate)}</div>
           </div>
         `;
       }).join("");
@@ -3262,7 +3265,7 @@
         <div style="padding:6px 8px;border-radius:4px;background:rgba(15,23,42,0.75);border-left:3px solid ${cav.flagged ? "#fbbf24" : "#4ade80"};">
           <div style="display:flex;justify-content:space-between;font-family:monospace;font-size:9.5px;font-weight:700;color:#f1f5f9;">
             <span>${this._escapeHtml(cav.title)}</span>
-            <span style="color:${cav.flagged ? "#fde68a" : "#86efac"};">${cav.flagged ? "FLAGGED" : "CLEAR"}</span>
+            <span style="color:${cav.flagged ? "#fde68a" : "#86efac"};">${cav.flagged ? "WATCH" : "GOOD"}</span>
           </div>
           <div style="font-size:9.5px;color:#cbd5e1;margin-top:2px;">${this._escapeHtml(cav.liveNote)}</div>
         </div>
@@ -3274,27 +3277,27 @@
             ${spineCards}
           </div>
           <div style="padding:9px 10px;border-radius:5px;background:rgba(8,13,24,0.85);border:1px solid rgba(103,232,249,0.25);margin-bottom:10px;">
-            <div style="font-family:monospace;font-size:9.5px;font-weight:800;color:#67e8f9;margin-bottom:6px;">CONCEPT SEED & PROGRAMMATIC ARTIFACTS (Closes Non-Telemetry CML 2-6 Gate Criteria)</div>
+            <div style="font-family:monospace;font-size:9.5px;font-weight:800;color:#67e8f9;margin-bottom:6px;">MISSION IDEA &amp; TEAM NOTES (Helps finish planning items in Stages 1-6)</div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:7px;">
-              ${field("stmSummary", "Draft STM / L1 Req Trace (Seed #1)", "e.g. Map 50 km polar PSR H2O -> L1 SNR>=10")}
-              ${field("heritageSource", "Inheritance / Heritage Source (Seed #2)", "e.g. LRO / Capstone avionics heritage")}
-              ${field("launchWindow", "Launch Window Target (Seed #3)", "e.g. Nov 2027 (21-day window)")}
-              ${field("launchWindowDays", "Launch Period Length (Days >= 20)", "20")}
-              ${field("costClass", "Target Cost Class (Seed #4)", "e.g. Discovery / NASA MIDEX $350M cap")}
-              ${field("backupLv", "Backup Launch Vehicle", "e.g. Vulcan Centaur / Ariane 64")}
-              ${field("partnerMode", "Acquisition / Make-Buy / Partner Mode", "e.g. In-house bus, competed instrument AO")}
-              ${field("descopeOptions", "Mission & System Descope Options", "e.g. Drop auxiliary magnetometer to recover 18kg")}
-              ${field("trlFallback", "TRL 6 Rationale & Fallback Tech", "e.g. TRL 6 cryo-cooler fallback to passive radiator")}
-              ${field("wbsSummary", "NASA Standard WBS L3/L4 Scope", "e.g. WBS 1-10 baselined through L3/L4")}
-              ${field("vnvSummary", "V&V Testbeds & C&DH Count", "e.g. FlatSat testbed + 24 C&DH functions")}
-              ${field("nepaSummary", "NEPA / Launch Safety (NPR 8580.1)", "e.g. Non-nuclear solar; Cat-Ex NEPA filed")}
-              ${field("scheduleMarginNote", "Schedule Margin (DP 6.1.2.2)", "e.g. 6.5 mo funded schedule reserve to LRD")}
-              ${field("costModelValidation", "CML 5 >=2 Cost Models Validation", "e.g. NICM + SEER-H parametric <= 8% spread")}
-              ${field("swMarginPct", "Flight S/W CPU & Memory Reserve % (>=100%)", "110")}
+              ${field("stmSummary", "Main Science Goal & Target Metrics (Q #1)", "e.g. Map water ice in Moon craters -> crisp 50m photos")}
+              ${field("heritageSource", "Similar Past Mission / Reused Parts (Q #2)", "e.g. Based on Lunar Reconnaissance Orbiter flight parts")}
+              ${field("launchWindow", "Target Launch Dates (Q #3)", "e.g. Nov 2027 (21-day launch window)")}
+              ${field("launchWindowDays", "Launch Window Length (Days >= 20)", "20")}
+              ${field("costClass", "Target Budget Tier (Q #4)", "e.g. Medium Discovery class ($350M max cap)")}
+              ${field("backupLv", "Backup Rocket (if #1 has delays)", "e.g. Vulcan Centaur / Ariane 64")}
+              ${field("partnerMode", "Team & Suppliers (Build vs. Buy)", "e.g. Build main bus in-house, buy solar arrays & sensors")}
+              ${field("descopeOptions", "Backup Plan: What Can We Trim?", "e.g. Drop 1 secondary sensor to save 18 kg & $20M")}
+              ${field("trlFallback", "New Tech Readiness & Plan-B", "e.g. If cold camera lags, swap in proven warmer sensor")}
+              ${field("wbsSummary", "Work Breakdown (Science / Craft / Ground)", "e.g. Divided into Science, Spacecraft, Sensors, Dishes")}
+              ${field("vnvSummary", "Earth Test Plan & Test Rigs", "e.g. Lab electronics bench test + 24 flight computer modes")}
+              ${field("nepaSummary", "Environmental & Debris Safety Check", "e.g. Solar powered (non-nuclear); clean Earth de-orbit")}
+              ${field("scheduleMarginNote", "Extra Buffer Time Built Into Schedule", "e.g. 6.5 extra spare months before launch deadline")}
+              ${field("costModelValidation", "2nd Independent Budget Sanity Check", "e.g. Checked with 2 cost models — within 8% of each other")}
+              ${field("swMarginPct", "Flight Computer Spare Capacity % (>=100%)", "110")}
             </div>
           </div>
           <div style="padding:8px 10px;border-radius:5px;background:rgba(15,23,42,0.7);border:1px solid rgba(251,191,36,0.28);">
-            <div style="font-family:monospace;font-size:9.5px;font-weight:800;color:#fde68a;margin-bottom:5px;">MISSION COMPLEXITY: ${this._escapeHtml(cmlEval.complexity.tier)} (${cmlEval.complexity.score}/5) &amp; 3 JPL CAVEATS</div>
+            <div style="font-family:monospace;font-size:9.5px;font-weight:800;color:#fde68a;margin-bottom:5px;">HOW COMPLEX IS THIS MISSION? ${this._escapeHtml(cmlEval.complexity.tier)} (${cmlEval.complexity.score}/5) &amp; 3 GOLDEN RULES</div>
             <div style="font-size:9.5px;color:#cbd5e1;margin-bottom:6px;">${this._escapeHtml(cmlEval.complexity.advisory)}</div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:6px;">
               ${caveatsHtml}
@@ -3317,7 +3320,7 @@
 
       const gridRows = [5, 4, 3, 2, 1].map((l) => `
         <tr>
-          <td style="padding:4px 6px;border:1px solid rgba(148,163,184,0.2);font-family:monospace;font-size:9px;color:#94a3b8;font-weight:700;">L${l}</td>
+          <td style="padding:4px 6px;border:1px solid rgba(148,163,184,0.2);font-family:monospace;font-size:9px;color:#94a3b8;font-weight:700;" title="Likelihood ${l} out of 5">L${l}</td>
           ${[1, 2, 3, 4, 5].map((c) => {
             const list = r5.cells[`${l}x${c}`] || [];
             const chips = list.map((r) => `<span title="${this._escapeHtml(r.title)}" style="display:inline-block;padding:1px 4px;margin:1px;border-radius:3px;background:#0f172a;border:1px solid rgba(255,255,255,0.45);color:#f8fafc;font-family:monospace;font-size:8.5px;font-weight:800;">#${idxMap.get(r.id)}</span>`).join("");
@@ -3332,9 +3335,9 @@
           <div style="padding:6px 8px;border-radius:4px;background:rgba(15,23,42,0.75);border-left:3px solid ${col};">
             <div style="display:flex;justify-content:space-between;font-family:monospace;font-size:9.5px;color:#f1f5f9;font-weight:700;">
               <span>#${idx + 1} ${this._escapeHtml(r.title)}</span>
-              <span style="color:${col};">L${r.likelihood} x C${r.consequence} (${r.severity})</span>
+              <span style="color:${col};">Likely ${r.likelihood}/5 · Impact ${r.consequence}/5 (${r.severity})</span>
             </div>
-            <div style="font-size:9.5px;color:#cbd5e1;margin-top:2px;">Mitigation (${this._escapeHtml(r.owner)}): ${this._escapeHtml(r.mitigation)}</div>
+            <div style="font-size:9.5px;color:#cbd5e1;margin-top:2px;">How to fix (${this._escapeHtml(r.owner)}): ${this._escapeHtml(r.mitigation)}</div>
           </div>
         `;
       }).join("");
@@ -3342,13 +3345,14 @@
       return `
         <div style="display:grid;grid-template-columns:minmax(270px,auto) 1fr;gap:12px;align-items:start;">
           <div>
-            <div style="font-family:monospace;font-size:9.5px;font-weight:700;color:#93c5fd;margin-bottom:5px;">5x5 TECHNICAL &amp; PROGRAMMATIC RISK MATRIX (H:${r5.highCount} · M:${r5.medCount} · L:${r5.lowCount})</div>
+            <div style="font-family:monospace;font-size:9.5px;font-weight:700;color:#93c5fd;margin-bottom:2px;">5x5 RISK MAP (${r5.highCount} High · ${r5.medCount} Med · ${r5.lowCount} Low)</div>
+            <div style="font-family:monospace;font-size:8.5px;color:#94a3b8;margin-bottom:5px;">Rows = How Likely (L1 Rare to L5 Likely) · Cols = How Serious (I1 Tiny to I5 Loss)</div>
             <table style="border-collapse:collapse;">
               <tbody>
                 ${gridRows}
                 <tr>
                   <td></td>
-                  ${[1, 2, 3, 4, 5].map((c) => `<td style="text-align:center;padding:3px;font-family:monospace;font-size:9px;color:#94a3b8;font-weight:700;">C${c}</td>`).join("")}
+                  ${[1, 2, 3, 4, 5].map((c) => `<td style="text-align:center;padding:3px;font-family:monospace;font-size:9px;color:#94a3b8;font-weight:700;" title="Impact ${c} out of 5">I${c}</td>`).join("")}
                 </tr>
               </tbody>
             </table>
@@ -3358,16 +3362,16 @@
           </div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.1);">
-          <button type="button" id="btn-cml-export-json" style="padding:7px 11px;border-radius:4px;border:1px solid rgba(56,189,248,0.5);background:rgba(56,189,248,0.14);color:#e0f2fe;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">EXPORT CML REPORT (.JSON)</button>
-          <button type="button" id="btn-cml-export-md" style="padding:7px 11px;border-radius:4px;border:1px solid rgba(167,139,250,0.5);background:rgba(167,139,250,0.14);color:#ddd6fe;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">EXPORT CML GATE BRIEF (.MD)</button>
-          <button type="button" id="btn-cml-export-full-mdl" style="padding:7px 11px;border-radius:4px;border:1px solid rgba(74,222,128,0.5);background:rgba(74,222,128,0.14);color:#bbf7d0;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">EXPORT FULL MDL + CML (.JSON)</button>
+          <button type="button" id="btn-cml-export-json" style="padding:7px 11px;border-radius:4px;border:1px solid rgba(56,189,248,0.5);background:rgba(56,189,248,0.14);color:#e0f2fe;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">DOWNLOAD SUMMARY (.JSON)</button>
+          <button type="button" id="btn-cml-export-md" style="padding:7px 11px;border-radius:4px;border:1px solid rgba(167,139,250,0.5);background:rgba(167,139,250,0.14);color:#ddd6fe;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">DOWNLOAD READABLE REPORT (.MD)</button>
+          <button type="button" id="btn-cml-export-full-mdl" style="padding:7px 11px;border-radius:4px;border:1px solid rgba(74,222,128,0.5);background:rgba(74,222,128,0.14);color:#bbf7d0;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">DOWNLOAD FULL BLUEPRINT (.JSON)</button>
         </div>
       `;
     }
 
     openCmlWorkbench(initialTab = "checklist", options = {}) {
       if (!window.CMLFramework) {
-        this.showToast("JPL CML Framework is not available yet.");
+        this.showToast("Mission Readiness Guide is still loading.");
         return;
       }
       this._runCleanup();
@@ -3378,8 +3382,8 @@
         kind: "cml-workbench",
         isCmlWorkbench: true,
         isPreFlightMdl: true,
-        name: "JPL Concept Maturity Levels (CML 1-9) Workbench",
-        location: assessorFocus ? "LCC FIRING ROOM // INDEPENDENT ASSESSOR" : "SYSTEMS ENGINEERING // JPL CML LAB",
+        name: "Mission Readiness Guide (Stages 1-9)",
+        location: assessorFocus ? "LAUNCH CONTROL // FRESH-EYES REVIEW" : "DESIGN STUDIO // READINESS STAGES",
         role: "all",
         completed: false
       };
@@ -3400,8 +3404,8 @@
       let focusColumn = Number(options.focusColumn) || this.cmlState.targetCml || 4;
 
       title.textContent = assessorFocus
-        ? "JPL CML INDEPENDENT ASSESSOR REVIEW (CAVEAT #3 GATE)"
-        : "JPL CONCEPT MATURITY LEVELS (CML 1-9) WORKBENCH";
+        ? "FRESH-EYES MISSION REVIEW (GET AN OUTSIDE CHECK)"
+        : "MISSION READINESS GUIDE (9 STAGES FROM IDEA TO LAUNCH)";
       modal.style.display = "flex";
       if (window.spaceAudio) window.spaceAudio.playClick();
 
@@ -3428,23 +3432,24 @@
           <div style="padding:9px 11px;border-radius:5px;background:rgba(8,13,24,0.88);border:1px solid rgba(56,189,248,0.3);margin-bottom:9px;">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
               <div>
-                <div style="font-family:monospace;font-size:10.5px;font-weight:800;color:#7dd3fc;">REACHED: ${this._escapeHtml(cmlEval.reachedTitle.toUpperCase())} · CERTIFIED: CML ${cmlEval.certifiedCml} · SCORE ${t.overallScore}/100</div>
-                <div style="font-family:monospace;font-size:9px;color:#94a3b8;margin-top:2px;">${this._escapeHtml(cmlEval.reachedPhase)} · Complexity ${this._escapeHtml(cmlEval.complexity.tier)} (${cmlEval.complexity.score}/5) · Scenario: ${this._escapeHtml(t.scenario.name)}</div>
+                <div style="font-family:monospace;font-size:10.5px;font-weight:800;color:#7dd3fc;">NOW AT: ${this._escapeHtml(cmlEval.reachedTitle.toUpperCase())} · VERIFIED: STAGE ${cmlEval.certifiedCml} · SCORE ${t.overallScore}/100</div>
+                <div style="font-family:monospace;font-size:9px;color:#94a3b8;margin-top:2px;">${this._escapeHtml(cmlEval.reachedPhase)} · Complexity: ${this._escapeHtml(cmlEval.complexity.tier)} (${cmlEval.complexity.score}/5) · Mission: ${this._escapeHtml(t.scenario.name)}</div>
+                <div style="font-size:10px;color:#cbd5e1;margin-top:4px;">How it works: NASA grows missions from <strong>Stage 1</strong> (quick idea sketch) to <strong>Stage 9</strong> (ready to build hardware). Reach <strong>80% Done</strong> plus all <strong>Must-Have</strong> items to advance!</div>
               </div>
               <div style="display:flex;gap:5px;flex-wrap:wrap;">
-                ${returnTask ? `<button type="button" id="btn-cml-return" style="padding:4px 8px;border-radius:4px;border:1px solid rgba(148,163,184,0.35);background:rgba(15,23,42,0.85);color:#e2e8f0;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">← RETURN</button>` : ""}
-                <button type="button" id="btn-cml-mdl-desk" style="padding:4px 8px;border-radius:4px;border:1px solid rgba(103,232,249,0.45);background:rgba(103,232,249,0.12);color:#a5f3fc;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">MDL TRADE DESK</button>
-                <button type="button" id="btn-cml-sync-all" style="padding:4px 9px;border-radius:4px;border:1px solid #4ade80;background:rgba(22,163,74,0.25);color:#bbf7d0;font-family:monospace;font-size:9px;font-weight:800;cursor:pointer;">SYNC TO CREW</button>
+                ${returnTask ? `<button type="button" id="btn-cml-return" style="padding:4px 8px;border-radius:4px;border:1px solid rgba(148,163,184,0.35);background:rgba(15,23,42,0.85);color:#e2e8f0;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">← BACK</button>` : ""}
+                <button type="button" id="btn-cml-mdl-desk" style="padding:4px 8px;border-radius:4px;border:1px solid rgba(103,232,249,0.45);background:rgba(103,232,249,0.12);color:#a5f3fc;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">DESIGN DESK</button>
+                <button type="button" id="btn-cml-sync-all" style="padding:4px 9px;border-radius:4px;border:1px solid #4ade80;background:rgba(22,163,74,0.25);color:#bbf7d0;font-family:monospace;font-size:9px;font-weight:800;cursor:pointer;">SAVE TO CREW</button>
               </div>
             </div>
             ${alertsHtml ? `<div style="display:flex;flex-direction:column;gap:4px;margin-top:7px;">${alertsHtml}</div>` : ""}
           </div>
 
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:9px;">
-            ${mkTab("checklist", `1. CHECKLIST (CML ${cmlEval.targetCml} · ${cmlEval.activeSummary.percentGreen}%)`)}
-            ${mkTab("matrix", "2. CML MATRIX (24x7)")}
-            ${mkTab("spine", "3. LIFECYCLE SPINE & SEEDS (1-9)")}
-            ${mkTab("risk", `4. 5x5 RISK (${cmlEval.risk5x5.highCount} HIGH) & EXPORT`)}
+            ${mkTab("checklist", `1. STAGE ${cmlEval.targetCml} CHECKLIST (${cmlEval.activeSummary.percentGreen}%)`)}
+            ${mkTab("matrix", "2. 7-STAGE ROADMAP (24 TOPICS)")}
+            ${mkTab("spine", "3. 9-STAGE JOURNEY & NOTES")}
+            ${mkTab("risk", `4. RISK MAP (${cmlEval.risk5x5.highCount} HIGH) & DOWNLOAD`)}
           </div>
 
           ${tabBody}
@@ -3469,7 +3474,7 @@
           btnSync.addEventListener("click", () => {
             this.syncCmlStateToNetwork();
             this._renderResourceMeters();
-            this.showToast("JPL CML checklist & programmatic state synchronized to crew.");
+            this.showToast("Mission Readiness progress saved & shared with crew.");
           });
         }
 
@@ -4996,9 +5001,153 @@
     // ========================================================================
     // CONSOLE 7: FULL MISSION SIMULATION & POST-MISSION EVALUATION (`task_landing`)
     // ========================================================================
+    getMissionEvent(seed, t) {
+      if (!t) return null;
+      const difficulty = (t.difficulty && t.difficulty.id) || "engineer";
+      const events = [
+        // Cadet — unexpected but survivable operational hiccups.
+        {
+          id: "software_safe_mode",
+          severity: "CADET",
+          title: "FLIGHT COMPUTER SAFE-MODE RESET",
+          situation: "A transient software fault reset the flight computer during cruise. The spacecraft must recover without losing the science campaign or overrunning the budget.",
+          check: (telemetry) => telemetry.engineeringScore >= 50 && telemetry.budgetOk,
+          metric: (telemetry) => `Engineering ${telemetry.engineeringScore}/100 · Reserve $${Math.max(0, telemetry.budgetRemainingM)}M`,
+          mitigation: "Keep the engineering score above 50 and preserve a small budget reserve for contingency operations."
+        },
+        {
+          id: "station_weather_delay",
+          severity: "CADET",
+          title: "GROUND STATION WEATHER DELAY",
+          situation: "A storm closed the primary ground station for two passes. The remaining network must still close the link and preserve a small schedule reserve.",
+          check: (telemetry) => telemetry.budgetRemainingM >= telemetry.budgetCapM * 0.02 && telemetry.linkMarginDb >= 3,
+          metric: (telemetry) => `Link ${telemetry.linkMarginDb} dB (≥3) · Reserve $${Math.max(0, telemetry.budgetRemainingM)}M`,
+          mitigation: "Keep at least a 3 dB link margin and a 2% budget reserve for weather or scheduling delays."
+        },
+        {
+          id: "eclipse_thermal_transient",
+          severity: "CADET",
+          title: "ECLIPSE THERMAL TRANSIENT",
+          situation: "An unexpected heater load appeared during eclipse. The battery and thermal system must absorb it without a brownout.",
+          check: (telemetry) => telemetry.batteryDodPct <= 85 && telemetry.thermalOk,
+          metric: (telemetry) => `Battery DoD ${telemetry.batteryDodPct}% (≤85%) · Thermal ${telemetry.thermalOk ? "NOMINAL" : "FAIL"}`,
+          mitigation: "Keep battery depth-of-discharge below 85% and pair the payload with adequate thermal rejection."
+        },
+        // Engineer — realistic phase-A anomalies.
+        {
+          id: "cme_solar_storm",
+          severity: "ENGINEER",
+          title: "CME SOLAR PARTICLE STORM",
+          situation: "A coronal mass ejection swept the spacecraft. Radiation shielding, thermal control and lifetime margin must all survive the storm.",
+          check: (telemetry) => telemetry.radiationOk && telemetry.thermalOk && telemetry.lifetimeOk,
+          metric: (telemetry) => `Rad ${telemetry.thm.radRatingKrad} krad · Heat ${telemetry.thm.thermalCapW} W · Life ${telemetry.estimatedLifetimeMonths} mo`,
+          mitigation: "Choose a thermal/radiation package rated for the mission environment and keep the lifetime margin positive."
+        },
+        {
+          id: "dsn_antenna_outage",
+          severity: "ENGINEER",
+          title: "DSN 70 m ANTENNA OUTAGE",
+          situation: "The primary Deep Space Network dish went offline for maintenance. The remaining network must still downlink at least 85% of the science data with a healthy link margin.",
+          check: (telemetry) => telemetry.linkMarginDb >= 6 && telemetry.downlinkCapGbPerDay >= telemetry.dataGeneratedGbPerDay * 0.85,
+          metric: (telemetry) => `Link ${telemetry.linkMarginDb} dB (≥6) · ${telemetry.downlinkCapGbPerDay} / ${telemetry.dataGeneratedGbPerDay} GB/d`,
+          mitigation: "Use a higher-gain antenna or a denser ground network, and avoid generating more data than the backup network can carry."
+        },
+        {
+          id: "reaction_wheel_anomaly",
+          severity: "ENGINEER",
+          title: "REACTION WHEEL BEARING ANOMALY",
+          situation: "One reaction wheel began drawing excess current. Propulsion must provide at least 100 m/s of attitude-control reserve while still completing the orbit insertion budget.",
+          check: (telemetry) => telemetry.deltaVOk && (telemetry.achievedDeltaV - telemetry.requiredDeltaV) >= 100,
+          metric: (telemetry) => `ΔV reserve ${Math.max(0, telemetry.achievedDeltaV - telemetry.requiredDeltaV)} m/s (≥100)`,
+          mitigation: "Select a propulsion system with at least 100 m/s of reserve above the orbit-insertion requirement."
+        },
+        {
+          id: "detector_degradation",
+          severity: "ENGINEER",
+          title: "PAYLOAD DETECTOR DEGRADATION",
+          situation: "One detector channel degraded after launch. The remaining instruments must still deliver at least 75/100 science value.",
+          check: (telemetry) => telemetry.scienceScore >= 75 && telemetry.selectedInsts.length >= 2,
+          metric: (telemetry) => `Science ${telemetry.scienceScore}/100 (≥75) · ${telemetry.selectedInsts.length} instruments`,
+          mitigation: "Carry at least two instruments and maintain science margin above the mission's required coverage."
+        },
+        {
+          id: "launch_window_delay",
+          severity: "ENGINEER",
+          title: "LAUNCH WINDOW SOLAR ACTIVITY DELAY",
+          situation: "Solar activity delayed the launch by three weeks. The mission must absorb the schedule cost while preserving its lifetime margin.",
+          check: (telemetry) => telemetry.budgetRemainingM >= telemetry.budgetCapM * 0.05 && telemetry.lifetimeOk,
+          metric: (telemetry) => `Reserve $${Math.max(0, telemetry.budgetRemainingM)}M (≥5%) · Life ${telemetry.estimatedLifetimeMonths} mo`,
+          mitigation: "Keep a 5% budget reserve and select components that meet the target lifetime with margin."
+        },
+        // Director — severe anomalies.
+        {
+          id: "severe_x_class_cme",
+          severity: "DIRECTOR",
+          title: "SEVERE X-CLASS CME",
+          situation: "An X-class solar storm struck the spacecraft. Shielding, thermal control, lifetime margin and the communications link must all survive simultaneously.",
+          check: (telemetry) => telemetry.radiationOk && telemetry.thermalOk && telemetry.lifetimeOk && telemetry.linkMarginDb >= 8,
+          metric: (telemetry) => `Rad ${telemetry.thm.radRatingKrad} krad · Link ${telemetry.linkMarginDb} dB (≥8) · Life ${telemetry.estimatedLifetimeMonths} mo`,
+          mitigation: "Use a hardened thermal/radiation package, a high-gain link and extra lifetime margin."
+        },
+        {
+          id: "dsn_network_loss",
+          severity: "DIRECTOR",
+          title: "DEEP SPACE NETWORK LOSS",
+          situation: "A network-wide failure removed the backup DSN assets. The spacecraft must close an 8 dB link and downlink 100% of its generated data using the remaining capacity.",
+          check: (telemetry) => telemetry.linkMarginDb >= 8 && telemetry.downlinkCapGbPerDay >= telemetry.dataGeneratedGbPerDay,
+          metric: (telemetry) => `Link ${telemetry.linkMarginDb} dB (≥8) · ${telemetry.downlinkCapGbPerDay} / ${telemetry.dataGeneratedGbPerDay} GB/d`,
+          mitigation: "Design for full data downlink with an 8 dB margin, not just the 3 dB minimum."
+        },
+        {
+          id: "power_bus_arc_fault",
+          severity: "DIRECTOR",
+          title: "POWER BUS ARC FAULT",
+          situation: "An arc fault degraded one power bus. The spacecraft must hold battery depth-of-discharge at or below 60% and retain a 10% daylight power margin.",
+          check: (telemetry) => telemetry.batteryDodPct <= 60 && telemetry.netDaylightMarginW >= telemetry.totalPowerLoadW * 0.1,
+          metric: (telemetry) => `DoD ${telemetry.batteryDodPct}% (≤60%) · Margin ${telemetry.netDaylightMarginW} W (≥10%)`,
+          mitigation: "Oversize solar generation and battery capacity beyond the standard 80% DoD limit."
+        },
+        {
+          id: "primary_instrument_failure",
+          severity: "DIRECTOR",
+          title: "PRIMARY INSTRUMENT FAILURE",
+          situation: "The primary science instrument failed. The remaining payload must still deliver at least 85/100 science value across the required science types.",
+          check: (telemetry) => telemetry.scienceScore >= 85 && telemetry.selectedInsts.length >= 3,
+          metric: (telemetry) => `Science ${telemetry.scienceScore}/100 (≥85) · ${telemetry.selectedInsts.length} instruments`,
+          mitigation: "Carry at least three instruments and keep science value well above the minimum threshold."
+        }
+      ];
+
+      const pool = events.filter((event) => event.severity === difficulty.toUpperCase());
+      const usable = pool.length ? pool : events.filter((event) => event.severity === "ENGINEER");
+      let hash = (Number(seed) || 1) >>> 0;
+      hash ^= difficulty === "director" ? 0x9e3779b9 : difficulty === "cadet" ? 0x85ebca6b : 0xc2b2ae35;
+      hash = Math.imul(hash ^ (hash >>> 16), 2246822507);
+      hash = Math.imul(hash ^ (hash >>> 13), 3266489909);
+      hash = (hash ^ (hash >>> 16)) >>> 0;
+      const chosen = usable[hash % usable.length];
+      const ok = !!chosen.check(t);
+      return {
+        id: chosen.id,
+        severity: chosen.severity,
+        title: chosen.title,
+        situation: chosen.situation,
+        mitigation: chosen.mitigation,
+        ok,
+        metric: chosen.metric(t),
+        detail: ok
+          ? `ANOMALY SURVIVED: ${chosen.title} was handled without losing the mission.`
+          : `ANOMALY FAILURE: ${chosen.title} exceeded the current design margins. ${chosen.mitigation}`
+      };
+    }
+
     renderMissionSimulationConsole(container, task) {
       const render = () => {
         const t = this.evaluateMissionDesign();
+        const missionState = this.getMissionState();
+        const missionSeed = (missionState && missionState.seed) || 1;
+        const missionEvent = this.getMissionEvent(missionSeed, t);
+        this.lastMissionEvent = missionEvent;
 
         const isBio = !!t.scenario.isBioPayload;
         const bio = t.bioTelemetry;
@@ -5091,6 +5240,15 @@
               }
             ];
 
+        if (missionEvent) {
+          phases.push({
+            phase: `PHASE ${phases.length + 1} · SEEDED ANOMALY: ${missionEvent.title}`,
+            ok: missionEvent.ok,
+            metric: missionEvent.metric,
+            detail: missionEvent.detail
+          });
+        }
+
         const allNominal = isBio
           ? (phases.every((p) => p.ok) && bio.bioOk && t.overallScore >= 75)
           : (phases.every((p) => p.ok) && t.disposalOk && t.telescopeOk && t.overallScore >= 75);
@@ -5117,6 +5275,25 @@
               `).join("")}
             </div>
           </div>
+
+          ${missionEvent ? `
+            <div style="padding:10px 12px;border-radius:8px;background:${missionEvent.ok ? "rgba(74,222,128,0.07)" : "rgba(239,68,68,0.08)"};border:1px solid ${missionEvent.ok ? "rgba(74,222,128,0.4)" : "rgba(239,68,68,0.45)"};margin-bottom:10px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+                <span style="font-family:monospace;font-size:9.5px;font-weight:800;letter-spacing:1.1px;color:${missionEvent.ok ? "#86efac" : "#fca5a5"};">
+                  SEEDED MISSION ANOMALY · ${missionEvent.severity} · SEED ${missionSeed}
+                </span>
+                <span style="font-family:monospace;font-size:9px;font-weight:800;padding:2px 7px;border-radius:4px;background:${missionEvent.ok ? "rgba(74,222,128,0.16)" : "rgba(239,68,68,0.16)"};color:${missionEvent.ok ? "#4ade80" : "#f87171"};">
+                  ${missionEvent.ok ? "SURVIVED" : "FAILED"}
+                </span>
+              </div>
+              <div style="font-size:13px;font-weight:700;color:#f8fafc;margin-top:3px;">${missionEvent.title}</div>
+              <div style="font-size:11px;color:#cbd5e1;line-height:1.45;margin-top:3px;">${missionEvent.situation}</div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:6px;margin-top:7px;">
+                <div style="font-family:monospace;font-size:9.5px;color:${missionEvent.ok ? "#86efac" : "#fbbf24"};">CONSTRAINT: ${missionEvent.metric}</div>
+                <div style="font-family:monospace;font-size:9.5px;color:#94a3b8;">MITIGATION: ${missionEvent.mitigation}</div>
+              </div>
+            </div>
+          ` : ""}
 
           <div style="padding:12px;border-radius:8px;background:rgba(0,0,0,0.42);border:1px solid rgba(255,255,255,0.12);margin-bottom:12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
@@ -5412,8 +5589,8 @@
               <div style="font-family:monospace;font-size:15px;color:#34d399;">${completedCount} / ${totalCount} (${evalSummary.overallScore}/100)</div>
             </div>
             <div style="padding:8px 10px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;background:rgba(255,255,255,0.03);">
-              <div style="font-family:monospace;font-size:9px;color:#9aa4ae;letter-spacing:1px;">DIFFICULTY / CML</div>
-              <div style="font-family:monospace;font-size:12px;color:#fbbf24;">${this._escapeHtml(difficulty)} · CML ${evalSummary.cmlLevel}${evalSummary.cml ? ` (${evalSummary.cml.activeSummary.percentGreen}% @ L${evalSummary.cml.targetCml})` : ""}</div>
+              <div style="font-family:monospace;font-size:9px;color:#9aa4ae;letter-spacing:1px;">DIFFICULTY / READINESS</div>
+              <div style="font-family:monospace;font-size:12px;color:#fbbf24;">${this._escapeHtml(difficulty)} · STAGE ${evalSummary.cmlLevel}${evalSummary.cml ? ` (${evalSummary.cml.activeSummary.percentGreen}% @ Stage ${evalSummary.cml.targetCml})` : ""}</div>
             </div>
             <div style="padding:8px 10px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;background:rgba(255,255,255,0.03);">
               <div style="font-family:monospace;font-size:9px;color:#9aa4ae;letter-spacing:1px;">FLIGHT CREW</div>
@@ -5421,13 +5598,13 @@
             </div>
           </div>
           <div style="padding:8px 10px;border-radius:6px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.3);margin-bottom:10px;text-align:left;font-size:11px;color:#e2e8f0;">
-            <div style="font-family:monospace;font-size:9px;color:#c4b5fd;font-weight:700;letter-spacing:0.8px;">${evalSummary.analogue.agencyTag} ANALOGUE & SCIENCE PRODUCT</div>
+            <div style="font-family:monospace;font-size:9px;color:#c4b5fd;font-weight:700;letter-spacing:0.8px;">${evalSummary.analogue.agencyTag} INSPIRATION &amp; SCIENCE GOAL</div>
             <div style="margin-top:2px;"><strong>${evalSummary.analogue.missions}</strong> — ${evalSummary.analogue.productTitle}</div>
             <div style="margin-top:6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-              <span style="font-family:monospace;font-size:9.5px;color:#86efac;">EoM Disposal: ${evalSummary.disposal.name.split("(")[0].trim()} (${evalSummary.disposal.deorbitYears} yr)</span>
+              <span style="font-family:monospace;font-size:9.5px;color:#86efac;">Clean Retirement: ${evalSummary.disposal.name.split("(")[0].trim()} (${evalSummary.disposal.deorbitYears} yr)</span>
               <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                <button type="button" id="btn-victory-open-cml" style="padding:4px 9px;border-radius:4px;border:1px solid rgba(251,191,36,0.55);background:rgba(245,158,11,0.16);color:#fde68a;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">CML REPORT</button>
-                <button type="button" id="btn-victory-export-mdl" style="padding:4px 9px;border-radius:4px;border:1px solid rgba(103,232,249,0.5);background:rgba(103,232,249,0.14);color:#7dd3fc;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">EXPORT MDL (.JSON)</button>
+                <button type="button" id="btn-victory-open-cml" style="padding:4px 9px;border-radius:4px;border:1px solid rgba(251,191,36,0.55);background:rgba(245,158,11,0.16);color:#fde68a;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">READINESS REPORT</button>
+                <button type="button" id="btn-victory-export-mdl" style="padding:4px 9px;border-radius:4px;border:1px solid rgba(103,232,249,0.5);background:rgba(103,232,249,0.14);color:#7dd3fc;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">DOWNLOAD BLUEPRINT (.JSON)</button>
               </div>
             </div>
           </div>
@@ -5435,6 +5612,11 @@
             LAUNCH: <span style="color:#ece7dc;">${this._escapeHtml(data.launchedBy || "—")}</span>
             &nbsp;·&nbsp; DOCKING: <span style="color:#ece7dc;">${this._escapeHtml(data.dockedBy || "—")}</span>
           </div>
+          ${this.lastMissionEvent ? `
+            <div style="margin-bottom:8px;padding:7px 10px;border-radius:5px;background:${this.lastMissionEvent.ok ? "rgba(74,222,128,0.08)" : "rgba(239,68,68,0.1)"};border:1px solid ${this.lastMissionEvent.ok ? "rgba(74,222,128,0.35)" : "rgba(239,68,68,0.4)"};font-family:monospace;font-size:9.5px;color:${this.lastMissionEvent.ok ? "#86efac" : "#fca5a5"};text-align:left;">
+              SEEDED ANOMALY · ${this._escapeHtml(this.lastMissionEvent.title)} · ${this.lastMissionEvent.ok ? "SURVIVED" : "FAILED"} — ${this._escapeHtml(this.lastMissionEvent.metric)}
+            </div>
+          ` : ""}
           <div style="font-family:monospace;font-size:10px;color:#9aa4ae;letter-spacing:1px;margin-bottom:4px;text-align:left;">CREW MANIFEST</div>
           <div style="text-align:left;max-height:130px;overflow:auto;margin-bottom:6px;">${crewRows}</div>
         `;

@@ -2717,7 +2717,7 @@
               MDL DESK
             </button>
             <button type="button" id="btn-sc-cml-workbench" class="sc-hud-btn sc-btn-plan">
-              CML GATE
+              READINESS
             </button>
             <button type="button" id="btn-sc-orbit-viz" class="sc-hud-btn sc-btn-viz">
               ${touchUI ? "ORBIT VIZ" : "ORBIT VIZ [U]"}
@@ -3021,7 +3021,7 @@
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
             <button type="button" class="ground-action-btn" id="btn-lcc-open-viz">ORBIT VIZ [U]</button>
             <button type="button" class="ground-action-btn" id="btn-lcc-open-planner">ARCHITECTURE [M]</button>
-            <button type="button" class="ground-action-btn" id="btn-lcc-cml-review" style="border-color:rgba(251,191,36,0.55);color:#fde68a;">CML ASSESSOR</button>
+            <button type="button" class="ground-action-btn" id="btn-lcc-cml-review" style="border-color:rgba(251,191,36,0.55);color:#fde68a;">FRESH-EYES REVIEW</button>
             <button type="button" class="ground-action-btn" id="btn-lcc-close">CLOSE [C]</button>
           </div>
         </div>

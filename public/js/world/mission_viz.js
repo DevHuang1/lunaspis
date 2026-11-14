@@ -19,21 +19,21 @@
   const EARTH_RADIUS = 6.2;
 
   const TIMELINE_EVENTS = [
-    { t: 0.02, id: "launch", label: "T+0 LAUNCH", desc: "LC-39A Ascent & Fairing Jettison" },
-    { t: 0.18, id: "burn", label: "INJECTION ΔV", desc: "Transfer / Orbital Insertion Burn" },
-    { t: 0.42, id: "eclipse", label: "ECLIPSE TEST", desc: "Umbra Shadow & Battery DoD Cycle" },
-    { t: 0.62, id: "cme", label: "CME STORM", desc: "Solar Particle & Radiation Belt Transit" },
-    { t: 0.80, id: "science", label: "SCIENCE PASS", desc: "Payload Acquisition & Ground Downlink" },
-    { t: 0.96, id: "eom", label: "END-OF-MISSION", desc: "Deorbit / Disposal Maneuver Compliance" }
+    { t: 0.02, id: "launch", label: "1. LIFTOFF", desc: "Rocket launches from Earth into space" },
+    { t: 0.18, id: "burn", label: "2. ENGINE PUSH", desc: "Thrusters fire to steer onto our flight path" },
+    { t: 0.42, id: "eclipse", label: "3. NIGHT SHADOW", desc: "Passing behind Earth using battery power" },
+    { t: 0.62, id: "cme", label: "4. SPACE WEATHER", desc: "Shields protect the computer from space storms" },
+    { t: 0.80, id: "science", label: "5. COLLECT & SEND", desc: "Tools gather science and beam it to Earth" },
+    { t: 0.96, id: "eom", label: "6. CLEAN FINISH", desc: "Safely retiring the spacecraft with no space junk" }
   ];
 
   const BIO_TIMELINE_EVENTS = [
-    { t: 0.02, id: "launch", label: "NG-18 LAUNCH", desc: "Cygnus NG-18 Ambient Soft-Stow Kit -> ISS" },
-    { t: 0.18, id: "burn", label: "PWD HYDRATION", desc: "1L Bag -> Syringe -> 0.2µm Filter & Barb Valve" },
-    { t: 0.42, id: "eclipse", label: "30°C INCUBATE", desc: "Shake ~1 min & Incubate + Ground Console Watch" },
-    { t: 0.62, id: "cme", label: "6H YEAST SHAKE", desc: "Mandatory 6-Hour Agitation (~1 min Shake)" },
-    { t: 0.80, id: "science", label: "MELFI -80°C", desc: "Protective Foil Package & ISS Freezer Storage" },
-    { t: 0.96, id: "eom", label: "USER ASSAY", desc: "Delivery -> Thaw -> Wash -> Centrifuge (>=3 µg/mL)" }
+    { t: 0.02, id: "launch", label: "1. CARGO LAUNCH", desc: "Supply ship carries our space food pouches to the station" },
+    { t: 0.18, id: "burn", label: "2. ADD WATER", desc: "Astronaut adds warm drinking water to wake up the yeast" },
+    { t: 0.42, id: "eclipse", label: "3. WARM UP (30°C)", desc: "Mix for 1 minute and keep cozy in the warm box" },
+    { t: 0.62, id: "cme", label: "4. 6-HOUR MIX", desc: "Gently shake the pouch after 6 hours so it grows evenly" },
+    { t: 0.80, id: "science", label: "5. DEEP FREEZE", desc: "Wrap pouch and freeze at -80°C to preserve the nutrients" },
+    { t: 0.96, id: "eom", label: "6. LAB CHECK", desc: "Thaw and test on Earth to confirm fresh vitamins were made" }
   ];
 
   const GROUND_STATION_COORDS = {
@@ -651,23 +651,23 @@
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span style="width:7px;height:7px;border-radius:2px;background:#2563eb;"></span>
             <div>
-              <div style="font-size:11px;font-weight:700;letter-spacing:1.4px;color:#f8fafc;" id="mv-title">LUNASPIS MISSION VIZ // TRAJECTORY THEATER</div>
-              <div style="font-size:10px;color:#94a3b8;" id="mv-subtitle">Drag to orbit &middot; Scroll/Pinch to zoom &middot; Scrub Mission Timeline below</div>
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.4px;color:#f8fafc;" id="mv-title">3D EARTH &amp; SPACE FLIGHT MAP</div>
+              <div style="font-size:10px;color:#94a3b8;" id="mv-subtitle">Drag to spin &middot; Scroll/Pinch to zoom &middot; Scrub the Mission Timeline below</div>
             </div>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-            <button type="button" id="mv-btn-cam-sys" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(37,99,235,0.6);background:rgba(37,99,235,0.16);color:#f8fafc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">EARTH / SYSTEM</button>
+            <button type="button" id="mv-btn-cam-sys" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(37,99,235,0.6);background:rgba(37,99,235,0.16);color:#f8fafc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">FULL EARTH VIEW</button>
             <button type="button" id="mv-btn-cam-craft" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(148,163,184,0.22);background:rgba(8,13,24,0.75);color:#f8fafc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">FOLLOW CRAFT</button>
-            <button type="button" id="mv-btn-cam-target" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(148,163,184,0.22);background:rgba(8,13,24,0.75);color:#f8fafc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">TARGET BODY</button>
-            <button type="button" id="mv-btn-gmat" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(52,211,153,0.48);background:rgba(16,185,129,0.16);color:#a7f3d0;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;" title="Download NASA GMAT Trajectory & Maneuver Script (.script)">GMAT .SCRIPT</button>
-            <button type="button" id="mv-btn-csa-lab" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(103,232,249,0.48);background:rgba(103,232,249,0.14);color:#67e8f9;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;" title="Open CSA Digital Games & Activities + NASA Resource Lab">CSA / NASA</button>
+            <button type="button" id="mv-btn-cam-target" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(148,163,184,0.22);background:rgba(8,13,24,0.75);color:#f8fafc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">ZOOM TARGET</button>
+            <button type="button" id="mv-btn-gmat" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(52,211,153,0.48);background:rgba(16,185,129,0.16);color:#a7f3d0;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;" title="Download flight path file">FLIGHT PATH FILE</button>
+            <button type="button" id="mv-btn-csa-lab" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(103,232,249,0.48);background:rgba(103,232,249,0.14);color:#67e8f9;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;" title="Open Space Games &amp; Learning Activities">GAMES &amp; TOOLS</button>
             <button type="button" id="mv-btn-vr" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(148,163,184,0.28);background:rgba(8,13,24,0.75);color:#93c5fd;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">VR MODE</button>
             <button type="button" id="mv-btn-close" style="padding:5px 12px;border-radius:4px;border:1px solid rgba(220,38,38,0.55);background:rgba(220,38,38,0.14);color:#fecaca;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">EXIT [U]</button>
           </div>
         </div>
 
         <div id="mv-telemetry-card" style="pointer-events:auto;position:absolute;top:74px;left:12px;width:295px;max-width:calc(100vw - 24px);padding:12px;border-radius:4px;background:rgba(8,13,24,0.88);border:1px solid rgba(148,163,184,0.22);backdrop-filter:blur(8px);font-size:10.5px;">
-          <div style="font-size:9.5px;font-weight:700;letter-spacing:1.3px;color:#93c5fd;margin-bottom:8px;">ORBITAL DYNAMICS &amp; LINK TELEMETRY</div>
+          <div style="font-size:9.5px;font-weight:700;letter-spacing:1.3px;color:#93c5fd;margin-bottom:8px;">LIVE ORBIT &amp; SIGNAL STATUS</div>
           <div id="mv-telemetry-rows" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;"></div>
           <div id="mv-segment-badges" style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:9px;padding-top:8px;border-top:1px solid rgba(148,163,184,0.16);"></div>
         </div>
@@ -677,7 +677,7 @@
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
               <button type="button" id="mv-btn-play" style="padding:5px 10px;border-radius:4px;border:1px solid #2563eb;background:rgba(37,99,235,0.2);color:#f8fafc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">PAUSE</button>
               <button type="button" id="mv-btn-speed" style="padding:5px 9px;border-radius:4px;border:1px solid rgba(148,163,184,0.22);background:rgba(8,13,24,0.75);color:#f8fafc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">1x</button>
-              <span id="mv-event-active" style="font-size:10px;font-weight:700;color:#86efac;margin-left:4px;">T+0 LAUNCH</span>
+              <span id="mv-event-active" style="font-size:10px;font-weight:700;color:#86efac;margin-left:4px;">LIFTOFF</span>
             </div>
             <div id="mv-event-chips" style="display:flex;gap:5px;flex-wrap:wrap;"></div>
           </div>
@@ -914,7 +914,7 @@
       const inShadow = this._isInEarthShadow(pos);
 
       // Update Ground Station RF Beam
-      let activeStationName = "OCCULTED (NO LOS)";
+      let activeStationName = "OUT OF VIEW";
       if (this.stationNodes.length > 0 && this.rfBeamLine) {
         const tmpWorld = new window.THREE.Vector3();
         let bestDist = Infinity;
@@ -987,7 +987,7 @@
 
       const titleEl = this.uiRoot.querySelector("#mv-title");
       const subEl = this.uiRoot.querySelector("#mv-subtitle");
-      if (titleEl) titleEl.textContent = `NASA MISSION VIZ // ${t.scenario.code} · ${t.orbit.name.toUpperCase()}`;
+      if (titleEl) titleEl.textContent = `3D FLIGHT VIEWER // ${t.scenario.name.toUpperCase()} · ${t.orbit.name.toUpperCase()}`;
       if (subEl) {
         subEl.textContent = t.scenario.isBioPayload && t.bioTelemetry
           ? `${t.bioTelemetry.bag.shortLabel} · ${t.lv.name.split("(")[0].trim()} · ${t.gnd.name}`
@@ -1007,7 +1007,7 @@
         const altLabel = t.orbit.altitudeKm >= 100000
           ? `${(t.orbit.altitudeKm / 1000).toFixed(0)}k km`
           : `${t.orbit.altitudeKm.toLocaleString()} km`;
-        const orbVel = t.orbit.id === "sun_earth_l2" ? "1.02 km/s (L2)" : t.orbit.id === "lunar_polar_100" ? "1.63 km/s (LPO)" : t.orbit.id === "gto_heo" ? "1.6–10.1 km/s" : "7.6 km/s";
+        const orbVel = t.orbit.id === "sun_earth_l2" ? "1.0 km/s (Deep Space)" : t.orbit.id === "lunar_polar_100" ? "1.6 km/s (Moon)" : t.orbit.id === "gto_heo" ? "1.6–10.1 km/s" : "7.6 km/s";
         const cell = (k, v, c = "#ece7dc") => `
           <div style="padding:5px 7px;border-radius:5px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);">
             <div style="font-size:8.5px;color:#94a3b8;">${k}</div>
@@ -1015,16 +1015,16 @@
           </div>
         `;
         rows.innerHTML = [
-          cell("ALTITUDE / INC", `${altLabel} · ${t.orbit.inclinationDeg}°`, "#67e8f9"),
-          cell("ORBIT VELOCITY", orbVel),
-          cell("ILLUMINATION", inShadow ? "UMBRA ECLIPSE" : "SOLAR DAYLIGHT", inShadow ? "#fbbf24" : "#4ade80"),
-          cell("GROUND LINK", activeStationName, activeStationName.includes("OCCULTED") ? "#94a3b8" : (t.commsOk ? "#34d399" : "#f87171")),
+          cell("HEIGHT & TILT", `${altLabel} · ${t.orbit.inclinationDeg}°`, "#67e8f9"),
+          cell("TRAVEL SPEED", orbVel),
+          cell("SUNLIGHT", inShadow ? "IN EARTH'S SHADOW" : "IN SUNLIGHT", inShadow ? "#fbbf24" : "#4ade80"),
+          cell("EARTH DISH", activeStationName, activeStationName.includes("OUT OF VIEW") ? "#94a3b8" : (t.commsOk ? "#34d399" : "#f87171")),
           t.scenario.isBioPayload && t.bioTelemetry
-            ? cell("INCUBATE / MELFI", `${t.bioTelemetry.thermal.incubateTempC}°C / ${t.bioTelemetry.thermal.storageTempC}°C`, (t.bioTelemetry.tempMatch && t.bioTelemetry.melfiOk) ? "#38bdf8" : "#f87171")
-            : cell("PROPULSION ΔV", `${t.achievedDeltaV} / ${t.requiredDeltaV} m/s`, t.deltaVOk ? "#38bdf8" : "#f87171"),
+            ? cell("WARM BOX / FREEZER", `${t.bioTelemetry.thermal.incubateTempC}°C / ${t.bioTelemetry.thermal.storageTempC}°C`, (t.bioTelemetry.tempMatch && t.bioTelemetry.melfiOk) ? "#38bdf8" : "#f87171")
+            : cell("FUEL POWER", `${t.achievedDeltaV} / ${t.requiredDeltaV} m/s`, t.deltaVOk ? "#38bdf8" : "#f87171"),
           t.scenario.isBioPayload && t.bioTelemetry
-            ? cell("BETA-CAROTENE", `${t.bioTelemetry.betaCaroteneUgMl} µg/mL (${t.bioTelemetry.protocol.replicates}r)`, t.bioTelemetry.yieldOk ? "#7fb8a6" : "#f87171")
-            : cell("RAD / LIFE", `${t.orbit.radiationEnvKrad} krad · ${t.estimatedLifetimeMonths} mo`, t.radiationOk ? "#7fb8a6" : "#f87171")
+            ? cell("NUTRIENT YIELD", `${t.bioTelemetry.betaCaroteneUgMl} units (${t.bioTelemetry.protocol.replicates} pouches)`, t.bioTelemetry.yieldOk ? "#7fb8a6" : "#f87171")
+            : cell("SHIELD & LIFESPAN", `Level ${t.orbit.radiationEnvKrad} · ${t.estimatedLifetimeMonths} mo`, t.radiationOk ? "#7fb8a6" : "#f87171")
         ].join("");
       }
 

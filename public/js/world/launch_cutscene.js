@@ -248,14 +248,14 @@
         this.camera.position.x += Math.sin(t * 47) * ignitionShake;
         this.camera.position.y += Math.cos(t * 53) * ignitionShake * 0.7;
         this.camera.lookAt(0, 32 + 4 * k, 0);
-        this._updateTelemetry(0, 0, t - 3.5, "T-3s: MAIN ENGINE IGNITION (SSME) & SOUND SUPPRESSION ACTIVE");
+        this._updateTelemetry(0, 0, t - 3.5, "T-3s: MAIN ENGINES IGNITE & WATER COOLING ACTIVE");
       } else if (t < 7.0) {
-        // Stage 2: T0 to T+3.5s: SRB ignition & tower liftoff, start roll program.
+        // Stage 2: T0 to T+3.5s: Booster ignition & tower liftoff, start roll turn.
         const climbTime = t - 3.5;
         const altitude = Math.pow(climbTime, 2.1) * 12.0;
         this.stackGroup.position.set(0, altitude, 0);
 
-        // Roll program (rolls 120 degrees to line up with flight azimuth)
+        // Roll program (rolls 120 degrees to line up with flight path)
         const rollFrac = Math.min(1.0, (climbTime / 3.5));
         this.stackGroup.rotation.y = rollFrac * (Math.PI * 0.66);
 
@@ -270,9 +270,9 @@
         this.camera.position.x += Math.sin(t * 41) * liftoffShake;
         this.camera.position.y += Math.cos(t * 57) * liftoffShake * 0.6;
         this.camera.lookAt(0, altitude + 22, 0);
-        this._updateTelemetry(altitude / 100, climbTime * 140, climbTime, "T+0s: LIFTOFF! INTERFELLAS CLEARS THE TOWER");
+        this._updateTelemetry(altitude / 100, climbTime * 140, climbTime, "T+0s: LIFTOFF! ROCKET CLEARS THE LAUNCH TOWER");
       } else if (t < 13.0) {
-        // Stage 3: T+3.5 to T+9.5s: Pitch-over heads-down climbing over 3D Earth
+        // Stage 3: T+3.5 to T+9.5s: Pitch-over climbing over 3D Earth
         const climbTime = t - 3.5;
         const altitude = 166.5 + (t - 7.0) * 172.25;
         const downrange = (t - 7.0) * 140;
@@ -283,9 +283,9 @@
         this.camera.position.set(45, altitude + 18, -downrange + 55);
         this.camera.lookAt(this.stackGroup.position.x, this.stackGroup.position.y + 10, this.stackGroup.position.z);
 
-        this._updateTelemetry(altitude * 0.8, 1200 + (t - 7) * 450, climbTime, "T+5s: HOUSTON CONFIRMS ROLL PROGRAM & PITCH-OVER HEADS DOWN");
+        this._updateTelemetry(altitude * 0.8, 1200 + (t - 7) * 450, climbTime, "T+5s: MISSION CONTROL CONFIRMS SMOOTH CLIMB PATH");
       } else if (t < 19.0) {
-        // Stage 4: T+13s: Solid Rocket Booster Separation
+        // Stage 4: T+13s: Side Rocket Booster Separation
         if (!this.srbSeparated) {
           this.srbSeparated = true;
           if (window.spaceAudio) window.spaceAudio.playStagingSeparation();
@@ -299,7 +299,7 @@
 
         this.stackGroup.position.set(0, altitude, -downrange);
 
-        // Animate SRBs peeling outboard and tumbling away
+        // Animate side boosters peeling outboard and tumbling away
         const sepTime = t - 13.0;
         if (this.srbLeft && this.srbRight) {
           this.srbLeft.position.x = 6.6 + Math.pow(sepTime, 1.8) * 12.0;
@@ -317,7 +317,7 @@
         this.camera.position.set(65, altitude + 12, -downrange + 40);
         this.camera.lookAt(this.stackGroup.position.x, this.stackGroup.position.y + 10, this.stackGroup.position.z);
 
-        this._updateTelemetry(65.4 + (t - 13) * 6, 4200 + (t - 13) * 580, climbTime, "T+13s: BOOSTER BURNOUT — SRB SEPARATION CONFIRMED");
+        this._updateTelemetry(65.4 + (t - 13) * 6, 4200 + (t - 13) * 580, climbTime, "T+13s: SIDE BOOSTERS EMPTY & SAFELY SEPARATED");
       } else if (t < 24.0) {
         // Stage 5: T+19 to T+24s: MECO & External Tank Separation
         if (!this.tankSeparated) {
@@ -356,7 +356,7 @@
         const targetOrbitLabel = designTelem
           ? `${designTelem.scenario.code} → ${designTelem.orbit.name.split("(")[0].trim().toUpperCase()}`
           : "ORBITAL INSERTION";
-        this._updateTelemetry(385.0, 7820, climbTime, `T+19s: MECO — EXTERNAL TANK JETTISON • ${targetOrbitLabel}`);
+        this._updateTelemetry(385.0, 7820, climbTime, `T+19s: MAIN ENGINE SHUTDOWN — FUEL TANK DROPPED • ${targetOrbitLabel}`);
       } else if (t < this.duration) {
         // Stage 6: T+24 to T+32s: Payload Bay Doors Open & Satellite Deployment
         const climbTime = t - 3.5;

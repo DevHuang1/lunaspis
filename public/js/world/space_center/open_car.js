@@ -186,6 +186,7 @@
     }
 
     _buildChassis() {
+      const T = window.THREE;
       const m = this.mats;
       const body = this.body;
 
@@ -246,6 +247,7 @@
     }
 
     _buildCockpit() {
+      const T = window.THREE;
       const m = this.mats;
       const body = this.body;
 
@@ -306,6 +308,7 @@
     }
 
     _buildRollBar() {
+      const T = window.THREE;
       const m = this.mats;
       const body = this.body;
       const barMat = m.steel;
@@ -1050,7 +1053,8 @@
         !(window.solarSystem && window.solarSystem.isActive) &&
         !(window.missionViz && window.missionViz.isActive) &&
         !(window.issShowcase && window.issShowcase.isActive) &&
-        !(window.vrManager && window.vrManager.isAnyVRActive)
+        !(window.vrManager && window.vrManager.isAnyVRActive) &&
+        !this._uiBlocked()
       );
 
       const show = active && (this.isDriving || this._nearby());

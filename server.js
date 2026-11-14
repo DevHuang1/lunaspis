@@ -494,35 +494,35 @@ const MISSION_OBJECTIVES = [
   },
   {
     id: "task_wires",
-    title: "Power, Solar Array & Battery Sizing",
+    title: "Solar Panels & Battery Sizing",
     room: "PWR",
     role: "engineer",
     dependsOn: ["task_antenna"]
   },
   {
     id: "task_science",
-    title: "Science Instruments & Payload",
+    title: "Cameras, Sensors & Lab Kit",
     room: "SCI",
     role: "scientist",
     dependsOn: ["task_antenna"]
   },
   {
     id: "task_hull",
-    title: "Comms, Propulsion & Hull Systems",
+    title: "Radios, Thrusters & Safe Cleanup",
     room: "HULL",
     role: "engineer",
     dependsOn: ["task_nav", "task_wires"]
   },
   {
     id: "task_lss",
-    title: "Thermal, Radiation & ECLSS",
+    title: "Heating, Cooling & Space Shielding",
     room: "LSS",
     role: "scientist",
     dependsOn: ["task_wires", "task_science"]
   },
   {
     id: "task_landing",
-    title: "Full Mission Simulation & Descent",
+    title: "Final Review & Launch Check",
     room: "LDR",
     role: "all",
     dependsOn: ["task_hull", "task_lss"]
@@ -2403,13 +2403,13 @@ io.on("connection", (socket) => {
     if (type === "ping_room") {
       const targetRoom = String(data.targetRoom || "HUB").toUpperCase().slice(0, 16);
       const roomLabels = {
-        HUB: "Harmony Node 2 / Charter",
-        CMD: "Cupola / Flight Command",
-        PWR: "EPS Solar & Battery Bay",
-        SCI: "Columbus Payload Lab",
-        LSS: "Destiny Thermal & ECLSS",
-        HULL: "Propulsion & Comms Deck",
-        PAD: "LC-39A Pad & Access Arm"
+        HUB: "Main Hub / Mission Goal",
+        CMD: "Navigation & Rocket Control",
+        PWR: "Solar Power & Hardware Bay",
+        SCI: "Science & Experiment Lab",
+        LSS: "Heating, -80C Freezer & Shields",
+        HULL: "Radio Dishes & Engines Bay",
+        PAD: "Launch Pad & Boarding Bridge"
       };
       const message = String(data.message || `ATTENTION NEEDED AT ${roomLabels[targetRoom] || targetRoom}`)
         .replace(/[\u0000-\u001F\u007F<>]/g, "")

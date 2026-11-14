@@ -20,6 +20,7 @@
   let lastFocused = null;
   let els = {};
   let bound = false;
+  let initialized = false;
 
   const STEPS = [
     {
@@ -173,18 +174,23 @@
           <strong>Try, compare, improve.</strong> Export your MDL point design as JSON, save Option A,
           and run another architecture. Different combinations can reach the same objective.
         </div>
+        <div class="academy-callout">
+          <strong>Flight Records:</strong> every completed solo or crew run is saved in the local
+          <em>Mission Log</em> with score, constraints, CML and crew. Open it from the title screen or
+          the victory debrief, then use <em>COPY</em> to share a mission report.
+        </div>
       `
     }
   ];
 
   const CONSOLE_TIPS = {
-    task_antenna: "Mission architecture sets the rules for every later decision. Pick the scenario and difficulty first, then apply the recommended baseline so the budget, lifetime and science requirements are visible.",
-    task_nav: "Orbit and launch vehicle are a matched pair. A higher-energy orbit needs more delta-v and reduces the rocket's lift capacity. Check wet mass against the exact orbit before committing.",
-    task_wires: "Power is a day/night problem: solar arrays must run the spacecraft and recharge the battery for eclipse. Bigger instruments and ion propulsion increase the load; bigger batteries add mass and cost.",
-    task_science: "Instruments buy science but spend mass, power and data. Match the required science types first, then check that the ground network can downlink everything you generate.",
-    task_lss: "Thermal control and radiation shielding keep the spacecraft alive. Deep-space, lunar and long-lifetime missions need stronger heat rejection and more shielding — both add mass and cost.",
-    task_hull: "The communications link must close at your orbit's distance. High-gain antennas and DSN contacts cost mass and money; propulsion and disposal must also fit inside the delta-v budget.",
-    task_landing: "Run the full simulation. Green bars are necessary, but the score also checks required science, mass margin, data downlink, lifetime and end-of-mission disposal. Read the debrief, then iterate."
+    task_antenna: "Start here to set your mission goal and difficulty. Apply the recommended starter setup if you want a clean working baseline to explore from.",
+    task_nav: "Your orbit path and rocket must fit together. Higher or farther orbits need more steering speed and limit how much weight the rocket can carry.",
+    task_wires: "Electricity balances sun and shadow: solar panels run equipment in daylight and charge batteries for Earth's shadow. Keep battery drain below 80%.",
+    task_science: "Science gear adds discovery points while spending weight, power, and data. For BioNutrients-2, pick the full germ-filtered 12+ bag recipe with the 6-hour shake.",
+    task_lss: "Temperature and radiation shields protect your gear. For BioNutrients-2 yeast, warm at 30°C and store bags in the -80°C ultra-cold freezer afterward.",
+    task_hull: "Make sure your radio dish reaches Earth's antennas cleanly and you carry enough fuel plus a safe cleanup plan when the mission finishes.",
+    task_landing: "Run the full mission check! Look at every stage (Launch, In Space, Ground, Lab Results) and tweak any red warning until all stages turn green."
   };
 
   const PREFLIGHT_TIPS = {
@@ -321,6 +327,11 @@
     const color = (window.netManager.localPlayer && window.netManager.localPlayer.color) || "#67e8f9";
     setGuidanceEnabled(!!(els.tipsToggle && els.tipsToggle.checked));
     safeSet(SEEN_KEY, "1");
+    // Start cadets from the scenario's recommended point design, then let them
+    // change one subsystem at a time with the CADET COACH guidance.
+    if (window.gameplay && typeof window.gameplay.applyRecommendedScenarioBaseline === "function") {
+      window.gameplay.applyRecommendedScenarioBaseline("lunar_south_pole");
+    }
     if (window.spaceAudio) window.spaceAudio.playClick();
     if (els.start) {
       els.start.disabled = true;
@@ -331,6 +342,7 @@
       scenarioId: "lunar_south_pole",
       difficultyId: "cadet"
     });
+    close();
     setTimeout(() => {
       if (els.start) {
         els.start.disabled = false;
@@ -464,6 +476,8 @@
   }
 
   function init() {
+    if (initialized) return;
+    initialized = true;
     els = {
       modal: document.getElementById("modal-academy"),
       progress: document.getElementById("academy-progress"),
@@ -492,4 +506,13 @@
     getConsoleTip: getConsoleTip,
     getConsoleTipHtml: getConsoleTipHtml
   };
+
+  // Self-initialize as soon as the DOM shell is ready. main.js also calls init()
+  // after the 3D world boots, but the Academy must remain usable even if a
+  // scene module fails to initialize.
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init, { once: true });
+  } else {
+    setTimeout(init, 0);
+  }
 })(window);

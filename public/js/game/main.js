@@ -581,6 +581,9 @@
     if (window.missionAcademy && typeof window.missionAcademy.init === "function") {
       window.missionAcademy.init();
     }
+    if (window.missionLog && typeof window.missionLog.init === "function") {
+      window.missionLog.init();
+    }
 
     // Auto-collapse dense panels on compact viewports so the 3D scene stays open
     syncResponsiveHudState(w, h);
@@ -2758,23 +2761,23 @@
 
     const gs = mission.groundSupport || {};
     const groundBadges = [
-      gs.goNoGoLaunch ? "GO" : null,
-      gs.dockingClearance ? "DOCK CLR" : null,
-      gs.dsnLocked ? "DSN" : null,
-      gs.powerRouted ? "EPS" : null,
-      gs.scienceCleared ? "SCI" : null
+      gs.goNoGoLaunch ? "LAUNCH OK" : null,
+      gs.dockingClearance ? "DOCK OK" : null,
+      gs.dsnLocked ? "DISH LOCK" : null,
+      gs.powerRouted ? "POWER OK" : null,
+      gs.scienceCleared ? "SCIENCE OK" : null
     ].filter(Boolean);
 
     let callout = "";
     if (localIsGround) {
       if (phase === "gantry") {
-        callout = `<strong>KSC FIRING ROOM:</strong> Monitor Flight Crew boarding (${boarded.length}/${flightPlayers.length}) · Open LCC Console [C] for GO/NO-GO &amp; telemetry. [R] S-Band Radio.`;
+        callout = `<strong>GROUND CONTROL ROOM:</strong> Watch crew boarding (${boarded.length}/${flightPlayers.length}) · Open Ground Desk [C] for Launch Clearance &amp; live updates. [R] Radio.`;
       } else if (phase === "launch") {
-        callout = `<strong>T+ASCENT MONITORING:</strong> Watch LC-39A liftoff from Space Center · Pre-stage DSN Lock &amp; EPS Routing in LCC Console [C].`;
+        callout = `<strong>LIFTOFF WATCH:</strong> Watch rocket liftoff from Ground Control · Turn on Dish Lock &amp; Solar Routing in Ground Desk [C].`;
       } else if (phase === "docking") {
-        callout = `<strong>RENDEZVOUS CONTROL:</strong> Issue Docking Corridor Clearance in LCC Console [C] while Flight Crew aligns PMA-2.`;
+        callout = `<strong>DOCKING SUPPORT:</strong> Give Safe Docking Clearance in Ground Desk [C] while Space Crew lines up with the hatch.`;
       } else {
-        callout = `<strong>ORBITAL SUPPORT:</strong> Track Flight Crew live in LCC Console [C], ping compartments, &amp; coordinate [R] S-Band downlink.`;
+        callout = `<strong>MISSION SUPPORT:</strong> Track Space Crew live in Ground Desk [C], alert rooms, &amp; use [R] Earth Radio.`;
       }
     } else if (phase === "gantry" || phase === "boarding") {
       const unboarded = flightPlayers.filter((p) => !boarded.includes(p.id)).map((p) => p.name);
@@ -2787,49 +2790,49 @@
 
       if (!armExtended) {
         const armActor = engHolder && engHolder.id === (net && net.socketId) ? `YOU (${engMeta.short})` : `${engHolder ? engHolder.name : "Crew"} (${engMeta.short})`;
-        callout = `<strong>1. PAD GANTRY:</strong> <strong>${escapeHtml(armActor)}</strong> press [F] at Access Arm (x=-25.9, z=-6.3) to extend bridge.`;
+        callout = `<strong>1. BOARDING BRIDGE:</strong> <strong>${escapeHtml(armActor)}</strong> press [F] at the Boarding Bridge (x=-25.9, z=-6.3) to extend the walkway.`;
       } else if (!isMeAboard) {
-        callout = `<strong>YOUR DUTY (PAD):</strong> Cross White Room Bridge &rarr; Press [E] or [B] at Hatch to board (${boarded.length}/${flightPlayers.length} aboard).`;
+        callout = `<strong>YOUR TURN:</strong> Walk across the Boarding Bridge &rarr; Press [E] or [B] at the Hatch to get inside (${boarded.length}/${flightPlayers.length} aboard).`;
       } else if (unboarded.length > 0) {
-        callout = `<strong>WAITING BOARDING (${boarded.length}/${flightPlayers.length}):</strong> Waiting for <strong>${escapeHtml(unboarded.join(", "))}</strong>. Launch Auth: ${escapeHtml(cmdHolder ? cmdHolder.name : "Host")} (${escapeHtml(cmdMeta.short)}).`;
+        callout = `<strong>WAITING ON CREW (${boarded.length}/${flightPlayers.length}):</strong> Waiting for <strong>${escapeHtml(unboarded.join(", "))}</strong>. Launch Lead: ${escapeHtml(cmdHolder ? cmdHolder.name : "Host")} (${escapeHtml(cmdMeta.short)}).`;
       } else {
         callout = mission.launchPollAt && !gs.goNoGoLaunch
-          ? `<strong>LAUNCH POLL:</strong> Awaiting Ground Control GO (auto-releases in 8s) · Press [L] again to launch now.`
-          : `<strong>READY FOR LAUNCH:</strong> Flight Crew aboard! Press [L] or Launch button for T-10s ignition.`;
+          ? `<strong>LAUNCH CHECK:</strong> Waiting for Ground Control GO (auto-clears in 8s) · Press [L] again to launch right now.`
+          : `<strong>READY FOR LIFTOFF:</strong> Whole crew aboard! Press [L] or click Launch to begin the countdown.`;
       }
     } else if (phase === "launch") {
       const cmdHolder = flightPlayers.find((p) => rolesApi && rolesApi.normalizeRole(p.role) === "commander") || flightPlayers[0];
-      callout = `<strong>ASCENT FLIGHT:</strong> Pilot <strong>${escapeHtml(cmdHolder ? cmdHolder.name : "Commander")}</strong> leads trajectory. Hold for orbital staging or vote skip.`;
+      callout = `<strong>ROCKET ASCENT:</strong> Pilot <strong>${escapeHtml(cmdHolder ? cmdHolder.name : "Commander")}</strong> leads the climb to space. Sit tight or vote to skip.`;
     } else if (phase === "docking") {
       const pilot = flightPlayers.find((p) => p.id === mission.dockingPilotId) || flightPlayers[0];
       const isPilot = pilot && net && pilot.id === net.socketId;
       callout = isPilot
-        ? `<strong>YOUR DUTY (PILOT):</strong> Align docking rings [WASD+QE] &rarr; Press [SPACE] at corridor &le;1.2m.`
-        : `<strong>CREW SUPPORT:</strong> Pilot <strong>${escapeHtml(pilot ? pilot.name : "CMD")}</strong> flies [WASD]; Flight Crew stabilizes [1-4].`;
+        ? `<strong>YOUR TURN (PILOT):</strong> Line up the docking rings [WASD+QE] &rarr; Press [SPACE] within 1.2m.`
+        : `<strong>CREW HELP:</strong> Pilot <strong>${escapeHtml(pilot ? pilot.name : "CMD")}</strong> steers [WASD]; team steadies the craft [1-4].`;
     } else {
       const tasks = (window.gameplay && Array.isArray(window.gameplay.tasks)) ? window.gameplay.tasks : [];
       const myPending = tasks.filter((t) => !t.completed && (t.role === myRole || t.role === "all"));
       const anyPending = tasks.filter((t) => !t.completed);
       if (tasks.length > 0 && anyPending.length === 0) {
-        callout = `<strong>ALL CONSOLES VERIFIED:</strong> Mission complete! Press [Y] for Mission Debrief.`;
+        callout = `<strong>ALL STATIONS DONE:</strong> Mission complete! Press [Y] for Final Results.`;
       } else if (myPending.length > 0) {
         const nextTask = myPending[0];
         const depsDone = !Array.isArray(nextTask.requires) || nextTask.requires.every((reqId) => {
           const dep = tasks.find((x) => x.id === reqId);
           return dep && dep.completed;
         });
-        const names = myPending.map((t) => `[${t.code || t.room || t.id}] ${t.location || t.room || "Console"}`).join(", ");
+        const names = myPending.map((t) => `[${t.code || t.room || t.id}] ${t.location || t.room || "Computer"}`).join(", ");
         callout = depsDone
-          ? `<strong>YOUR DUTY (${escapeHtml(myRole.toUpperCase())}):</strong> Head to ${escapeHtml(names)}.`
-          : `<strong>YOUR QUEUE (${escapeHtml(myRole.toUpperCase())}):</strong> ${escapeHtml(names)} (wait for upstream console check).`;
+          ? `<strong>YOUR TURN (${escapeHtml(myRole.toUpperCase())}):</strong> Walk to ${escapeHtml(names)}.`
+          : `<strong>UP NEXT (${escapeHtml(myRole.toUpperCase())}):</strong> ${escapeHtml(names)} (wait for earlier step).`;
       } else {
-        callout = `<strong>LUNASPIS STATION:</strong> ${anyPending.length ? `${anyPending.length} remaining checks across crew.` : "Walk with [WASD] and press [E] at consoles."} Ground support: ${groundBadges.length ? groundBadges.join(" · ") : "STANDBY"}.`;
+        callout = `<strong>SPACE STATION:</strong> ${anyPending.length ? `${anyPending.length} tasks remaining with crew.` : "Walk with [WASD] and press [E] at computers."} Ground support: ${groundBadges.length ? groundBadges.join(" · ") : "STANDBY"}.`;
       }
     }
 
     container.innerHTML = `
-      ${renderGroupChips(groundPlayers, "GROUND CONTROL · KSC", `${groundPlayers.length}`)}
-      ${renderGroupChips(flightPlayers, "FLIGHT CREW · ORBIT", `${flightPlayers.length}`)}
+      ${renderGroupChips(groundPlayers, "GROUND TEAM · EARTH", `${groundPlayers.length}`)}
+      ${renderGroupChips(flightPlayers, "SPACE CREW · STATION", `${flightPlayers.length}`)}
       <div class="crew-duty-callout">${callout}</div>
     `;
 
@@ -2928,7 +2931,7 @@
       const tTag = e.target && e.target.tagName ? e.target.tagName : "";
       if (tTag === "INPUT" || tTag === "TEXTAREA" || tTag === "SELECT" || (e.target && e.target.isContentEditable)) return;
 
-      const blockingOverlay = ["modal-auth", "modal-academy", "modal-station-systems", "task-modal-overlay", "victory-overlay", "mission-briefing-overlay"]
+      const blockingOverlay = ["modal-auth", "modal-academy", "modal-mission-log", "modal-station-systems", "task-modal-overlay", "victory-overlay", "mission-briefing-overlay"]
         .some((id) => {
           const el = document.getElementById(id);
           return el && el.style.display && el.style.display !== "none";
