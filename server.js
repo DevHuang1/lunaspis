@@ -6,6 +6,11 @@ const express = require("express");
 const { Server } = require("socket.io");
 const db = require("./server/db");
 const storage = require("./server/storage");
+const { ShuttleMission, CREW: SHUTTLE_CREW } = require("./public/js/game/shuttle_mission.js");
+
+const SHUTTLE_SNAPSHOT_HZ = 15;
+const SHUTTLE_TEST_HOOKS = process.env.SHUTTLE_TEST === "1";
+const VALID_OPS_MODES = new Set(["iss_expedition", "shuttle_flight"]);
 
 const app = express();
 app.disable("x-powered-by");
@@ -404,14 +409,41 @@ app.use((err, req, res, next) => {
 // ============================================================================
 // AUTHORITATIVE MULTIPLAYER GAME STATE & ROOM MANAGER
 // ============================================================================
-const ROLES = ["commander", "engineer", "scientist"];
+const ROLES = [
+  "flight_director",
+  "ground_capcom",
+  "commander",
+  "engineer",
+  "scientist",
+  "specialist"
+];
+const GROUND_ROLES = ["flight_director", "ground_capcom"];
+const FLIGHT_ROLES = ["commander", "engineer", "scientist", "specialist"];
+const GROUND_SLOT_SCHEDULE = { 1: 0, 2: 1, 3: 1, 4: 2, 5: 2, 6: 2 };
 const MAX_PLAYERS = 6;
 const GAME_MODE = "coop";
-const SUIT_COLORS = ["#ef4444", "#3b82f6", "#10b981", "#f59e0b", "#06b6d4", "#a855f7"];
+const SUIT_COLORS = ["#67e8f9", "#d0a15c", "#7fb8a6", "#c08a8a", "#9a8fc4", "#f8fafc"];
+
+function getTeamForRole(roleId) {
+  return GROUND_ROLES.includes(roleId) ? "ground" : "crew";
+}
 
 function normalizeRoleId(rawRole, fallback = "commander") {
   const s = String(rawRole || "").trim().toLowerCase().replace(/[_-]+/g, " ");
   if (!s) return fallback;
+  if (s === "flight director" || s === "fdir" || s.includes("director")) {
+    return "flight_director";
+  }
+  if (
+    s === "ground capcom" ||
+    s === "capcom" ||
+    s === "cap" ||
+    s === "ground systems" ||
+    s === "mission scientist" ||
+    s === "ground"
+  ) {
+    return "ground_capcom";
+  }
   if (s === "commander" || s === "cmd" || s.includes("commander") || s.includes("pilot")) {
     return "commander";
   }
@@ -427,6 +459,9 @@ function normalizeRoleId(rawRole, fallback = "commander") {
     s.includes("eclss")
   ) {
     return "scientist";
+  }
+  if (s === "specialist" || s === "spc" || s.includes("specialist") || s.includes("eva")) {
+    return "specialist";
   }
   return fallback;
 }
@@ -561,9 +596,34 @@ const MISSION_DESIGN_KEYS = new Set([
 
 
 const ROLE_INFO = {
+  flight_director: {
+    id: "flight_director",
+    short: "FDIR",
+    team: "ground",
+    title: "Flight Director",
+    callsign: "LCC-FLIGHT",
+    color: "#38bdf8",
+    primaryDuty: "LCC Firing Room Authority: GO/NO-GO Launch & Latch Calls, Room Pings & Mission Charter Review",
+    padDuty: "Monitor LC-39A Pad Readiness & Issue GO/NO-GO Launch Release from LCC",
+    dockDuty: "Issue Orbital Approach & Capture Latch Clearance from LCC Console",
+    stationRooms: ["LCC", "ORBIT", "HUB"]
+  },
+  ground_capcom: {
+    id: "ground_capcom",
+    short: "CAP",
+    team: "ground",
+    title: "Ground CAPCOM",
+    callsign: "LCC-CAPCOM",
+    color: "#60a5fa",
+    primaryDuty: "LCC DSN & Systems Desk: S-Band Relay [R], DSN Link Lock, Power/Thermal Routing & Science Downlink",
+    padDuty: "Verify Telemetry Carrier, Weather Go & Pad Trunk Status in Firing Room",
+    dockDuty: "Track Crew Positions, Ping Station Bays & Lock DSN Telemetry Link",
+    stationRooms: ["LCC", "COMMS", "PWR"]
+  },
   commander: {
     id: "commander",
     short: "CMD",
+    team: "crew",
     title: "Commander",
     callsign: "FLIGHT-CDR",
     color: "#c08a8a",
@@ -575,6 +635,7 @@ const ROLE_INFO = {
   engineer: {
     id: "engineer",
     short: "ENG",
+    team: "crew",
     title: "Flight Engineer",
     callsign: "SYSTEMS-ENG",
     color: "#d0a15c",
@@ -586,6 +647,7 @@ const ROLE_INFO = {
   scientist: {
     id: "scientist",
     short: "SCI",
+    team: "crew",
     title: "Science Officer",
     callsign: "PAYLOAD-SCI",
     color: "#7fb8a6",
@@ -593,47 +655,116 @@ const ROLE_INFO = {
     padDuty: "Complete White Room Ingress & Bio-Check",
     dockDuty: "Boresight Auto-Align [3] & Corridor Telemetry Ping [4]",
     stationRooms: ["SCI", "LSS", "LDR"]
+  },
+  specialist: {
+    id: "specialist",
+    short: "SPC",
+    team: "crew",
+    title: "Mission Specialist",
+    callsign: "ORBIT-SPEC",
+    color: "#a78bfa",
+    primaryDuty: "EVA & Docking Corridor Assist [3/4], Cross-Console Systems & Comms Relay [SCI, COMMS, HULL]",
+    padDuty: "Assist Access Arm Verification & White Room Ingress",
+    dockDuty: "Corridor Telemetry Ping [4] & Hatch Readiness",
+    stationRooms: ["EVA", "SCI", "HUB"]
   }
 };
 
-function pickBalancedRoleForRoom(room, requestedRole, explicitRole = false) {
-  const normalized = normalizeRoleId(requestedRole, "");
-  if (explicitRole && normalized && ROLES.includes(normalized)) {
-    return normalized;
+function shuffleCrypto(arr) {
+  const copy = arr.slice();
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = crypto.randomInt(0, i + 1);
+    const tmp = copy[i];
+    copy[i] = copy[j];
+    copy[j] = tmp;
   }
+  return copy;
+}
 
-  const counts = { commander: 0, engineer: 0, scientist: 0 };
-  if (room && room.players) {
-    Object.values(room.players).forEach((p) => {
-      const r = normalizeRoleId(p && p.role, "commander");
-      counts[r] = (counts[r] || 0) + 1;
-    });
+function computeAdaptiveRolePlan(playerCount) {
+  const n = Math.max(1, Math.min(MAX_PLAYERS, Number(playerCount) || 1));
+  const groundCount = GROUND_SLOT_SCHEDULE[n] || 0;
+  const flightCount = Math.max(1, n - groundCount);
+  const plan = [];
+  for (let i = 0; i < groundCount && i < GROUND_ROLES.length; i++) {
+    plan.push(GROUND_ROLES[i]);
   }
-
-  if (normalized && counts[normalized] === 0) {
-    return normalized;
+  for (let i = 0; i < flightCount; i++) {
+    plan.push(FLIGHT_ROLES[i % FLIGHT_ROLES.length]);
   }
+  return plan;
+}
 
-  let bestRole = ROLES[0];
-  let bestCount = Infinity;
-  for (const r of ROLES) {
-    if (counts[r] < bestCount) {
-      bestCount = counts[r];
-      bestRole = r;
+function assignRandomRolesForRoom(room) {
+  if (!room || !room.players) return;
+  const ids = Object.keys(room.players);
+  if (ids.length === 0) return;
+  const plan = computeAdaptiveRolePlan(ids.length);
+  const shuffledIds = shuffleCrypto(ids);
+  shuffledIds.forEach((pid, idx) => {
+    const role = plan[idx] || "commander";
+    const p = room.players[pid];
+    if (p) {
+      p.role = role;
+      p.team = getTeamForRole(role);
     }
+  });
+  room.swapRequests = {};
+  if (room.systems) {
+    room.systems.dockingPilotId = null;
+    room.systems.dockingPilotId = resolveDockingPilotId(room);
   }
-  return bestRole;
+  if (room.mission) {
+    room.mission.dockingPilotId = room.systems ? room.systems.dockingPilotId : null;
+  }
+}
+
+function pickBalancedRoleForRoom(room, _requestedRole, _explicitRole = false) {
+  const existing = room && room.players ? Object.values(room.players) : [];
+  const nextCount = Math.min(MAX_PLAYERS, existing.length + 1);
+  const targetPlan = computeAdaptiveRolePlan(nextCount);
+
+  // Count what is already staffed relative to the target split
+  const remainingNeeded = targetPlan.slice();
+  existing.forEach((p) => {
+    const r = normalizeRoleId(p && p.role, "commander");
+    const idx = remainingNeeded.indexOf(r);
+    if (idx !== -1) {
+      remainingNeeded.splice(idx, 1);
+    }
+  });
+
+  // Always guarantee at least 1 flight crewmember in flightCrewRooms
+  const hasFlightCrew = existing.some((p) => getTeamForRole(p && p.role) !== "ground");
+  if (!hasFlightCrew && remainingNeeded.length > 0) {
+    const flightChoices = remainingNeeded.filter((r) => getTeamForRole(r) !== "ground");
+    if (flightChoices.length > 0) {
+      return flightChoices[crypto.randomInt(0, flightChoices.length)];
+    }
+    return "commander";
+  }
+
+  if (remainingNeeded.length > 0) {
+    return remainingNeeded[crypto.randomInt(0, remainingNeeded.length)];
+  }
+
+  const fallbackPool = existing.length === 0 ? ["commander"] : FLIGHT_ROLES;
+  return fallbackPool[crypto.randomInt(0, fallbackPool.length)];
 }
 
 function buildRoomRoleSummary(room) {
   const summary = {
+    flight_director: [],
+    ground_capcom: [],
     commander: [],
     engineer: [],
-    scientist: []
+    scientist: [],
+    specialist: []
   };
   if (room && room.players) {
     Object.values(room.players).forEach((p) => {
       const r = normalizeRoleId(p && p.role, "commander");
+      if (!summary[r]) summary[r] = [];
       summary[r].push(p.id);
     });
   }
@@ -644,12 +775,18 @@ function resolveDockingPilotId(room) {
   if (!room || !room.players) return null;
   const players = Object.values(room.players);
   if (players.length === 0) return null;
+  const flightPlayers = players.filter((p) => getTeamForRole(p.role) !== "ground");
+  const pool = flightPlayers.length > 0 ? flightPlayers : players;
   const current = room.systems && room.systems.dockingPilotId;
-  if (current && room.players[current]) return current;
-  const cmd = players.find((p) => normalizeRoleId(p.role) === "commander");
+  if (current && room.players[current] && getTeamForRole(room.players[current].role) !== "ground") {
+    return current;
+  }
+  const cmd = pool.find((p) => normalizeRoleId(p.role) === "commander");
   if (cmd) return cmd.id;
-  if (room.hostId && room.players[room.hostId]) return room.hostId;
-  return players[0].id;
+  if (room.hostId && room.players[room.hostId] && getTeamForRole(room.players[room.hostId].role) !== "ground") {
+    return room.hostId;
+  }
+  return pool[0].id;
 }
 
 const rooms = {};
@@ -679,6 +816,17 @@ function groundSpawnFor(index = 0) {
   return slots[index % slots.length].slice();
 }
 
+function groundSpawnLccFor(index = 0) {
+  // Open aisle inside LCC Firing Room facing North Launch Wall Screen & LC-39A.
+  const slots = [
+    [-204.5, 0.25, 185.5],
+    [-201.0, 0.25, 185.5],
+    [-206.0, 0.25, 185.5],
+    [-199.5, 0.25, 185.5]
+  ];
+  return slots[index % slots.length].slice();
+}
+
 function stationSpawnFor(index = 0) {
   // Unique berths around the Transit Hub holotable inside the station.
   const slots = [
@@ -692,7 +840,10 @@ function stationSpawnFor(index = 0) {
   return slots[index % slots.length].slice();
 }
 
-function spawnForRoomPhase(room, index = 0) {
+function spawnForRoomPhase(room, index = 0, role = "commander") {
+  if (getTeamForRole(role) === "ground") {
+    return groundSpawnLccFor(index);
+  }
   const phase = room && room.mission ? room.mission.phase : "gantry";
   if (phase === "station" || phase === "docking") {
     return stationSpawnFor(index);
@@ -700,20 +851,43 @@ function spawnForRoomPhase(room, index = 0) {
   return groundSpawnFor(index);
 }
 
+function createGroundSupportState() {
+  return {
+    goNoGoLaunch: false,
+    goNoGoBy: null,
+    goNoGoAt: 0,
+    dockingClearance: false,
+    dockingClearanceBy: null,
+    dockingAssistCount: 0,
+    dsnLocked: false,
+    dsnLockedBy: null,
+    powerRouted: false,
+    powerRoutedBy: null,
+    scienceCleared: false,
+    scienceClearedBy: null,
+    activePing: null
+  };
+}
+
 // Shared mission state. Every client renders the same phase, objective chain
 // and mission design, so late joiners and astronauts who board at different
 // times stay in lockstep.
-function createMissionState(scenarioId = "lunar_south_pole", difficultyId = "engineer") {
+function createMissionState(scenarioId = "lunar_south_pole", difficultyId = "engineer", opsMode = "iss_expedition") {
   const scenario = MISSION_CATALOG[scenarioId] ? scenarioId : "lunar_south_pole";
   const difficulty = DIFFICULTY_IDS.has(difficultyId) ? difficultyId : "engineer";
+  const mode = VALID_OPS_MODES.has(opsMode) ? opsMode : "iss_expedition";
   const now = Date.now();
   return {
+    opsMode: mode, // iss_expedition | shuttle_flight
     phase: "gantry", // gantry -> launch -> docking -> station
     dockLocked: false,
     boarded: {}, // socketId -> timestamp
     skipVotes: {}, // socketId -> true (launch cutscene skip readiness)
     launchedBy: null,
     dockedBy: null,
+    launchPollAt: 0,
+    launchPollBy: null,
+    groundSupport: createGroundSupportState(),
     phaseStartedAt: now,
     updatedAt: now,
     scenarioId: scenario,
@@ -769,6 +943,7 @@ function serializeMission(mission) {
   const m = mission || createMissionState();
   const scenario = MISSION_CATALOG[m.scenarioId] || MISSION_CATALOG.lunar_south_pole;
   return {
+    opsMode: VALID_OPS_MODES.has(m.opsMode) ? m.opsMode : "iss_expedition",
     phase: m.phase,
     dockLocked: !!m.dockLocked,
     boarded: Object.keys(m.boarded || {}),
@@ -776,6 +951,9 @@ function serializeMission(mission) {
     launchedBy: m.launchedBy || null,
     dockedBy: m.dockedBy || null,
     dockingPilotId: m.dockingPilotId || null,
+    launchPollAt: m.launchPollAt || 0,
+    launchPollBy: m.launchPollBy || null,
+    groundSupport: m.groundSupport || createGroundSupportState(),
     phaseStartedAt: m.phaseStartedAt || null,
     updatedAt: m.updatedAt || null,
     scenarioId: scenario.id,
@@ -817,10 +995,12 @@ function buildMissionDebrief(room) {
       id: player.id,
       name: player.name,
       role: player.role,
+      team: player.team || getTeamForRole(player.role),
       tasksDone: player.tasksDone || 0
     })),
     launchedBy: nameFor(mission.launchedBy),
     dockedBy: nameFor(mission.dockedBy),
+    groundSupport: mission.groundSupport || createGroundSupportState(),
     completedAt: mission.completedAt || now
   };
 }
@@ -835,7 +1015,7 @@ function broadcastMissionUpdate(room, extra = {}) {
   return payload;
 }
 
-function createNewRoom(roomId, hostId, isPublic = true) {
+function createNewRoom(roomId, hostId, isPublic = true, opsMode = "iss_expedition") {
   return {
     id: roomId,
     hostId: hostId,
@@ -845,8 +1025,17 @@ function createNewRoom(roomId, hostId, isPublic = true) {
     isPublic: !!isPublic,
     createdAt: Date.now(),
     players: {}, // socketId -> playerObj
-    roles: {}, // informational only; co-op allows duplicate roles
+    roles: {},
+    swapRequests: {}, // requestId -> pending swap request
+    manualSwapOccurred: false,
+    launchPollTimer: null,
     completedTaskIds: {}, // taskId -> socketId, prevents double-counting shared objectives
+    shuttleMission: null,
+    shuttleInputs: {},
+    shuttleLastTick: 0,
+    shuttleLastSnap: 0,
+    shuttleTestFreeze: false,
+    shuttleResultRecorded: false,
     systems: {
       hull: 100.0,
       oxygen: 100.0,
@@ -863,9 +1052,101 @@ function createNewRoom(roomId, hostId, isPublic = true) {
       completed: 0,
       total: COOP_OBJECTIVE_IDS.size
     },
-    mission: createMissionState(),
+    mission: createMissionState("lunar_south_pole", "engineer", opsMode),
     chatHistory: []
   };
+}
+
+// Shuttle Flight Ops seat assignment: maps Lunaspis room roles (commander, engineer,
+// specialist, scientist, flight_director, ground_capcom) onto the 4 Shuttle seats
+// (cdr, plt, ms1, ms2). Unclaimed seats automatically fall back to the Commander/host
+// so solo pilots and 2-6 player crews can fly every Shuttle mission seamlessly.
+const SHUTTLE_SEAT_PREFS = {
+  cdr: ["commander", "flight_director", "engineer", "ground_capcom", "specialist", "scientist"],
+  plt: ["engineer", "ground_capcom", "specialist", "scientist", "flight_director", "commander"],
+  ms1: ["specialist", "scientist", "engineer", "ground_capcom", "flight_director", "commander"],
+  ms2: ["flight_director", "scientist", "ground_capcom", "specialist", "engineer", "commander"]
+};
+
+function assignShuttleSeatMap(room) {
+  const players = Object.values((room && room.players) || {});
+  const assigned = {};
+  if (!players.length) return assigned;
+
+  const used = new Set();
+  for (const seat of SHUTTLE_CREW.roles) {
+    const prefs = SHUTTLE_SEAT_PREFS[seat] || [];
+    let chosen = null;
+    for (const prefRole of prefs) {
+      chosen = players.find((p) => p && !used.has(p.id) && p.role === prefRole);
+      if (chosen) break;
+    }
+    if (!chosen) chosen = players.find((p) => p && !used.has(p.id));
+    if (chosen) {
+      assigned[seat] = { id: chosen.id, filled: true };
+      used.add(chosen.id);
+    }
+  }
+  return assigned;
+}
+
+function shuttleSeatOwner(room, seat) {
+  const primary = assignShuttleSeatMap(room);
+  if (primary[seat]) return primary[seat].id;
+  if (primary.cdr) return primary.cdr.id;
+  if (room && room.players && room.players[room.hostId]) return room.hostId;
+  const ids = Object.keys((room && room.players) || {});
+  return ids[0] || null;
+}
+
+function shuttleCrewAssignments(room) {
+  const primary = assignShuttleSeatMap(room);
+  const out = {};
+  for (const r of SHUTTLE_CREW.roles) {
+    const sid = shuttleSeatOwner(room, r);
+    const p = sid && room && room.players ? room.players[sid] : null;
+    out[r] = {
+      playerId: sid || null,
+      name: p ? p.name : null,
+      filled: !!(primary[r] && primary[r].filled)
+    };
+  }
+  return out;
+}
+
+function mergedShuttleInputs(room) {
+  const inp = { pitch: 0, yaw: 0, roll: 0, tx: 0, ty: 0, tz: 0, sb: 0, brake: 0 };
+  for (const axis of Object.keys(inp)) {
+    const owner = shuttleSeatOwner(room, SHUTTLE_CREW.axisRole[axis]);
+    const src = owner && room.shuttleInputs ? room.shuttleInputs[owner] : null;
+    if (src && typeof src[axis] === "number" && isFinite(src[axis])) inp[axis] = src[axis];
+  }
+  return inp;
+}
+
+function sendShuttleSnapshot(room) {
+  if (!room || !room.shuttleMission) return null;
+  const sn = room.shuttleMission.snapshot();
+  sn.crew = shuttleCrewAssignments(room);
+  io.to(room.id).emit("shuttle_state", sn);
+  return sn;
+}
+
+async function recordShuttleResult(room) {
+  if (!room || room.shuttleResultRecorded || !room.shuttleMission || !room.shuttleMission.result) return;
+  room.shuttleResultRecorded = true;
+  room.status = "victory";
+  await db.upsertGameRoom(room.id, room.hostId, "victory");
+  if (room.shuttleMission.result.success) {
+    for (const pid in room.players) {
+      const p = room.players[pid];
+      const memberSocket = io.sockets.sockets.get(pid);
+      if (p && p.userId && memberSocket && memberSocket.isAuthenticated) {
+        db.incrementUserStats(p.userId, { gamesWon: 1 });
+      }
+    }
+  }
+  broadcastRoomUpdate(room);
 }
 
 // Global server loop (5 Hz). Systems telemetry does not need 10 Hz updates,
@@ -884,6 +1165,7 @@ setInterval(() => {
     }
 
     if (room.status !== "playing" || playerCount === 0) continue;
+    if (room.shuttleMission && room.mission && room.mission.opsMode === "shuttle_flight") continue;
 
     const sys = room.systems;
 
@@ -911,9 +1193,83 @@ setInterval(() => {
   }
 }, 200);
 
+// Shuttle Flight Ops physics loop (30 Hz tick -> internal fixed 1/60 s RK4/mission step,
+// streaming 15 Hz MissionSnapshots when any room is actively flying a Shuttle mission).
+setInterval(() => {
+  const now = Date.now();
+  for (const roomId in rooms) {
+    const room = rooms[roomId];
+    if (!room || room.status !== "playing" || !room.shuttleMission) continue;
+    if (!room.mission || room.mission.opsMode !== "shuttle_flight") continue;
+    if (Object.keys(room.players).length === 0) continue;
+    const dt = room.shuttleLastTick ? (now - room.shuttleLastTick) / 1000 : 0;
+    room.shuttleLastTick = now;
+    room.shuttleMission.command("SET_CONTROL_INPUT", mergedShuttleInputs(room));
+    const events = room.shuttleMission.advance(room.shuttleTestFreeze ? 0 : Math.min(dt, 0.5));
+    if (events.length) {
+      io.to(roomId).emit("shuttle_events", events.filter((e) => e.type !== "COMMAND_ACCEPTED"));
+    }
+    if (now - room.shuttleLastSnap >= 1000 / SHUTTLE_SNAPSHOT_HZ || events.length) {
+      room.shuttleLastSnap = now;
+      sendShuttleSnapshot(room);
+    }
+    if (room.shuttleMission.result) {
+      recordShuttleResult(room);
+    }
+  }
+}, 1000 / 30);
+
 function serializePlayer(player) {
   const { userId, ...publicPlayer } = player || {};
   return publicPlayer;
+}
+
+function serializeSwapRequests(room) {
+  if (!room || !room.swapRequests) return [];
+  const now = Date.now();
+  const active = [];
+  for (const [id, req] of Object.entries(room.swapRequests)) {
+    if (!req || now > req.expiresAt || !room.players[req.fromId] || !room.players[req.toId]) {
+      delete room.swapRequests[id];
+      continue;
+    }
+    active.push({
+      id: req.id,
+      fromId: req.fromId,
+      fromName: req.fromName,
+      fromRole: req.fromRole,
+      fromTeam: req.fromTeam,
+      toId: req.toId,
+      toName: req.toName,
+      toRole: req.toRole,
+      toTeam: req.toTeam,
+      createdAt: req.createdAt,
+      expiresAt: req.expiresAt
+    });
+  }
+  return active;
+}
+
+function repositionPlayersForGantry(room) {
+  if (!room || !room.players) return;
+  let flightIdx = 0;
+  let groundIdx = 0;
+  Object.values(room.players).forEach((p) => {
+    const team = getTeamForRole(p.role);
+    p.team = team;
+    if (team === "ground") {
+      p.pos = groundSpawnLccFor(groundIdx++);
+      p.yaw = 0;
+      if (room.mission && room.mission.boarded) {
+        delete room.mission.boarded[p.id];
+      }
+    } else {
+      p.pos = groundSpawnFor(flightIdx++);
+      p.yaw = 0;
+    }
+    p.pitch = 0;
+    p.isEva = false;
+  });
 }
 
 function serializeRoom(room) {
@@ -930,6 +1286,8 @@ function serializeRoom(room) {
     players: Object.values(room.players).map(serializePlayer),
     roles: room.roles,
     roleInfo: ROLE_INFO,
+    groundSlotSchedule: GROUND_SLOT_SCHEDULE,
+    swapRequests: serializeSwapRequests(room),
     systems: room.systems,
     tasks: room.tasks,
     mission: serializeMission(room.mission)
@@ -1039,18 +1397,16 @@ io.on("connection", (socket) => {
     }
 
     const roomId = generateRoomCode();
-    const room = createNewRoom(roomId, socket.id, data.isPublic !== false);
+    const opsMode = VALID_OPS_MODES.has(data.opsMode) ? data.opsMode : "iss_expedition";
+    const room = createNewRoom(roomId, socket.id, data.isPublic !== false, opsMode);
     rooms[roomId] = room;
     currentRoomId = roomId;
     socket.join(roomId);
 
     const userId = socket.userId;
 
-    const requestedRole = normalizeRoleId(
-      data.role || (socket.authUser && (socket.authUser.preferred_role || socket.authUser.flight_title)),
-      "commander"
-    );
-    const playerRole = ROLES.includes(requestedRole) ? requestedRole : "commander";
+    const playerRole = "commander";
+    const playerTeam = getTeamForRole(playerRole);
     const rawColor = data.suitColor || data.color;
     const requestedColor = /^#[0-9a-fA-F]{6}$/.test(rawColor)
       ? rawColor
@@ -1063,7 +1419,7 @@ io.on("connection", (socket) => {
       name: String(data.playerName || data.name || "Host").replace(/[\u0000-\u001F\u007F<>]/g, "").trim().slice(0, 16) || "Astronaut 1",
       color: color,
       role: playerRole,
-      team: "crew",
+      team: playerTeam,
       isHost: true,
       ready: true,
       pos: groundSpawnFor(0),
@@ -1075,6 +1431,8 @@ io.on("connection", (socket) => {
     };
 
     room.players[socket.id] = player;
+    room.manualSwapOccurred = false;
+    room.swapRequests = {};
 
     console.log(`[ROOM] Created 6-player co-op room ${roomId} by ${player.name} (${playerRole}, user: ${userId}, socket: ${socket.id})`);
 
@@ -1146,13 +1504,9 @@ io.on("connection", (socket) => {
     currentRoomId = targetCode;
     socket.join(targetCode);
 
-    // Co-op crew: auto-balance unspecialized joiners across CMD / ENG / SCI so
-    // a multi-player crew starts with full coverage, while preserving explicit
-    // role choices from authenticated profiles or Lobby/Dossier selections.
-    const authPref = socket.authUser ? normalizeRoleId(socket.authUser.preferred_role || socket.authUser.flight_title, "") : "";
-    const reqRoleRaw = data.role ? normalizeRoleId(data.role, "") : authPref;
-    const isExplicitRole = !!(data.explicitRole || (socket.isAuthenticated && authPref && authPref !== "commander"));
-    const role = pickBalancedRoleForRoom(room, reqRoleRaw, isExplicitRole);
+    // Server allocates randomized Ground vs Flight slots automatically.
+    const role = pickBalancedRoleForRoom(room);
+    const team = getTeamForRole(role);
 
     // Pick a unique suit color across the whole crew.
     const rawJoinColor = data.suitColor || data.color;
@@ -1170,11 +1524,11 @@ io.on("connection", (socket) => {
       name: String(data.playerName || data.name || `Crew ${Object.keys(room.players).length + 1}`).replace(/[\u0000-\u001F\u007F<>]/g, "").trim().slice(0, 16) || "Astronaut",
       color: color,
       role: role,
-      team: "crew",
+      team: team,
       isHost: room.hostId === socket.id,
       ready: false,
-      pos: spawnForRoomPhase(room, Object.keys(room.players).length),
-      yaw: (!room.mission || room.mission.phase === "gantry" || room.mission.phase === "launch")
+      pos: spawnForRoomPhase(room, Object.keys(room.players).length, role),
+      yaw: (team === "ground" || !room.mission || room.mission.phase === "gantry" || room.mission.phase === "launch")
         ? 0
         : Math.PI,
       pitch: 0,
@@ -1184,13 +1538,21 @@ io.on("connection", (socket) => {
     };
 
     room.players[socket.id] = player;
-    // Late joiners during ascent/docking/station are already part of the
-    // in-flight crew; record them as aboard so shared boarding state matches.
-    if (room.mission && room.mission.phase !== "gantry") {
+
+    // On transition from 1P -> 2P in Lobby (before any manual swaps), randomize
+    // who takes LCC Ground Control vs Ship Flight Crew so either player can draw either team.
+    if (room.status === "lobby" && Object.keys(room.players).length === 2 && !room.manualSwapOccurred) {
+      assignRandomRolesForRoom(room);
+      repositionPlayersForGantry(room);
+    }
+
+    // Late Flight Crew joiners during ascent/docking/station are marked aboard;
+    // Ground Control remains stationed at Kennedy LCC.
+    if (room.mission && room.mission.phase !== "gantry" && player.team !== "ground") {
       room.mission.boarded[socket.id] = Date.now();
       room.mission.updatedAt = Date.now();
     }
-    console.log(`[ROOM] ${player.name} joined co-op room ${targetCode} as ${role} (${Object.keys(room.players).length}/${MAX_PLAYERS})`);
+    console.log(`[ROOM] ${player.name} joined room ${targetCode} as ${player.role} (${player.team}, ${Object.keys(room.players).length}/${MAX_PLAYERS})`);
 
     // Persist authenticated profiles only; guest identities stay session-only.
     if (socket.isAuthenticated) {
@@ -1209,6 +1571,9 @@ io.on("connection", (socket) => {
     if (typeof callback === "function") callback(payload);
     socket.emit("room_joined", payload);
     broadcastRoomUpdate(room);
+    if (room.status === "playing" && room.shuttleMission) {
+      sendShuttleSnapshot(room);
+    }
   }
 
   // 1. Host creates a new room with a freshly generated expedition code
@@ -1221,13 +1586,16 @@ io.on("connection", (socket) => {
     return joinRoomForSocket(targetCode, data, callback);
   });
 
-  // 2b. Quick play: fill an open public crew, otherwise create a fresh room.
-  // Each newly created room gets a brand-new random expedition code.
+  // 2b. Quick play: fill an open public crew matching the requested operations mode,
+  // otherwise create a fresh room.
   socket.on("quick_play", (data = {}, callback) => {
+    data = asObject(data);
+    const requestedMode = VALID_OPS_MODES.has(data.opsMode) ? data.opsMode : "iss_expedition";
     const openRooms = Object.values(rooms)
       .filter((room) =>
         room.isPublic &&
         (room.status === "lobby" || room.status === "playing") &&
+        ((room.mission && room.mission.opsMode) || "iss_expedition") === requestedMode &&
         Object.keys(room.players).length > 0 &&
         Object.keys(room.players).length < MAX_PLAYERS
       )
@@ -1243,7 +1611,7 @@ io.on("connection", (socket) => {
     return createRoomForSocket(data, callback);
   });
 
-  // 3. Customize Astronaut in Lobby (co-op: roles may repeat)
+  // 3. Customize Astronaut in Lobby (callsign/suit color/ready only; roles come from randomizer/swaps)
   socket.on("customize_astronaut", async (data = {}) => {
     data = asObject(data);
     if (!currentRoomId || !rooms[currentRoomId]) return;
@@ -1254,16 +1622,6 @@ io.on("connection", (socket) => {
     if (data.name) player.name = String(data.name).replace(/[\u0000-\u001F\u007F<>]/g, "").trim().slice(0, 16) || player.name;
     if (/^#[0-9a-fA-F]{6}$/.test(data.color)) player.color = data.color;
     if (data.modelId) player.modelId = String(data.modelId).trim().slice(0, 64);
-    if (data.role) {
-      const nextRole = normalizeRoleId(data.role, "");
-      if (nextRole && ROLES.includes(nextRole)) {
-        player.role = nextRole;
-        if (room.mission && room.mission.phase !== "docking") {
-          room.systems.dockingPilotId = null;
-          room.systems.dockingPilotId = resolveDockingPilotId(room);
-        }
-      }
-    }
 
     if (typeof data.ready === "boolean") player.ready = data.ready;
 
@@ -1277,6 +1635,214 @@ io.on("connection", (socket) => {
       await db.upsertRoomMember(currentRoomId, socket.userId, socket.id, player);
     }
 
+    broadcastRoomUpdate(room);
+  });
+
+  // 3a. Host randomizes Ground Control + Flight Crew roles cleanly
+  socket.on("randomize_roles", (_data = {}, callback) => {
+    if (!currentRoomId || !rooms[currentRoomId]) return;
+    const room = rooms[currentRoomId];
+    if (room.hostId !== socket.id) {
+      const err = { success: false, message: "Only the room host can randomize crew roles." };
+      if (typeof callback === "function") callback(err);
+      return;
+    }
+    const phase = room.mission ? room.mission.phase : "gantry";
+    if (room.status === "playing" && phase !== "gantry") {
+      const err = { success: false, message: "Cannot re-randomize across zones after liftoff." };
+      if (typeof callback === "function") callback(err);
+      return;
+    }
+
+    assignRandomRolesForRoom(room);
+    if (room.status === "playing" && phase === "gantry") {
+      repositionPlayersForGantry(room);
+      broadcastMissionUpdate(room, {
+        action: "roles_randomized",
+        playerId: socket.id
+      });
+    }
+    room.manualSwapOccurred = false;
+
+    const payload = {
+      success: true,
+      players: Object.values(room.players).map(serializePlayer)
+    };
+    io.to(currentRoomId).emit("roles_randomized", payload);
+    broadcastRoomUpdate(room);
+    if (typeof callback === "function") callback(payload);
+  });
+
+  function canSwapRoomRoles(room, pFrom, pTo) {
+    if (!room || !pFrom || !pTo || pFrom.id === pTo.id) {
+      return { ok: false, reason: "Invalid swap target." };
+    }
+    const phase = room.mission ? room.mission.phase : "gantry";
+    const fullSwapAllowed = room.status === "lobby" || phase === "gantry";
+    const sameZone = getTeamForRole(pFrom.role) === getTeamForRole(pTo.role);
+    if (!fullSwapAllowed && !sameZone) {
+      return {
+        ok: false,
+        reason: "Cross-zone Ground <-> Flight swaps lock after liftoff. Same-zone swaps remain open."
+      };
+    }
+    return { ok: true };
+  }
+
+  // 3b. Peer Role Swap Request
+  socket.on("request_role_swap", (data = {}, callback) => {
+    data = asObject(data);
+    if (!currentRoomId || !rooms[currentRoomId]) return;
+    const room = rooms[currentRoomId];
+    const pFrom = room.players[socket.id];
+    const targetId = typeof data.targetId === "string" ? data.targetId : "";
+    const pTo = room.players[targetId];
+    if (!pFrom || !pTo) {
+      const err = { success: false, message: "Crewmember no longer in room." };
+      if (typeof callback === "function") callback(err);
+      return;
+    }
+
+    const check = canSwapRoomRoles(room, pFrom, pTo);
+    if (!check.ok) {
+      const err = { success: false, message: check.reason };
+      if (typeof callback === "function") callback(err);
+      socket.emit("role_swap_error", err);
+      return;
+    }
+
+    room.swapRequests = room.swapRequests || {};
+    const now = Date.now();
+    // Deduplicate existing pending request from this requester to this target
+    for (const [id, existing] of Object.entries(room.swapRequests)) {
+      if (existing.fromId === socket.id && existing.toId === targetId && existing.expiresAt > now) {
+        const resPayload = { success: true, request: existing };
+        if (typeof callback === "function") callback(resPayload);
+        return;
+      }
+      if (existing.fromId === socket.id) {
+        delete room.swapRequests[id];
+      }
+    }
+
+    const requestId = `swap_${now}_${crypto.randomInt(1000, 9999)}`;
+    const swapReq = {
+      id: requestId,
+      fromId: pFrom.id,
+      fromName: pFrom.name,
+      fromRole: pFrom.role,
+      fromTeam: getTeamForRole(pFrom.role),
+      toId: pTo.id,
+      toName: pTo.name,
+      toRole: pTo.role,
+      toTeam: getTeamForRole(pTo.role),
+      createdAt: now,
+      expiresAt: now + 25000
+    };
+    room.swapRequests[requestId] = swapReq;
+
+    io.to(targetId).emit("role_swap_requested", swapReq);
+    broadcastRoomUpdate(room);
+    if (typeof callback === "function") callback({ success: true, request: swapReq });
+  });
+
+  // 3c. Respond to Peer Role Swap Request (Accept / Decline)
+  socket.on("respond_role_swap", (data = {}, callback) => {
+    data = asObject(data);
+    if (!currentRoomId || !rooms[currentRoomId]) return;
+    const room = rooms[currentRoomId];
+    const requestId = typeof data.requestId === "string" ? data.requestId : "";
+    const swapReq = room.swapRequests && room.swapRequests[requestId];
+    if (!swapReq || swapReq.toId !== socket.id) {
+      const err = { success: false, message: "Swap request expired or invalid." };
+      if (typeof callback === "function") callback(err);
+      return;
+    }
+
+    delete room.swapRequests[requestId];
+    const pFrom = room.players[swapReq.fromId];
+    const pTo = room.players[swapReq.toId];
+
+    if (!data.accept || !pFrom || !pTo) {
+      const declinedPayload = {
+        requestId,
+        accepted: false,
+        fromId: swapReq.fromId,
+        fromName: swapReq.fromName,
+        toId: swapReq.toId,
+        toName: swapReq.toName
+      };
+      io.to(currentRoomId).emit("role_swap_resolved", declinedPayload);
+      broadcastRoomUpdate(room);
+      if (typeof callback === "function") callback({ success: true, accepted: false });
+      return;
+    }
+
+    const check = canSwapRoomRoles(room, pFrom, pTo);
+    if (!check.ok) {
+      const err = { success: false, message: check.reason };
+      io.to(swapReq.fromId).emit("role_swap_error", err);
+      io.to(swapReq.toId).emit("role_swap_error", err);
+      broadcastRoomUpdate(room);
+      if (typeof callback === "function") callback(err);
+      return;
+    }
+
+    const oldFromRole = pFrom.role;
+    const oldToRole = pTo.role;
+    const oldFromTeam = getTeamForRole(oldFromRole);
+    const oldToTeam = getTeamForRole(oldToRole);
+    pFrom.role = oldToRole;
+    pFrom.team = oldToTeam;
+    pTo.role = oldFromRole;
+    pTo.team = oldFromTeam;
+    room.manualSwapOccurred = true;
+
+    // Clear any other pending swap requests involving either participant
+    for (const [id, req] of Object.entries(room.swapRequests || {})) {
+      if (req.fromId === pFrom.id || req.toId === pFrom.id || req.fromId === pTo.id || req.toId === pTo.id) {
+        delete room.swapRequests[id];
+      }
+    }
+
+    if (room.systems) {
+      room.systems.dockingPilotId = resolveDockingPilotId(room);
+    }
+    if (room.status === "playing" && room.mission) {
+      room.mission.dockingPilotId = room.systems ? room.systems.dockingPilotId : null;
+      if (room.mission.phase === "gantry") {
+        if (oldFromTeam !== oldToTeam) {
+          repositionPlayersForGantry(room);
+        }
+        broadcastMissionUpdate(room, { action: "roles_swapped", playerId: pTo.id });
+      }
+    }
+
+    const acceptedPayload = {
+      requestId,
+      accepted: true,
+      fromId: pFrom.id,
+      fromName: pFrom.name,
+      fromNewRole: pFrom.role,
+      fromNewTeam: pFrom.team,
+      toId: pTo.id,
+      toName: pTo.name,
+      toNewRole: pTo.role,
+      toNewTeam: pTo.team
+    };
+    io.to(currentRoomId).emit("role_swap_resolved", acceptedPayload);
+    broadcastRoomUpdate(room);
+    if (typeof callback === "function") callback({ success: true, accepted: true, ...acceptedPayload });
+  });
+
+  socket.on("cancel_role_swap", (data = {}) => {
+    data = asObject(data);
+    if (!currentRoomId || !rooms[currentRoomId]) return;
+    const room = rooms[currentRoomId];
+    const requestId = typeof data.requestId === "string" ? data.requestId : "";
+    const req = room.swapRequests && room.swapRequests[requestId];
+    if (!req || req.fromId !== socket.id) return;
+    delete room.swapRequests[requestId];
     broadcastRoomUpdate(room);
   });
 
@@ -1311,6 +1877,9 @@ io.on("connection", (socket) => {
     if (room.status === "playing" || room.status === "victory") return;
 
     room.mission = room.mission || createMissionState();
+    if (data.opsMode && VALID_OPS_MODES.has(data.opsMode)) {
+      room.mission.opsMode = data.opsMode;
+    }
     if (data.scenarioId && MISSION_CATALOG[data.scenarioId]) {
       room.mission.scenarioId = data.scenarioId;
     }
@@ -1329,7 +1898,8 @@ io.on("connection", (socket) => {
   });
 
   // 4. Host starts the game
-  socket.on("start_game", async () => {
+  socket.on("start_game", async (data = {}) => {
+    data = asObject(data);
     if (!currentRoomId || !rooms[currentRoomId]) return;
     const room = rooms[currentRoomId];
     if (!room.players[room.hostId] && room.players[socket.id]) {
@@ -1339,28 +1909,59 @@ io.on("connection", (socket) => {
     if (room.hostId !== socket.id) return;
     if (room.status === "playing") return;
 
+    if (room.launchPollTimer) {
+      clearTimeout(room.launchPollTimer);
+      room.launchPollTimer = null;
+    }
+
+    if (data.randomizeRoles) {
+      assignRandomRolesForRoom(room);
+    }
+
+    // Ensure at least 1 flight crewmember exists if players > 0
+    const roomPlayers = Object.values(room.players);
+    if (roomPlayers.length > 0 && !roomPlayers.some((pl) => getTeamForRole(pl.role) !== "ground")) {
+      const promoteTarget = roomPlayers.find((pl) => pl.id === room.hostId) || roomPlayers[0];
+      promoteTarget.role = "commander";
+      promoteTarget.team = "crew";
+    }
+
     const scenarioId = (room.mission && room.mission.scenarioId) || "lunar_south_pole";
     const difficultyId = (room.mission && room.mission.difficultyId) || "engineer";
+    const opsMode = (room.mission && VALID_OPS_MODES.has(room.mission.opsMode)) ? room.mission.opsMode : "iss_expedition";
 
     room.status = "playing";
     room.tasks = { completed: 0, total: COOP_OBJECTIVE_IDS.size };
     room.completedTaskIds = {};
-    room.mission = createMissionState(scenarioId, difficultyId);
+    room.mission = createMissionState(scenarioId, difficultyId, opsMode);
     room.mission.startedAt = Date.now();
     room.systems.docking = { range: 18.5, velocity: 0.30, alignment: 3.5, latchesLocked: false };
     room.systems.dockingState = null;
     room.systems.dockingPilotId = null;
     room.systems.dockingPilotId = resolveDockingPilotId(room);
     room.mission.dockingPilotId = room.systems.dockingPilotId;
-    Object.keys(room.players).forEach((pid, index) => {
+
+    if (opsMode === "shuttle_flight") {
+      room.shuttleMission = new ShuttleMission();
+      room.shuttleInputs = {};
+      room.shuttleLastTick = Date.now();
+      room.shuttleLastSnap = 0;
+      room.shuttleResultRecorded = false;
+      room.shuttleTestFreeze = false;
+    } else {
+      room.shuttleMission = null;
+      room.shuttleInputs = {};
+      room.shuttleResultRecorded = false;
+      room.shuttleTestFreeze = false;
+    }
+
+    Object.keys(room.players).forEach((pid) => {
       const player = room.players[pid];
       player.tasksDone = 0;
-      player.pos = groundSpawnFor(index);
-      player.yaw = 0;
-      player.pitch = 0;
-      player.isEva = false;
     });
-    console.log(`[GAME] Co-op expedition ${room.mission.scenarioId} (${room.mission.difficultyId}) started in room ${currentRoomId} by host!`);
+    repositionPlayersForGantry(room);
+
+    console.log(`[GAME] Co-op ${opsMode} (${room.mission.scenarioId}, ${room.mission.difficultyId}) started in room ${currentRoomId} by host!`);
 
     // Update Room State in DB
     await db.upsertGameRoom(currentRoomId, room.hostId, "playing");
@@ -1377,6 +1978,8 @@ io.on("connection", (socket) => {
     io.to(currentRoomId).emit("game_started", {
       roomId: currentRoomId,
       mode: GAME_MODE,
+      opsMode: opsMode,
+      shuttleMissionId: room.shuttleMission ? room.shuttleMission.missionId : null,
       maxPlayers: MAX_PLAYERS,
       players: Object.values(room.players).map(serializePlayer),
       systems: room.systems,
@@ -1386,7 +1989,129 @@ io.on("connection", (socket) => {
     // Keep roomState.status in sync ("playing") so proximity voice and HUD
     // states activate immediately for every client, including late joiners.
     broadcastRoomUpdate(room);
+    if (opsMode === "shuttle_flight" && room.shuttleMission) {
+      sendShuttleSnapshot(room);
+    }
   });
+
+  // 4b. Shuttle Flight Ops semantic commands & control axes (authorised by Shuttle crew seat)
+  socket.on("shuttle_command", (data = {}, callback) => {
+    data = asObject(data);
+    const reply = (r) => { if (typeof callback === "function") callback(r); };
+    const room = currentRoomId && rooms[currentRoomId];
+    if (!room || !room.shuttleMission || !room.players[socket.id]) {
+      return reply({ accepted: false, reason: "Not in a Shuttle flight" });
+    }
+    const type = String(data.type || "");
+    if (type === "SET_CONTROL_INPUT") {
+      return reply({ accepted: false, reason: "Use shuttle_input" });
+    }
+    const seat = SHUTTLE_CREW.commandRole[type];
+    if (!seat) {
+      return reply({ accepted: false, reason: `Unknown command ${type}` });
+    }
+    const ownerId = shuttleSeatOwner(room, seat);
+    if (ownerId !== socket.id) {
+      const owner = ownerId ? room.players[ownerId] : null;
+      return reply({
+        accepted: false,
+        reason: `${SHUTTLE_CREW.info[seat].title} (${owner ? owner.name : "unassigned"}) owns ${type}`
+      });
+    }
+    let r;
+    if (type === "RESTART") {
+      room.shuttleMission = new ShuttleMission();
+      room.shuttleInputs = {};
+      room.shuttleLastTick = Date.now();
+      room.shuttleResultRecorded = false;
+      room.shuttleTestFreeze = false;
+      room.status = "playing";
+      r = { accepted: true };
+    } else {
+      r = room.shuttleMission.command(type, data.args && typeof data.args === "object" ? data.args : {});
+    }
+    reply(r);
+    const p = room.players[socket.id];
+    io.to(room.id).emit("shuttle_command_log", {
+      by: p.name,
+      seat,
+      type,
+      accepted: r.accepted,
+      reason: r.reason || null
+    });
+    const ev = room.shuttleMission.drainEvents();
+    if (ev.length) {
+      io.to(room.id).emit("shuttle_events", ev.filter((e) => e.type !== "COMMAND_ACCEPTED"));
+    }
+    sendShuttleSnapshot(room);
+  });
+
+  socket.on("shuttle_input", (data = {}, callback) => {
+    data = asObject(data);
+    const room = currentRoomId && rooms[currentRoomId];
+    if (!room || !room.shuttleMission || !room.players[socket.id]) return;
+    const clean = {};
+    for (const k of ["pitch", "yaw", "roll", "tx", "ty", "tz", "sb", "brake"]) {
+      if (typeof data[k] === "number" && isFinite(data[k])) {
+        clean[k] = Math.max(-1, Math.min(1, data[k]));
+      }
+    }
+    room.shuttleInputs = room.shuttleInputs || {};
+    room.shuttleInputs[socket.id] = clean;
+    if (typeof callback === "function") callback(true);
+  });
+
+  if (SHUTTLE_TEST_HOOKS) {
+    socket.on("shuttle_test", (data = {}, callback) => {
+      data = asObject(data);
+      const room = currentRoomId && rooms[currentRoomId];
+      if (!room || !room.shuttleMission) return typeof callback === "function" && callback(null);
+      if (data.op === "freeze") room.shuttleTestFreeze = !!data.on;
+      if (data.op === "preset") {
+        try {
+          const { createPilot } = require("./tests/shuttle/pilot.js");
+          const m = room.shuttleMission;
+          const pilot = createPilot();
+          const stop = String(data.phase || "approach");
+          const t0 = Date.now();
+          m.applyFixture("preset " + stop, () => {});
+          m._uncapped = true;
+          m.warpReq = 1000;
+          const slice = () => {
+            const s0 = Date.now();
+            while (Date.now() - s0 < 200) {
+              if (m.result || m.failure || m.phase === stop || m.st.t > 6 * 3600) {
+                m._uncapped = false;
+                m.warpReq = 1;
+                m.command("SET_CONTROL_INPUT", mergedShuttleInputs(room));
+                console.log(`[TEST] shuttle preset ${stop}: ${m.phase} in ${((Date.now() - t0) / 1000).toFixed(1)} s`);
+                const sn = sendShuttleSnapshot(room);
+                if (typeof callback === "function") callback({ t: sn.simTime, phase: sn.phase });
+                return;
+              }
+              const o = pilot.step(m);
+              for (const c of o.cmds) m.command(c[0], c[1]);
+              m.command("SET_CONTROL_INPUT", o.input);
+              m.advanceSim(Math.max(1, Math.min(o.warp, m._warpLimit().max)) / 60);
+            }
+            setImmediate(slice);
+          };
+          slice();
+          return;
+        } catch (e) {
+          console.warn("[TEST] shuttle preset failed:", e.message);
+        }
+      }
+      if (data.op === "step") {
+        room.shuttleMission.command("SET_CONTROL_INPUT", mergedShuttleInputs(room));
+        const events = room.shuttleMission.advanceSim(Math.max(0, Math.min(60, Number(data.seconds) || 0)));
+        if (events.length) io.to(room.id).emit("shuttle_events", events);
+        if (room.shuttleMission.result) recordShuttleResult(room);
+      }
+      const sn = sendShuttleSnapshot(room);
+      if (typeof callback === "function") callback({ t: sn.simTime, phase: sn.phase });
+    });
+  }
 
   // 5. In-Game Movement Update
   socket.on("player_update", (data = {}) => {
@@ -1442,11 +2167,61 @@ io.on("connection", (socket) => {
     });
   });
 
+  function roomHasGroundCrew(room) {
+    if (!room || !room.players) return false;
+    return Object.values(room.players).some((pl) => getTeamForRole(pl && pl.role) === "ground");
+  }
+
+  function getFlightCrewIds(room) {
+    if (!room || !room.players) return [];
+    return Object.keys(room.players).filter((id) => getTeamForRole(room.players[id].role) !== "ground");
+  }
+
+  function triggerRoomLaunch(room, launchedById, launchedByName) {
+    if (!room || !room.mission || room.mission.phase !== "gantry") return false;
+    if (room.launchPollTimer) {
+      clearTimeout(room.launchPollTimer);
+      room.launchPollTimer = null;
+    }
+    const now = Date.now();
+    room.mission.dockLocked = true;
+    room.mission.launchPollAt = 0;
+    room.mission.launchPollBy = null;
+    // Liftoff straps in every Flight Crew astronaut; Ground Control remains at Kennedy LCC.
+    for (const pid in room.players) {
+      if (getTeamForRole(room.players[pid].role) !== "ground") {
+        room.mission.boarded[pid] = now;
+      }
+    }
+    room.mission.phase = "launch";
+    room.mission.skipVotes = {};
+    room.mission.launchedBy = launchedById || null;
+    room.systems.dockingState = null;
+    room.systems.dockingPilotId = resolveDockingPilotId(room);
+    room.mission.dockingPilotId = room.systems.dockingPilotId;
+    room.mission.phaseStartedAt = now;
+    room.mission.updatedAt = now;
+
+    broadcastMissionUpdate(room, {
+      action: "launch",
+      playerId: launchedById || null,
+      playerName: launchedByName || "FLIGHT"
+    });
+    return true;
+  }
+
   socket.on("space_board", () => {
     if (!currentRoomId || !rooms[currentRoomId]) return;
     const room = rooms[currentRoomId];
     const p = room.players[socket.id];
     if (!p) return;
+    if (getTeamForRole(p.role) === "ground") {
+      socket.emit("ground_support_event", {
+        type: "board_blocked_ground",
+        message: "Ground Control operates from Kennedy LCC Firing Room during launch and flight."
+      });
+      return;
+    }
     room.mission = room.mission || createMissionState();
     if (room.mission.phase !== "gantry") return;
 
@@ -1472,26 +2247,207 @@ io.on("connection", (socket) => {
     if (room.mission.phase !== "gantry") return;
 
     const now = Date.now();
-    room.mission.dockLocked = true;
-    // Liftoff is a shared event: strap in every connected astronaut so nobody
-    // is left behind on the pad while the crew flies to orbit.
-    for (const pid in room.players) {
-      room.mission.boarded[pid] = now;
+    const gs = room.mission.groundSupport || (room.mission.groundSupport = createGroundSupportState());
+    const hasGround = roomHasGroundCrew(room);
+
+    // If sender is Ground (or GO/NO-GO is already approved, or no Ground exists), release immediately
+    if (getTeamForRole(p.role) === "ground") {
+      gs.goNoGoLaunch = true;
+      gs.goNoGoBy = p.name;
+      gs.goNoGoAt = now;
     }
-    room.mission.phase = "launch";
-    room.mission.skipVotes = {};
-    room.mission.launchedBy = socket.id;
-    room.systems.dockingState = null;
-    room.systems.dockingPilotId = resolveDockingPilotId(room);
-    room.mission.dockingPilotId = room.systems.dockingPilotId;
-    room.mission.phaseStartedAt = now;
+
+    if (!hasGround || gs.goNoGoLaunch) {
+      triggerRoomLaunch(room, socket.id, p.name);
+      return;
+    }
+
+    // Advisory GO/NO-GO Poll: if Flight Crew clicks LAUNCH a second time (>=1.2s later),
+    // override cleanly; otherwise hold briefly for LCC approval with an 8-second fail-safe.
+    const pollAge = room.mission.launchPollAt ? (now - room.mission.launchPollAt) : Infinity;
+    if (room.mission.launchPollAt && pollAge >= 1200 && pollAge < 10000) {
+      triggerRoomLaunch(room, socket.id, p.name);
+      return;
+    }
+
+    room.mission.launchPollAt = now;
+    room.mission.launchPollBy = socket.id;
+    room.mission.dockLocked = true;
+    if (getTeamForRole(p.role) !== "ground") {
+      room.mission.boarded[socket.id] = room.mission.boarded[socket.id] || now;
+    }
     room.mission.updatedAt = now;
 
+    if (room.launchPollTimer) clearTimeout(room.launchPollTimer);
+    const roomRef = room;
+    const triggerId = socket.id;
+    const triggerName = p.name;
+    room.launchPollTimer = setTimeout(() => {
+      if (roomRef.mission && roomRef.mission.phase === "gantry") {
+        triggerRoomLaunch(roomRef, triggerId, triggerName);
+      }
+    }, 8000);
+
     broadcastMissionUpdate(room, {
-      action: "launch",
+      action: "go_nogo_poll",
       playerId: socket.id,
       playerName: p.name
     });
+    io.to(currentRoomId).emit("ground_support_event", {
+      type: "go_nogo_poll",
+      byId: socket.id,
+      byName: p.name,
+      byRole: p.role,
+      autoReleaseMs: 8000
+    });
+  });
+
+  // Ground Control Operations Actions (Advisory — Enhances Launch/Dock/Systems, never soft-locks)
+  socket.on("ground_action", (data = {}) => {
+    data = asObject(data);
+    if (!currentRoomId || !rooms[currentRoomId]) return;
+    const room = rooms[currentRoomId];
+    const p = room.players[socket.id];
+    if (!p || room.status !== "playing") return;
+    if (getTeamForRole(p.role) !== "ground" && socket.id !== room.hostId) return;
+
+    const now = Date.now();
+    if (socket.lastGroundActionAt && now - socket.lastGroundActionAt < 300) return;
+    socket.lastGroundActionAt = now;
+
+    room.mission = room.mission || createMissionState();
+    const gs = room.mission.groundSupport || (room.mission.groundSupport = createGroundSupportState());
+    const type = String(data.type || "").trim().slice(0, 32);
+
+    if (type === "go_nogo_launch") {
+      gs.goNoGoLaunch = true;
+      gs.goNoGoBy = p.name;
+      gs.goNoGoAt = now;
+      room.mission.updatedAt = now;
+
+      io.to(currentRoomId).emit("ground_support_event", {
+        type: "go_nogo_launch",
+        byId: socket.id,
+        byName: p.name,
+        byRole: p.role
+      });
+
+      const flightIds = getFlightCrewIds(room);
+      const boardedCount = flightIds.filter((id) => room.mission.boarded && room.mission.boarded[id]).length;
+      if (room.mission.phase === "gantry" && (room.mission.launchPollAt || (flightIds.length > 0 && boardedCount >= flightIds.length))) {
+        triggerRoomLaunch(room, socket.id, p.name);
+        return;
+      }
+      broadcastMissionUpdate(room, { action: "ground_go", playerId: socket.id, playerName: p.name });
+      return;
+    }
+
+    if (type === "docking_clearance") {
+      gs.dockingClearance = true;
+      gs.dockingClearanceBy = p.name;
+      gs.dockingAssistCount = (gs.dockingAssistCount || 0) + 1;
+      room.mission.updatedAt = now;
+      io.to(currentRoomId).emit("ground_support_event", {
+        type: "docking_clearance",
+        byId: socket.id,
+        byName: p.name,
+        byRole: p.role
+      });
+      if (room.mission.phase === "docking") {
+        io.to(currentRoomId).emit("docking_assist_event", {
+          kind: "boresight",
+          playerId: socket.id,
+          playerName: p.name,
+          role: p.role,
+          pilotId: resolveDockingPilotId(room)
+        });
+      }
+      broadcastMissionUpdate(room, { action: "ground_docking_clearance", playerId: socket.id, playerName: p.name });
+      return;
+    }
+
+    if (type === "dsn_lock") {
+      gs.dsnLocked = true;
+      gs.dsnLockedBy = p.name;
+      room.mission.updatedAt = now;
+      io.to(currentRoomId).emit("ground_support_event", {
+        type: "dsn_lock",
+        byId: socket.id,
+        byName: p.name,
+        byRole: p.role
+      });
+      broadcastMissionUpdate(room, { action: "ground_dsn_lock", playerId: socket.id, playerName: p.name });
+      return;
+    }
+
+    if (type === "power_route") {
+      gs.powerRouted = true;
+      gs.powerRoutedBy = p.name;
+      room.mission.updatedAt = now;
+      io.to(currentRoomId).emit("ground_support_event", {
+        type: "power_route",
+        byId: socket.id,
+        byName: p.name,
+        byRole: p.role
+      });
+      broadcastMissionUpdate(room, { action: "ground_power_route", playerId: socket.id, playerName: p.name });
+      return;
+    }
+
+    if (type === "science_downlink") {
+      gs.scienceCleared = true;
+      gs.scienceClearedBy = p.name;
+      room.mission.updatedAt = now;
+      io.to(currentRoomId).emit("ground_support_event", {
+        type: "science_downlink",
+        byId: socket.id,
+        byName: p.name,
+        byRole: p.role
+      });
+      broadcastMissionUpdate(room, { action: "ground_science_downlink", playerId: socket.id, playerName: p.name });
+      return;
+    }
+
+    if (type === "ping_room") {
+      const targetRoom = String(data.targetRoom || "HUB").toUpperCase().slice(0, 16);
+      const roomLabels = {
+        HUB: "Harmony Node 2 / Charter",
+        CMD: "Cupola / Flight Command",
+        PWR: "EPS Solar & Battery Bay",
+        SCI: "Columbus Payload Lab",
+        LSS: "Destiny Thermal & ECLSS",
+        HULL: "Propulsion & Comms Deck",
+        PAD: "LC-39A Pad & Access Arm"
+      };
+      const message = String(data.message || `ATTENTION NEEDED AT ${roomLabels[targetRoom] || targetRoom}`)
+        .replace(/[\u0000-\u001F\u007F<>]/g, "")
+        .trim()
+        .slice(0, 96);
+      gs.activePing = {
+        roomId: targetRoom,
+        roomLabel: roomLabels[targetRoom] || targetRoom,
+        message,
+        byName: p.name,
+        byRole: p.role,
+        at: now
+      };
+      room.mission.updatedAt = now;
+      io.to(currentRoomId).emit("ground_support_event", {
+        type: "ping_room",
+        ping: gs.activePing,
+        byId: socket.id,
+        byName: p.name,
+        byRole: p.role
+      });
+      broadcastMissionUpdate(room, { action: "ground_ping", playerId: socket.id, playerName: p.name });
+      return;
+    }
+
+    if (type === "clear_ping") {
+      gs.activePing = null;
+      room.mission.updatedAt = now;
+      broadcastMissionUpdate(room, { action: "ground_clear_ping", playerId: socket.id });
+    }
   });
 
   function enterRoomDockingPhase(room, triggeredById) {
@@ -1528,17 +2484,18 @@ io.on("connection", (socket) => {
     if (!p) return;
     room.mission = room.mission || createMissionState();
     if (room.mission.phase !== "launch") return;
+    if (getTeamForRole(p.role) === "ground" && socket.id !== room.hostId) return;
 
     room.mission.skipVotes = room.mission.skipVotes || {};
     room.mission.skipVotes[socket.id] = true;
     room.mission.updatedAt = Date.now();
 
-    const playerIds = Object.keys(room.players);
-    const voteCount = Object.keys(room.mission.skipVotes).filter((id) => room.players[id]).length;
-    const majority = Math.max(1, Math.ceil(playerIds.length / 2));
+    const flightIds = getFlightCrewIds(room);
+    const voteCount = Object.keys(room.mission.skipVotes).filter((id) => room.players[id] && getTeamForRole(room.players[id].role) !== "ground").length;
+    const majority = Math.max(1, Math.ceil(flightIds.length / 2));
     const isAuthority = socket.id === room.hostId || normalizeRoleId(p.role) === "commander";
 
-    if (playerIds.length <= 1 || isAuthority || voteCount >= majority) {
+    if (flightIds.length <= 1 || isAuthority || voteCount >= majority) {
       enterRoomDockingPhase(room, socket.id);
     } else {
       broadcastMissionUpdate(room, {
@@ -1558,16 +2515,16 @@ io.on("connection", (socket) => {
     room.mission = room.mission || createMissionState();
 
     if (data.phase === "docking" && room.mission.phase === "launch") {
-      const playerCount = Object.keys(room.players).length;
+      const flightIds = getFlightCrewIds(room);
       const elapsedMs = Date.now() - (room.mission.phaseStartedAt || 0);
-      const isNaturalOrAuthority = !!data.naturalEnd || elapsedMs >= 26000 || playerCount <= 1 || socket.id === room.hostId || normalizeRoleId(p.role) === "commander";
+      const isNaturalOrAuthority = !!data.naturalEnd || elapsedMs >= 26000 || flightIds.length <= 1 || socket.id === room.hostId || normalizeRoleId(p.role) === "commander";
       if (isNaturalOrAuthority) {
         enterRoomDockingPhase(room, socket.id);
       } else {
         room.mission.skipVotes = room.mission.skipVotes || {};
         room.mission.skipVotes[socket.id] = true;
-        const voteCount = Object.keys(room.mission.skipVotes).filter((id) => room.players[id]).length;
-        if (voteCount >= Math.max(1, Math.ceil(playerCount / 2))) {
+        const voteCount = Object.keys(room.mission.skipVotes).filter((id) => room.players[id] && getTeamForRole(room.players[id].role) !== "ground").length;
+        if (voteCount >= Math.max(1, Math.ceil(flightIds.length / 2))) {
           enterRoomDockingPhase(room, socket.id);
         } else {
           broadcastMissionUpdate(room, {
@@ -1586,10 +2543,11 @@ io.on("connection", (socket) => {
     const room = rooms[currentRoomId];
     const p = room.players[socket.id];
     if (!p || !room.mission || room.mission.phase !== "docking") return;
+    if (getTeamForRole(p.role) === "ground" && socket.id !== room.hostId) return;
 
     const requestedTargetId = data.targetId || data.pilotId;
-    let targetPilotId = socket.id;
-    if (requestedTargetId && room.players[requestedTargetId]) {
+    let targetPilotId = getTeamForRole(p.role) !== "ground" ? socket.id : resolveDockingPilotId(room);
+    if (requestedTargetId && room.players[requestedTargetId] && getTeamForRole(room.players[requestedTargetId].role) !== "ground") {
       const canAssignOther = socket.id === room.hostId || socket.id === room.systems.dockingPilotId || normalizeRoleId(p.role) === "commander" || requestedTargetId === socket.id;
       if (canAssignOther) targetPilotId = requestedTargetId;
     }
@@ -1696,9 +2654,9 @@ io.on("connection", (socket) => {
     room.mission = room.mission || createMissionState();
     if (room.mission.phase !== "launch" && room.mission.phase !== "docking") return;
 
-    const playerCount = Object.keys(room.players).length;
+    const flightIds = getFlightCrewIds(room);
     const activePilotId = resolveDockingPilotId(room);
-    const isAuthority = playerCount <= 1 || socket.id === room.hostId || socket.id === activePilotId || normalizeRoleId(p.role) === "commander" || !!data.corridorCapture;
+    const isAuthority = flightIds.length <= 1 || socket.id === room.hostId || socket.id === activePilotId || normalizeRoleId(p.role) === "commander" || !!data.corridorCapture;
     if (!isAuthority) {
       socket.emit("docking_assist_event", {
         kind: "dock_request",
@@ -1716,7 +2674,9 @@ io.on("connection", (socket) => {
     room.mission.phaseStartedAt = now;
     room.mission.updatedAt = now;
     for (const pid in room.players) {
-      room.mission.boarded[pid] = room.mission.boarded[pid] || now;
+      if (getTeamForRole(room.players[pid].role) !== "ground") {
+        room.mission.boarded[pid] = room.mission.boarded[pid] || now;
+      }
     }
     room.systems.docking = { range: 0, velocity: 0, alignment: 0, latchesLocked: true };
 
@@ -1728,7 +2688,7 @@ io.on("connection", (socket) => {
   });
 
   // 5c. Shared crew reset back to the launch pad. This aborts any in-flight
-  // ascent/docking sequence and respawns every astronaut on the gantry, so a
+  // ascent/docking sequence and respawns every astronaut in their zone, so a
   // player pressing [G] or the PAD button never desyncs the rest of the room.
   socket.on("space_reset", () => {
     if (!currentRoomId || !rooms[currentRoomId]) return;
@@ -1739,6 +2699,11 @@ io.on("connection", (socket) => {
     const now = Date.now();
     if (socket.lastMissionResetAt && now - socket.lastMissionResetAt < 1500) return;
     socket.lastMissionResetAt = now;
+
+    if (room.launchPollTimer) {
+      clearTimeout(room.launchPollTimer);
+      room.launchPollTimer = null;
+    }
 
     const scenarioId = room.mission && room.mission.scenarioId;
     const difficultyId = room.mission && room.mission.difficultyId;
@@ -1751,14 +2716,10 @@ io.on("connection", (socket) => {
     room.systems.dockingPilotId = resolveDockingPilotId(room);
     room.mission.dockingPilotId = room.systems.dockingPilotId;
 
-    Object.keys(room.players).forEach((pid, index) => {
-      const player = room.players[pid];
-      player.tasksDone = 0;
-      player.pos = groundSpawnFor(index);
-      player.yaw = 0;
-      player.pitch = 0;
-      player.isEva = false;
+    Object.keys(room.players).forEach((pid) => {
+      room.players[pid].tasksDone = 0;
     });
+    repositionPlayersForGantry(room);
 
     broadcastMissionUpdate(room, {
       action: "reset",
@@ -1930,7 +2891,7 @@ io.on("connection", (socket) => {
         tasks: room.tasks,
         mission: serializeMission(room.mission),
         debrief,
-        reason: `🏁 ${debrief.scenarioCode} COMPLETE — ALL ${debrief.totalObjectives} SHARED OBJECTIVES VERIFIED BY THE CREW!`
+        reason: `${debrief.scenarioCode} COMPLETE — ALL ${debrief.totalObjectives} SHARED OBJECTIVES VERIFIED BY FLIGHT & GROUND CREW`
       });
       broadcastRoomUpdate(room);
     }
@@ -1977,26 +2938,33 @@ io.on("connection", (socket) => {
     const room = rooms[currentRoomId];
     if (room.hostId !== socket.id) return;
 
+    if (room.launchPollTimer) {
+      clearTimeout(room.launchPollTimer);
+      room.launchPollTimer = null;
+    }
+
     const scenarioId = (room.mission && room.mission.scenarioId) || "lunar_south_pole";
     const difficultyId = (room.mission && room.mission.difficultyId) || "engineer";
+    const opsMode = (room.mission && VALID_OPS_MODES.has(room.mission.opsMode)) ? room.mission.opsMode : "iss_expedition";
 
     room.status = "lobby";
     room.tasks = { completed: 0, total: COOP_OBJECTIVE_IDS.size };
     room.completedTaskIds = {};
-    room.mission = createMissionState(scenarioId, difficultyId);
+    room.swapRequests = {};
+    room.mission = createMissionState(scenarioId, difficultyId, opsMode);
+    room.shuttleMission = null;
+    room.shuttleInputs = {};
+    room.shuttleResultRecorded = false;
+    room.shuttleTestFreeze = false;
     room.systems.docking = { range: 18.5, velocity: 0.30, alignment: 3.5, latchesLocked: false };
     room.systems.dockingState = null;
     room.systems.dockingPilotId = resolveDockingPilotId(room);
     room.mission.dockingPilotId = room.systems.dockingPilotId;
 
-    Object.keys(room.players).forEach((pid, index) => {
-      const player = room.players[pid];
-      player.tasksDone = 0;
-      player.pos = groundSpawnFor(index);
-      player.yaw = 0;
-      player.pitch = 0;
-      player.isEva = false;
+    Object.keys(room.players).forEach((pid) => {
+      room.players[pid].tasksDone = 0;
     });
+    repositionPlayersForGantry(room);
 
     await db.upsertGameRoom(currentRoomId, room.hostId, "lobby");
     broadcastRoomUpdate(room);
@@ -2025,7 +2993,7 @@ io.on("connection", (socket) => {
       sender: String(p.name || "Astronaut").slice(0, 16),
       color: /^#[0-9a-fA-F]{6}$/.test(p.color) ? p.color : "#ef4444",
       role: String(p.role || "commander").slice(0, 16),
-      team: "crew",
+      team: p.team || getTeamForRole(p.role),
       teamOnly: false,
       text,
       timestamp: now
@@ -2052,6 +3020,16 @@ io.on("connection", (socket) => {
     if (!p) return;
 
     delete room.players[socket.id];
+    if (room.shuttleInputs) {
+      delete room.shuttleInputs[socket.id];
+    }
+    if (room.swapRequests) {
+      for (const [reqId, req] of Object.entries(room.swapRequests)) {
+        if (req.fromId === socket.id || req.toId === socket.id) {
+          delete room.swapRequests[reqId];
+        }
+      }
+    }
     if (room.mission && room.mission.boarded) {
       delete room.mission.boarded[socket.id];
       if (room.mission.skipVotes) delete room.mission.skipVotes[socket.id];
@@ -2060,10 +3038,20 @@ io.on("connection", (socket) => {
 
     const remainingIds = Object.keys(room.players);
     if (remainingIds.length === 0) {
+      if (room.launchPollTimer) {
+        clearTimeout(room.launchPollTimer);
+        room.launchPollTimer = null;
+      }
       room.status = "lobby";
       room.tasks = { completed: 0, total: COOP_OBJECTIVE_IDS.size };
       room.completedTaskIds = {};
+      room.swapRequests = {};
+      room.manualSwapOccurred = false;
       room.mission = createMissionState();
+      room.shuttleMission = null;
+      room.shuttleInputs = {};
+      room.shuttleResultRecorded = false;
+      room.shuttleTestFreeze = false;
       room.systems.dockingPilotId = null;
       room.systems.dockingState = null;
     } else {
@@ -2071,6 +3059,20 @@ io.on("connection", (socket) => {
         room.hostId = remainingIds[0];
         room.players[remainingIds[0]].isHost = true;
         db.upsertGameRoom(leavingRoomId, room.players[remainingIds[0]].userId || remainingIds[0], room.status).catch(() => {});
+      }
+      // Always guarantee at least 1 Flight Crewmember remains so a room never strands
+      if (getFlightCrewIds(room).length === 0) {
+        const candidate = room.players[room.hostId] || room.players[remainingIds[0]];
+        if (candidate) {
+          candidate.role = "commander";
+          candidate.team = "crew";
+          if (room.mission && room.mission.phase === "gantry") {
+            candidate.pos = groundSpawnFor(0);
+          } else if (room.mission && (room.mission.phase === "docking" || room.mission.phase === "station")) {
+            candidate.pos = stationSpawnFor(0);
+            room.mission.boarded[candidate.id] = Date.now();
+          }
+        }
       }
       if (room.systems && room.systems.dockingPilotId === socket.id) {
         room.systems.dockingPilotId = null;
@@ -2089,6 +3091,9 @@ io.on("connection", (socket) => {
     }
 
     broadcastRoomUpdate(room);
+    if (remainingIds.length > 0 && room.status === "playing" && room.shuttleMission) {
+      sendShuttleSnapshot(room);
+    }
     socket.to(leavingRoomId).emit("player_left", { id: socket.id, name: p.name });
     socket.to(leavingRoomId).emit("voice_peer_left", { id: socket.id });
 

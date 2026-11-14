@@ -7,9 +7,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="theme-color" content="#05060a" />
-  <title>Perilune — Orbital Transit &amp; ISS Simulator</title>
-  <link rel="stylesheet" href="css/style.css?v=4.7.3" />
-  <link rel="stylesheet" href="css/premium.css?v=1.0.1" />
+  <title>Lunaspis — Orbital Transit &amp; ISS Simulator</title>
+  <link rel="stylesheet" href="css/style.css?v=4.7.5" />
+  <link rel="stylesheet" href="css/premium.css?v=1.1.0" />
   <!-- Three.js Engine & 3D GLTF/GLB/Draco/KTX2/Meshopt Loaders -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" integrity="sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu" crossorigin="anonymous"></script>
   <script src="js/loaders/DRACOLoader.js?v=4.0.0"></script>
@@ -41,7 +41,7 @@
   <!-- Flight Telemetry & Diagnostics Deck [P] / [F3] -->
   <div id="hud-diagnostics-overlay" class="hud-diagnostics-deck" style="display:none;">
     <div class="diag-header">
-      <div class="diag-title">PERILUNE // FLIGHT TELEMETRY &amp; DIAGNOSTICS</div>
+      <div class="diag-title">LUNASPIS // FLIGHT TELEMETRY &amp; DIAGNOSTICS</div>
       <div class="diag-actions">
         <button id="btn-diag-open-settings" class="diag-btn-gear" title="Open Systems &amp; Performance Settings">SETTINGS</button>
         <button id="btn-diag-close" class="diag-btn-close" title="Close Diagnostics [P] / [F3]">&times;</button>
@@ -79,14 +79,14 @@
   <div id="canvas-container"></div>
 
   <!-- ========================================================================
-       SCREEN 1: PERILUNE ORBITAL TITLE SCREEN
+       SCREEN 1: LUNASPIS ORBITAL TITLE SCREEN
        ======================================================================== -->
   <div class="app-screen" id="screen-menu">
     <!-- Top Hairline Header -->
     <header class="title-topbar">
       <div class="title-brand">
         <span class="title-brand-dot"></span>
-        <span>PERILUNE // ORBITAL MISSION LAB</span>
+        <span>LUNASPIS // ORBITAL MISSION LAB</span>
       </div>
       <div class="title-top-actions">
         <button class="title-chip-btn" id="btn-open-hangar-menu">3D HANGAR</button>
@@ -103,7 +103,7 @@
     <!-- Bottom-Left Asymmetric Hero Lockup (Leaves 3D Earth & ISS Unobstructed) -->
     <main class="title-hero">
       <div class="title-eyebrow">EXPEDITION 72 &middot; LOW EARTH ORBIT &middot; 418 KM</div>
-      <h1 class="title-display">PERILUNE</h1>
+      <h1 class="title-display">LUNASPIS</h1>
       <p class="title-premise">
         Six-compartment orbital transit craft. Stabilize station systems, coordinate crew, and align lunar descent.
       </p>
@@ -116,6 +116,7 @@
       <div class="title-cta-row">
         <button class="btn-title-primary" id="btn-quick-play">ENTER MISSION</button>
         <button class="btn-title-secondary" id="btn-host-game">HOST CREW</button>
+        <button class="btn-title-secondary btn-title-shuttle" id="btn-shuttle-ops" title="Launch Shuttle Flight Ops (Launch, Orbit &amp; Runway 15 Landing)">SHUTTLE OPS</button>
       </div>
 
       <div class="title-join-row">
@@ -134,121 +135,120 @@
   </div>
 
   <!-- ========================================================================
-       SCREEN 2: EXPEDITION AIRLOCK BRIEFING DECK
+       SCREEN 2: EXPEDITION STAGING DECK (ASIMMETRIC MISSION-CONTROL LAYOUT)
        ======================================================================== -->
   <div class="app-screen" id="screen-lobby">
     <div class="lobby-top-bar">
       <div class="room-code-badge">
-        <span class="field-label" style="margin:0;">EXPEDITION:</span>
+        <span class="field-label" style="margin:0;">EXPEDITION</span>
         <span class="room-code-text" id="lobby-room-code">------</span>
         <button class="btn-copy" id="btn-copy-invite">COPY LINK</button>
       </div>
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div class="lobby-top-actions">
         <button id="btn-lobby-voice" class="btn-lobby-voice">
           <span id="lobby-voice-icon">MIC</span>
           <span id="lobby-voice-text">ENABLE COMMS</span>
         </button>
-        <button id="btn-lobby-audio-settings" class="btn-lobby-voice" style="padding:6px 10px;" title="Systems &amp; Audio Settings">
+        <button id="btn-lobby-audio-settings" class="btn-lobby-voice" title="Systems &amp; Audio Settings">
           <span>SYSTEMS</span>
         </button>
         <div class="lobby-count-text" id="lobby-player-count">1 / 6 CREW</div>
-        <button id="btn-leave-room" class="btn-lobby-voice btn-danger-outline" style="padding:6px 10px;" title="Leave Room">
+        <button id="btn-leave-room" class="btn-lobby-voice btn-danger-outline" title="Leave Room">
           <span>LEAVE</span>
         </button>
       </div>
     </div>
 
-    <div class="lobby-mission-panel" id="lobby-mission-panel">
-      <div class="lobby-mission-header">
-        <div>
-          <div class="field-label" style="margin:0;">EXPEDITION PROFILE</div>
-          <div id="lobby-mission-selected" class="lobby-mission-selected">ARTEMIS-LSP · LUNAR EXPLORATION</div>
-        </div>
-        <div id="lobby-mission-hint" class="lobby-mission-hint">HOST CONTROL — SELECT EXPEDITION PROFILE</div>
-      </div>
-      <div class="lobby-mission-cards" id="lobby-mission-cards">
-        <!-- Rendered dynamically by main.js -->
-      </div>
-      <div class="lobby-difficulty-row">
-        <span class="field-label" style="margin:0;">DIFFICULTY</span>
-        <div class="lobby-difficulty-pills" id="lobby-difficulty-pills"></div>
-      </div>
-    </div>
-
-    <div class="lobby-main-area">
-      <div class="lobby-players-grid" id="lobby-players-grid">
-        <!-- Rendered dynamically by main.js -->
-      </div>
-
-      <div class="lobby-customizer">
-        <div class="customizer-title">CREW SPECIALIZATION</div>
-
-        <div>
-          <label class="field-label">SUIT ACCENT</label>
-          <div class="color-swatches">
-            <button class="lobby-color-btn" data-color="#67e8f9" style="background:#67e8f9;" title="Perilune Cyan"></button>
-            <button class="lobby-color-btn" data-color="#d0a15c" style="background:#d0a15c;" title="Solar Amber"></button>
-            <button class="lobby-color-btn" data-color="#7fb8a6" style="background:#7fb8a6;" title="ECLSS Sage"></button>
-            <button class="lobby-color-btn" data-color="#c08a8a" style="background:#c08a8a;" title="Hull Rose"></button>
-            <button class="lobby-color-btn" data-color="#9a8fc4" style="background:#9a8fc4;" title="Lander Violet"></button>
-            <button class="lobby-color-btn" data-color="#ece7dc" style="background:#ece7dc;" title="EVA Ivory"></button>
+    <div class="lobby-staging-shell">
+      <!-- Left Rail: Mission Charter, Suit Accent, and Comms -->
+      <aside class="lobby-left-rail">
+        <div class="lobby-mission-panel" id="lobby-mission-panel">
+          <div class="lobby-mission-header">
+            <div>
+              <div class="field-label" style="margin:0;">EXPEDITION PROFILE</div>
+              <div id="lobby-mission-selected" class="lobby-mission-selected">ARTEMIS-LSP &middot; LUNAR EXPLORATION</div>
+            </div>
+            <div id="lobby-mission-hint" class="lobby-mission-hint">HOST CONTROL</div>
+          </div>
+          <div class="lobby-ops-mode-bar" id="lobby-ops-mode-bar">
+            <button type="button" class="ops-mode-btn active" data-ops-mode="iss_expedition">ISS EXPEDITION</button>
+            <button type="button" class="ops-mode-btn" data-ops-mode="shuttle_flight">SHUTTLE LAUNCH &amp; LANDING</button>
+          </div>
+          <div class="lobby-mission-cards" id="lobby-mission-cards">
+            <!-- Rendered dynamically by main.js -->
+          </div>
+          <div class="lobby-difficulty-row" id="lobby-difficulty-row">
+            <span class="field-label" style="margin:0;">DIFFICULTY</span>
+            <div class="lobby-difficulty-pills" id="lobby-difficulty-pills"></div>
           </div>
         </div>
 
-        <div>
-          <label class="field-label">STATION ROLE (SELECT YOUR DUTY)</label>
-          <div class="lobby-roles-list">
-            <div class="lobby-role-card" data-role="commander">
-              <div class="lobby-role-top">
-                <span>COMMANDER</span>
-                <span class="lobby-role-holders" data-role-holders="commander">OPEN</span>
-              </div>
-              <span class="role-sub">Launch Authority · Docking Pilot · Architecture &amp; Sim [HUB/CMD/LDR]</span>
-            </div>
-            <div class="lobby-role-card" data-role="engineer">
-              <div class="lobby-role-top">
-                <span>ENGINEER</span>
-                <span class="lobby-role-holders" data-role-holders="engineer">OPEN</span>
-              </div>
-              <span class="role-sub">Pad Access Arm [F] · Docking RCS [1/2] · Power &amp; Hull [PWR/HULL]</span>
-            </div>
-            <div class="lobby-role-card" data-role="scientist">
-              <div class="lobby-role-top">
-                <span>SCIENTIST</span>
-                <span class="lobby-role-holders" data-role-holders="scientist">OPEN</span>
-              </div>
-              <span class="role-sub">Docking Boresight &amp; Ping [3/4] · Life Support &amp; Science [LSS/SCI]</span>
+        <div class="lobby-customizer">
+          <div class="lobby-suit-row">
+            <span class="field-label" style="margin:0;">SUIT ACCENT</span>
+            <div class="color-swatches">
+              <button class="lobby-color-btn" data-color="#67e8f9" style="background:#67e8f9;" title="Lunaspis Blue"></button>
+              <button class="lobby-color-btn" data-color="#d0a15c" style="background:#d0a15c;" title="Solar Amber"></button>
+              <button class="lobby-color-btn" data-color="#7fb8a6" style="background:#7fb8a6;" title="ECLSS Sage"></button>
+              <button class="lobby-color-btn" data-color="#c08a8a" style="background:#c08a8a;" title="Hull Rose"></button>
+              <button class="lobby-color-btn" data-color="#9a8fc4" style="background:#9a8fc4;" title="Orbital Indigo"></button>
+              <button class="lobby-color-btn" data-color="#f8fafc" style="background:#f8fafc;" title="EVA White"></button>
             </div>
           </div>
-          <div class="lobby-role-coverage" id="lobby-role-coverage">Select a role — unpicked roles are auto-balanced when joining a crew.</div>
-        </div>
+          <button type="button" class="btn-secondary" id="btn-open-hangar-lobby" style="padding:7px 10px;font-size:10px;">
+            INSPECT 3D RIG (.GLB)
+          </button>
 
-        <button type="button" class="btn-secondary btn-accent-subtle" id="btn-open-hangar-lobby" style="padding:8px;font-size:10.5px;">
-          INSPECT 3D RIG (.GLB)
-        </button>
-
-        <div class="lobby-chat-box">
-          <div id="lobby-chat-msgs" class="lobby-chat-msgs">
-            <div style="color:rgba(154,164,174,0.7);">Staging bay online. Share invite link with crew.</div>
-          </div>
-          <div style="display:flex;gap:6px;margin-top:6px;">
-            <input type="text" id="lobby-chat-input" placeholder="Comms message..." class="lobby-chat-input" />
-            <button id="lobby-chat-send" class="lobby-chat-send">SEND</button>
+          <div class="lobby-chat-box">
+            <div id="lobby-chat-msgs" class="lobby-chat-msgs">
+              <div style="color:var(--text-slate);">Staging bay online. Share invite link with crew.</div>
+            </div>
+            <div style="display:flex;gap:6px;margin-top:6px;">
+              <input type="text" id="lobby-chat-input" placeholder="Comms message..." class="lobby-chat-input" />
+              <button id="lobby-chat-send" class="lobby-chat-send">SEND</button>
+            </div>
           </div>
         </div>
-      </div>
+      </aside>
+
+      <!-- Open Center/Right Stage: Clean Split Ground vs Flight Crew Manifest -->
+      <section class="lobby-manifest-stage">
+        <div class="lobby-manifest-toolbar">
+          <div class="lobby-manifest-title-block">
+            <span class="customizer-title" style="margin:0;">CREW MANIFEST &amp; RANDOMIZED ASSIGNMENTS</span>
+            <span class="lobby-role-coverage" id="lobby-role-coverage">Roles randomize upon join — request a swap with any teammate below.</span>
+          </div>
+          <div class="lobby-manifest-actions">
+            <button type="button" class="btn-secondary" id="btn-randomize-roles" title="Host: Randomly reassign Ground Control &amp; Flight Crew roles">
+              RANDOMIZE ROLES
+            </button>
+          </div>
+        </div>
+
+        <div id="lobby-swap-banner" class="swap-request-banner" style="display:none;"></div>
+
+        <div class="lobby-players-grid" id="lobby-players-grid">
+          <!-- Rendered dynamically by main.js into GROUND CONTROL and FLIGHT CREW sections -->
+        </div>
+      </section>
     </div>
 
     <div class="lobby-bottom-bar">
       <div class="lobby-controls-hint">
-        <strong>WASD</strong> Move &bull; <strong>Drag</strong> Look &bull; <strong>[E]</strong> Console &bull; <strong>[C]</strong> Camera &bull; <strong>[X]</strong> Emotes &bull; <strong>[J]</strong> ISS 3D &bull; <strong>[K]</strong> Lunar
+        <strong>WASD</strong> Move &middot; <strong>Drag</strong> Look &middot; <strong>[E]</strong> Console &middot; <strong>[R]</strong> S-Band Radio &middot; <strong>[M]</strong> Mic &middot; <strong>[C]</strong> View &middot; <strong>[U]</strong> Orbit Viz
       </div>
-      <button class="btn-start-game" id="btn-start-mission">LAUNCH MISSION</button>
+      <div class="lobby-start-cluster">
+        <label class="lobby-autoshuffle-toggle" id="lobby-autoshuffle-wrap" title="Re-randomize Ground/Flight roles one more time when launching">
+          <input type="checkbox" id="chk-shuffle-on-launch" />
+          <span>SHUFFLE AT LAUNCH</span>
+        </label>
+        <button class="btn-start-game" id="btn-start-mission">LAUNCH EXPEDITION &rarr;</button>
+      </div>
     </div>
   </div>
 
   <!-- ========================================================================
-       SCREEN 3: IN-GAME HUD (PERILUNE MINIMALIST TELEMETRY)
+       SCREEN 3: IN-GAME HUD (LUNASPIS MINIMALIST TELEMETRY)
        ======================================================================== -->
   <div class="app-screen" id="screen-game">
     <div id="helmet-visor-overlay"></div>
@@ -263,7 +263,7 @@
       <div class="hud-race-team coop">
         <div class="hud-race-team-info">
           <span class="hud-race-team-dot dot-coop"></span>
-          <span class="hud-race-team-name">PERILUNE CO-OP OBJECTIVES</span>
+          <span class="hud-race-team-name">LUNASPIS CO-OP OBJECTIVES</span>
           <span class="hud-race-score" id="race-score-coop">0 / 7</span>
         </div>
         <div class="hud-race-track">
@@ -328,24 +328,24 @@
           <span id="voice-mic-icon">MIC</span>
           <span id="voice-mic-label">ON</span>
         </button>
+        <button id="btn-sband-radio" class="voice-mic-btn" title="S-Band Ground &lt;-&gt; Ship Radio Link [R]">
+          <span>S-BAND</span>
+          <span id="sband-radio-label">OFF [R]</span>
+        </button>
         <button id="btn-emote-menu" class="voice-mic-btn" title="Crew Emotes [X]">
-          <span>💬</span>
           <span>EMOTE</span>
         </button>
         <button id="btn-hud-hangar" class="voice-mic-btn" title="3D Asset Hangar [H]">
-          <span>GLB</span>
           <span>HANGAR</span>
         </button>
-        <button id="btn-hud-orbit-viz" class="voice-mic-btn" title="3D Mission Viz & GMAT Trajectory Theater [U]">
-          <span>🛰️</span>
-          <span>VIZ</span>
+        <button id="btn-hud-orbit-viz" class="voice-mic-btn" title="3D Mission Viz &amp; Trajectory Theater [U]">
+          <span>VIZ [U]</span>
         </button>
         <button id="btn-hud-vr-main" class="voice-mic-btn" title="Toggle WebXR / Stereo VR Mode">
-          <span>🥽</span>
           <span>VR</span>
         </button>
         <button id="btn-voice-settings" class="voice-settings-btn" title="Systems &amp; Performance Settings">
-          <span>&#9881;</span>
+          <span>SYS</span>
         </button>
         <button id="btn-hud-leave-room" class="voice-mic-btn btn-danger-outline" title="Leave Room">
           <span>LEAVE</span>
@@ -356,9 +356,11 @@
           <span class="voice-pulse-dot" id="voice-pulse-dot"></span>
           <span id="voice-mode-label">COMMS</span>
         </div>
-        <div class="voice-key-hint"><strong>[U]</strong> Orbit Viz &middot; <strong>[J]</strong> ISS 3D &middot; <strong>[K]</strong> Lunar &middot; <strong>[C]</strong> View</div>
+        <div class="voice-key-hint"><strong>[R]</strong> S-Band &middot; <strong>[U]</strong> Viz &middot; <strong>[J]</strong> ISS &middot; <strong>[K]</strong> Lunar &middot; <strong>[C]</strong> View</div>
       </div>
     </div>
+
+    <div id="hud-swap-banner" class="swap-request-banner swap-banner-hud" style="display:none;"></div>
 
     <div id="hud-active-speakers"></div>
 
@@ -411,7 +413,7 @@
        ======================================================================== -->
   <div id="mission-briefing-overlay">
     <div class="mission-briefing-card">
-      <div class="victory-eyebrow">PERILUNE // CREW MISSION BRIEFING</div>
+      <div class="victory-eyebrow">LUNASPIS // CREW MISSION BRIEFING</div>
       <h2 id="briefing-title" class="mission-briefing-title">ARTEMIS-LSP · CO-OP EXPEDITION</h2>
       <div id="briefing-meta" class="mission-briefing-meta"></div>
       <p id="briefing-summary" class="mission-briefing-summary"></p>
@@ -424,7 +426,7 @@
        EXPEDITION MISSION COMPLETION (DEBRIEF)
        ======================================================================== -->
   <div id="victory-overlay">
-    <div id="victory-icon" class="victory-eyebrow">PERILUNE // MISSION DEBRIEF</div>
+    <div id="victory-icon" class="victory-eyebrow">LUNASPIS // MISSION DEBRIEF</div>
     <h1 id="victory-title" class="victory-title">ALL SYSTEMS NOMINAL</h1>
     <p id="victory-msg" class="victory-msg">
       Flight telemetry confirms all orbital transit systems and lunar descent parameters are 100% nominal.
@@ -437,7 +439,7 @@
   </div>
 
   <div id="launch-countdown-banner">
-    PERILUNE TRANSIT CRAFT — SYSTEMS ONLINE
+    LUNASPIS TRANSIT CRAFT — SYSTEMS ONLINE
   </div>
 
   <!-- ========================================================================
@@ -446,7 +448,7 @@
   <div id="modal-station-systems" class="settings-modal-overlay">
     <div class="settings-modal-card systems-modal-card">
       <div class="settings-modal-header">
-        <span class="settings-modal-title">PERILUNE // SYSTEMS &amp; PERFORMANCE</span>
+        <span class="settings-modal-title">LUNASPIS // SYSTEMS &amp; PERFORMANCE</span>
         <button id="btn-close-settings" class="settings-close-btn" title="Close [ESC]">&times;</button>
       </div>
 
@@ -658,7 +660,7 @@
   <div id="modal-auth" class="settings-modal-overlay">
     <div class="settings-modal-card auth-modal-card">
       <div class="settings-modal-header">
-        <span class="settings-modal-title">PERILUNE // FLIGHT CREDENTIALS</span>
+        <span class="settings-modal-title">LUNASPIS // FLIGHT CREDENTIALS</span>
         <button id="btn-close-auth" class="settings-close-btn">&times;</button>
       </div>
 
@@ -804,16 +806,16 @@
   <!-- NOTIFICATION TOAST -->
   <div id="action-toast">NOTIFICATION</div>
 
-  <!-- Core Engine Systems (Perilune Shaders, Audio, GLB Assets, Network & Voice) -->
+  <!-- Core Engine Systems (Lunaspis Shaders, Audio, GLB Assets, Network & Voice) -->
   <script src="js/core/cinematic_pass.js?v=4.3.2"></script>
   <script src="js/core/audio_synth.js?v=4.0.0"></script>
-  <script src="js/core/glb_manager.js?v=4.2.2"></script>
-  <script src="js/core/network.js?v=4.5.1"></script>
-  <script src="js/core/voice.js?v=4.3.1"></script>
+  <script src="js/core/glb_manager.js?v=4.2.3"></script>
+  <script src="js/core/network.js?v=4.6.0"></script>
+  <script src="js/core/voice.js?v=4.4.0"></script>
 
   <!-- 3D World & Environments (Space Center LC-39A, Launch, Docking, Ship Interior, ISS Showcase & Earth) -->
-  <script src="js/world/station_modules.js?v=4.7.2"></script>
-  <script src="js/world/photorealistic_earth.js?v=4.1.0"></script>
+  <script src="js/world/station_modules.js?v=4.7.3"></script>
+  <script src="js/world/photorealistic_earth.js?v=4.1.1"></script>
   <script src="js/world/space_center/shared.js?v=4.9.1"></script>
   <script src="js/world/space_center/environment.js?v=4.9.1"></script>
   <script src="js/world/space_center/pad.js?v=4.9.0"></script>
@@ -822,16 +824,24 @@
   <script src="js/world/space_center/crawler.js?v=4.9.0"></script>
   <script src="js/world/space_center/utilities.js?v=4.9.0"></script>
   <script src="js/world/space_center/site.js?v=4.9.0"></script>
-  <script src="js/world/space_center.js?v=4.9.3"></script>
-  <script src="js/world/launch_cutscene.js?v=4.8.2"></script>
-  <script src="js/world/docking_simulator.js?v=4.7.6"></script>
-  <script src="js/world/ship_interior.js?v=4.5.3"></script>
-  <script src="js/world/mission_viz.js?v=1.0.1"></script>
-  <script src="js/world/vr_mode.js?v=1.0.1"></script>
+  <script src="js/world/space_center.js?v=5.0.1"></script>
+  <script src="js/world/launch_cutscene.js?v=4.9.0"></script>
+  <script src="js/world/docking_simulator.js?v=4.8.0"></script>
+  <script src="js/world/ship_interior.js?v=4.6.3"></script>
+  <script src="js/world/mission_viz.js?v=1.1.0"></script>
+  <script src="js/world/vr_mode.js?v=1.1.0"></script>
+
+  <!-- Shuttle Flight Ops Simulation, World View, SFX, STS_OS HUD & Controller (Nov 14) -->
+  <script src="js/game/shuttle_simulation.js?v=1.0.0"></script>
+  <script src="js/game/shuttle_mission.js?v=1.0.0"></script>
+  <script src="js/world/shuttle_view.js?v=1.0.0"></script>
+  <script src="js/game/shuttle_sfx.js?v=1.0.0"></script>
+  <script src="js/game/shuttle_hud.js?v=1.0.0"></script>
+  <script src="js/game/shuttle_game.js?v=1.0.0"></script>
 
   <!-- Mission Simulation & Main Loop -->
-  <script src="js/game/gameplay.js?v=4.8.2"></script>
-  <script src="js/game/main.js?v=4.9.3"></script>
+  <script src="js/game/gameplay.js?v=4.9.0"></script>
+  <script src="js/game/main.js?v=5.0.3"></script>
 
 </body>
 </html>

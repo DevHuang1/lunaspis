@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PERILUNE ORBITAL TRANSIT & ISS SIMULATOR STYLES
+   LUNASPIS ORBITAL TRANSIT & ISS SIMULATOR STYLES
    Obsidian & Warm Ivory Aerospace Minimalism + Full Mobile Responsiveness
    ========================================================================== */
 
@@ -96,7 +96,7 @@ body {
 }
 
 /* ==========================================================================
-   SCREEN 1: PERILUNE ORBITAL TITLE SCREEN
+   SCREEN 1: LUNASPIS ORBITAL TITLE SCREEN
    ========================================================================== */
 #screen-menu {
   justify-content: space-between;
@@ -1027,7 +1027,7 @@ body {
 }
 
 /* ==========================================================================
-   SCREEN 3: IN-GAME HUD (PERILUNE MINIMALIST TELEMETRY)
+   SCREEN 3: IN-GAME HUD (LUNASPIS MINIMALIST TELEMETRY)
    ========================================================================== */
 #screen-game {
   display: none;
@@ -3455,7 +3455,7 @@ body:not(.telemetry-collapsed) #btn-telemetry-toggle {
   color: var(--accent-cyan);
 }
 
-#perilune-resource-meters {
+#lunaspis-resource-meters {
   position: fixed;
   bottom: calc(10px + var(--safe-bottom));
   left: calc(88px + var(--safe-left));
@@ -3473,20 +3473,20 @@ body:not(.telemetry-collapsed) #btn-telemetry-toggle {
   pointer-events: none;
 }
 
-body.game-active #perilune-resource-meters {
+body.game-active #lunaspis-resource-meters {
   display: flex;
 }
 
-body.telemetry-collapsed #perilune-resource-meters {
+body.telemetry-collapsed #lunaspis-resource-meters {
   display: none !important;
 }
 
-.perilune-res-item {
+.lunaspis-res-item {
   min-width: 76px;
   overflow: hidden;
 }
 
-.perilune-res-head {
+.lunaspis-res-head {
   display: flex;
   justify-content: space-between;
   gap: 5px;
@@ -3496,7 +3496,7 @@ body.telemetry-collapsed #perilune-resource-meters {
   white-space: nowrap;
 }
 
-.perilune-res-track {
+.lunaspis-res-track {
   margin-top: 2px;
   height: 3px;
   background: rgba(255, 255, 255, 0.12);
@@ -3768,7 +3768,7 @@ body.telemetry-collapsed #space-center-ground-hud {
 }
 
 /* Minimap strictly below the top-right voice panel */
-#perilune-ship-minimap {
+#lunaspis-ship-minimap {
   position: fixed;
   top: calc(96px + var(--safe-top));
   right: calc(16px + var(--safe-right));
@@ -3802,7 +3802,7 @@ body.interior-active #hud-active-speakers {
     left: calc(142px + var(--safe-left));
   }
 
-  #perilune-resource-meters {
+  #lunaspis-resource-meters {
     left: calc(216px + var(--safe-left));
     max-width: calc(100vw - 448px);
   }
@@ -4050,7 +4050,7 @@ body.interior-active #hud-active-speakers {
     left: calc(142px + var(--safe-left));
   }
 
-  body.touch-ui #perilune-resource-meters {
+  body.touch-ui #lunaspis-resource-meters {
     left: calc(216px + var(--safe-left));
     max-width: calc(100vw - 448px);
   }
@@ -4084,7 +4084,7 @@ body.interior-active #hud-active-speakers {
     font-size: 8px;
   }
 
-  #perilune-ship-minimap {
+  #lunaspis-ship-minimap {
     top: calc(108px + var(--safe-top));
     width: 170px;
   }
@@ -4105,12 +4105,12 @@ body.interior-active #hud-active-speakers {
     max-width: clamp(200px, calc(100vw - 580px), 320px);
   }
 
-  #perilune-resource-meters {
+  #lunaspis-resource-meters {
     gap: 8px;
     padding: 5px 9px;
   }
 
-  .perilune-res-item {
+  .lunaspis-res-item {
     min-width: 64px;
   }
 
@@ -4204,7 +4204,7 @@ body.interior-active #hud-active-speakers {
   }
 
   /* Minimap sits strictly below the top-right voice panel */
-  #perilune-ship-minimap {
+  #lunaspis-ship-minimap {
     top: calc(108px + var(--safe-top));
     right: calc(8px + var(--safe-right));
     width: 148px;
@@ -4256,11 +4256,11 @@ body.interior-active #hud-active-speakers {
     left: calc(120px + var(--safe-left));
   }
 
-  body.game-active #perilune-resource-meters {
+  body.game-active #lunaspis-resource-meters {
     display: grid;
   }
 
-  #perilune-resource-meters {
+  #lunaspis-resource-meters {
     bottom: calc(44px + var(--safe-bottom));
     left: calc(8px + var(--safe-left));
     right: calc(8px + var(--safe-right));
@@ -4274,7 +4274,7 @@ body.interior-active #hud-active-speakers {
     z-index: 54;
   }
 
-  body.touch-ui #perilune-resource-meters {
+  body.touch-ui #lunaspis-resource-meters {
     bottom: calc(126px + var(--safe-bottom));
   }
 
@@ -4529,7 +4529,7 @@ body.interior-active #hud-active-speakers {
     padding: 2px;
   }
 
-  #perilune-ship-minimap {
+  #lunaspis-ship-minimap {
     top: calc(98px + var(--safe-top));
     right: calc(8px + var(--safe-right));
     width: 126px;
@@ -4571,17 +4571,17 @@ body.interior-active #hud-active-speakers {
     left: calc(108px + var(--safe-left));
   }
 
-  #perilune-resource-meters {
+  #lunaspis-resource-meters {
     bottom: calc(44px + var(--safe-bottom));
     padding: 4px 6px;
     gap: 4px 6px;
   }
 
-  body.touch-ui #perilune-resource-meters {
+  body.touch-ui #lunaspis-resource-meters {
     bottom: calc(116px + var(--safe-bottom));
   }
 
-  .perilune-res-head {
+  .lunaspis-res-head {
     font-size: 6.5px;
     letter-spacing: 0.3px;
   }
@@ -4686,7 +4686,7 @@ body.interior-active #hud-active-speakers {
     padding: 4px;
   }
 
-  #perilune-ship-minimap {
+  #lunaspis-ship-minimap {
     top: calc(102px + var(--safe-top));
     right: calc(8px + var(--safe-right));
     width: 132px;
@@ -4719,7 +4719,7 @@ body.interior-active #hud-active-speakers {
   }
 
   body.touch-ui #btn-telemetry-toggle,
-  body.touch-ui #perilune-resource-meters {
+  body.touch-ui #lunaspis-resource-meters {
     display: none !important;
   }
 
@@ -4813,10 +4813,10 @@ body.docking-active #hud-crew-roster,
 body.docking-active #hud-voice-panel,
 body.docking-active #hud-active-speakers,
 body.docking-active #btn-telemetry-toggle,
-body.docking-active #perilune-resource-meters,
+body.docking-active #lunaspis-resource-meters,
 body.docking-active #space-center-ground-hud,
 body.docking-active #ship-interior-hud,
-body.docking-active #perilune-ship-minimap,
+body.docking-active #lunaspis-ship-minimap,
 body.docking-active #btn-proximity-use,
 body.docking-active #mobile-joystick-zone,
 body.docking-active #virtual-dpad,
@@ -4831,10 +4831,10 @@ body.launch-active #hud-crew-roster,
 body.launch-active #hud-voice-panel,
 body.launch-active #hud-active-speakers,
 body.launch-active #btn-telemetry-toggle,
-body.launch-active #perilune-resource-meters,
+body.launch-active #lunaspis-resource-meters,
 body.launch-active #space-center-ground-hud,
 body.launch-active #ship-interior-hud,
-body.launch-active #perilune-ship-minimap,
+body.launch-active #lunaspis-ship-minimap,
 body.launch-active #btn-proximity-use,
 body.launch-active #mobile-joystick-zone,
 body.launch-active #virtual-dpad,
@@ -4849,10 +4849,10 @@ body.iss-showcase-active #hud-crew-roster,
 body.iss-showcase-active #hud-voice-panel,
 body.iss-showcase-active #hud-active-speakers,
 body.iss-showcase-active #btn-telemetry-toggle,
-body.iss-showcase-active #perilune-resource-meters,
+body.iss-showcase-active #lunaspis-resource-meters,
 body.iss-showcase-active #space-center-ground-hud,
 body.iss-showcase-active #ship-interior-hud,
-body.iss-showcase-active #perilune-ship-minimap,
+body.iss-showcase-active #lunaspis-ship-minimap,
 body.iss-showcase-active #btn-proximity-use,
 body.iss-showcase-active #mobile-joystick-zone,
 body.iss-showcase-active #virtual-dpad,
@@ -4867,10 +4867,10 @@ body.mission-viz-active #hud-crew-roster,
 body.mission-viz-active #hud-voice-panel,
 body.mission-viz-active #hud-active-speakers,
 body.mission-viz-active #btn-telemetry-toggle,
-body.mission-viz-active #perilune-resource-meters,
+body.mission-viz-active #lunaspis-resource-meters,
 body.mission-viz-active #space-center-ground-hud,
 body.mission-viz-active #ship-interior-hud,
-body.mission-viz-active #perilune-ship-minimap,
+body.mission-viz-active #lunaspis-ship-minimap,
 body.mission-viz-active #btn-proximity-use,
 body.mission-viz-active #mobile-joystick-zone,
 body.mission-viz-active #virtual-dpad,
@@ -4885,10 +4885,10 @@ body.vr-stereo-active #hud-crew-roster,
 body.vr-stereo-active #hud-voice-panel,
 body.vr-stereo-active #hud-active-speakers,
 body.vr-stereo-active #btn-telemetry-toggle,
-body.vr-stereo-active #perilune-resource-meters,
+body.vr-stereo-active #lunaspis-resource-meters,
 body.vr-stereo-active #space-center-ground-hud,
 body.vr-stereo-active #ship-interior-hud,
-body.vr-stereo-active #perilune-ship-minimap,
+body.vr-stereo-active #lunaspis-ship-minimap,
 body.vr-stereo-active #btn-proximity-use,
 body.vr-stereo-active #mobile-joystick-zone,
 body.vr-stereo-active #virtual-dpad,

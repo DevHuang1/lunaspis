@@ -1,8 +1,8 @@
 /**
  * ============================================================================
- * PERILUNE / SPACESHIP 3D MODULAR TRANSIT CRAFT, MINIMAP & LUNAR SCENE
+ * LUNASPIS / SPACESHIP 3D MODULAR TRANSIT CRAFT, MINIMAP & LUNAR SCENE
  * ============================================================================
- * Pure Vanilla Three.js port of the SpaceShip (Perilune — Orbital / Mission Lab)
+ * Pure Vanilla Three.js port of the SpaceShip (Lunaspis — Orbital / Mission Lab)
  * 3D ship architecture (no Next.js / React required):
  * 1. Procedural Canvas Textures (interior-textures.ts & label-texture.ts):
  *    - Riveted aluminum panel walls with louver vents & base grime
@@ -36,6 +36,27 @@
   const DOOR_WIDTH = 2.4;
   const DOOR_HEIGHT = 2.35;
   const WALL_THICKNESS = 0.16;
+  const ISS_INTERIOR_MODEL_URL = "models/iss/international_space_station.glb";
+  const ISS_INTERIOR_MODEL_SCALE = 0.55;
+
+  // Approximate passages through the scan, in station coordinates. The scan
+  // contains holes and photogrammetry spikes, so it is not a collision mesh.
+  const ISS_WALK_ZONES = [
+    { xMin: -1.2, xMax: 1.2, zMin: 0.3, zMax: 7.2 },
+    { xMin: -5.0, xMax: 1.5, zMin: 6.3, zMax: 12.2 },
+    { xMin: -7.5, xMax: 2.1, zMin: -5.3, zMax: 1.0 },
+    { xMin: 1.5, xMax: 12.0, zMin: -5.3, zMax: -2.3 },
+    { xMin: 1.2, xMax: 11.5, zMin: 6.0, zMax: 10.2 },
+    { xMin: -1.2, xMax: 2.0, zMin: 11.0, zMax: 40.0 }
+  ];
+  const ISS_STATION_LAYOUT = {
+    hub: { position: [-2.5, 1.02, 0], workPosition: [-1.4, 0, 0.5] },
+    command: { position: [-0.8, 0.92, -3.5], workPosition: [0, 0, -3.5] },
+    power: { position: [-5.5, 0.92, -3.8], workPosition: [-4.2, 0, -3.8] },
+    "life-support": { position: [8, 0.92, -3.5], workPosition: [7, 0, -3.5] },
+    hull: { position: [8, 0.92, 8], workPosition: [7, 0, 8] },
+    lander: { position: [0, 0.92, 25], workPosition: [1, 0, 24] }
+  };
 
   const METAL = 0x2f353b;
   const METAL_LIGHT = 0x5b636a;
@@ -1649,7 +1670,7 @@
     const glow = makeGlowTexture();
     const streak = makeStreakTexture();
     const group = new THREE.Group();
-    group.name = "Perilune_SunFlare";
+    group.name = "Lunaspis_SunFlare";
 
     const s1 = new THREE.Sprite(
       new THREE.SpriteMaterial({
@@ -1942,6 +1963,18 @@
       this.roomVisuals = {}; // roomId -> { doorFrames, ceilingLights }
       this.moonLanding = null;
       this.sunFlare = null;
+      this.roomShellGroup = null;
+      this.stationInteractionGroup = null;
+      this.legacyPropsGroup = null;
+      this.issInteriorModelGroup = null;
+      this.issInteriorModel = null;
+      this.issInteriorBacking = null;
+      this.issInteriorModelPromise = null;
+      this.issInteriorLoadProgress = -1;
+      this.fallbackStationLayout = Object.fromEntries(Object.entries(STATIONS).map(([id, station]) => [id, {
+        position: station.position.slice(), workPosition: station.workPosition.slice()
+      }]));
+      this.fallbackTaskPositions = null;
 
       // UI Overlays
       this.hudPill = null;
@@ -1958,6 +1991,8 @@
       this.group.visible = true;
       this.scene.add(this.group);
 
+      const interiorGroup = this.group;
+
       // Interior lighting matching SpaceShip/src/components/game/ShipInterior.tsx
       this.group.add(new THREE.AmbientLight(0xffffff, 0.38));
       this.group.add(new THREE.HemisphereLight(0xcfd9e2, 0x0a0f16, 0.6));
@@ -1965,10 +2000,30 @@
       dirLight.position.set(5, 8, 3);
       this.group.add(dirLight);
 
+      this.roomShellGroup = new THREE.Group();
+      this.roomShellGroup.name = "ISS_Interior_Procedural_Fallback";
+      this.stationInteractionGroup = new THREE.Group();
+      this.stationInteractionGroup.name = "ISS_Interior_Mission_Stations";
+      this.legacyPropsGroup = new THREE.Group();
+      this.legacyPropsGroup.name = "ISS_Interior_Procedural_Props";
+      this.issInteriorModelGroup = new THREE.Group();
+      this.issInteriorModelGroup.name = "ISS_Interior_Stephen_Mack_Model";
+      this.issInteriorModelGroup.visible = false;
+      interiorGroup.add(this.roomShellGroup);
+      interiorGroup.add(this.stationInteractionGroup);
+      interiorGroup.add(this.legacyPropsGroup);
+      interiorGroup.add(this.issInteriorModelGroup);
+
+      this.group = this.roomShellGroup;
       this._buildAllRoomsAndConnectors();
+
+      this.group = this.stationInteractionGroup;
       this._buildHoloTable();
       this._buildStationConsoles();
+
+      this.group = this.legacyPropsGroup;
       this._buildAllRoomProps();
+      this.group = interiorGroup;
 
       // Build Moon Landing Scene & SunFlare in main scene
       this.moonLanding = buildMoonLandingScene();
@@ -1981,7 +2036,225 @@
       this._buildInteractiveHUD();
       this._buildMinimapDOM();
 
-      console.log("🛸 [SpaceShip] 6-room Perilune modular transit craft, friendly crew map & lunar landing scene online.");
+      console.log("🛸 [SpaceShip] 6-room Lunaspis modular transit craft, friendly crew map & lunar landing scene online.");
+    }
+
+    _setInteriorTitle(text) {
+      const titleEl = document.getElementById("ship-room-title");
+      if (titleEl) titleEl.textContent = text;
+    }
+
+    _ensureISSInteriorModel() {
+      if (this.issInteriorModel) return Promise.resolve(this.issInteriorModel);
+      if (this.issInteriorModelPromise) return this.issInteriorModelPromise;
+      if (!window.glbManager || typeof window.glbManager.loadGLB !== "function") {
+        return Promise.reject(new Error("The GLB manager is not available."));
+      }
+
+      this.issInteriorLoadProgress = -1;
+      this._setInteriorTitle("LOADING ISS INTERIOR · 0%");
+      this.issInteriorModelPromise = window.glbManager.loadGLB(
+        ISS_INTERIOR_MODEL_URL,
+        (percent) => {
+          if (percent === this.issInteriorLoadProgress) return;
+          this.issInteriorLoadProgress = percent;
+          if (this.isInteriorActive && !this.isMoonLandingActive) {
+            this._setInteriorTitle(`LOADING ISS INTERIOR · ${percent}%`);
+          }
+        }
+      ).then(() => {
+        const THREE = window.THREE;
+        const model = window.glbManager.instantiateModel(ISS_INTERIOR_MODEL_URL, {
+          scale: ISS_INTERIOR_MODEL_SCALE,
+          center: false,
+          castShadow: false,
+          receiveShadow: false,
+          enhancePBR: false
+        });
+        model.name = "Stephen_Mack_ISS_Interior_CC_BY_4_0";
+
+        // Anchor using Node 1, then place the crew spawn in Destiny's clearer
+        // corridor. Its scan includes incomplete surfaces and stray polygons.
+        const nodeOneBounds = new THREE.Box3();
+        model.updateMatrixWorld(true);
+        model.traverse((object) => {
+          if (!object.isMesh) return;
+          const materials = Array.isArray(object.material) ? object.material : [object.material];
+          if (!materials.some((material) => /NODE1_and_QUEST_FINAL/i.test(material && material.name || ""))) return;
+          nodeOneBounds.union(new THREE.Box3().setFromObject(object));
+        });
+        const referenceBounds = nodeOneBounds.isEmpty()
+          ? new THREE.Box3().setFromObject(model)
+          : nodeOneBounds;
+        const referenceCenter = new THREE.Vector3();
+        referenceBounds.getCenter(referenceCenter);
+        // A half-unit downward adjustment keeps the astronaut's view within
+        // the photographed corridor instead of beneath its uneven floor scan.
+        model.position.set(-referenceCenter.x - 1.8, -referenceBounds.min.y - 0.5, -referenceCenter.z + 9.3);
+
+        model.traverse((object) => {
+          if (!object.isMesh) return;
+          object.castShadow = false;
+          object.receiveShadow = false;
+          // The scan's photographs already contain lighting. Display their
+          // original colors without applying scene lighting a second time.
+          const convert = (material) => {
+            if (!material || !material.map) return material;
+            if (window.renderer && window.renderer.capabilities) {
+              material.map.anisotropy = Math.min(8, window.renderer.capabilities.getMaxAnisotropy());
+            }
+            return new THREE.MeshBasicMaterial({
+              map: material.map, color: material.color, side: material.side,
+              transparent: material.transparent, opacity: material.opacity,
+              alphaTest: material.alphaTest, depthWrite: material.depthWrite,
+              toneMapped: false
+            });
+          };
+          object.material = Array.isArray(object.material) ? object.material.map(convert) : convert(object.material);
+        });
+        this.issInteriorModelGroup.add(model);
+        this.issInteriorBacking = this._buildISSInteriorBacking();
+        this.issInteriorModelGroup.add(this.issInteriorBacking);
+        model.updateMatrixWorld(true);
+        this.issInteriorModel = model;
+        this._applyISSStationLayout();
+        this._placeCrewOnISSWalkway();
+
+        if (this.roomShellGroup) this.roomShellGroup.visible = false;
+        if (this.legacyPropsGroup) this.legacyPropsGroup.visible = false;
+        this.issInteriorModelGroup.visible = this.isInteriorActive && !this.isMoonLandingActive;
+        if (this.isInteriorActive && !this.isMoonLandingActive) {
+          this._setInteriorTitle("INTERNATIONAL SPACE STATION · INTERIOR");
+        }
+        console.log("🛰️ [ISS Interior] Stephen Mack's Sketchfab interior loaded (CC BY 4.0).");
+        return model;
+      }).catch((error) => {
+        this.issInteriorModelPromise = null;
+        if (this.issInteriorModelGroup && this.issInteriorModel) this.issInteriorModelGroup.remove(this.issInteriorModel);
+        if (this.issInteriorModelGroup && this.issInteriorBacking) this.issInteriorModelGroup.remove(this.issInteriorBacking);
+        this.issInteriorModel = null;
+        this.issInteriorBacking = null;
+        this._restoreFallbackStationLayout();
+        if (this.roomShellGroup) this.roomShellGroup.visible = true;
+        if (this.legacyPropsGroup) this.legacyPropsGroup.visible = true;
+        if (this.issInteriorModelGroup) this.issInteriorModelGroup.visible = false;
+        if (this.isInteriorActive && !this.isMoonLandingActive) {
+          this._setInteriorTitle("ISS INTERIOR MODEL UNAVAILABLE · CURRENT INTERIOR ACTIVE");
+        }
+        console.warn("Could not load the ISS interior model; using the procedural interior:", error);
+        throw error;
+      });
+
+      return this.issInteriorModelPromise;
+    }
+
+    _buildISSInteriorBacking() {
+      const THREE = window.THREE;
+      const group = new THREE.Group();
+      group.name = "ISS_Interior_Gap_Backing";
+      const step = 0.5;
+      const cells = new Set();
+      const key = (x, z) => `${x},${z}`;
+      for (let x = -17; x <= 25; x++) {
+        for (let z = -13; z <= 81; z++) {
+          const cx = (x + 0.5) * step, cz = (z + 0.5) * step;
+          if (ISS_WALK_ZONES.some((zone) => cx >= zone.xMin - 0.5 && cx <= zone.xMax + 0.5 && cz >= zone.zMin - 0.5 && cz <= zone.zMax + 0.5)) {
+            cells.add(key(x, z));
+          }
+        }
+      }
+      const floors = [], ceilings = [], eastWest = [], northSouth = [];
+      cells.forEach((cell) => {
+        const [x, z] = cell.split(",").map(Number);
+        const cx = (x + 0.5) * step, cz = (z + 0.5) * step;
+        floors.push([cx, -0.09, cz]);
+        ceilings.push([cx, 2.85, cz]);
+        if (!cells.has(key(x - 1, z))) eastWest.push([cx - step / 2, 1.38, cz]);
+        if (!cells.has(key(x + 1, z))) eastWest.push([cx + step / 2, 1.38, cz]);
+        if (!cells.has(key(x, z - 1))) northSouth.push([cx, 1.38, cz - step / 2]);
+        if (!cells.has(key(x, z + 1))) northSouth.push([cx, 1.38, cz + step / 2]);
+      });
+      const textures = getInteriorTextures();
+      const makePanels = (size, positions, color, map) => {
+        const mesh = new THREE.InstancedMesh(
+          new THREE.BoxGeometry(...size),
+          new THREE.MeshStandardMaterial({ color, map, roughness: 0.9, metalness: 0.08 }),
+          positions.length
+        );
+        const transform = new THREE.Object3D();
+        positions.forEach((position, index) => {
+          transform.position.set(...position);
+          transform.updateMatrix();
+          mesh.setMatrixAt(index, transform.matrix);
+        });
+        mesh.instanceMatrix.needsUpdate = true;
+        mesh.frustumCulled = false;
+        group.add(mesh);
+      };
+      makePanels([step, 0.12, step], floors, 0xaeb7ba, textures.floor);
+      makePanels([step, 0.12, step], ceilings, 0xb8c2c5, textures.ceiling);
+      makePanels([0.08, 2.9, step], eastWest, 0xb8c2c5, textures.wall);
+      makePanels([step, 2.9, 0.08], northSouth, 0xb8c2c5, textures.wall);
+      return group;
+    }
+
+    _applyISSStationLayout() {
+      if (window.gameplay && Array.isArray(window.gameplay.tasks) && !this.fallbackTaskPositions) {
+        this.fallbackTaskPositions = window.gameplay.tasks.map((task) => task.pos.slice());
+      }
+      Object.entries(ISS_STATION_LAYOUT).forEach(([id, layout]) => {
+        const station = STATIONS[id];
+        station.position = layout.position.slice();
+        station.workPosition = layout.workPosition.slice();
+        const object = this.stationInteractionGroup.getObjectByName(id === "hub" ? "Hub_HoloTable" : `Console_${id}`);
+        if (object) {
+          object.position.set(layout.position[0], 0, layout.position[2]);
+          object.scale.setScalar(0.55);
+        }
+        const entry = this.stationEntries[id];
+        if (entry && entry.beacon) entry.beacon.group.position.set(layout.position[0], entry.beacon.baseY, layout.position[2]);
+      });
+      if (window.gameplay && Array.isArray(window.gameplay.tasks)) {
+        window.gameplay.tasks.forEach((task) => {
+          const layout = ISS_STATION_LAYOUT[task.stationId];
+          if (layout) task.pos = layout.workPosition.slice();
+        });
+      }
+      this._updateMinimapDOM();
+    }
+
+    _restoreFallbackStationLayout() {
+      Object.entries(this.fallbackStationLayout).forEach(([id, layout]) => {
+        const station = STATIONS[id];
+        station.position = layout.position.slice();
+        station.workPosition = layout.workPosition.slice();
+        const object = this.stationInteractionGroup && this.stationInteractionGroup.getObjectByName(id === "hub" ? "Hub_HoloTable" : `Console_${id}`);
+        if (object) {
+          object.position.set(layout.position[0], 0, layout.position[2]);
+          object.scale.setScalar(1);
+        }
+        const entry = this.stationEntries[id];
+        if (entry && entry.beacon) entry.beacon.group.position.set(layout.position[0], entry.beacon.baseY, layout.position[2]);
+      });
+      if (this.fallbackTaskPositions && window.gameplay && Array.isArray(window.gameplay.tasks)) {
+        window.gameplay.tasks.forEach((task, index) => {
+          if (this.fallbackTaskPositions[index]) task.pos = this.fallbackTaskPositions[index].slice();
+        });
+      }
+      this.fallbackTaskPositions = null;
+    }
+
+    _placeCrewOnISSWalkway() {
+      if (!this.isInteriorActive || (window.spaceCenter && window.spaceCenter.isGroundMode)) return;
+      const crew = window.localCrew && window.localCrew.group;
+      if (!crew || this.canStandAt(crew.position.x, crew.position.z, 0.32)) return;
+      const candidates = ISS_WALK_ZONES.map((zone) => ({
+        x: Math.max(zone.xMin + 0.4, Math.min(zone.xMax - 0.4, crew.position.x)),
+        z: Math.max(zone.zMin + 0.4, Math.min(zone.zMax - 0.4, crew.position.z))
+      })).filter((point) => this.canStandAt(point.x, point.z, 0.32));
+      candidates.sort((a, b) => Math.hypot(a.x - crew.position.x, a.z - crew.position.z) - Math.hypot(b.x - crew.position.x, b.z - crew.position.z));
+      const target = candidates[0] || { x: 0, z: 2 };
+      crew.position.set(target.x, 0, target.z);
     }
 
     _buildAllRoomsAndConnectors() {
@@ -2315,21 +2588,22 @@
       this.hudPill = document.createElement("div");
       this.hudPill.id = "ship-interior-hud";
       this.hudPill.innerHTML = `
-        <span style="width:6px;height:6px;border-radius:50%;background:#67e8f9;flex-shrink:0;"></span>
-        <span style="font-size:10px;font-weight:700;letter-spacing:1.6px;color:#ece7dc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="ship-room-title">STATION · TRANSIT HUB</span>
-        <button id="btn-return-space-center" style="background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.45);color:#fde68a;font-size:9px;font-weight:700;letter-spacing:1.2px;padding:3px 8px;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;" title="Return the whole crew to Kennedy Space Center LC-39A [G]">
+        <span style="width:6px;height:6px;border-radius:2px;background:#2563eb;flex-shrink:0;"></span>
+        <span style="font-size:10px;font-weight:700;letter-spacing:1.6px;color:#f8fafc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="ship-room-title">ISS INTERIOR · LOADS ON ENTRY</span>
+        <a href="https://sketchfab.com/3d-models/international-space-station-2256c89a089b4ec895bb658b18fa7bbb" target="_blank" rel="noopener noreferrer" title="Original ISS interior model by Stephen Mack on Sketchfab, licensed CC BY 4.0. Scaled and repositioned at runtime for Lunaspis." style="font-size:8px;font-weight:700;letter-spacing:0.6px;color:#a5f3fc;text-decoration:underline;white-space:nowrap;">SKETCHFAB · STEPHEN MACK · CC BY 4.0</a>
+        <button id="btn-return-space-center" style="background:rgba(15,23,42,0.88);border:1px solid rgba(148,163,184,0.28);color:#e2e8f0;font-size:9px;font-weight:700;letter-spacing:1.2px;padding:4px 9px;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;" title="Return the whole crew to Kennedy Space Center LC-39A [G]">
           PAD LC-39A [G]
         </button>
-        <button id="btn-toggle-iss-showcase" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.16);color:#ece7dc;font-size:9px;font-weight:700;letter-spacing:1.2px;padding:3px 8px;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;" title="Inspect 27-Part NASA ISS 3D Reference Model [J]">
+        <button id="btn-toggle-iss-showcase" style="background:rgba(15,23,42,0.88);border:1px solid rgba(148,163,184,0.22);color:#e2e8f0;font-size:9px;font-weight:700;letter-spacing:1.2px;padding:4px 9px;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;" title="Inspect 27-Part NASA ISS 3D Reference Model [J]">
           ISS 3D [J]
         </button>
-        <button id="btn-toggle-lunar-scene" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.16);color:#9a8fc4;font-size:9px;font-weight:700;letter-spacing:1.2px;padding:3px 8px;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;" title="Toggle 3D Lunar Touchdown Scene [K]">
+        <button id="btn-toggle-lunar-scene" style="background:rgba(15,23,42,0.88);border:1px solid rgba(148,163,184,0.22);color:#94a3b8;font-size:9px;font-weight:700;letter-spacing:1.2px;padding:4px 9px;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;" title="Toggle 3D Lunar Touchdown Scene [K]">
           MOON [K]
         </button>
-        <button id="btn-toggle-mission-viz" style="background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.45);color:#7dd3fc;font-size:9px;font-weight:700;letter-spacing:1.2px;padding:3px 8px;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;" title="Open 3D NASA Mission Viz & GMAT Trajectory Theater [U]">
+        <button id="btn-toggle-mission-viz" style="background:rgba(37,99,235,0.22);border:1px solid rgba(59,130,246,0.48);color:#f8fafc;font-size:9px;font-weight:700;letter-spacing:1.2px;padding:4px 9px;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;" title="Open 3D NASA Mission Viz & GMAT Trajectory Theater [U]">
           ORBIT VIZ [U]
         </button>
-        <button id="btn-hud-vr" style="background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.45);color:#ddd6fe;font-size:9px;font-weight:700;letter-spacing:1.2px;padding:3px 8px;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;" title="Toggle WebXR / Stereo VR View">
+        <button id="btn-hud-vr" style="background:rgba(15,23,42,0.88);border:1px solid rgba(148,163,184,0.22);color:#cbd5e1;font-size:9px;font-weight:700;letter-spacing:1.2px;padding:4px 9px;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;" title="Toggle WebXR / Stereo VR View">
           VR VIEW
         </button>
       `;
@@ -2393,12 +2667,12 @@
     }
 
     _buildMinimapDOM() {
-      const existing = document.getElementById("perilune-ship-minimap");
+      const existing = document.getElementById("lunaspis-ship-minimap");
       if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
 
       this.minimapCollapsed = Boolean(window.innerWidth <= 900);
       this.minimapEl = document.createElement("div");
-      this.minimapEl.id = "perilune-ship-minimap";
+      this.minimapEl.id = "lunaspis-ship-minimap";
       const applyMinimapLayout = () => {
         if (!this.minimapEl) return;
         const canShowMap = Boolean(window.isGameStarted && this.isInteriorActive);
@@ -2426,13 +2700,17 @@
         .replace(/'/g, "&#39;");
     }
 
-    _updateMinimapDOM(px = 0, pz = 2.0, heading = 0) {
-      if (!this.minimapEl) return;
-      this._lastMinimapX = px;
-      this._lastMinimapZ = pz;
-      this._lastMinimapYaw = heading;
-
+    _buildFloorplanMarkup(px = 0, pz = 2.0, heading = 0, options = {}) {
+      const includeLocal = options.includeLocal !== false;
       const curRoomObj = ROOM_BY_ID.get(this.activeRoomId) || ROOMS[0];
+      const mission = window.netManager && typeof window.netManager.getMission === "function"
+        ? window.netManager.getMission()
+        : null;
+      const completedSet = new Set((mission && mission.completedObjectives) || []);
+      const activePing = mission && mission.groundSupport ? mission.groundSupport.activePing : null;
+      const pingValid = activePing && (Date.now() - (activePing.at || 0) < 20000);
+      const pingRoomCode = pingValid ? String(activePing.roomId || "").toUpperCase() : "";
+
       const connections = [
         [0, 1],
         [0, 2],
@@ -2446,36 +2724,47 @@
         if (e.hasFault) faultCount++;
       });
 
-      const linesSvg = connections
+      const linesSvg = this.issInteriorModel ? "" : connections
         .map(([from, to]) => {
           const a = ROOMS[from];
           const b = ROOMS[to];
-          return `<line x1="${a.center[0]}" y1="${a.center[1]}" x2="${b.center[0]}" y2="${b.center[1]}" stroke="rgba(255,255,255,0.16)" stroke-width="0.35" />`;
+          return `<line x1="${a.center[0]}" y1="${a.center[1]}" x2="${b.center[0]}" y2="${b.center[1]}" stroke="rgba(148,163,184,0.22)" stroke-width="0.35" />`;
         })
         .join("");
 
-      const roomsSvg = ROOMS.map((room) => {
+      const roomsSvg = this.issInteriorModel ? ISS_WALK_ZONES.map((zone) =>
+        `<rect x="${zone.xMin}" y="${zone.zMin}" width="${zone.xMax - zone.xMin}" height="${zone.zMax - zone.zMin}" fill="rgba(103,232,249,0.08)" stroke="rgba(148,163,184,0.3)" stroke-width="0.2" />`
+      ).join("") + Object.values(STATIONS).map((station) =>
+        `<text x="${station.workPosition[0]}" y="${station.workPosition[2]}" text-anchor="middle" fill="#f8fafc" font-size="1.1">${station.shortLabel}</text>`
+      ).join("") : ROOMS.map((room) => {
         const stEntry = Object.values(this.stationEntries).find(
-          (e) => e.station.room === room.id && e.hasFault
+          (e) => e.station.room === room.id
         );
-        const fault = Boolean(stEntry);
-        const color = stEntry ? stEntry.station.color : "#ece7dc";
-        const active = curRoomObj.shortLabel === room.shortLabel;
-        const fill = fault
-          ? `${color}22`
-          : active
-            ? "rgba(236,231,220,0.12)"
-            : "rgba(255,255,255,0.025)";
-        const stroke = fault
-          ? `${color}99`
-          : active
-            ? "rgba(236,231,220,0.5)"
-            : "rgba(255,255,255,0.13)";
-        const textFill = fault ? color : "rgba(236,231,220,0.6)";
+        const fault = stEntry
+          ? (mission ? !completedSet.has(stEntry.station.taskId) : stEntry.hasFault)
+          : false;
+        const isPinged = pingRoomCode && room.shortLabel.toUpperCase() === pingRoomCode;
+        const color = stEntry ? stEntry.station.color : "#f8fafc";
+        const active = includeLocal && curRoomObj.shortLabel === room.shortLabel;
+        const fill = isPinged
+          ? "rgba(37, 99, 235, 0.28)"
+          : fault
+            ? `${color}20`
+            : active
+              ? "rgba(248,250,252,0.12)"
+              : "rgba(255,255,255,0.025)";
+        const stroke = isPinged
+          ? "#38bdf8"
+          : fault
+            ? `${color}99`
+            : active
+              ? "rgba(248,250,252,0.55)"
+              : "rgba(148,163,184,0.2)";
+        const textFill = isPinged ? "#93c5fd" : (fault ? color : "rgba(248,250,252,0.68)");
 
         return `
           <g>
-            <rect x="${room.center[0] - room.size[0] / 2}" y="${room.center[1] - room.size[1] / 2}" width="${room.size[0]}" height="${room.size[1]}" fill="${fill}" stroke="${stroke}" stroke-width="0.3" />
+            <rect x="${room.center[0] - room.size[0] / 2}" y="${room.center[1] - room.size[1] / 2}" width="${room.size[0]}" height="${room.size[1]}" fill="${fill}" stroke="${stroke}" stroke-width="${isPinged ? 0.5 : 0.3}" />
             <text x="${room.center[0]}" y="${room.center[1] + 0.8}" text-anchor="middle" fill="${textFill}" font-size="2.1" letter-spacing="0.2">${room.shortLabel}</text>
           </g>
         `;
@@ -2483,74 +2772,103 @@
 
       const stationsSvg = Object.values(STATIONS)
         .map((st) => {
-          const entry = this.stationEntries[st.id];
-          const fault = entry ? entry.hasFault : false;
-          return `<circle cx="${st.position[0]}" cy="${st.position[2]}" r="${fault ? 0.85 : 0.55}" fill="${fault ? st.color : "rgba(236,231,220,0.5)"}" />`;
+          const done = completedSet.has(st.taskId);
+          const fault = !done;
+          return `<circle cx="${st.position[0]}" cy="${st.position[2]}" r="${fault ? 0.85 : 0.55}" fill="${fault ? st.color : "rgba(248,250,252,0.45)"}" />`;
         })
         .join("");
 
-      // Live friendly crew markers. Remote positions are already in station
-      // coordinates, so they map directly onto the SVG floor plan.
+      // Live orbital Flight Crew markers only (exclude Space Center Ground Control).
       const remotePlayers = window.netManager && window.netManager.remotePlayers
         ? Object.values(window.netManager.remotePlayers)
         : [];
       const friendMarkers = [];
       const friendLegend = [];
       remotePlayers.slice(0, 6).forEach((rp, index) => {
-        const pos = rp && (rp.curPos || rp.targetPos);
+        if (!rp || rp.team === "ground") return;
+        const pos = rp.curPos || rp.targetPos;
         if (!pos || !Number.isFinite(pos[0]) || !Number.isFinite(pos[2])) return;
-        if (pos[0] < -13.2 || pos[0] > 13.2 || pos[2] < -13.2 || pos[2] > 21.2) return;
-        const color = /^#[0-9a-fA-F]{6}$/.test(rp.color) ? rp.color : "#67e8f9";
+        if (this.issInteriorModel
+          ? (pos[0] < -9 || pos[0] > 14 || pos[2] < -6.5 || pos[2] > 41.5)
+          : (pos[0] < -13.2 || pos[0] > 13.2 || pos[2] < -13.2 || pos[2] > 21.2)) return;
+        const color = /^#[0-9a-fA-F]{6}$/.test(rp.color) ? rp.color : "#38bdf8";
         const rawName = String(rp.name || `Crew ${index + 1}`).slice(0, 12);
-        const safeName = this._escapeMapText(rawName);
+        const roleMeta = window.InterfellasRoles ? window.InterfellasRoles.getRoleMeta(rp.role) : null;
+        const shortTag = roleMeta ? `[${roleMeta.short}] ` : "";
+        const safeName = this._escapeMapText(shortTag + rawName);
         friendMarkers.push(`
           <g transform="translate(${pos[0].toFixed(2)} ${pos[2].toFixed(2)})">
             <title>${safeName}</title>
-            <circle r="1.05" fill="${color}" stroke="#05060a" stroke-width="0.32" />
-            <circle r="0.3" fill="rgba(5,6,10,0.72)" />
+            <circle r="1.05" fill="${color}" stroke="#050810" stroke-width="0.32" />
+            <circle r="0.3" fill="rgba(5,8,16,0.72)" />
           </g>
         `);
         friendLegend.push(`
-          <span style="display:inline-flex;align-items:center;gap:3px;max-width:78px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-            <span style="width:5px;height:5px;border-radius:50%;background:${color};flex:0 0 auto;"></span>${safeName}
+          <span style="display:inline-flex;align-items:center;gap:3px;max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+            <span style="width:5px;height:5px;border-radius:1px;background:${color};flex:0 0 auto;"></span>${safeName}
           </span>
         `);
       });
-      const friendsSvg = friendMarkers.join("");
-      const friendsLegendHtml = friendLegend.length
+
+      const localMarkerSvg = includeLocal
         ? `
-          <div style="display:flex;flex-wrap:wrap;gap:4px 7px;border-top:1px solid rgba(255,255,255,0.1);padding:4px 8px;font-size:7px;letter-spacing:0.3px;color:rgba(154,164,174,0.85);">
-            <span style="display:inline-flex;align-items:center;gap:3px;">
-              <span style="width:5px;height:5px;border-radius:50%;background:#ece7dc;flex:0 0 auto;"></span>YOU
-            </span>
-            ${friendLegend.join("")}
+          <g transform="translate(${px.toFixed(2)} ${pz.toFixed(2)}) rotate(${(((heading * 180) / Math.PI) + 180).toFixed(1)})">
+            <path d="M 0 -2.3 L 1.7 1.9 L 0 1.1 L -1.7 1.9 Z" fill="#f8fafc" stroke="#050810" stroke-width="0.2" />
+          </g>
+        `
+        : "";
+
+      const isCompact = window.innerWidth <= 900 || window.isMobileDevice;
+      const svgHeight = options.svgHeight || (isCompact ? 132 : 190);
+      const legendHtml = (friendLegend.length || includeLocal)
+        ? `
+          <div style="display:flex;flex-wrap:wrap;gap:4px 7px;border-top:1px solid rgba(148,163,184,0.18);padding:4px 8px;font-size:7px;letter-spacing:0.3px;color:rgba(148,163,184,0.88);">
+            ${includeLocal ? `<span style="display:inline-flex;align-items:center;gap:3px;"><span style="width:5px;height:5px;border-radius:1px;background:#f8fafc;flex:0 0 auto;"></span>YOU</span>` : ""}
+            ${friendLegend.join("") || (!includeLocal ? `<span style="color:rgba(148,163,184,0.7);">AWAITING ORBITAL TELEMETRY</span>` : "")}
           </div>
         `
         : "";
 
-      const rotDeg = (heading * 180) / Math.PI + 180;
-      const isCompact = window.innerWidth <= 900 || window.isMobileDevice;
-      const svgHeight = isCompact ? 132 : 190;
-
-      this.minimapEl.innerHTML = `
-        <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:${this.minimapCollapsed ? "none" : "1px solid rgba(255,255,255,0.1)"};padding:5px 8px;" title="Tap to collapse/expand ship map">
-          <span style="font-size:8px;text-transform:uppercase;letter-spacing:1.6px;color:rgba(154,164,174,0.8);">MAP ${this.minimapCollapsed ? "▸" : "▾"}</span>
-          <span style="font-size:8px;text-transform:uppercase;letter-spacing:1.4px;color:#ece7dc;font-weight:700;">${curRoomObj.shortLabel}</span>
-        </div>
-        ${this.minimapCollapsed ? "" : `
-          <svg viewBox="-13.5 -13.5 27 35" style="height:${svgHeight}px;width:100%;display:block;">
+      return {
+        curRoomLabel: curRoomObj.shortLabel,
+        faultCount,
+        pingRoomCode,
+        svgHtml: `
+          <svg viewBox="${this.issInteriorModel ? "-9 -6.5 23 48" : "-13.5 -13.5 27 35"}" style="height:${svgHeight}px;width:100%;display:block;">
             ${linesSvg}
             ${roomsSvg}
             ${stationsSvg}
-            ${friendsSvg}
-            <g transform="translate(${px.toFixed(2)} ${pz.toFixed(2)}) rotate(${rotDeg.toFixed(1)})">
-              <path d="M 0 -2.3 L 1.7 1.9 L 0 1.1 L -1.7 1.9 Z" fill="#ece7dc" stroke="#05060a" stroke-width="0.2" />
-            </g>
+            ${friendMarkers.join("")}
+            ${localMarkerSvg}
           </svg>
-          ${friendsLegendHtml}
-          <div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid rgba(255,255,255,0.1);padding:4px 8px;font-size:7px;text-transform:uppercase;letter-spacing:1.4px;color:rgba(154,164,174,0.6);">
+          ${legendHtml}
+        `
+      };
+    }
+
+    renderExternalFloorplanHtml(svgHeight = 165) {
+      const markup = this._buildFloorplanMarkup(0, 2, 0, { includeLocal: false, svgHeight });
+      return markup.svgHtml;
+    }
+
+    _updateMinimapDOM(px = 0, pz = 2.0, heading = 0) {
+      if (!this.minimapEl) return;
+      this._lastMinimapX = px;
+      this._lastMinimapZ = pz;
+      this._lastMinimapYaw = heading;
+
+      const markup = this._buildFloorplanMarkup(px, pz, heading, { includeLocal: true });
+
+      this.minimapEl.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:${this.minimapCollapsed ? "none" : "1px solid rgba(148,163,184,0.18)"};padding:5px 8px;" title="Tap to collapse/expand ship map">
+          <span style="font-size:8px;text-transform:uppercase;letter-spacing:1.6px;color:rgba(148,163,184,0.85);">MAP ${this.minimapCollapsed ? "&#9656;" : "&#9662;"}</span>
+          <span style="font-size:8px;text-transform:uppercase;letter-spacing:1.4px;color:#f8fafc;font-weight:700;">${markup.curRoomLabel}</span>
+        </div>
+        ${this.minimapCollapsed ? "" : `
+          ${markup.svgHtml}
+          <div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid rgba(148,163,184,0.18);padding:4px 8px;font-size:7px;text-transform:uppercase;letter-spacing:1.4px;color:rgba(148,163,184,0.72);">
             <span>DECK 01</span>
-            <span>${faultCount} FAULTS</span>
+            <span>${markup.pingRoomCode ? `LCC PING: ${markup.pingRoomCode}` : `${markup.faultCount} FAULTS`}</span>
           </div>
         `}
       `;
@@ -2560,12 +2878,18 @@
     // 11. REAL-TIME PHYSICAL COLLISION & CAMERA CLEARANCE ENGINE (collision.ts)
     // ============================================================================
     isWalkable(x, z) {
-      return WALK_ZONES.some(
+      const zones = this.issInteriorModel ? ISS_WALK_ZONES : WALK_ZONES;
+      return zones.some(
         (zone) => x >= zone.xMin && x <= zone.xMax && z >= zone.zMin && z <= zone.zMax
       );
     }
 
     isSolid(x, z, margin = 0) {
+      if (this.issInteriorModel) {
+        return Object.values(STATIONS).some((station) =>
+          Math.hypot(x - station.position[0], z - station.position[2]) < 0.4 + margin
+        );
+      }
       for (let i = 0; i < SOLID_CIRCLES.length; i++) {
         const c = SOLID_CIRCLES[i];
         if (Math.hypot(x - c.x, z - c.z) < c.radius + margin) return true;
@@ -2580,41 +2904,64 @@
     }
 
     canStandAt(x, z, radius = 0.26) {
-      return this.isWalkable(x, z) && !this.isSolid(x, z, radius);
+      if (!this.isWalkable(x, z) || this.isSolid(x, z, radius)) return false;
+      if (!this.issInteriorModel) return true;
+      for (let i = 0; i < 8; i++) {
+        const angle = i * Math.PI / 4;
+        if (!this.isWalkable(x + Math.cos(angle) * radius, z + Math.sin(angle) * radius)) return false;
+      }
+      return true;
     }
 
     isCameraClear(x, z) {
-      return this.isWalkable(x, z) && !this.isSolid(x, z, 0.14);
+      return this.canStandAt(x, z, 0.14);
+    }
+
+    cameraClearFraction(origin, destination) {
+      if (!this.issInteriorModel) return 1;
+      const dx = destination.x - origin.x;
+      const dz = destination.z - origin.z;
+      const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / 0.1));
+      for (let i = 1; i <= steps; i++) {
+        const fraction = i / steps;
+        if (!this.isCameraClear(origin.x + dx * fraction, origin.z + dz * fraction)) {
+          return Math.max(0, (i - 1) / steps);
+        }
+      }
+      return 1;
     }
 
     resolveCollision(currentPos, proposedPos, radius = 0.26) {
       const THREE = window.THREE;
-      const target = proposedPos.clone ? proposedPos.clone() : new THREE.Vector3(proposedPos.x, 0, proposedPos.z);
-      target.y = 0.0;
-
-      if (this.canStandAt(target.x, target.z, radius)) {
-        this._updateActiveRoom(target.x, target.z);
-        return target;
+      const dx = proposedPos.x - currentPos.x;
+      const dz = proposedPos.z - currentPos.z;
+      const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / 0.12));
+      let x = currentPos.x, z = currentPos.z;
+      for (let i = 0; i < steps; i++) {
+        const nx = x + dx / steps, nz = z + dz / steps;
+        if (this.canStandAt(nx, nz, radius)) { x = nx; z = nz; }
+        else if (this.canStandAt(nx, z, radius)) x = nx;
+        else if (this.canStandAt(x, nz, radius)) z = nz;
       }
-      if (this.canStandAt(target.x, currentPos.z, radius)) {
-        this._updateActiveRoom(target.x, currentPos.z);
-        return new THREE.Vector3(target.x, 0.0, currentPos.z);
-      }
-      if (this.canStandAt(currentPos.x, target.z, radius)) {
-        this._updateActiveRoom(currentPos.x, target.z);
-        return new THREE.Vector3(currentPos.x, 0.0, target.z);
-      }
-      return new THREE.Vector3(currentPos.x, 0.0, currentPos.z);
+      this._updateActiveRoom(x, z);
+      return new THREE.Vector3(x, 0, z);
     }
 
     _updateActiveRoom(x, z) {
-      const nextRoomId = roomAtPosition(x, z);
+      const nextRoomId = this.issInteriorModel
+        ? Object.values(STATIONS).reduce((nearest, station) =>
+          Math.hypot(x - station.workPosition[0], z - station.workPosition[2]) <
+          Math.hypot(x - nearest.workPosition[0], z - nearest.workPosition[2]) ? station : nearest
+        ).room
+        : roomAtPosition(x, z);
       if (nextRoomId !== this.activeRoomId) {
         this.activeRoomId = nextRoomId;
         const match = ROOM_BY_ID.get(nextRoomId);
         const titleEl = document.getElementById("ship-room-title");
         if (titleEl && match) {
-          titleEl.textContent = `PERILUNE TRANSIT CRAFT • ${match.label.toUpperCase()}`;
+          titleEl.textContent = this.issInteriorModel
+            ? "INTERNATIONAL SPACE STATION · INTERIOR"
+            : `LUNASPIS TRANSIT CRAFT • ${match.label.toUpperCase()}`;
         }
       }
     }
@@ -2650,11 +2997,24 @@
         window.localCrew.group.visible = !next;
       }
 
+      if (this.issInteriorModel) {
+        if (this.roomShellGroup) this.roomShellGroup.visible = false;
+        if (this.legacyPropsGroup) this.legacyPropsGroup.visible = false;
+      } else {
+        if (this.roomShellGroup) this.roomShellGroup.visible = true;
+        if (this.legacyPropsGroup) this.legacyPropsGroup.visible = true;
+      }
+      if (this.issInteriorModelGroup) {
+        this.issInteriorModelGroup.visible = Boolean(this.issInteriorModel && this.isInteriorActive && !next);
+      }
+
       const titleEl = document.getElementById("ship-room-title");
       if (titleEl) {
         titleEl.textContent = next
           ? "MARE TRANQUILLITATIS • LUNAR TOUCHDOWN"
-          : `PERILUNE TRANSIT CRAFT • ${(ROOM_BY_ID.get(this.activeRoomId)?.label || "TRANSIT HUB").toUpperCase()}`;
+          : this.issInteriorModel
+            ? "INTERNATIONAL SPACE STATION · INTERIOR"
+            : `LUNASPIS TRANSIT CRAFT • ${(ROOM_BY_ID.get(this.activeRoomId)?.label || "TRANSIT HUB").toUpperCase()}`;
       }
       return this.isMoonLandingActive;
     }
@@ -2762,6 +3122,18 @@
       // CRITICAL: Never show the exterior ISS outside the window when the player is INSIDE the station!
       if (window.issGroup) window.issGroup.visible = false;
       if (this.group) this.group.visible = true;
+      if (this.issInteriorModel) {
+        if (this.roomShellGroup) this.roomShellGroup.visible = false;
+        if (this.legacyPropsGroup) this.legacyPropsGroup.visible = false;
+        if (this.issInteriorModelGroup) this.issInteriorModelGroup.visible = true;
+        this._placeCrewOnISSWalkway();
+        this._setInteriorTitle("INTERNATIONAL SPACE STATION · INTERIOR");
+      } else {
+        if (this.roomShellGroup) this.roomShellGroup.visible = true;
+        if (this.legacyPropsGroup) this.legacyPropsGroup.visible = true;
+        if (this.issInteriorModelGroup) this.issInteriorModelGroup.visible = false;
+        this._ensureISSInteriorModel().catch(() => {});
+      }
       if (this.hudPill) this.hudPill.style.display = window.isGameStarted ? "flex" : "none";
       if (this.minimapEl) this.minimapEl.style.display = window.isGameStarted ? "block" : "none";
     }

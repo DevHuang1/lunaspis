@@ -497,13 +497,13 @@
       this.overlayEl.innerHTML = `
         <div class="launch-header-row">
           <div class="launch-badge-card">
-            <div style="font-size:10px;font-weight:900;letter-spacing:1.5px;color:#38bdf8;">NASA MISSION CONTROL &bull; KENNEDY LC-39A</div>
-            <div class="launch-title-main" style="font-size:14px;font-weight:900;color:#f1f5f9;letter-spacing:1px;">EX-01 LAUNCH VEHICLE ASCENT &amp; PAYLOAD DEPLOY</div>
-            <div id="launch-crew-banner" style="font-size:10px;font-weight:700;color:#cbd5e1;margin-top:4px;letter-spacing:0.6px;"></div>
+            <div style="font-size:10px;font-weight:700;letter-spacing:1.6px;color:#93c5fd;">LUNASPIS FLIGHT OPS &bull; KENNEDY LC-39A</div>
+            <div class="launch-title-main" style="font-size:14px;font-weight:700;color:#f8fafc;letter-spacing:1px;">EX-01 LAUNCH VEHICLE ASCENT &amp; PAYLOAD DEPLOY</div>
+            <div id="launch-crew-banner" style="font-size:10px;font-weight:600;color:#cbd5e1;margin-top:4px;letter-spacing:0.6px;"></div>
           </div>
 
           <button id="btn-skip-launch">
-            SKIP LAUNCH [SPACE] ⏩
+            SKIP LAUNCH [SPACE]
           </button>
         </div>
 
@@ -552,16 +552,18 @@
       }
 
       if (this.skipBtnEl) {
-        if (players.length <= 1 || !nm || !nm.connected) {
-          this.skipBtnEl.textContent = "SKIP LAUNCH [SPACE] ⏩";
+        const flightPlayers = players.filter((p) => (p && p.team) !== "ground");
+        const count = flightPlayers.length;
+        if (count <= 1 || !nm || !nm.connected) {
+          this.skipBtnEl.textContent = "SKIP LAUNCH [SPACE]";
         } else if (isAuthority) {
-          this.skipBtnEl.textContent = "SKIP FOR CREW [SPACE] ⏩";
+          this.skipBtnEl.textContent = "SKIP FOR CREW [SPACE]";
         } else {
           const votes = Array.isArray(mission.skipVotes) ? mission.skipVotes : [];
-          const needed = Math.max(1, Math.ceil(players.length / 2));
+          const needed = Math.max(1, Math.ceil(count / 2));
           const voted = votes.includes(nm.socketId) || this._localSkipVoted;
           this.skipBtnEl.textContent = voted
-            ? `✓ SKIP VOTED (${votes.length}/${needed})`
+            ? `SKIP VOTED (${votes.length}/${needed})`
             : `VOTE SKIP (${votes.length}/${needed}) [SPACE]`;
         }
       }

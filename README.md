@@ -1,4 +1,4 @@
-# 🚀 Interfellas — Perilune Orbital Transit & NASA ISS 3D Simulator
+# 🚀 Interfellas — Lunaspis Orbital Transit & NASA ISS 3D Simulator
 
 **Interfellas** is a real-time 6-player cooperative 3D space simulator built with **vanilla Three.js**, **Express**, **Socket.IO**, **WebRTC Proximity Voice**, and **Web Audio API**. Fully optimized for both **desktop** and **mobile/tablet** viewports and ready for instant deployment on **Railway**.
 
@@ -21,9 +21,9 @@ Interfellas/
 │   │   └── style.css              # Desktop + mobile responsive styles & touch thumbstick UI
 │   ├── basis/                     # Basis Universal / KTX2 GPU texture transcoder (JS + WASM)
 │   ├── draco/                     # Google Draco 3D mesh decompression workers (JS + WASM)
-│   ├── models/                    # Primary SpaceShip (Perilune) 3D GLB assets
+│   ├── models/                    # Primary SpaceShip (Lunaspis) 3D GLB assets
 │   │   ├── astronaut/             # astronaut_lod0.glb (2K KTX2) & astronaut_lod1.glb (1K KTX2)
-│   │   └── iss/                   # ISS_stationary_opt.glb (27-part NASA ISS) & ISS_B.glb
+│   │   └── iss/                   # ISS exterior/showcase GLBs and international_space_station.glb interior
 │   ├── assets/                    # Fleet spacecraft, launch stack, xEMU suits & Solar System .glb models
 │   ├── textures/
 │   │   └── earth/                 # 4K Earth day/night, clouds, normal & specular maps
@@ -41,7 +41,7 @@ Interfellas/
 │       │   ├── audio_synth.js     # Procedural Web Audio synthesizer & Quindar radio tones
 │       │   └── cinematic_pass.js  # ACES Filmic post-processing shader pass
 │       ├── world/                 # 3D scenes & interactive environments
-│       │   ├── ship_interior.js   # 6-room Perilune spacecraft interior/exterior, HoloTable orbit sync & Lunar scene
+│       │   ├── ship_interior.js   # ISS interior model, mission stations, crew map & Lunar scene
 │       │   ├── station_modules.js # 27-part interactive NASA ISS 3D reference showcase
 │       │   ├── mission_viz.js     # Interactive 3D NASA Mission Viz & GMAT trajectory theater
 │       │   ├── vr_mode.js         # WebXR ("immersive-vr") + desktop/mobile Side-by-Side Stereo VR mode
@@ -69,7 +69,7 @@ Interfellas/
 
 ## 🛸 Key Features
 
-- **6-Room Perilune Spacecraft (`ship_interior.js`)**: Explore the Transit Hub, Command Deck (with 3D Earth Cupola window), Power Bay, Life Support, Hull Access, and Lander Bay with real-time wall/rack sliding collision, live crew markers on a collapsible SVG ship minimap, and no AI-controlled crewmates.
+- **ISS Interior (`ship_interior.js`)**: Explore Stephen Mack's Sketchfab ISS interior, loaded on entry and scaled/repositioned for the player spawn. Textured backing closes gaps in the scan; mission consoles and the crew map remain available. The procedural interior is used if the model cannot load.
 - **Space Center 2 Web Port (`public/js/world/space_center/`)**: The full LC-39A complex rebuilt in Three.js as reusable modules — Pad 39A support structures, propellant farm, lightning protection, water tower, walkable VAB high bay and comms room, walkable Launch Control Center, crawler transporter, press site, substation, cooling tower, fire water, antenna farm, roads, beach and Pad 39B silhouette. Includes a ground-level site tour with fast travel from the launch-pad HUD.
 - **27-Part Interactive NASA ISS Showcase (`station_modules.js`, `[J]`)**: Inspect 27 curated NASA ISS modules, trusses, solar wings, and robotic arms with raycast selection, component isolation, floating 3D labels, and searchable engineering dossiers.
 - **Crew Emotes & Fresh Expedition Codes**: Wave, salute, dance, laugh, look around, and heart emotes (`[X]`, `[1]`–`[6]`) combine skeletal animation with two-bone arm/hand IK — heart hands meet above the helmet, laugh hands cover the visor, and every gesture is relayed to crewmates with floating 3D emoji bubbles. Quick play now fills an open public crew or creates a brand-new random expedition code instead of reusing a permanent room.
@@ -133,6 +133,10 @@ the production container.
 Open the **LC-39A SITE TOUR** from the launch-pad HUD, then use `1`–`6` to fast
 travel between Pad 39A, the VAB, the LCC, the crawler, the beach and the press
 site. Press `T` to return to the gantry and continue boarding.
+
+## 3D Asset Attribution
+
+The in-game ISS interior uses **International Space Station** by [Stephen Mack on Sketchfab](https://sketchfab.com/3d-models/international-space-station-2256c89a089b4ec895bb658b18fa7bbb), licensed under [Creative Commons Attribution 4.0](https://creativecommons.org/licenses/by/4.0/). Lunaspis scales and repositions the model, displays its photographic textures without additional lighting, and adds backing geometry to fill gaps. The same credit is available from the ISS interior HUD.
 
 ## 🔐 Security Configuration
 

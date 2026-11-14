@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * PERILUNE / SPACESHIP 3D NASA ISS REFERENCE MODEL & 27-PART SHOWCASE ENGINE
+ * LUNASPIS / SPACESHIP 3D NASA ISS REFERENCE MODEL & 27-PART SHOWCASE ENGINE
  * ============================================================================
  * Pure Vanilla Three.js port of SpaceShip's:
  * - src/lib/iss/data.ts (27 curated NASA ISS components, categories, facts & telemetry)
@@ -1072,23 +1072,23 @@
       if (topbar) {
         const vrActive = !!(window.vrManager && window.vrManager.isAnyVRActive);
         const vrLabel = vrActive
-          ? "⏹ EXIT VR"
-          : (window.vrManager && window.vrManager.webxrSupported ? "🥽 WEBXR / VR" : "🥽 STEREO VR");
+          ? "EXIT VR"
+          : (window.vrManager && window.vrManager.webxrSupported ? "WEBXR / VR" : "STEREO VR");
         topbar.innerHTML = `
           <div style="display:flex;align-items:center;gap:12px;">
-            <span style="font-size:18px;">🛰️</span>
+            <span style="display:inline-flex;align-items:center;justify-content:center;padding:3px 6px;border:1px solid rgba(56,189,248,0.4);border-radius:4px;background:rgba(37,99,235,0.16);color:#93c5fd;font-family:'SF Mono',monospace;font-size:10px;font-weight:700;letter-spacing:1px;">ISS</span>
             <div>
               <div style="font-size:9px;font-weight:700;letter-spacing:2.4px;color:rgba(103,232,249,0.75);text-transform:uppercase;">ORBITAL / MISSION LAB</div>
               <div style="font-size:14px;font-weight:700;color:#ffffff;">ISS Reference Craft (${ISS_PARTS.length} Curated Components)</div>
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:8px;">
-            <button id="iss-btn-labels" style="padding:6px 12px;border-radius:18px;border:1px solid ${this.labelsVisible ? "rgba(103,232,249,0.5)" : "rgba(255,255,255,0.15)"};background:${this.labelsVisible ? "rgba(103,232,249,0.16)" : "rgba(255,255,255,0.04)"};color:${this.labelsVisible ? "#cffafe" : "#cbd5e1"};font-size:10px;font-weight:700;cursor:pointer;">🏷️ LABELS</button>
-            <button id="iss-btn-rotate" style="padding:6px 12px;border-radius:18px;border:1px solid ${this.autoRotate ? "rgba(103,232,249,0.5)" : "rgba(255,255,255,0.15)"};background:${this.autoRotate ? "rgba(103,232,249,0.16)" : "rgba(255,255,255,0.04)"};color:${this.autoRotate ? "#cffafe" : "#cbd5e1"};font-size:10px;font-weight:700;cursor:pointer;">🔄 AUTO-ROTATE</button>
-            <button id="iss-btn-isolate" ${!this.selectedPartId ? "disabled" : ""} style="padding:6px 12px;border-radius:18px;border:1px solid ${this.isolateSelected ? "rgba(103,232,249,0.5)" : "rgba(255,255,255,0.15)"};background:${this.isolateSelected ? "rgba(103,232,249,0.16)" : "rgba(255,255,255,0.04)"};color:${this.isolateSelected ? "#cffafe" : "#cbd5e1"};font-size:10px;font-weight:700;cursor:pointer;opacity:${this.selectedPartId ? 1 : 0.4};">🔲 ISOLATE</button>
-            <button id="iss-btn-reset" style="padding:6px 12px;border-radius:18px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.04);color:#cbd5e1;font-size:10px;font-weight:700;cursor:pointer;">↺ RESET VIEW</button>
-            <button id="iss-btn-vr" style="padding:6px 12px;border-radius:18px;border:1px solid rgba(167,139,250,0.5);background:rgba(167,139,250,0.14);color:#ddd6fe;font-size:10px;font-weight:700;cursor:pointer;">${vrLabel}</button>
-            <button id="iss-btn-return-ship" style="padding:6px 14px;border-radius:18px;border:1px solid #38bdf8;background:#0284c7;color:#ffffff;font-size:10px;font-weight:800;cursor:pointer;">🛸 RETURN TO SHIP INTERIOR [I]</button>
+            <button id="iss-btn-labels" style="padding:6px 12px;border-radius:4px;border:1px solid ${this.labelsVisible ? "rgba(56,189,248,0.5)" : "rgba(148,163,184,0.22)"};background:${this.labelsVisible ? "rgba(37,99,235,0.2)" : "rgba(255,255,255,0.04)"};color:${this.labelsVisible ? "#f8fafc" : "#cbd5e1"};font-family:'SF Mono',monospace;font-size:10px;font-weight:700;cursor:pointer;">LABELS</button>
+            <button id="iss-btn-rotate" style="padding:6px 12px;border-radius:4px;border:1px solid ${this.autoRotate ? "rgba(56,189,248,0.5)" : "rgba(148,163,184,0.22)"};background:${this.autoRotate ? "rgba(37,99,235,0.2)" : "rgba(255,255,255,0.04)"};color:${this.autoRotate ? "#f8fafc" : "#cbd5e1"};font-family:'SF Mono',monospace;font-size:10px;font-weight:700;cursor:pointer;">AUTO-ROTATE</button>
+            <button id="iss-btn-isolate" ${!this.selectedPartId ? "disabled" : ""} style="padding:6px 12px;border-radius:4px;border:1px solid ${this.isolateSelected ? "rgba(56,189,248,0.5)" : "rgba(148,163,184,0.22)"};background:${this.isolateSelected ? "rgba(37,99,235,0.2)" : "rgba(255,255,255,0.04)"};color:${this.isolateSelected ? "#f8fafc" : "#cbd5e1"};font-family:'SF Mono',monospace;font-size:10px;font-weight:700;cursor:pointer;opacity:${this.selectedPartId ? 1 : 0.4};">ISOLATE</button>
+            <button id="iss-btn-reset" style="padding:6px 12px;border-radius:4px;border:1px solid rgba(148,163,184,0.22);background:rgba(255,255,255,0.04);color:#cbd5e1;font-family:'SF Mono',monospace;font-size:10px;font-weight:700;cursor:pointer;">RESET VIEW</button>
+            <button id="iss-btn-vr" style="padding:6px 12px;border-radius:4px;border:1px solid rgba(56,189,248,0.45);background:rgba(37,99,235,0.16);color:#93c5fd;font-family:'SF Mono',monospace;font-size:10px;font-weight:700;cursor:pointer;">${vrLabel}</button>
+            <button id="iss-btn-return-ship" style="padding:6px 14px;border-radius:4px;border:1px solid #f8fafc;background:#f8fafc;color:#050810;font-family:'SF Mono',monospace;font-size:10px;font-weight:800;cursor:pointer;">RETURN TO SHIP INTERIOR [I]</button>
           </div>
         `;
 
@@ -1255,8 +1255,8 @@
                   .join("")}
               </div>
               <div style="display:flex;gap:8px;margin-top:16px;">
-                <button id="iss-btn-focus-part" style="flex:1;padding:9px 12px;border-radius:8px;border:1px solid rgba(103,232,249,0.4);background:rgba(103,232,249,0.12);color:#cffafe;font-size:11px;font-weight:700;cursor:pointer;">🎯 Focus camera</button>
-                <button id="iss-btn-isolate-part" style="flex:1;padding:9px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.04);color:#e2e8f0;font-size:11px;font-weight:700;cursor:pointer;">${this.isolateSelected ? "Show all" : "Isolate"}</button>
+                <button id="iss-btn-focus-part" style="flex:1;padding:9px 12px;border-radius:4px;border:1px solid rgba(56,189,248,0.45);background:rgba(37,99,235,0.16);color:#f8fafc;font-family:'SF Mono',monospace;font-size:11px;font-weight:700;cursor:pointer;">Focus camera</button>
+                <button id="iss-btn-isolate-part" style="flex:1;padding:9px 12px;border-radius:4px;border:1px solid rgba(148,163,184,0.22);background:rgba(255,255,255,0.04);color:#e2e8f0;font-family:'SF Mono',monospace;font-size:11px;font-weight:700;cursor:pointer;">${this.isolateSelected ? "Show all" : "Isolate"}</button>
               </div>
             </div>
           `;

@@ -2,7 +2,7 @@
  * ============================================================================
  * INTERFELLAS PHOTOREALISTIC EARTH & SPACE ATMOSPHERE SYSTEM
  * ============================================================================
- * High-fidelity 4K Earth shader ported from Perilune / SpaceShip:
+ * High-fidelity 4K Earth shader ported from Lunaspis / SpaceShip:
  * - 4096px NASA Day Albedo & Night City Lights
  * - 2048px Normal & Specular mapping for ocean gloss and mountain topography
  * - Dynamic independent cloud layer with rotation drift

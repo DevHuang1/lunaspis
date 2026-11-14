@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * PERILUNE // 3D NASA MISSION VIZ & GMAT TRAJECTORY THEATER
+ * LUNASPIS // 3D NASA MISSION VIZ & GMAT TRAJECTORY THEATER
  * ============================================================================
  * Interactive 3D mission visualization inspired by NASA Mission Viz & GMAT:
  * - High-resolution 3D Earth with day/night, clouds, Rayleigh limb glow & umbra shadow cone
@@ -637,39 +637,39 @@
       `;
 
       root.innerHTML = `
-        <div id="mv-topbar" style="pointer-events:auto;position:absolute;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;border-radius:8px;background:rgba(6,11,22,0.88);border:1px solid rgba(103,232,249,0.28);backdrop-filter:blur(10px);">
+        <div id="mv-topbar" style="pointer-events:auto;position:absolute;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 14px;border-radius:4px;background:rgba(8,13,24,0.88);border:1px solid rgba(148,163,184,0.22);backdrop-filter:blur(8px);">
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-            <span style="width:8px;height:8px;border-radius:50%;background:#67e8f9;box-shadow:0 0 8px #67e8f9;"></span>
+            <span style="width:7px;height:7px;border-radius:2px;background:#2563eb;"></span>
             <div>
-              <div style="font-size:11px;font-weight:700;letter-spacing:1.4px;color:#67e8f9;" id="mv-title">NASA MISSION VIZ // GMAT TRAJECTORY THEATER</div>
-              <div style="font-size:10px;color:#94a3b8;" id="mv-subtitle">Drag to orbit · Scroll/Pinch to zoom · Scrub Mission Timeline below</div>
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.4px;color:#f8fafc;" id="mv-title">LUNASPIS MISSION VIZ // TRAJECTORY THEATER</div>
+              <div style="font-size:10px;color:#94a3b8;" id="mv-subtitle">Drag to orbit &middot; Scroll/Pinch to zoom &middot; Scrub Mission Timeline below</div>
             </div>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-            <button type="button" id="mv-btn-cam-sys" style="padding:6px 10px;border-radius:5px;border:1px solid rgba(103,232,249,0.45);background:rgba(103,232,249,0.14);color:#cffafe;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">EARTH / SYSTEM</button>
-            <button type="button" id="mv-btn-cam-craft" style="padding:6px 10px;border-radius:5px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.05);color:#ece7dc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">FOLLOW CRAFT</button>
-            <button type="button" id="mv-btn-cam-target" style="padding:6px 10px;border-radius:5px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.05);color:#ece7dc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">TARGET BODY</button>
-            <button type="button" id="mv-btn-vr" style="padding:6px 10px;border-radius:5px;border:1px solid rgba(167,139,250,0.5);background:rgba(167,139,250,0.14);color:#ddd6fe;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">🥽 VR MODE</button>
-            <button type="button" id="mv-btn-close" style="padding:6px 12px;border-radius:5px;border:1px solid rgba(248,113,113,0.55);background:rgba(239,68,68,0.16);color:#fecaca;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">EXIT [U]</button>
+            <button type="button" id="mv-btn-cam-sys" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(37,99,235,0.6);background:rgba(37,99,235,0.16);color:#f8fafc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">EARTH / SYSTEM</button>
+            <button type="button" id="mv-btn-cam-craft" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(148,163,184,0.22);background:rgba(8,13,24,0.75);color:#f8fafc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">FOLLOW CRAFT</button>
+            <button type="button" id="mv-btn-cam-target" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(148,163,184,0.22);background:rgba(8,13,24,0.75);color:#f8fafc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">TARGET BODY</button>
+            <button type="button" id="mv-btn-vr" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(148,163,184,0.28);background:rgba(8,13,24,0.75);color:#93c5fd;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">VR MODE</button>
+            <button type="button" id="mv-btn-close" style="padding:5px 12px;border-radius:4px;border:1px solid rgba(220,38,38,0.55);background:rgba(220,38,38,0.14);color:#fecaca;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">EXIT [U]</button>
           </div>
         </div>
 
-        <div id="mv-telemetry-card" style="pointer-events:auto;position:absolute;top:76px;left:12px;width:295px;max-width:calc(100vw - 24px);padding:12px;border-radius:8px;background:rgba(6,11,22,0.86);border:1px solid rgba(255,255,255,0.14);backdrop-filter:blur(10px);font-size:10.5px;">
-          <div style="font-size:9.5px;font-weight:700;letter-spacing:1.3px;color:#d0a15c;margin-bottom:8px;">ORBITAL DYNAMICS &amp; LINK TELEMETRY</div>
+        <div id="mv-telemetry-card" style="pointer-events:auto;position:absolute;top:74px;left:12px;width:295px;max-width:calc(100vw - 24px);padding:12px;border-radius:4px;background:rgba(8,13,24,0.88);border:1px solid rgba(148,163,184,0.22);backdrop-filter:blur(8px);font-size:10.5px;">
+          <div style="font-size:9.5px;font-weight:700;letter-spacing:1.3px;color:#93c5fd;margin-bottom:8px;">ORBITAL DYNAMICS &amp; LINK TELEMETRY</div>
           <div id="mv-telemetry-rows" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;"></div>
-          <div id="mv-segment-badges" style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:9px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.1);"></div>
+          <div id="mv-segment-badges" style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:9px;padding-top:8px;border-top:1px solid rgba(148,163,184,0.16);"></div>
         </div>
 
-        <div id="mv-timeline-bar" style="pointer-events:auto;position:absolute;bottom:14px;left:12px;right:12px;padding:10px 14px;border-radius:8px;background:rgba(6,11,22,0.90);border:1px solid rgba(255,255,255,0.16);backdrop-filter:blur(10px);">
+        <div id="mv-timeline-bar" style="pointer-events:auto;position:absolute;bottom:14px;left:12px;right:12px;padding:10px 14px;border-radius:4px;background:rgba(8,13,24,0.9);border:1px solid rgba(148,163,184,0.22);backdrop-filter:blur(8px);">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:7px;">
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-              <button type="button" id="mv-btn-play" style="padding:5px 10px;border-radius:4px;border:1px solid #67e8f9;background:rgba(103,232,249,0.14);color:#cffafe;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">❚❚ PAUSE</button>
-              <button type="button" id="mv-btn-speed" style="padding:5px 9px;border-radius:4px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.05);color:#ece7dc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">1x</button>
-              <span id="mv-event-active" style="font-size:10px;font-weight:700;color:#7fb8a6;margin-left:4px;">T+0 LAUNCH</span>
+              <button type="button" id="mv-btn-play" style="padding:5px 10px;border-radius:4px;border:1px solid #2563eb;background:rgba(37,99,235,0.2);color:#f8fafc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">PAUSE</button>
+              <button type="button" id="mv-btn-speed" style="padding:5px 9px;border-radius:4px;border:1px solid rgba(148,163,184,0.22);background:rgba(8,13,24,0.75);color:#f8fafc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">1x</button>
+              <span id="mv-event-active" style="font-size:10px;font-weight:700;color:#86efac;margin-left:4px;">T+0 LAUNCH</span>
             </div>
             <div id="mv-event-chips" style="display:flex;gap:5px;flex-wrap:wrap;"></div>
           </div>
-          <input type="range" id="mv-timeline-slider" min="0" max="1000" value="140" style="width:100%;accent-color:#67e8f9;cursor:pointer;" />
+          <input type="range" id="mv-timeline-slider" min="0" max="1000" value="140" style="width:100%;accent-color:#2563eb;cursor:pointer;" />
         </div>
       `;
 
@@ -690,7 +690,7 @@
       const playBtn = root.querySelector("#mv-btn-play");
       playBtn.addEventListener("click", () => {
         this.playing = !this.playing;
-        playBtn.textContent = this.playing ? "❚❚ PAUSE" : "▶ PLAY";
+        playBtn.textContent = this.playing ? "PAUSE" : "PLAY";
       });
 
       const speedBtn = root.querySelector("#mv-btn-speed");

@@ -3,7 +3,7 @@
  * INTERFELLAS HIGH-PERFORMANCE 3D GLB/glTF ASSET & HANGAR ENGINE (SPACESHIP EDITION)
  * ============================================================================
  * Provides comprehensive, production-grade .glb/.gltf 3D model support ported from
- * SpaceShip (Perilune — Orbital / Mission Lab):
+ * SpaceShip (Lunaspis — Orbital / Mission Lab):
  * 1. Asynchronous multi-asset loading & in-memory caching with Draco, KTX2/Basis
  *    Universal, and Meshopt decompression support
  * 2. SpaceShip NASA Astronaut suit integration (astronaut_lod0.glb & astronaut_lod1.glb)
@@ -22,7 +22,7 @@
     // --- SPACESHIP PRIMARY ASTRONAUT RIGS ---
     "astronaut_lod0": {
       id: "astronaut_lod0",
-      name: "Perilune NASA Astronaut (LOD0 High-Detail)",
+      name: "Lunaspis NASA Astronaut (LOD0 High-Detail)",
       category: "astronauts",
       role: "commander",
       file: "models/astronaut/astronaut_lod0.glb",
@@ -33,7 +33,7 @@
     },
     "astronaut_lod1": {
       id: "astronaut_lod1",
-      name: "Perilune NASA Crewmate (LOD1 Optimized)",
+      name: "Lunaspis NASA Crewmate (LOD1 Optimized)",
       category: "astronauts",
       role: "scientist",
       file: "models/astronaut/astronaut_lod1.glb",
@@ -46,7 +46,7 @@
     // --- SPACESHIP PRIMARY ISS & SPACECRAFT MODELS ---
     "iss_stationary_opt": {
       id: "iss_stationary_opt",
-      name: "NASA International Space Station (Perilune Primary)",
+      name: "NASA International Space Station (Lunaspis Primary)",
       category: "spacecraft",
       file: "models/iss/ISS_stationary_opt.glb",
       scale: 1.0,
@@ -133,12 +133,12 @@
   // skeletal clip so the crew actually talk with their hands, plus a floating
   // emoji bubble so astronauts can communicate non-verbally.
   const EMOTE_DEFS = [
-    { id: "wave", icon: "👋", label: "Wave", clip: "wave", duration: 2.6, gesture: "wave" },
-    { id: "salute", icon: "🫡", label: "Salute", clip: "idle", duration: 2.4, gesture: "salute" },
-    { id: "dance", icon: "🕺", label: "Dance", clip: "idle", duration: 3.8, procedural: "dance", gesture: "dance" },
-    { id: "laugh", icon: "😂", label: "Laugh", clip: "idle", duration: 2.8, procedural: "laugh", gesture: "laugh" },
-    { id: "look", icon: "👀", label: "Look", clip: "look_around", duration: 3.0, gesture: "look" },
-    { id: "heart", icon: "❤️", label: "Heart", clip: "idle", duration: 3.0, procedural: "heart", gesture: "heart" }
+    { id: "wave", icon: "WAV", label: "Wave", clip: "wave", duration: 2.6, gesture: "wave" },
+    { id: "salute", icon: "SAL", label: "Salute", clip: "idle", duration: 2.4, gesture: "salute" },
+    { id: "dance", icon: "DNC", label: "Dance", clip: "idle", duration: 3.8, procedural: "dance", gesture: "dance" },
+    { id: "laugh", icon: "LGH", label: "Laugh", clip: "idle", duration: 2.8, procedural: "laugh", gesture: "laugh" },
+    { id: "look", icon: "OBS", label: "Look", clip: "look_around", duration: 3.0, gesture: "look" },
+    { id: "heart", icon: "ACK", label: "Roger", clip: "idle", duration: 3.0, procedural: "heart", gesture: "heart" }
   ];
   const EMOTE_BY_ID = {};
   EMOTE_DEFS.forEach((def) => { EMOTE_BY_ID[def.id] = def; });
@@ -1211,7 +1211,7 @@
     }
 
     spawnOrbitalFleet() {
-      // Perilune uses only the 6-room transit craft, ISS reference craft, and Lunar Lander.
+      // Lunaspis uses only the 6-room transit craft, ISS reference craft, and Lunar Lander.
     }
 
     updateFleet(delta, elapsed) {
@@ -1506,7 +1506,7 @@
         <div class="settings-modal-card hangar-modal-card">
           <div class="settings-modal-header hangar-header">
             <div>
-              <div class="settings-modal-title">PERILUNE // 3D ASSET INSPECTOR</div>
+              <div class="settings-modal-title">LUNASPIS // 3D ASSET INSPECTOR</div>
               <div style="font-size:10px;color:rgba(154,164,174,0.75);letter-spacing:1.2px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">DRACO / KTX2 / MESHOPT RIG STUDIO</div>
             </div>
             <button class="settings-close-btn" id="hangar-btn-close">&times;</button>
@@ -1584,10 +1584,10 @@
 
               <div style="margin-top:auto;display:flex;flex-direction:column;gap:8px;">
                 <button class="btn-primary" id="hangar-btn-equip" style="width:100%;font-size:12px;padding:12px;">
-                  🚀 EQUIP AS MY ASTRONAUT AVATAR
+                  EQUIP AS MY ASTRONAUT AVATAR
                 </button>
                 <button class="btn-secondary" id="hangar-btn-spawn" style="width:100%;font-size:12px;padding:10px;">
-                  🛰️ SPAWN IN SPACE ORBIT
+                  SPAWN IN SPACE ORBIT
                 </button>
               </div>
             </div>
@@ -1638,7 +1638,7 @@
 
         if (this.hangarCurrentModel.category !== "astronauts") {
           if (window.showActionToast) {
-            window.showActionToast(`ℹ️ ${this.hangarCurrentModel.name} is a spacecraft/object. Use 'SPAWN IN SPACE ORBIT' or press [U] to board!`);
+            window.showActionToast(`${this.hangarCurrentModel.name} is a spacecraft/object. Use 'SPAWN IN SPACE ORBIT' or press [U] to board.`);
           }
           return;
         }

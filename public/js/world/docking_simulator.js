@@ -390,7 +390,7 @@
           this._assistFlashText = "HELM PILOT OR HOST AUTHORIZES EARLY SKIP · CLICK TAKE HELM OR ASSIST WITH [1-4]";
           this._assistFlashUntil = performance.now() + 3000;
           if (window.gameplay && typeof window.gameplay.showToast === "function") {
-            window.gameplay.showToast("🛰️ HELM PILOT / HOST CONTROLS CAPTURE SKIP — USE [1-4] OR TAKE HELM");
+            window.gameplay.showToast("HELM PILOT / HOST CONTROLS CAPTURE SKIP — USE [1-4] OR TAKE HELM");
           }
           return;
         }
@@ -1107,25 +1107,32 @@
 
       const roleBar = this.hudOverlay.querySelector("#dock-crew-role-bar");
       if (roleBar) {
+        const gs = nm && typeof nm.getMission === "function" && nm.getMission() ? nm.getMission().groundSupport : null;
+        const lccCleared = !!(gs && gs.dockingClearance);
         const roleInstruction = isPilot
           ? "YOUR DUTY (HELM PILOT): Fly [WASD + R/F + Arrows + Q/E] &rarr; Press [SPACE] at corridor"
           : myRole === "engineer"
             ? "YOUR DUTY (ENGINEER): Support pilot — [1] RCS Stabilize, [2] Fine RCS Trim"
             : myRole === "scientist"
               ? "YOUR DUTY (SCIENTIST): Track PMA-2 — [3] Laser Boresight, [4] Corridor Ping"
-              : "CREW SUPPORT: Monitor telemetry or click [TAKE HELM] if needed";
+              : myRole === "specialist"
+                ? "YOUR DUTY (SPECIALIST): EVA Latch Watch — [3] Laser Boresight, [4] Corridor Ping"
+                : "CREW SUPPORT: Monitor telemetry or click [TAKE HELM] if needed";
 
         roleBar.innerHTML = `
-          <span style="padding:3px 7px;border-radius:4px;border:1px solid ${pilotRoleMeta.color};color:${pilotRoleMeta.color};font-weight:800;">
+          <span style="padding:3px 7px;border-radius:3px;border:1px solid ${pilotRoleMeta.color};color:${pilotRoleMeta.color};font-weight:700;">
             HELM: [${pilotRoleMeta.short}] ${String(pilotName).replace(/[<>&"]/g, "")}${isPilot ? " (YOU)" : ""}
           </span>
-          <span style="color:#e2e8f0;">${roleInstruction}</span>
+          <span style="padding:2px 6px;border-radius:3px;border:1px solid ${lccCleared ? "rgba(22,163,74,0.55)" : "rgba(148,163,184,0.22)"};background:${lccCleared ? "rgba(22,163,74,0.16)" : "transparent"};color:${lccCleared ? "#86efac" : "#94a3b8"};font-size:9px;font-weight:700;">
+            LCC CORRIDOR: ${lccCleared ? "CLEARED" : "STANDBY"}
+          </span>
+          <span style="color:#f8fafc;">${roleInstruction}</span>
           <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;">
-            <button type="button" id="btn-dock-assist-1" class="dock-assist-btn" style="padding:4px 8px;border-radius:4px;border:1px solid ${myRole === "engineer" ? "#d0a15c" : "rgba(255,255,255,0.22)"};background:${myRole === "engineer" ? "rgba(208,161,92,0.18)" : "rgba(255,255,255,0.06)"};color:#fde68a;font-family:inherit;font-size:9px;font-weight:700;cursor:pointer;">[1] ENG STABILIZE</button>
-            <button type="button" id="btn-dock-assist-2" class="dock-assist-btn" style="padding:4px 8px;border-radius:4px;border:1px solid ${myRole === "engineer" ? "#d0a15c" : "rgba(255,255,255,0.22)"};background:${myRole === "engineer" ? "rgba(208,161,92,0.18)" : "rgba(255,255,255,0.06)"};color:#fde68a;font-family:inherit;font-size:9px;font-weight:700;cursor:pointer;">[2] ENG FINE TRIM</button>
-            <button type="button" id="btn-dock-assist-3" class="dock-assist-btn" style="padding:4px 8px;border-radius:4px;border:1px solid ${myRole === "scientist" ? "#7fb8a6" : "rgba(255,255,255,0.22)"};background:${myRole === "scientist" ? "rgba(127,184,166,0.18)" : "rgba(255,255,255,0.06)"};color:#a7f3d0;font-family:inherit;font-size:9px;font-weight:700;cursor:pointer;">[3] SCI BORESIGHT</button>
-            <button type="button" id="btn-dock-assist-4" class="dock-assist-btn" style="padding:4px 8px;border-radius:4px;border:1px solid ${myRole === "scientist" ? "#7fb8a6" : "rgba(255,255,255,0.22)"};background:${myRole === "scientist" ? "rgba(127,184,166,0.18)" : "rgba(255,255,255,0.06)"};color:#a7f3d0;font-family:inherit;font-size:9px;font-weight:700;cursor:pointer;">[4] SCI PING</button>
-            ${!isPilot ? `<button type="button" id="btn-dock-take-helm" style="padding:4px 8px;border-radius:4px;border:1px solid rgba(103,232,249,0.6);background:rgba(103,232,249,0.16);color:#cffafe;font-family:inherit;font-size:9px;font-weight:800;cursor:pointer;">TAKE HELM</button>` : ""}
+            <button type="button" id="btn-dock-assist-1" class="dock-assist-btn" style="padding:4px 8px;border-radius:4px;border:1px solid ${myRole === "engineer" ? "#d97706" : "rgba(148,163,184,0.25)"};background:${myRole === "engineer" ? "rgba(217,119,6,0.18)" : "rgba(8,13,24,0.75)"};color:#fde68a;font-family:inherit;font-size:9px;font-weight:700;cursor:pointer;">[1] ENG STABILIZE</button>
+            <button type="button" id="btn-dock-assist-2" class="dock-assist-btn" style="padding:4px 8px;border-radius:4px;border:1px solid ${myRole === "engineer" ? "#d97706" : "rgba(148,163,184,0.25)"};background:${myRole === "engineer" ? "rgba(217,119,6,0.18)" : "rgba(8,13,24,0.75)"};color:#fde68a;font-family:inherit;font-size:9px;font-weight:700;cursor:pointer;">[2] ENG FINE TRIM</button>
+            <button type="button" id="btn-dock-assist-3" class="dock-assist-btn" style="padding:4px 8px;border-radius:4px;border:1px solid ${(myRole === "scientist" || myRole === "specialist") ? "#16a34a" : "rgba(148,163,184,0.25)"};background:${(myRole === "scientist" || myRole === "specialist") ? "rgba(22,163,74,0.16)" : "rgba(8,13,24,0.75)"};color:#86efac;font-family:inherit;font-size:9px;font-weight:700;cursor:pointer;">[3] BORESIGHT</button>
+            <button type="button" id="btn-dock-assist-4" class="dock-assist-btn" style="padding:4px 8px;border-radius:4px;border:1px solid ${(myRole === "scientist" || myRole === "specialist") ? "#16a34a" : "rgba(148,163,184,0.25)"};background:${(myRole === "scientist" || myRole === "specialist") ? "rgba(22,163,74,0.16)" : "rgba(8,13,24,0.75)"};color:#86efac;font-family:inherit;font-size:9px;font-weight:700;cursor:pointer;">[4] CORRIDOR PING</button>
+            ${!isPilot ? `<button type="button" id="btn-dock-take-helm" style="padding:4px 8px;border-radius:4px;border:1px solid #2563eb;background:rgba(37,99,235,0.2);color:#f8fafc;font-family:inherit;font-size:9px;font-weight:700;cursor:pointer;">TAKE HELM</button>` : ""}
           </div>
         `;
         const b1 = roleBar.querySelector("#btn-dock-assist-1");
@@ -1169,37 +1176,37 @@
       this.hudOverlay.innerHTML = `
         <div class="dock-header-row">
           <div class="dock-title-card">
-            <div style="font-size:9.5px;font-weight:700;letter-spacing:1.6px;color:#67e8f9;">PHASE 3 // COORDINATED ORBITAL DOCKING</div>
-            <div class="dock-title-main" style="font-size:13px;font-weight:700;color:#ece7dc;letter-spacing:0.8px;">ISS FORWARD PORT PMA-2 / IDA-2</div>
+            <div style="font-size:9.5px;font-weight:700;letter-spacing:1.6px;color:#93c5fd;">PHASE 3 // COORDINATED ORBITAL DOCKING</div>
+            <div class="dock-title-main" style="font-size:13px;font-weight:700;color:#f8fafc;letter-spacing:0.8px;">ISS FORWARD PORT PMA-2 / IDA-2</div>
           </div>
 
           <div id="dock-status-badge">
-            PLAYER-CONTROLLED RCS DOCKING • ALIGN RETICLE WITH PMA-2 PORT
+            PLAYER-CONTROLLED RCS DOCKING &middot; ALIGN RETICLE WITH PMA-2 PORT
           </div>
 
           <div class="dock-actions-wrap">
-            <button type="button" id="dock-cam-badge" style="background:rgba(6,10,16,0.9);border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:7px 12px;font-family:inherit;font-size:10px;font-weight:700;color:#cbd5e1;cursor:pointer;">
+            <button type="button" id="dock-cam-badge" style="background:rgba(8,13,24,0.88);border:1px solid rgba(148,163,184,0.22);border-radius:4px;padding:6px 11px;font-family:inherit;font-size:10px;font-weight:700;color:#f8fafc;cursor:pointer;">
               VIEW: ${this.cameraMode === "chase" ? "CHASE" : "COCKPIT"} [V]
             </button>
-            <button type="button" id="btn-dock-auto" style="background:rgba(103,232,249,0.12);border:1px solid rgba(103,232,249,0.4);border-radius:6px;padding:7px 12px;font-family:inherit;font-size:10px;font-weight:700;color:#cffafe;cursor:pointer;">
+            <button type="button" id="btn-dock-auto" style="background:rgba(37,99,235,0.16);border:1px solid #2563eb;border-radius:4px;padding:6px 11px;font-family:inherit;font-size:10px;font-weight:700;color:#f8fafc;cursor:pointer;">
               AUTO-DOCK ASSIST [T]
             </button>
-            <button type="button" id="btn-dock-fine" style="background:rgba(6,10,16,0.9);border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:7px 12px;font-family:inherit;font-size:10px;font-weight:700;color:#cbd5e1;cursor:pointer;">
+            <button type="button" id="btn-dock-fine" style="background:rgba(8,13,24,0.88);border:1px solid rgba(148,163,184,0.22);border-radius:4px;padding:6px 11px;font-family:inherit;font-size:10px;font-weight:700;color:#cbd5e1;cursor:pointer;">
               FINE RCS: OFF
             </button>
-            <button type="button" id="btn-dock-latch-now" style="background:rgba(52,211,153,0.16);border:1px solid rgba(52,211,153,0.55);color:#a7f3d0;padding:7px 14px;border-radius:6px;font-family:inherit;font-size:10px;font-weight:700;letter-spacing:1px;cursor:pointer;">
-              COMPLETE DOCK &amp; BOARD STATION ⏩
+            <button type="button" id="btn-dock-latch-now" style="background:#f8fafc;border:1px solid #f8fafc;color:#050810;padding:6px 13px;border-radius:4px;font-family:inherit;font-size:10px;font-weight:700;letter-spacing:1px;cursor:pointer;">
+              COMPLETE DOCK &amp; BOARD STATION
             </button>
-            <button type="button" id="btn-dock-leave" style="background:rgba(239,68,68,0.14);border:1px solid rgba(239,68,68,0.5);color:#fca5a5;padding:7px 12px;border-radius:6px;font-family:inherit;font-size:10px;font-weight:700;letter-spacing:1px;cursor:pointer;">
+            <button type="button" id="btn-dock-leave" style="background:rgba(220,38,38,0.14);border:1px solid rgba(220,38,38,0.5);color:#fca5a5;padding:6px 11px;border-radius:4px;font-family:inherit;font-size:10px;font-weight:700;letter-spacing:1px;cursor:pointer;">
               LEAVE
             </button>
             <div class="dock-hint-line">
-              WASD/R/F TRANSLATE · ARROWS/Q/E ATTITUDE · SPACE LATCH · DRAG ORBIT
+              WASD/R/F TRANSLATE &middot; ARROWS/Q/E ATTITUDE &middot; SPACE LATCH &middot; DRAG ORBIT
             </div>
           </div>
         </div>
 
-        <div id="dock-crew-role-bar" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:7px 12px;margin:4px auto 0;max-width:1180px;background:rgba(6,10,16,0.88);border:1px solid rgba(103,232,249,0.28);border-radius:6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;pointer-events:auto;"></div>
+        <div id="dock-crew-role-bar" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:7px 12px;margin:4px auto 0;max-width:1180px;background:rgba(8,13,24,0.88);border:1px solid rgba(148,163,184,0.22);border-radius:4px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;pointer-events:auto;"></div>
 
         <div class="dock-reticle">
           <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:36px;height:36px;border:2px solid rgba(103,232,249,0.65);border-radius:50%;">

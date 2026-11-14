@@ -1361,11 +1361,11 @@
     // LIVE 6-RESOURCE TELEMETRY HUD BAR
     // ========================================================================
     _buildResourceMetersBar() {
-      const existing = document.getElementById("perilune-resource-meters");
+      const existing = document.getElementById("lunaspis-resource-meters");
       if (existing) return;
 
       const bar = document.createElement("div");
-      bar.id = "perilune-resource-meters";
+      bar.id = "lunaspis-resource-meters";
       this._applyResourceBarLayout(bar);
       document.body.appendChild(bar);
       this._renderResourceMeters();
@@ -1381,7 +1381,7 @@
     }
 
     _renderResourceMeters() {
-      const bar = document.getElementById("perilune-resource-meters");
+      const bar = document.getElementById("lunaspis-resource-meters");
       if (!bar) return;
       const t = this.evaluateMissionDesign();
       this.telemetry = t;
@@ -1434,12 +1434,12 @@
 
       bar.innerHTML = metrics
         .map((m) => `
-          <div class="perilune-res-item">
-            <div class="perilune-res-head">
+          <div class="lunaspis-res-item">
+            <div class="lunaspis-res-head">
               <span style="color:${m.color};font-weight:700;">${m.label}</span>
               <span>${m.val}</span>
             </div>
-            <div class="perilune-res-track">
+            <div class="lunaspis-res-track">
               <div style="height:100%;width:${m.pct}%;background:${m.color};transition:width 0.25s;"></div>
             </div>
           </div>
@@ -1507,44 +1507,50 @@
       let roleStrip = "";
       if (this.activeTask && !this.activeTask.isPreFlightMdl) {
         const assign = this._getRoleAssignment(this.activeTask.role);
-        const stripBorder = assign.isMine ? "rgba(103,232,249,0.5)" : "rgba(250,204,21,0.4)";
-        const stripBg = assign.isMine ? "rgba(103,232,249,0.09)" : "rgba(250,204,21,0.08)";
-        const stripColor = assign.isMine ? "#a5f3fc" : "#fde68a";
+        const stripBorder = assign.isMine ? "rgba(59,130,246,0.55)" : "rgba(148,163,184,0.28)";
+        const stripBg = assign.isMine ? "rgba(37,99,235,0.14)" : "rgba(15,23,42,0.72)";
+        const stripColor = assign.isMine ? "#dbeafe" : "#cbd5e1";
         const stripMsg = assign.isMine
           ? (assign.role === "all"
-            ? "JOINT CREW CONSOLE — Any crewmember may run final evaluation & commit mission"
-            : `★ YOUR ASSIGNED STATION CONSOLE [${assign.short} ${assign.label}]`)
+            ? "JOINT CREW CONSOLE · Any flight crewmember may run final evaluation & commit mission"
+            : `[ASSIGNED] YOUR STATION CONSOLE [${assign.short} ${assign.label}]`)
           : assign.isUnstaffed
-            ? `UNSTAFFED ROLE [${assign.short} ${assign.label}] — Operating in cross-role support mode`
-            : `PRIMARY OWNER: [${assign.short}] ${this._escapeHtml(assign.namesText)} — Assisting / Co-reviewing allowed`;
+            ? `UNSTAFFED ROLE [${assign.short} ${assign.label}] · Cross-role support active`
+            : `PRIMARY OWNER: [${assign.short}] ${this._escapeHtml(assign.namesText)} · Co-review allowed`;
+        const gs = (mission && mission.groundSupport) || {};
+        const gsTags = [
+          gs.dsnLocked ? "DSN LOCKED" : null,
+          gs.powerRouted ? "EPS ROUTED" : null,
+          gs.scienceCleared ? "SCI CLEARED" : null
+        ].filter(Boolean);
         roleStrip = `
-          <div style="margin-bottom:8px;padding:6px 10px;border-radius:6px;border:1px solid ${stripBorder};background:${stripBg};color:${stripColor};font-family:monospace;font-size:10px;font-weight:700;letter-spacing:0.6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-            <span>${stripMsg}</span>
+          <div style="margin-bottom:8px;padding:7px 10px;border-radius:4px;border:1px solid ${stripBorder};background:${stripBg};color:${stripColor};font-family:var(--font-mono,monospace);font-size:10px;font-weight:700;letter-spacing:0.6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span>${stripMsg}${gsTags.length ? ` · LCC SUPPORT: ${gsTags.join(" / ")}` : ""}</span>
             <span>DUTY: ${assign.short}</span>
           </div>
         `;
       }
 
       const pill = (label, value, sub, ok) => `
-        <div style="padding:7px 9px;border-radius:6px;background:rgba(0,0,0,0.38);border:1px solid ${ok ? "rgba(127,184,166,0.32)" : "rgba(239,68,68,0.55)"};">
-          <div style="display:flex;justify-content:space-between;align-items:center;font-family:monospace;font-size:9px;color:#9aa4ae;letter-spacing:0.8px;">
+        <div style="padding:7px 9px;border-radius:4px;background:rgba(5,8,16,0.72);border:1px solid ${ok ? "rgba(34,197,94,0.35)" : "rgba(239,68,68,0.55)"};">
+          <div style="display:flex;justify-content:space-between;align-items:center;font-family:var(--font-mono,monospace);font-size:9px;color:#94a3b8;letter-spacing:0.8px;">
             <span>${label}</span>
-            <span style="color:${ok ? "#7fb8a6" : "#fca5a5"};font-weight:700;">${ok ? "NOMINAL" : "CONSTRAINT"}</span>
+            <span style="color:${ok ? "#86efac" : "#fca5a5"};font-weight:700;">${ok ? "NOMINAL" : "CONSTRAINT"}</span>
           </div>
-          <div style="font-family:monospace;font-size:12px;font-weight:700;color:#ece7dc;margin-top:2px;">${value}</div>
-          <div style="font-family:monospace;font-size:9px;color:#94a3b8;margin-top:1px;">${sub}</div>
+          <div style="font-family:var(--font-mono,monospace);font-size:12px;font-weight:700;color:#f8fafc;margin-top:2px;">${value}</div>
+          <div style="font-family:var(--font-mono,monospace);font-size:9px;color:#94a3b8;margin-top:1px;">${sub}</div>
         </div>
       `;
 
       const segBadge = (seg) => `
-        <span style="padding:2px 6px;border-radius:4px;font-family:monospace;font-size:9px;font-weight:700;border:1px solid ${seg.ok ? "rgba(74,222,128,0.45)" : "rgba(248,113,113,0.45)"};background:${seg.ok ? "rgba(74,222,128,0.12)" : "rgba(239,68,68,0.12)"};color:${seg.ok ? "#86efac" : "#fca5a5"};">
-          ${seg.ok ? "✓" : "!"} ${seg.label}
+        <span style="padding:2px 6px;border-radius:3px;font-family:var(--font-mono,monospace);font-size:9px;font-weight:700;border:1px solid ${seg.ok ? "rgba(34,197,94,0.45)" : "rgba(239,68,68,0.45)"};background:${seg.ok ? "rgba(22,163,74,0.14)" : "rgba(239,68,68,0.12)"};color:${seg.ok ? "#86efac" : "#fca5a5"};">
+          ${seg.ok ? "OK" : "!"} ${seg.label}
         </span>
       `;
 
       const cmlPills = [1, 2, 3, 4].map((lvl) => {
         const active = lvl <= t.cmlLevel;
-        return `<span style="padding:2px 5px;border-radius:3px;font-family:monospace;font-size:8.5px;font-weight:700;background:${active ? "rgba(103,232,249,0.22)" : "rgba(255,255,255,0.05)"};color:${active ? "#67e8f9" : "#64748b"};border:1px solid ${active ? "rgba(103,232,249,0.5)" : "rgba(255,255,255,0.08)"};">CML ${lvl}</span>`;
+        return `<span style="padding:2px 5px;border-radius:3px;font-family:var(--font-mono,monospace);font-size:8.5px;font-weight:700;background:${active ? "rgba(37,99,235,0.22)" : "rgba(255,255,255,0.04)"};color:${active ? "#93c5fd" : "#64748b"};border:1px solid ${active ? "rgba(59,130,246,0.5)" : "rgba(148,163,184,0.18)"};">CML ${lvl}</span>`;
       }).join("");
 
       let tradeDeltaHtml = "";
@@ -1554,7 +1560,7 @@
           if (val === 0) return `<span style="color:#94a3b8;">0${unit}</span>`;
           const good = lowerBetter ? val < 0 : val > 0;
           const sign = val > 0 ? "+" : "";
-          return `<span style="color:${good ? "#4ade80" : "#f87171"};font-weight:700;">${sign}${val}${unit}</span>`;
+          return `<span style="color:${good ? "#86efac" : "#fca5a5"};font-weight:700;">${sign}${val}${unit}</span>`;
         };
         const dCost = Number((t.totalCostM - a.totalCostM).toFixed(0));
         const dMass = Number((t.wetMassKg - a.wetMassKg).toFixed(1));
@@ -1563,12 +1569,12 @@
         const dSci = Number((t.scienceScore - a.scienceScore).toFixed(0));
         const dScore = Number((t.overallScore - a.overallScore).toFixed(0));
         tradeDeltaHtml = `
-          <div style="margin-top:8px;padding:6px 9px;border-radius:6px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.35);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-family:monospace;font-size:9.5px;">
-            <span style="color:#ddd6fe;font-weight:700;">MDL TRADE Δ (vs Option A: ${this._escapeHtml(a.scenario.code)} / ${this._escapeHtml(a.orbit.id.toUpperCase())})</span>
+          <div style="margin-top:8px;padding:6px 9px;border-radius:4px;background:rgba(37,99,235,0.1);border:1px solid rgba(59,130,246,0.35);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-family:var(--font-mono,monospace);font-size:9.5px;">
+            <span style="color:#bfdbfe;font-weight:700;">MDL TRADE Δ (vs Option A: ${this._escapeHtml(a.scenario.code)} / ${this._escapeHtml(a.orbit.id.toUpperCase())})</span>
             <span style="color:#cbd5e1;">
               Cost ${fmtDelta(dCost, "M", true)} · Mass ${fmtDelta(dMass, "kg", true)} · Pwr ${fmtDelta(dPwr, "W")} · ΔV ${fmtDelta(dDv, "m/s")} · Sci ${fmtDelta(dSci, "pt")} · Grade ${fmtDelta(dScore, "pt")}
             </span>
-            <button type="button" id="btn-mdl-clear-a" style="padding:2px 6px;border-radius:4px;border:1px solid rgba(255,255,255,0.2);background:rgba(0,0,0,0.35);color:#cbd5e1;font-family:inherit;font-size:8.5px;cursor:pointer;">CLEAR A</button>
+            <button type="button" id="btn-mdl-clear-a" style="padding:2px 6px;border-radius:3px;border:1px solid rgba(148,163,184,0.28);background:rgba(5,8,16,0.6);color:#cbd5e1;font-family:inherit;font-size:8.5px;cursor:pointer;">CLEAR A</button>
           </div>
         `;
       }
@@ -1579,15 +1585,15 @@
 
       return `
         ${roleStrip}
-        <div style="margin-bottom:14px;padding:10px 12px;border-radius:8px;background:rgba(103,232,249,0.04);border:1px solid rgba(255,255,255,0.12);">
+        <div style="margin-bottom:14px;padding:10px 12px;border-radius:4px;background:rgba(8,13,24,0.82);border:1px solid rgba(148,163,184,0.22);">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px;">
-            <span style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.2px;color:#67e8f9;">
+            <span style="font-family:var(--font-mono,monospace);font-size:10px;font-weight:700;letter-spacing:1.2px;color:#93c5fd;">
               ${t.cmlLabel.toUpperCase()} · ${t.scenario.name.toUpperCase()}
             </span>
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-              <button type="button" id="btn-mdl-snapshot-a" style="padding:3px 7px;border-radius:4px;border:1px solid rgba(167,139,250,0.45);background:rgba(167,139,250,0.12);color:#ddd6fe;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">📸 ${this.tradeBaselineA ? "UPDATE OPTION A" : "SAVE OPTION A"}</button>
-              <button type="button" id="btn-mdl-open-viz" style="padding:3px 7px;border-radius:4px;border:1px solid rgba(56,189,248,0.5);background:rgba(56,189,248,0.14);color:#7dd3fc;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">🛰️ 3D ORBIT VIZ [U]</button>
-              <span style="font-family:monospace;font-size:10px;font-weight:700;color:${t.overallScore >= 75 ? "#4ade80" : "#fbbf24"};">
+              <button type="button" id="btn-mdl-snapshot-a" style="padding:3px 8px;border-radius:4px;border:1px solid rgba(148,163,184,0.28);background:rgba(15,23,42,0.85);color:#e2e8f0;font-family:var(--font-mono,monospace);font-size:9px;font-weight:700;cursor:pointer;">${this.tradeBaselineA ? "UPDATE OPTION A" : "SAVE OPTION A"}</button>
+              <button type="button" id="btn-mdl-open-viz" style="padding:3px 8px;border-radius:4px;border:1px solid rgba(59,130,246,0.5);background:rgba(37,99,235,0.2);color:#dbeafe;font-family:var(--font-mono,monospace);font-size:9px;font-weight:700;cursor:pointer;">3D ORBIT VIZ [U]</button>
+              <span style="font-family:var(--font-mono,monospace);font-size:10px;font-weight:700;color:${t.overallScore >= 75 ? "#86efac" : "#fde68a"};">
                 SCORE ${t.overallScore}/100 (SCI ${t.scienceScore} · ENG ${t.engineeringScore})
               </span>
             </div>
@@ -1625,7 +1631,7 @@
         btnSnap.addEventListener("click", () => {
           this.tradeBaselineA = JSON.parse(JSON.stringify(this.evaluateMissionDesign()));
           if (window.spaceAudio) window.spaceAudio.playClick();
-          this.showToast("📸 Baseline Option A captured — adjust subsystems to see live MDL trade deltas!");
+          this.showToast("Baseline Option A captured — adjust subsystems to see live MDL trade deltas.");
           if (typeof this._activeRenderCallback === "function") {
             this._activeRenderCallback();
           } else {
@@ -1983,7 +1989,7 @@
       const t = this.evaluateMissionDesign();
       const payload = {
         exportedAt: new Date().toISOString(),
-        generator: "PERILUNE // NASA Space Apps MDL & Mission Viz Engine",
+        generator: "LUNASPIS // NASA Space Apps MDL & Mission Viz Engine",
         cmlLevel: t.cmlLevel,
         cmlLabel: t.cmlLabel,
         scenario: t.scenario.id,
@@ -2023,12 +2029,12 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `perilune_mdl_${t.scenario.code.toLowerCase()}_cml${t.cmlLevel}.json`;
+      a.download = `lunaspis_mdl_${t.scenario.code.toLowerCase()}_cml${t.cmlLevel}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      this.showToast("💾 Exported MDL Point-Design Specification (.JSON)");
+      this.showToast("Exported MDL Point-Design Specification (.JSON)");
     }
 
     // Allows crew on the Ground (VAB High Bay, LCC Firing Room, or LC-39A) to explore
@@ -2077,7 +2083,7 @@
               `).join("")}
             </div>
             <button type="button" id="btn-mdl-auto-baseline" style="padding:6px 12px;border-radius:5px;border:1px solid rgba(74,222,128,0.5);background:rgba(74,222,128,0.14);color:#86efac;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
-              ⚡ APPLY RECOMMENDED BASELINE FOR ${t.scenario.code}
+              APPLY RECOMMENDED BASELINE FOR ${t.scenario.code}
             </button>
           `;
         } else if (activeTab === "orbit") {
@@ -2150,7 +2156,7 @@
           ${tabContent}
           <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.1);">
             <button type="button" id="btn-mdl-export-json" style="padding:8px 12px;border-radius:5px;border:1px solid rgba(167,139,250,0.5);background:rgba(167,139,250,0.12);color:#ddd6fe;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
-              💾 EXPORT POINT DESIGN (.JSON)
+              EXPORT POINT DESIGN (.JSON)
             </button>
             <button type="button" id="btn-mdl-sync-crew" style="padding:9px 18px;border-radius:6px;border:1px solid #67e8f9;background:#ece7dc;color:#05060a;font-family:monospace;font-size:10.5px;font-weight:800;letter-spacing:1.2px;cursor:pointer;">
               SYNC POINT DESIGN TO CREW & CLOSE
@@ -2211,7 +2217,7 @@
             if (window.netManager && typeof window.netManager.syncMissionDesign === "function") {
               window.netManager.syncMissionDesign(this.syncFullDesignPatch());
             }
-            this.showToast("📡 Point Design synchronized across Launch / Space / Ground / User crew");
+            this.showToast("Point Design synchronized across Launch / Space / Ground / User crew");
             this.closeTaskModal();
           });
         }
@@ -2235,14 +2241,14 @@
           this.updateTaskListUI();
         }
         if (!data.alreadyCompleted) {
-          this.showToast(`✅ [MISSION] ${data.playerName} verified: ${data.taskName}`);
+          this.showToast(`[VERIFIED] ${data.playerName}: ${data.taskName}`);
         }
       });
 
       window.netManager.on("objective_locked", (data) => {
         const mission = (data && data.mission) || this.getMissionState();
         if (data && data.reason === "station_phase") {
-          this.showToast("🛰️ THIS CONSOLE IS AVAILABLE INSIDE THE STATION — FOLLOW THE BOARDING MARKERS AND LAUNCH FIRST");
+          this.showToast("THIS CONSOLE IS AVAILABLE INSIDE THE STATION · FOLLOW THE BOARDING MARKERS AND LAUNCH FIRST");
           if (mission) this.syncMissionUi(mission);
           return;
         }
@@ -2253,7 +2259,7 @@
           const task = this.tasks.find((entry) => entry.id === id);
           return def ? def.title : (task ? task.name : id);
         });
-        this.showToast(`🔒 OBJECTIVE LOCKED — COMPLETE ${names.join(" + ") || "PRIOR OBJECTIVES"} FIRST`);
+        this.showToast(`[LOCKED] OBJECTIVE LOCKED — COMPLETE ${names.join(" + ") || "PRIOR OBJECTIVES"} FIRST`);
         if (mission) this.applyMissionDefinition(mission);
       });
 
@@ -2368,7 +2374,7 @@
       if (btnUse && labelUse) {
         if (closest) {
           const assign = this._getRoleAssignment(closest.role);
-          const tag = assign.isMine ? `[★ ${assign.badgeText}]` : `[${assign.badgeText}]`;
+          const tag = assign.isMine ? `[ASSIGNED · ${assign.badgeText}]` : `[${assign.badgeText}]`;
           btnUse.style.display = "flex";
           labelUse.textContent = `[E] ${tag} ${closest.completed ? "REVIEW " : ""}${closest.name.toUpperCase()}`;
         } else {
@@ -2393,12 +2399,12 @@
       const phase = mission && mission.phase;
       const stationOnly = phase && phase !== "station" && task.id !== "task_antenna";
       if (!isCompleted && stationOnly) {
-        this.showToast("🛰️ THIS CONSOLE IS AVAILABLE INSIDE THE STATION — FOLLOW THE BOARDING MARKERS AND LAUNCH FIRST");
+        this.showToast("THIS CONSOLE IS AVAILABLE INSIDE THE STATION · FOLLOW THE BOARDING MARKERS AND LAUNCH FIRST");
         if (window.spaceAudio) window.spaceAudio.playAlarm("warning");
         return;
       }
       if (!isCompleted && !this.isTaskAvailable(task.id, mission)) {
-        this.showToast(`🔒 ${this.getTaskLockReason(task.id, mission) || "COMPLETE THE PRIOR OBJECTIVE FIRST"}`);
+        this.showToast(`[LOCKED] ${this.getTaskLockReason(task.id, mission) || "COMPLETE THE PRIOR OBJECTIVE FIRST"}`);
         if (window.spaceAudio) window.spaceAudio.playAlarm("warning");
         return;
       }
@@ -2583,7 +2589,7 @@
                 STEP 1A · SELECT PRIMARY MISSION OBJECTIVE & SCENARIO
               </span>
               <button type="button" id="btn-arch-apply-rec" style="padding:4px 9px;border-radius:5px;border:1px solid rgba(74,222,128,0.45);background:rgba(74,222,128,0.12);color:#86efac;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">
-                ⚡ APPLY RECOMMENDED BASELINE FOR ${t.scenario.code}
+                APPLY RECOMMENDED BASELINE FOR ${t.scenario.code}
               </button>
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px;">
@@ -2602,43 +2608,44 @@
             </div>
           </div>
 
-          <div style="padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.1);margin-bottom:14px;">
-            <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.3px;color:#67e8f9;margin-bottom:6px;">
-              ACTIVE 3-ROLE CREW DUTY ROSTER (CLICK A ROLE TO SWITCH DUTY)
+          <div style="padding:10px 12px;border-radius:4px;background:rgba(8,13,24,0.78);border:1px solid rgba(148,163,184,0.22);margin-bottom:14px;">
+            <div style="font-family:var(--font-mono,monospace);font-size:10px;font-weight:700;letter-spacing:1.3px;color:#93c5fd;margin-bottom:6px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+              <span>6-ROLE GROUND &amp; FLIGHT DUTY ROSTER</span>
+              <span style="color:#94a3b8;font-weight:500;">Assigned randomly · Trade seats via Crew Roster [SWAP]</span>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;font-size:10.5px;color:#cbd5e1;margin-top:6px;">
-              ${(["commander", "engineer", "scientist"]).map((rId) => {
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;font-size:10.5px;color:#cbd5e1;margin-top:6px;">
+              ${(["flight_director", "ground_capcom", "commander", "engineer", "scientist", "specialist"]).map((rId) => {
                 const a = this._getRoleAssignment(rId);
-                const duties = rId === "commander"
-                  ? "Pad Launch Auth [L] · Docking Pilot · Console 1 [HUB], Console 2 [CMD] & Sim"
-                  : rId === "engineer"
-                    ? "Pad Access Arm [F] · Docking RCS [1/2] · Console 3 [PWR] & Console 6 [ENG]"
-                    : "Docking Boresight [3/4] · Console 4 [SCI] & Console 5 [LSS ECLSS]";
+                const dutiesMap = {
+                  flight_director: "KSC LCC · GO/NO-GO Launch Release & Docking Corridor Clearance",
+                  ground_capcom: "KSC LCC · DSN Telemetry Lock, EPS Route & Science Downlink",
+                  commander: "Flight Crew · Pad Launch Auth [L], Docking Pilot & Station Command",
+                  engineer: "Flight Crew · Pad Access Arm [F], RCS [1/2] & Power/Propulsion",
+                  scientist: "Flight Crew · Docking Boresight [3/4], Payload Lab & Thermal ECLSS",
+                  specialist: "Flight Crew · Orbital EVA Support & Cross-Console Contingency Ops"
+                };
                 return `
-                  <div style="padding:8px 10px;border-radius:6px;border:1px solid ${a.isMine ? a.color : "rgba(255,255,255,0.12)"};background:${a.isMine ? "rgba(103,232,249,0.08)" : "rgba(0,0,0,0.25)"};display:flex;flex-direction:column;gap:4px;">
+                  <div style="padding:8px 10px;border-radius:4px;border:1px solid ${a.isMine ? "#2563eb" : "rgba(148,163,184,0.2)"};background:${a.isMine ? "rgba(37,99,235,0.14)" : "rgba(5,8,16,0.55)"};display:flex;flex-direction:column;gap:4px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
                       <strong style="color:${a.color};">[${a.short}] ${this._escapeHtml(a.label)}</strong>
-                      <span style="font-family:monospace;font-size:9px;color:${a.isUnstaffed ? "#fbbf24" : "#86efac"};">${this._escapeHtml(a.namesText)}</span>
+                      <span style="font-family:var(--font-mono,monospace);font-size:9px;color:${a.isUnstaffed ? "#94a3b8" : "#86efac"};">${this._escapeHtml(a.namesText)}${a.isMine ? " (YOU)" : ""}</span>
                     </div>
-                    <div style="font-size:10px;color:#cbd5e1;line-height:1.35;">${duties}</div>
-                    <button type="button" class="md-switch-role-btn" data-role="${rId}" style="margin-top:2px;padding:4px 8px;border-radius:4px;border:1px solid ${a.isMine ? a.color : "rgba(255,255,255,0.2)"};background:${a.isMine ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.04)"};color:#ece7dc;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">
-                      ${a.isMine ? "★ YOUR ACTIVE ROLE" : `ASSUME ${a.short}`}
-                    </button>
+                    <div style="font-size:10px;color:#94a3b8;line-height:1.35;">${dutiesMap[rId] || "Cross-mission support"}</div>
                   </div>
                 `;
               }).join("")}
             </div>
-            <div style="font-size:11px;color:#a7f3d0;margin-top:8px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.08);">
-              💡 <strong>Engineering Insight:</strong> ${t.scenario.tradeoffTip}
+            <div style="font-size:11px;color:#cbd5e1;margin-top:8px;padding-top:6px;border-top:1px solid rgba(148,163,184,0.16);">
+              <strong style="color:#93c5fd;">Engineering Insight:</strong> ${t.scenario.tradeoffTip}
             </div>
           </div>
 
           <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
-            <span style="font-family:monospace;font-size:10px;color:#94a3b8;">
-              Active Objective: <strong style="color:#ece7dc;">${t.scenario.code}</strong> · Budget Cap: <strong style="color:#7fb8a6;">$${t.budgetCapM}M</strong>
+            <span style="font-family:var(--font-mono,monospace);font-size:10px;color:#94a3b8;">
+              Active Objective: <strong style="color:#f8fafc;">${t.scenario.code}</strong> · Budget Cap: <strong style="color:#86efac;">$${t.budgetCapM}M</strong>
             </span>
-            <button type="button" id="btn-commit-arch" style="padding:10px 20px;border-radius:6px;border:1px solid #67e8f9;background:#ece7dc;color:#05060a;font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1.4px;cursor:pointer;">
-              LOCK MISSION CHARTER & CONTINUE
+            <button type="button" id="btn-commit-arch" style="padding:9px 18px;border-radius:4px;border:1px solid #f8fafc;background:#f8fafc;color:#050810;font-family:var(--font-mono,monospace);font-size:11px;font-weight:700;letter-spacing:1.3px;cursor:pointer;">
+              LOCK MISSION CHARTER &amp; CONTINUE
             </button>
           </div>
         `;
@@ -2657,7 +2664,7 @@
           btnRec.addEventListener("click", () => {
             this.applyRecommendedScenarioBaseline(this.missionDesign.scenarioId);
             if (window.spaceAudio) window.spaceAudio.playClick();
-            this.showToast(`⚡ Applied recommended baseline configuration for ${t.scenario.code}`);
+            this.showToast(`Applied recommended baseline configuration for ${t.scenario.code}`);
             render();
           });
         }
@@ -2676,25 +2683,6 @@
             this.missionDesign.cubesatFormId = card.dataset.id;
             if (window.spaceAudio) window.spaceAudio.playClick();
             this._renderResourceMeters();
-            render();
-          });
-        });
-
-        container.querySelectorAll(".md-switch-role-btn").forEach((btn) => {
-          btn.addEventListener("click", () => {
-            const targetRole = btn.getAttribute("data-role");
-            if (window.netManager && typeof window.netManager.customizeAstronaut === "function") {
-              window.netManager.explicitRoleSelected = true;
-              window.netManager.customizeAstronaut(null, null, targetRole, null, null, null, { explicitRole: true });
-            }
-            if (typeof window.buildLocalAstronaut === "function") {
-              const col = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.color) || "#67e8f9";
-              window.buildLocalAstronaut(col, targetRole);
-            }
-            if (typeof window.syncLobbySelectionUI === "function") window.syncLobbySelectionUI();
-            if (typeof window.renderHudCrewRoster === "function") window.renderHudCrewRoster();
-            this.updateTaskListUI();
-            if (window.spaceAudio) window.spaceAudio.playClick();
             render();
           });
         });
@@ -2791,8 +2779,8 @@
           <div style="padding:10px 12px;border-radius:8px;background:${t.massOk ? "rgba(127,184,166,0.08)" : "rgba(239,68,68,0.12)"};border:1px solid ${t.massOk ? "rgba(127,184,166,0.35)" : "rgba(239,68,68,0.45)"};margin-bottom:14px;font-size:11.5px;color:#ece7dc;">
             ${
               t.massOk
-                ? `✅ <strong>Launch Compatibility Verified:</strong> ${t.lv.name} can inject <strong>${t.lvCapacityKg} kg</strong> into ${t.orbit.name}, giving your <strong>${t.wetMassKg} kg</strong> spacecraft a <strong>+${t.massMarginPct}%</strong> launch mass margin.`
-                : `⚠️ <strong>Launch Vehicle Overload:</strong> Your spacecraft wet mass (<strong>${t.wetMassKg} kg</strong>) exceeds the <strong>${t.lvCapacityKg} kg</strong> capacity of ${t.lv.name} to ${t.orbit.name}, or exceeds bus instrument bays. Choose a heavier launcher, a lower orbit, or lighter subsystems.`
+                ? `<strong>[PASS] Launch Compatibility Verified:</strong> ${t.lv.name} can inject <strong>${t.lvCapacityKg} kg</strong> into ${t.orbit.name}, giving your <strong>${t.wetMassKg} kg</strong> spacecraft a <strong>+${t.massMarginPct}%</strong> launch mass margin.`
+                : `<strong>[WARN] Launch Vehicle Overload:</strong> Your spacecraft wet mass (<strong>${t.wetMassKg} kg</strong>) exceeds the <strong>${t.lvCapacityKg} kg</strong> capacity of ${t.lv.name} to ${t.orbit.name}, or exceeds bus instrument bays. Choose a heavier launcher, a lower orbit, or lighter subsystems.`
             }
           </div>
 
@@ -2829,7 +2817,7 @@
           commitBtn.addEventListener("click", () => {
             if (!t.massOk) {
               if (window.spaceAudio) window.spaceAudio.playAlarm("warning");
-              this.showToast("⚠️ Spacecraft mass exceeds Launch Vehicle lift capacity for this orbit!");
+              this.showToast("Spacecraft mass exceeds Launch Vehicle lift capacity for this orbit!");
               return;
             }
             this.finishTask(task);
@@ -2952,7 +2940,7 @@
 
           <div style="padding:10px 12px;border-radius:8px;background:${t.powerOk ? "rgba(127,184,166,0.08)" : "rgba(239,68,68,0.12)"};border:1px solid ${t.powerOk ? "rgba(127,184,166,0.35)" : "rgba(239,68,68,0.45)"};margin-bottom:12px;font-size:11px;color:#ece7dc;line-height:1.45;">
             <strong>Electrical Power Balance Equation:</strong> Continuous spacecraft + instrument load is <strong>${t.totalPowerLoadW} W</strong>, plus <strong>${t.rechargePowerNeededW} W</strong> needed during daylight to recharge the battery after each <strong>${(t.eclipseHours * 60).toFixed(0)}-minute</strong> orbital eclipse (${t.eclipseEnergyNeedWh} Wh drawn, <strong>${t.batteryDodPct}% Depth-of-Discharge</strong>).
-            ${t.powerOk ? `✅ Net daylight power margin is <strong>+${t.netDaylightMarginW} W</strong> and Battery DoD is safe (≤80%).` : `⚠️ Power deficit or excessive battery discharge (>80% DoD). Select larger solar wings/RTG or a higher-capacity battery bank.`}
+            ${t.powerOk ? `[PASS] Net daylight power margin is <strong>+${t.netDaylightMarginW} W</strong> and Battery DoD is safe (≤80%).` : `[WARN] Power deficit or excessive battery discharge (>80% DoD). Select larger solar wings/RTG or a higher-capacity battery bank.`}
           </div>
 
           <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
@@ -3010,7 +2998,7 @@
           commitBtn.addEventListener("click", () => {
             if (!t.powerOk) {
               if (window.spaceAudio) window.spaceAudio.playAlarm("warning");
-              this.showToast("⚠️ Power generation or battery capacity is insufficient for orbital eclipse!");
+              this.showToast("Power generation or battery capacity is insufficient for orbital eclipse!");
               return;
             }
             this.finishTask(task);
@@ -3058,7 +3046,7 @@
                 </div>
               </div>
               <div style="font-size:10.5px;color:${t.telescopeOk ? "#a7f3d0" : "#fecaca"};">
-                ${t.telescopeOk ? `✅ Wavelength (${t.wavelength.shortLabel}), Detectors, Thermal Control & Orbit are optically compatible.` : `⚠️ ${t.telescopeIssues.join(" · ")}`}
+                ${t.telescopeOk ? `[PASS] Wavelength (${t.wavelength.shortLabel}), Detectors, Thermal Control & Orbit are optically compatible.` : `[WARN] ${t.telescopeIssues.join(" · ")}`}
               </div>
             </div>`
           : "";
@@ -3112,7 +3100,7 @@
               }
             } else {
               if (this.missionDesign.instruments.length >= t.maxInstruments) {
-                this.showToast(`⚠️ Current bus/form supports at most ${t.maxInstruments} instruments! Upgrade or deselect one.`);
+                this.showToast(`Current bus/form supports at most ${t.maxInstruments} instruments! Upgrade or deselect one.`);
                 if (window.spaceAudio) window.spaceAudio.playAlarm("warning");
                 return;
               }
@@ -3130,8 +3118,8 @@
             if (!payloadValid) {
               if (window.spaceAudio) window.spaceAudio.playAlarm("warning");
               this.showToast(!t.telescopeOk
-                ? `⚠️ ${t.telescopeIssues[0]}`
-                : "⚠️ Select 2 to " + t.maxInstruments + " instruments with at least 55 Science Value!");
+                ? `[WARN] ${t.telescopeIssues[0]}`
+                : "Select 2 to " + t.maxInstruments + " instruments with at least 55 Science Value!");
               return;
             }
             this.finishTask(task);
@@ -3229,7 +3217,7 @@
           commitBtn.addEventListener("click", () => {
             if (!envSurvived) {
               if (window.spaceAudio) window.spaceAudio.playAlarm("warning");
-              this.showToast("⚠️ Thermal radiator capacity or radiation shielding is below orbital requirements!");
+              this.showToast("Thermal radiator capacity or radiation shielding is below orbital requirements!");
               return;
             }
             this.finishTask(task);
@@ -3363,7 +3351,7 @@
           <div style="padding:10px 12px;border-radius:8px;background:${systemsReady ? "rgba(127,184,166,0.08)" : "rgba(239,68,68,0.12)"};border:1px solid ${systemsReady ? "rgba(127,184,166,0.35)" : "rgba(239,68,68,0.45)"};margin-bottom:12px;font-size:11px;color:#ece7dc;line-height:1.45;">
             <div><strong>1. Link Budget & Data Balance:</strong> Link Margin is <strong>${t.linkMarginDb} dB</strong> (min 3.0 dB required for carrier lock at ${t.orbit.altitudeKm.toLocaleString()} km) and daily downlink capacity is <strong>${t.downlinkCapGbPerDay} GB/day</strong> vs. <strong>${t.dataGeneratedGbPerDay} GB/day</strong> generated by your instruments.</div>
             <div style="margin-top:4px;"><strong>2. Tsiolkovsky Rocket Equation (Δv = I_sp · g₀ · ln(m₀ / m_f)):</strong> With wet mass m₀ = <strong>${t.wetMassKg} kg</strong> and dry mass m_f = <strong>${t.dryMassKg} kg</strong>, your propulsion delivers <strong>${t.achievedDeltaV} m/s</strong> vs. <strong>${t.requiredDeltaV} m/s</strong> required (incl. +${t.disposal.dvCostMs} m/s EoM disposal).</div>
-            <div style="margin-top:4px;"><strong>3. Debris Compliance:</strong> ${t.disposalOk ? `✅ ${t.disposalNote}` : `⚠️ ${t.disposalNote}`}</div>
+            <div style="margin-top:4px;"><strong>3. Debris Compliance:</strong> ${t.disposalOk ? `[PASS] ${t.disposalNote}` : `[WARN] ${t.disposalNote}`}</div>
           </div>
 
           <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
@@ -3417,7 +3405,7 @@
           commitBtn.addEventListener("click", () => {
             if (!systemsReady) {
               if (window.spaceAudio) window.spaceAudio.playAlarm("warning");
-              this.showToast("⚠️ Ensure Link Margin, Delta-V, and End-of-Mission disposal requirements all pass!");
+              this.showToast("Ensure Link Margin, Delta-V, and End-of-Mission disposal requirements all pass!");
               return;
             }
             this.finishTask(task);
@@ -3492,7 +3480,7 @@
                 ${t.analogue.agencyTag} HERITAGE MATCH: <strong style="color:#ffffff;">${t.analogue.missions}</strong>
               </span>
               <span style="font-family:monospace;font-size:9.5px;color:#7dd3fc;">
-                ${t.disposalOk ? `✓ EoM ${t.disposal.deorbitYears} yr COMPLIANT` : "⚠️ EoM NON-COMPLIANT"}
+                ${t.disposalOk ? `PASS EoM ${t.disposal.deorbitYears} yr COMPLIANT` : "WARN EoM NON-COMPLIANT"}
               </span>
             </div>
             <canvas id="sim-science-canvas" width="700" height="150" style="width:100%;height:150px;border-radius:6px;border:1px solid rgba(103,232,249,0.28);display:block;margin-bottom:8px;"></canvas>
@@ -3523,7 +3511,7 @@
                   <div style="padding:9px 11px;border-radius:6px;background:rgba(255,255,255,0.025);border-left:3px solid ${p.ok ? "#4ade80" : "#ef4444"};">
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
                       <span style="font-family:monospace;font-size:10px;font-weight:700;color:${p.ok ? "#a7f3d0" : "#fca5a5"};">
-                        ${p.ok ? "✅ " : "❌ "}${p.phase}
+                        ${p.ok ? "[PASS] " : "[FAIL] "}${p.phase}
                       </span>
                       <span style="font-family:monospace;font-size:9.5px;color:#cbd5e1;">${p.metric}</span>
                     </div>
@@ -3537,14 +3525,14 @@
 
           <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button type="button" id="btn-sim-lunar-3d" style="padding:9px 12px;border-radius:6px;border:1px solid rgba(167,139,250,0.5);background:rgba(167,139,250,0.12);color:#ddd6fe;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
-                🌕 LUNAR 3D [K]
+              <button type="button" id="btn-sim-lunar-3d" style="padding:9px 12px;border-radius:4px;border:1px solid rgba(56,189,248,0.45);background:rgba(37,99,235,0.14);color:#93c5fd;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
+                LUNAR 3D [K]
               </button>
-              <button type="button" id="btn-sim-export-json" style="padding:9px 12px;border-radius:6px;border:1px solid rgba(56,189,248,0.5);background:rgba(56,189,248,0.12);color:#7dd3fc;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
-                💾 EXPORT MDL (.JSON)
+              <button type="button" id="btn-sim-export-json" style="padding:9px 12px;border-radius:4px;border:1px solid rgba(148,163,184,0.28);background:rgba(255,255,255,0.04);color:#cbd5e1;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
+                EXPORT MDL (.JSON)
               </button>
-              <button type="button" id="btn-sim-edit-arch" style="padding:9px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.05);color:#ece7dc;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
-                ⚙️ EDIT DESIGN
+              <button type="button" id="btn-sim-edit-arch" style="padding:9px 12px;border-radius:4px;border:1px solid rgba(148,163,184,0.28);background:rgba(255,255,255,0.04);color:#f8fafc;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
+                EDIT DESIGN
               </button>
             </div>
             <button type="button" id="btn-commit-sim" style="padding:10px 22px;border-radius:6px;border:1px solid ${allNominal ? "#4ade80" : "#fbbf24"};background:${allNominal ? "#ece7dc" : "rgba(251,191,36,0.22)"};color:${allNominal ? "#05060a" : "#fef08a"};font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1.4px;cursor:pointer;">
@@ -3673,34 +3661,37 @@
           : (isCompleted ? `Completed — click to review (${assign.badgeText})` : `Owner: ${assign.badgeText} — Click to open console`);
 
         let badgeCls = "badge-all";
-        if (assign.role === "commander") badgeCls = "badge-cmd";
+        if (assign.role === "flight_director") badgeCls = "badge-fdir";
+        else if (assign.role === "ground_capcom") badgeCls = "badge-cap";
+        else if (assign.role === "commander") badgeCls = "badge-cmd";
         else if (assign.role === "engineer") badgeCls = "badge-eng";
         else if (assign.role === "scientist") badgeCls = "badge-sci";
+        else if (assign.role === "specialist") badgeCls = "badge-spc";
         const roleBadge = `<span class="task-badge ${badgeCls}">${this._escapeHtml(assign.badgeText)}</span>`;
 
-        let statusIcon = "⬜";
-        if (isCompleted) statusIcon = "✅";
-        else if (phaseLocked) statusIcon = "🛰️";
-        else if (isLocked) statusIcon = "🔒";
-        else statusIcon = "▶️";
+        let statusIcon = "[ ]";
+        if (isCompleted) statusIcon = "DONE";
+        else if (phaseLocked) statusIcon = "ORBIT";
+        else if (isLocked) statusIcon = "LOCK";
+        else statusIcon = "OPEN";
 
         item.innerHTML = `
-          <div class="task-status-icon">${statusIcon}</div>
+          <div class="task-status-icon" style="font-size:8px;font-family:var(--font-mono,monospace);font-weight:700;letter-spacing:0.4px;width:auto;min-width:34px;color:${isCompleted ? "#86efac" : isBlocked ? "#94a3b8" : "#93c5fd"};">${statusIcon}</div>
           <div class="task-item-content">
             <div class="task-title-row">
               <span class="task-title-text">${t.name}</span>
               ${roleBadge}
             </div>
             <div class="task-location-row">
-              <span class="task-loc-pin">📍</span>
+              <span class="task-loc-pin">LOC</span>
               <span class="task-loc-text">${t.location}</span>
             </div>
-            ${isBlocked && blockedReason ? `<div class="task-location-row" style="color:#fbbf24;font-size:9px;">${phaseLocked ? "🛰️" : "🔒"} ${blockedReason}</div>` : ""}
+            ${isBlocked && blockedReason ? `<div class="task-location-row" style="color:#fbbf24;font-size:9px;">[${phaseLocked ? "ORBIT" : "LOCK"}] ${blockedReason}</div>` : ""}
           </div>
         `;
         item.addEventListener("click", () => {
           if (isBlocked) {
-            if (window.gameplay) window.gameplay.showToast(`${phaseLocked ? "🛰️" : "🔒"} ${blockedReason || "COMPLETE THE PRIOR OBJECTIVE FIRST"}`);
+            if (window.gameplay) window.gameplay.showToast(`${phaseLocked ? "[ORBIT]" : "[LOCK]"} ${blockedReason || "COMPLETE THE PRIOR OBJECTIVE FIRST"}`);
             if (window.spaceAudio) window.spaceAudio.playAlarm("warning");
             return;
           }
@@ -3711,6 +3702,19 @@
       if (typeof window.renderHudCrewRoster === "function") {
         window.renderHudCrewRoster();
       }
+    }
+
+    getGroundTelemetrySummary() {
+      const completed = Array.isArray(this.tasks) ? this.tasks.filter((t) => t && t.completed).length : 0;
+      const total = Array.isArray(this.tasks) ? this.tasks.length : 0;
+      let readiness = 0;
+      try {
+        const evalSummary = this.evaluateMissionDesign();
+        readiness = evalSummary && Number.isFinite(evalSummary.overallScore) ? evalSummary.overallScore : 0;
+      } catch (e) {
+        readiness = 0;
+      }
+      return { completed, total, readiness };
     }
 
     _escapeHtml(value) {
@@ -3735,7 +3739,7 @@
       this.lastVictoryReason = reason || "";
 
       const data = debrief || {};
-      const scenarioCode = data.scenarioCode || "PERILUNE";
+      const scenarioCode = data.scenarioCode || "LUNASPIS";
       const scenarioName = data.scenarioName || "Co-op Expedition";
       const difficulty = String(data.difficultyId || "engineer").toUpperCase();
       const durationSec = Math.max(0, Math.round((data.durationMs || 0) / 1000));
@@ -3747,7 +3751,7 @@
         title.textContent = `${scenarioCode} · MISSION COMPLETE`;
         title.style.color = "#67e8f9";
       }
-      if (icon) icon.textContent = "PERILUNE // MISSION DEBRIEF";
+      if (icon) icon.textContent = "LUNASPIS // MISSION DEBRIEF";
       if (msg) {
         msg.textContent = reason || `${scenarioName} — all ${totalCount} shared objectives verified by the crew.`;
       }
@@ -3785,7 +3789,7 @@
             <div style="margin-top:2px;"><strong>${evalSummary.analogue.missions}</strong> — ${evalSummary.analogue.productTitle}</div>
             <div style="margin-top:6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
               <span style="font-family:monospace;font-size:9.5px;color:#86efac;">EoM Disposal: ${evalSummary.disposal.name.split("(")[0].trim()} (${evalSummary.disposal.deorbitYears} yr)</span>
-              <button type="button" id="btn-victory-export-mdl" style="padding:4px 9px;border-radius:4px;border:1px solid rgba(103,232,249,0.5);background:rgba(103,232,249,0.14);color:#7dd3fc;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">💾 EXPORT MDL (.JSON)</button>
+              <button type="button" id="btn-victory-export-mdl" style="padding:4px 9px;border-radius:4px;border:1px solid rgba(103,232,249,0.5);background:rgba(103,232,249,0.14);color:#7dd3fc;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">EXPORT MDL (.JSON)</button>
             </div>
           </div>
           <div style="font-family:monospace;font-size:9px;color:#9aa4ae;letter-spacing:0.8px;margin-bottom:8px;text-align:left;">

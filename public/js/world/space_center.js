@@ -64,6 +64,12 @@
       // Interactive UI
       this.hudOverlay = null;
       this.hudCollapsed = false;
+      this.lccConsoleOverlay = null;
+      this.lccConsoleOpen = false;
+      this._localPollSentAt = 0;
+      this._autoLaunchPollSent = false;
+      this._groundObserverLaunch = false;
+      this._lccSyncAccumulator = 0;
 
       // Ground atmosphere / lighting state
       this.savedFog = null;
@@ -127,7 +133,7 @@
 
       this._setupGroundUI();
 
-      console.log("🚀 [SpaceCenter] Kennedy Space Center LC-39A & Player Boarding Dock ready.");
+      console.log("[SpaceCenter] Kennedy Space Center LC-39A & Player Boarding Dock ready.");
     }
 
     // ============================================================================
@@ -1370,19 +1376,29 @@
             id: "vab_mdl",
             x: -42,
             z: 652,
-            radius: 5.5,
+            radius: 4.8,
             label: "E · VAB SPACECRAFT INTEGRATION DESK",
             shortAction: "OPEN VAB INTEGRATION DESK [E]",
             action: "bus",
             color: 0x38bdf8
           },
           {
+            id: "lcc_ops",
+            x: -203.0,
+            z: 180.5,
+            radius: 3.2,
+            label: "E · LCC FLIGHT DIRECTOR OPS CONSOLE",
+            shortAction: "OPEN LCC OPS CONSOLE [E]",
+            action: "lcc_console",
+            color: 0x3b82f6
+          },
+          {
             id: "lcc_viz",
-            x: -203,
-            z: 184,
-            radius: 5.5,
+            x: -210.5,
+            z: 178.5,
+            radius: 3.4,
             label: "E · LCC FLIGHT DYNAMICS & ORBIT VIZ",
-            shortAction: "OPEN LCC ORBIT VIZ / MDL [E]",
+            shortAction: "OPEN ORBIT VIZ [E]",
             action: "viz",
             color: 0xa78bfa
           }
@@ -1398,8 +1414,25 @@
       }
     }
 
+    _isLocalGroundCrew() {
+      const nm = window.netManager;
+      if (!nm) return false;
+      const roles = window.InterfellasRoles;
+      const localRole = nm.localPlayer && nm.localPlayer.role;
+      if (nm.localPlayer && nm.localPlayer.team === "ground") return true;
+      if (roles && typeof roles.isGroundRole === "function" && roles.isGroundRole(localRole)) return true;
+      if (nm.roomState && Array.isArray(nm.roomState.players) && nm.socketId) {
+        const me = nm.roomState.players.find((p) => p && p.id === nm.socketId);
+        if (me) {
+          if (me.team === "ground") return true;
+          if (roles && typeof roles.isGroundRole === "function" && roles.isGroundRole(me.role)) return true;
+        }
+      }
+      return false;
+    }
+
     _getNearbyFacilityTerminal() {
-      if (!this.siteTourActive || !Array.isArray(this.facilityTerminals) || !this.facilityTerminals.length) return null;
+      if (!(this.siteTourActive || this._isLocalGroundCrew()) || !Array.isArray(this.facilityTerminals) || !this.facilityTerminals.length) return null;
       const crew = window.localCrew && window.localCrew.group;
       if (!crew || !crew.visible || !crew.position) return null;
       let best = null;
@@ -1417,7 +1450,9 @@
     _activateFacilityTerminal(term) {
       if (!term) return;
       if (window.spaceAudio) window.spaceAudio.playClick();
-      if (term.action === "viz") {
+      if (term.action === "lcc_console") {
+        this.openLccConsole(true);
+      } else if (term.action === "viz") {
         if (window.missionViz && typeof window.missionViz.open === "function") {
           window.missionViz.open();
         } else if (window.gameplay && typeof window.gameplay.openPreFlightMdlDesk === "function") {
@@ -1542,7 +1577,9 @@
     }
 
     _updateGuidanceMarkers(delta, elapsed) {
+      const isGround = this._isLocalGroundCrew();
       const showGuidance = this.isGroundMode &&
+        !isGround &&
         !this.siteTourActive &&
         !this.isLaunching &&
         this.missionPhase === "gantry" &&
@@ -1574,7 +1611,7 @@
       animate(this.guidanceMarkers.hatch, hatchActive);
 
       if (Array.isArray(this.facilityTerminals)) {
-        const showFacility = !!(this.isGroundMode && this.siteTourActive);
+        const showFacility = !!(this.isGroundMode && (this.siteTourActive || isGround));
         this.facilityTerminals.forEach((term) => {
           animate(term.marker, showFacility);
         });
@@ -1641,9 +1678,10 @@
     }
 
     enterSiteTour(index = 0) {
-      if (!this.isGroundMode || this.crewBoarded || this.isLaunching) {
+      const isGround = this._isLocalGroundCrew();
+      if (!this.isGroundMode || (!isGround && (this.crewBoarded || this.isLaunching))) {
         if (window.gameplay && typeof window.gameplay.showToast === "function") {
-          window.gameplay.showToast(this.crewBoarded ? "CREW ALREADY ABOARD — RETURN TO GANTRY BEFORE TOURING" : "SITE TOUR UNAVAILABLE DURING LAUNCH");
+          window.gameplay.showToast(this.crewBoarded ? "CREW ALREADY ABOARD · RETURN TO GANTRY BEFORE TOURING" : "SITE TOUR UNAVAILABLE DURING LAUNCH");
         }
         return false;
       }
@@ -1657,17 +1695,22 @@
 
     exitSiteTour() {
       this.siteTourActive = false;
-      const spawn = this._groundSpawnForIndex(this._localPlayerIndex());
+      const isGround = this._isLocalGroundCrew();
+      const spawn = isGround
+        ? this._groundLccSpawnForIndex(this._localGroundIndex())
+        : this._groundSpawnForIndex(this._localPlayerIndex());
       if (window.localCrew && window.localCrew.group) {
-        window.localCrew.group.visible = !this.crewBoarded;
+        window.localCrew.group.visible = isGround ? true : !this.crewBoarded;
         window.localCrew.group.position.set(spawn.x, spawn.y, spawn.z);
         window.localCrew.group.rotation.y = spawn.yaw;
       }
       if (typeof window.setCameraYawPitch === "function") {
-        window.setCameraYawPitch(spawn.yaw, -0.05);
+        window.setCameraYawPitch(spawn.yaw, isGround ? 0.03 : -0.05);
       }
       if (window.gameplay && typeof window.gameplay.showToast === "function") {
-        window.gameplay.showToast("🏗️ RETURNED TO THE GANTRY — BOARD THE ORBITER WHEN READY");
+        window.gameplay.showToast(isGround
+          ? "RETURNED TO LCC FIRING ROOM · CONSOLE [C]"
+          : "RETURNED TO THE GANTRY · BOARD THE ORBITER WHEN READY");
       }
       this._renderGroundHUD();
     }
@@ -1693,7 +1736,7 @@
       }
       this._updateSunShadowFocus({ x: spawn.x, z: spawn.z });
       if (window.gameplay && typeof window.gameplay.showToast === "function") {
-        window.gameplay.showToast(`🏗️ SITE TOUR · ${spawn.label.toUpperCase()} · [1-6] FAST TRAVEL · [T] GANTRY`);
+        window.gameplay.showToast(`SITE SECTOR · ${spawn.label.toUpperCase()} · [1-6] FAST TRAVEL · [T] ${this._isLocalGroundCrew() ? "LCC ROOM" : "GANTRY"}`);
       }
       this._renderGroundHUD();
     }
@@ -1747,7 +1790,7 @@
     // ============================================================================
     resolveGroundCollision(currentPos, proposedPos) {
       const THREE = window.THREE;
-      if (this.siteTourActive) {
+      if (this.siteTourActive || this._isLocalGroundCrew()) {
         return this._resolveSiteTourCollision(currentPos, proposedPos);
       }
       // Gantry level Y = 64.1m
@@ -1801,12 +1844,19 @@
     _setupGroundUI() {
       const existing = document.getElementById("space-center-ground-hud");
       if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+      const existingLcc = document.getElementById("ground-lcc-console");
+      if (existingLcc && existingLcc.parentNode) existingLcc.parentNode.removeChild(existingLcc);
 
       this.hudOverlay = document.createElement("div");
       this.hudOverlay.id = "space-center-ground-hud";
       this.hudOverlay.style.display = "none";
-
       document.body.appendChild(this.hudOverlay);
+
+      this.lccConsoleOverlay = document.createElement("div");
+      this.lccConsoleOverlay.id = "ground-lcc-console";
+      this.lccConsoleOverlay.style.display = "none";
+      document.body.appendChild(this.lccConsoleOverlay);
+
       this._renderGroundHUD();
 
       if (!this._groundKeyBound) {
@@ -1823,7 +1873,21 @@
           const briefingEl = document.getElementById("mission-briefing-overlay");
           if (briefingEl && briefingEl.style.display === "flex") return;
 
-          if (this.siteTourActive) {
+          const isGround = this._isLocalGroundCrew();
+
+          if (e.code === "Escape" && this.lccConsoleOpen) {
+            e.preventDefault();
+            this.openLccConsole(false);
+            return;
+          }
+
+          if (e.code === "KeyC" && isGround) {
+            e.preventDefault();
+            this.toggleLccConsole();
+            return;
+          }
+
+          if (this.siteTourActive || isGround) {
             const tourCodes = ["Digit1", "Digit2", "Digit3", "Digit4", "Digit5", "Digit6"];
             const tourIndex = tourCodes.indexOf(e.code);
             if (tourIndex !== -1) {
@@ -1851,9 +1915,7 @@
                 return;
               }
             }
-            // The site tour is a read-only exploration mode; do not let pad
-            // boarding/launch keys fire while the crew is at the VAB or LCC.
-            return;
+            if (this.siteTourActive || isGround) return;
           }
 
           if (e.code === "KeyL" && this._canLaunchNow()) {
@@ -1894,12 +1956,30 @@
     }
 
     _canLaunchNow(crewState) {
-      if (!this.isGroundMode || this.siteTourActive || this.isLaunching || this._launchSequenceStarted) {
+      if (!this.isGroundMode || this.siteTourActive || this._isLocalGroundCrew() || this.isLaunching || this._launchSequenceStarted) {
         return false;
       }
       if (this.missionPhase !== "gantry") return false;
       const state = crewState || this._crewAboardState();
       return !!(this.crewBoarded || (state && state.aboardCount > 0));
+    }
+
+    _localGroundIndex() {
+      const nm = window.netManager;
+      const players = nm && nm.roomState && Array.isArray(nm.roomState.players) ? nm.roomState.players : [];
+      const roles = window.InterfellasRoles;
+      const groundPlayers = players.filter((p) => p && (p.team === "ground" || (roles && roles.isGroundRole(p.role))));
+      if (!groundPlayers.length || !nm || !nm.socketId) return 0;
+      const idx = groundPlayers.findIndex((p) => p.id === nm.socketId);
+      return idx >= 0 ? idx : 0;
+    }
+
+    _groundLccSpawnForIndex(index = 0) {
+      const spots = [
+        { x: -204.5, y: 0.25, z: 185.5, yaw: 0 },
+        { x: -201.5, y: 0.25, z: 185.5, yaw: 0 }
+      ];
+      return spots[((index % spots.length) + spots.length) % spots.length];
     }
 
     _crewAboardState() {
@@ -1910,62 +1990,84 @@
         : null;
       const boardedIds = mission && Array.isArray(mission.boarded) ? mission.boarded : [];
       const mySocketId = window.netManager ? window.netManager.socketId : null;
-      const activeIds = players.map((player) => player && player.id).filter(Boolean);
-      const boarded = new Set(boardedIds);
-
-      if (this.crewBoarded && mySocketId) boarded.add(mySocketId);
-
-      let aboardCount = activeIds.length
-        ? activeIds.filter((id) => boarded.has(id)).length
-        : (this.crewBoarded ? 1 : 0);
-      const crewTotal = Math.max(players.length, 1);
-      aboardCount = Math.min(crewTotal, aboardCount);
-
-      const normalizeRole = window.InterfellasRoles
-        ? window.InterfellasRoles.normalizeRole
+      const roles = window.InterfellasRoles;
+      const normalizeRole = roles
+        ? roles.normalizeRole
         : ((r, f) => String(r || f || "commander").toLowerCase());
-      const getMeta = window.InterfellasRoles
-        ? window.InterfellasRoles.getRoleMeta
-        : ((r) => ({ short: String(r || "CMD").slice(0, 3).toUpperCase(), color: "#67e8f9" }));
+      const isGroundRoleFn = roles
+        ? roles.isGroundRole
+        : ((r) => r === "flight_director" || r === "ground_capcom");
+      const getMeta = roles
+        ? roles.getRoleMeta
+        : ((r) => ({ short: String(r || "CMD").slice(0, 3).toUpperCase(), color: "#93c5fd" }));
 
-      const roster = players.length
+      const boarded = new Set(boardedIds);
+      const localIsGround = this._isLocalGroundCrew();
+      if (this.crewBoarded && mySocketId && !localIsGround) boarded.add(mySocketId);
+
+      const mappedPlayers = players.length
         ? players.map((p) => {
             const role = normalizeRole(p.role, "commander");
             const meta = getMeta(role);
+            const isGround = p.team === "ground" || isGroundRoleFn(role);
             return {
               id: p.id,
               name: p.name || "Crew",
               role,
+              team: isGround ? "ground" : "crew",
+              isGround,
               roleShort: meta.short,
               roleColor: meta.color,
               isHost: p.id === (room && room.hostId) || !!p.isHost,
               isSelf: p.id === mySocketId,
-              isAboard: boarded.has(p.id)
+              isAboard: !isGround && boarded.has(p.id)
             };
           })
         : [{
             id: mySocketId || "local",
             name: (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.name) || "Astronaut",
             role: normalizeRole(window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.role, "commander"),
+            team: localIsGround ? "ground" : "crew",
+            isGround: localIsGround,
             roleShort: getMeta(window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.role).short,
             roleColor: getMeta(window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.role).color,
             isHost: true,
             isSelf: true,
-            isAboard: !!this.crewBoarded
+            isAboard: !localIsGround && !!this.crewBoarded
           }];
 
-      const armOwner = roster.find((p) => p.role === "engineer") || roster.find((p) => p.isHost) || roster[0];
-      const launchAuthority = roster.find((p) => p.role === "commander") || roster.find((p) => p.isHost) || roster[0];
-      const isLocalLaunchAuthority = !!(launchAuthority && (launchAuthority.isSelf || roster.length <= 1));
+      const flightRoster = mappedPlayers.filter((p) => !p.isGround);
+      const groundRoster = mappedPlayers.filter((p) => p.isGround);
+      const crewTotal = flightRoster.length ? flightRoster.length : (localIsGround ? 0 : 1);
+      const aboardCount = Math.min(
+        crewTotal,
+        flightRoster.length ? flightRoster.filter((p) => p.isAboard).length : (this.crewBoarded ? 1 : 0)
+      );
+
+      const armOwner = flightRoster.find((p) => p.role === "engineer")
+        || flightRoster.find((p) => p.isHost)
+        || flightRoster[0]
+        || mappedPlayers[0];
+      const launchAuthority = flightRoster.find((p) => p.role === "commander")
+        || flightRoster.find((p) => p.isHost)
+        || flightRoster[0]
+        || mappedPlayers[0];
+      const isLocalLaunchAuthority = !localIsGround && !!(launchAuthority && (launchAuthority.isSelf || flightRoster.length <= 1));
 
       return {
         aboardCount,
         crewTotal,
-        allAboard: aboardCount >= crewTotal && (activeIds.length > 0 || this.crewBoarded),
-        roster,
+        groundTotal: groundRoster.length,
+        hasOnlineGround: groundRoster.length > 0,
+        allAboard: flightRoster.length > 0 && aboardCount >= flightRoster.length,
+        roster: flightRoster.length ? flightRoster : mappedPlayers,
+        flightRoster,
+        groundRoster,
         armOwner,
         launchAuthority,
-        isLocalLaunchAuthority
+        isLocalLaunchAuthority,
+        groundSupport: (mission && mission.groundSupport) || {},
+        launchPollAt: (mission && mission.launchPollAt) || 0
       };
     }
 
@@ -1978,8 +2080,18 @@
     _updateBoardingGuidance(delta, elapsed) {
       if (!this.isGroundMode) return;
 
+      const isGround = this._isLocalGroundCrew();
+      if (this.lccConsoleOpen && isGround) {
+        this._lccSyncAccumulator += delta;
+        if (this._lccSyncAccumulator >= 0.35) {
+          this._lccSyncAccumulator = 0;
+          this._syncLccConsoleLive();
+        }
+      }
+
       const briefingEl = document.getElementById("mission-briefing-overlay");
-      const paused = this.siteTourActive ||
+      const paused = isGround ||
+        this.siteTourActive ||
         this.isLaunching ||
         this.missionPhase !== "gantry" ||
         !!(window.gameplay && window.gameplay.activeTask) ||
@@ -2023,16 +2135,20 @@
           this.autoLaunchRemaining = crewState.isLocalLaunchAuthority ? 5.0 : 6.2;
           if (window.spaceAudio) window.spaceAudio.playCountdownBeep(true);
           if (window.gameplay && typeof window.gameplay.showToast === "function") {
-            window.gameplay.showToast("🚀 ALL CREW ABOARD · AUTOMATIC LIFTOFF IN 5 SECONDS");
+            window.gameplay.showToast("ALL CREW ABOARD · AUTOMATIC LIFTOFF IN 5 SECONDS");
           }
         }
         this.autoLaunchRemaining -= delta;
         if (this.autoLaunchRemaining <= 0) {
           this.autoLaunchRemaining = 0;
-          this.startLaunchCountdown();
+          if (!this._autoLaunchPollSent) {
+            this._autoLaunchPollSent = true;
+            this.startLaunchCountdown();
+          }
         }
       } else {
         this.autoLaunchRemaining = null;
+        this._autoLaunchPollSent = false;
       }
 
       this._updateGuidanceMarkers(delta, elapsed);
@@ -2046,6 +2162,9 @@
     _groundGuidanceState() {
       const touchUI = !!(window.isMobileDevice || (window.matchMedia && window.matchMedia("(pointer: coarse), (hover: none)").matches));
       const crewState = this._crewAboardState();
+      const isGround = this._isLocalGroundCrew();
+      const gs = crewState.groundSupport || {};
+      const pollActive = !!(crewState.launchPollAt && !gs.goNoGoLaunch);
       const tourSpawns = (window.SpaceCenterModules && window.SpaceCenterModules.SITE_TOUR_SPAWNS) || [];
       const step1Done = this.dockLocked;
       const step2Done = this.crewBoarded;
@@ -2056,29 +2175,58 @@
       const launchAuthLabel = crewState.launchAuthority
         ? (crewState.launchAuthority.isSelf ? `YOU (${crewState.launchAuthority.roleShort})` : `${crewState.launchAuthority.roleShort} · ${crewState.launchAuthority.name}`)
         : "CMD";
-      const unboardedNames = crewState.roster.filter((p) => !p.isAboard).map((p) => p.name);
+      const unboardedNames = crewState.flightRoster.filter((p) => !p.isAboard).map((p) => p.name);
 
       let statusText = `LC-39A · STEP 1 (${armOwnerLabel}): ARM [F]`;
-      let statusColor = "#fbbf24";
+      let statusColor = "#93c5fd";
       let distance = null;
       let target = null;
 
-      const nearTerm = this.siteTourActive ? this._getNearbyFacilityTerminal() : null;
-      if (this.siteTourActive) {
+      const nearTerm = (this.siteTourActive || isGround) ? this._getNearbyFacilityTerminal() : null;
+      if (isGround) {
+        if (nearTerm) {
+          statusText = `${nearTerm.label} · [E] OPEN`;
+          statusColor = "#60a5fa";
+        } else if (this.missionPhase === "gantry") {
+          if (pollActive) {
+            statusText = "LAUNCH POLL ACTIVE · ISSUE GO/NO-GO IN LCC CONSOLE [C]";
+            statusColor = "#fbbf24";
+          } else {
+            statusText = `LCC FIRING ROOM · FLIGHT ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · OPS CONSOLE [C]`;
+            statusColor = gs.goNoGoLaunch ? "#86efac" : "#93c5fd";
+          }
+        } else if (this.missionPhase === "launch") {
+          statusText = "T+ASCENT TELEMETRY LIVE · MONITOR PAD 39A LIFTOFF · CONSOLE [C]";
+          statusColor = "#fca5a5";
+        } else if (this.missionPhase === "docking") {
+          statusText = gs.dockingClearance
+            ? "ORBITAL DOCKING IN PROGRESS · CORRIDOR CLEARED · CONSOLE [C]"
+            : "ORBITAL RENDEZVOUS · ISSUE DOCKING CLEARANCE [C]";
+          statusColor = gs.dockingClearance ? "#86efac" : "#fbbf24";
+        } else {
+          statusText = "ORBITAL OPS · COORDINATE STATION CREW & DOWNLINK · CONSOLE [C]";
+          statusColor = "#86efac";
+        }
+      } else if (this.siteTourActive) {
         const current = tourSpawns[this.siteTourIndex] || tourSpawns[0];
         if (nearTerm) {
-          statusText = `★ ${nearTerm.label} · [E] OPEN TERMINAL`;
-          statusColor = "#67e8f9";
+          statusText = `${nearTerm.label} · [E] OPEN TERMINAL`;
+          statusColor = "#60a5fa";
         } else {
           const loc = (current && (current.short || current.label) ? (current.short || current.label) : "PAD 39A").toUpperCase();
           statusText = touchUI
             ? `LC-39A TOUR · ${loc}`
             : `LC-39A TOUR · ${loc} · [1-6] JUMP · [T] GANTRY`;
-          statusColor = "#d0a15c";
+          statusColor = "#cbd5e1";
         }
       } else if (this.isLaunching) {
-        statusText = "T-0: MAIN ENGINE & BOOSTER IGNITION · LIFTOFF!";
+        statusText = "T-0: MAIN ENGINE & BOOSTER IGNITION · LIFTOFF";
         statusColor = "#f87171";
+      } else if (pollActive) {
+        statusText = touchUI
+          ? "AWAITING GROUND GO/NO-GO · TAP LAUNCH TO OVERRIDE"
+          : "AWAITING GROUND GO/NO-GO (8s) · PRESS [L] AGAIN TO LAUNCH NOW";
+        statusColor = "#fbbf24";
       } else if (!step1Done) {
         distance = this._distanceToGuidancePoint(-25.9, -6.3);
         target = "arm";
@@ -2088,14 +2236,16 @@
         distance = this._distanceToGuidancePoint(-7.8, -7.2);
         target = "hatch";
         statusText = `LC-39A · STEP 2: HATCH [E/B] (${crewState.aboardCount}/${crewState.crewTotal})${distance !== null ? ` · ${Math.max(1, Math.round(distance))}m` : ""}`;
-        statusColor = "#67e8f9";
+        statusColor = "#93c5fd";
       } else if (this.autoLaunchRemaining !== null) {
         const seconds = Math.max(1, Math.ceil(this.autoLaunchRemaining));
         statusText = `ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · LIFTOFF IN ${seconds}s`;
-        statusColor = "#34d399";
+        statusColor = "#86efac";
       } else if (crewState.allAboard) {
-        statusText = `ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · AUTO LIFTOFF...`;
-        statusColor = "#34d399";
+        statusText = gs.goNoGoLaunch
+          ? `GO FOR LAUNCH · ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · IGNITION...`
+          : `ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · POLLING LAUNCH...`;
+        statusColor = "#86efac";
       } else {
         const waitingOn = unboardedNames.length ? `WAIT: ${unboardedNames.join(", ")} · ` : "";
         statusText = touchUI
@@ -2108,6 +2258,9 @@
 
       return {
         touchUI,
+        isGround,
+        gs,
+        pollActive,
         step1Done,
         step2Done,
         nearTerm,
@@ -2116,6 +2269,8 @@
         crewTotal: crewState.crewTotal,
         allAboard: crewState.allAboard,
         roster: crewState.roster,
+        flightRoster: crewState.flightRoster,
+        groundRoster: crewState.groundRoster,
         armOwnerLabel,
         launchAuthLabel,
         autoLaunchRemaining: this.autoLaunchRemaining,
@@ -2126,17 +2281,31 @@
       };
     }
 
+    _groundOpButtonAttrs(approved, urgent = false) {
+      if (approved) return "is-approved";
+      if (urgent) return "is-urgent";
+      return "";
+    }
+
+    _triggerGroundAction(type, extra = {}) {
+      if (window.spaceAudio) window.spaceAudio.playClick();
+      if (window.netManager && typeof window.netManager.sendGroundAction === "function") {
+        window.netManager.sendGroundAction(type, extra);
+      }
+    }
+
     _renderGroundHUD() {
       if (!this.hudOverlay) return;
       const guidance = this._groundGuidanceState();
       const touchUI = guidance.touchUI;
       const tourSpawns = (window.SpaceCenterModules && window.SpaceCenterModules.SITE_TOUR_SPAWNS) || [];
+      const gs = guidance.gs || {};
 
       this.hudOverlay.classList.toggle("is-collapsed", !!this.hudCollapsed);
       this.hudOverlay.innerHTML = `
         <div class="sc-hud-top">
           <div class="sc-hud-status">
-            <span id="sc-status-dot" class="sc-status-dot" style="background:${guidance.statusColor};box-shadow:0 0 8px ${guidance.statusColor};"></span>
+            <span id="sc-status-dot" class="sc-status-dot" style="background:${guidance.statusColor};"></span>
             <span id="sc-status-label" class="sc-status-label" style="color:${guidance.statusColor};">${guidance.statusText}</span>
           </div>
 
@@ -2144,11 +2313,17 @@
             <button type="button" id="btn-sc-term-act" class="sc-hud-btn sc-btn-term" style="display:${guidance.nearTerm ? "inline-flex" : "none"};">
               ${guidance.nearTerm ? guidance.nearTerm.shortAction : "TERMINAL [E]"}
             </button>
-            <button type="button" id="btn-sc-launch" class="sc-hud-btn sc-btn-launch" style="display:${guidance.canLaunchNow ? "inline-flex" : "none"};">
-              ${touchUI ? "🚀 LAUNCH" : "🚀 LAUNCH [L]"}
-            </button>
+            ${guidance.isGround ? `
+              <button type="button" id="btn-sc-lcc-console" class="sc-hud-btn ${this.lccConsoleOpen ? "sc-btn-launch" : "sc-btn-term"}">
+                ${this.lccConsoleOpen ? "CLOSE OPS [C]" : (guidance.pollActive ? "GO/NO-GO [C]" : "LCC OPS [C]")}
+              </button>
+            ` : `
+              <button type="button" id="btn-sc-launch" class="sc-hud-btn sc-btn-launch" style="display:${guidance.canLaunchNow ? "inline-flex" : "none"};">
+                ${guidance.pollActive ? (touchUI ? "OVERRIDE LAUNCH" : "OVERRIDE [L]") : (touchUI ? "LAUNCH" : "LAUNCH [L]")}
+              </button>
+            `}
             <button type="button" id="btn-sc-hud-toggle" class="sc-hud-btn sc-btn-collapse" title="${this.hudCollapsed ? "Expand LC-39A Dock" : "Minimize LC-39A Dock"}">
-              ${this.hudCollapsed ? "▸" : "▾"}
+              ${this.hudCollapsed ? "+" : "-"}
             </button>
           </div>
         </div>
@@ -2156,26 +2331,52 @@
         <div class="sc-hud-body" style="display:${this.hudCollapsed ? "none" : "flex"};">
           <div class="sc-hud-tools">
             <button type="button" id="btn-sc-mission-plan" class="sc-hud-btn sc-btn-plan">
-              ${touchUI ? "📋 DESIGN" : "📋 DESIGN [M]"}
+              ${touchUI ? "DESIGN" : "DESIGN [M]"}
             </button>
             <button type="button" id="btn-sc-mdl-desk" class="sc-hud-btn sc-btn-mdl">
-              🧠 MDL DESK
+              MDL DESK
             </button>
             <button type="button" id="btn-sc-orbit-viz" class="sc-hud-btn sc-btn-viz">
-              ${touchUI ? "🛰️ ORBIT" : "🛰️ ORBIT [U]"}
+              ${touchUI ? "ORBIT VIZ" : "ORBIT VIZ [U]"}
             </button>
-            <button type="button" id="btn-sc-site-tour" class="sc-hud-btn sc-btn-tour">
-              ${this.siteTourActive ? (touchUI ? "↩ GANTRY" : "↩ GANTRY [T]") : "🏗️ SITE TOUR"}
-            </button>
+            ${guidance.isGround ? `
+              <button type="button" id="btn-sc-return-lcc" class="sc-hud-btn sc-btn-tour">
+                ${touchUI ? "LCC ROOM" : "LCC ROOM [T]"}
+              </button>
+            ` : `
+              <button type="button" id="btn-sc-site-tour" class="sc-hud-btn sc-btn-tour">
+                ${this.siteTourActive ? (touchUI ? "GANTRY" : "GANTRY [T]") : "SITE TOUR"}
+              </button>
+            `}
           </div>
 
-          <div id="sc-guidance-steps" class="sc-hud-steps" style="display:${this.siteTourActive ? "none" : "flex"};">
-            <span id="sc-step-1" class="sc-step-chip"></span>
-            <span id="sc-step-2" class="sc-step-chip"></span>
-            <span id="sc-step-3" class="sc-step-chip"></span>
-          </div>
+          ${guidance.isGround ? `
+            <div class="sc-ground-ops-strip">
+              <button type="button" id="btn-gop-gonogo" class="ground-action-btn ${this._groundOpButtonAttrs(gs.goNoGoLaunch, guidance.pollActive)}" data-ground-op="go_nogo_launch">
+                ${gs.goNoGoLaunch ? "GO LAUNCHED" : (guidance.pollActive ? "ISSUE GO/LAUNCH" : "PRE-CLEAR GO")}
+              </button>
+              <button type="button" id="btn-gop-dock" class="ground-action-btn ${this._groundOpButtonAttrs(gs.dockingClearance, this.missionPhase === "docking" && !gs.dockingClearance)}" data-ground-op="docking_clearance">
+                ${gs.dockingClearance ? "DOCK CLEARED" : "CLEAR DOCKING"}
+              </button>
+              <button type="button" id="btn-gop-dsn" class="ground-action-btn ${this._groundOpButtonAttrs(gs.dsnLocked)}" data-ground-op="dsn_lock">
+                ${gs.dsnLocked ? "DSN LOCKED" : "DSN LOCK"}
+              </button>
+              <button type="button" id="btn-gop-eps" class="ground-action-btn ${this._groundOpButtonAttrs(gs.powerRouted)}" data-ground-op="power_route">
+                ${gs.powerRouted ? "EPS ROUTED" : "EPS ROUTE"}
+              </button>
+              <button type="button" id="btn-gop-sci" class="ground-action-btn ${this._groundOpButtonAttrs(gs.scienceCleared)}" data-ground-op="science_downlink">
+                ${gs.scienceCleared ? "SCI DOWNLINK" : "SCI CLEAR"}
+              </button>
+            </div>
+          ` : `
+            <div id="sc-guidance-steps" class="sc-hud-steps" style="display:${this.siteTourActive ? "none" : "flex"};">
+              <span id="sc-step-1" class="sc-step-chip"></span>
+              <span id="sc-step-2" class="sc-step-chip"></span>
+              <span id="sc-step-3" class="sc-step-chip"></span>
+            </div>
+          `}
 
-          ${this.siteTourActive ? `
+          ${(this.siteTourActive || guidance.isGround) ? `
             <div class="sc-tour-grid">
               ${tourSpawns.map((spawn, index) => `
                 <button type="button" data-site-tour-index="${index}" class="sc-tour-btn${index === this.siteTourIndex ? " is-active" : ""}">
@@ -2193,6 +2394,16 @@
           this.hudCollapsed = !this.hudCollapsed;
           this._renderGroundHUD();
         });
+      }
+
+      const btnLccConsole = this.hudOverlay.querySelector("#btn-sc-lcc-console");
+      if (btnLccConsole) {
+        btnLccConsole.addEventListener("click", () => this.toggleLccConsole());
+      }
+
+      const btnReturnLcc = this.hudOverlay.querySelector("#btn-sc-return-lcc");
+      if (btnReturnLcc) {
+        btnReturnLcc.addEventListener("click", () => this.exitSiteTour());
       }
 
       const btnPlan = this.hudOverlay.querySelector("#btn-sc-mission-plan");
@@ -2242,10 +2453,17 @@
         });
       }
 
+      this.hudOverlay.querySelectorAll("[data-ground-op]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const op = btn.getAttribute("data-ground-op");
+          if (op) this._triggerGroundAction(op);
+        });
+      });
+
       const step1Chip = this.hudOverlay.querySelector("#sc-step-1");
       if (step1Chip) {
         step1Chip.addEventListener("click", () => {
-          if (!this.dockLocked && !this.crewBoarded) {
+          if (!this.dockLocked && !this.crewBoarded && !this._isLocalGroundCrew()) {
             const distArm = this._distanceToGuidancePoint(-25.9, -6.3);
             const myRole = window.InterfellasRoles && window.netManager && window.netManager.localPlayer
               ? window.InterfellasRoles.normalizeRole(window.netManager.localPlayer.role, "commander")
@@ -2285,13 +2503,14 @@
       const dot = this.hudOverlay.querySelector("#sc-status-dot");
       if (dot) {
         dot.style.background = guidance.statusColor;
-        dot.style.boxShadow = `0 0 8px ${guidance.statusColor}`;
       }
 
       const btnLaunch = this.hudOverlay.querySelector("#btn-sc-launch");
       if (btnLaunch) {
         btnLaunch.style.display = guidance.canLaunchNow ? "inline-flex" : "none";
-        btnLaunch.textContent = guidance.touchUI ? "🚀 LAUNCH" : "🚀 LAUNCH [L]";
+        btnLaunch.textContent = guidance.pollActive
+          ? (guidance.touchUI ? "OVERRIDE LAUNCH" : "OVERRIDE [L]")
+          : (guidance.touchUI ? "LAUNCH" : "LAUNCH [L]");
       }
 
       const btnTermAct = this.hudOverlay.querySelector("#btn-sc-term-act");
@@ -2300,30 +2519,35 @@
         if (guidance.nearTerm) btnTermAct.textContent = guidance.nearTerm.shortAction;
       }
 
+      const btnLcc = this.hudOverlay.querySelector("#btn-sc-lcc-console");
+      if (btnLcc) {
+        btnLcc.textContent = this.lccConsoleOpen
+          ? "CLOSE OPS [C]"
+          : (guidance.pollActive ? "GO/NO-GO [C]" : "LCC OPS [C]");
+      }
+
       const stepsRow = this.hudOverlay.querySelector("#sc-guidance-steps");
-      if (stepsRow) stepsRow.style.display = (this.siteTourActive || this.hudCollapsed) ? "none" : "flex";
+      if (stepsRow) stepsRow.style.display = (this.siteTourActive || guidance.isGround || this.hudCollapsed) ? "none" : "flex";
 
       const applyChip = (id, text, done, active, accent) => {
         const chip = this.hudOverlay.querySelector(`#${id}`);
         if (!chip) return;
-        chip.textContent = `${done ? "✓" : active ? "●" : "○"} ${text}`;
-        chip.style.borderColor = done ? "rgba(52,211,153,0.55)" : active ? accent.border : "rgba(255,255,255,0.14)";
-        chip.style.background = done ? "rgba(52,211,153,0.12)" : active ? accent.background : "rgba(255,255,255,0.03)";
-        chip.style.color = done ? "#a7f3d0" : active ? accent.color : "#64748b";
-        chip.style.boxShadow = active ? `0 0 8px ${accent.glow}` : "none";
+        chip.textContent = `${done ? "DONE" : active ? ">" : "-"} ${text}`;
+        chip.style.borderColor = done ? "rgba(34,197,94,0.45)" : active ? accent.border : "rgba(148,163,184,0.22)";
+        chip.style.background = done ? "rgba(22,163,74,0.14)" : active ? accent.background : "rgba(15,23,42,0.7)";
+        chip.style.color = done ? "#86efac" : active ? accent.color : "#94a3b8";
+        chip.style.boxShadow = "none";
       };
 
       applyChip("sc-step-1", `1 · ARM [F]`, guidance.step1Done, !guidance.step1Done, {
-        border: "rgba(251,191,36,0.62)",
-        background: "rgba(251,191,36,0.14)",
-        color: "#fde68a",
-        glow: "rgba(251,191,36,0.18)"
+        border: "rgba(217,119,6,0.65)",
+        background: "rgba(217,119,6,0.16)",
+        color: "#fde68a"
       });
       applyChip("sc-step-2", `2 · HATCH [E/B] (${guidance.aboardCount}/${guidance.crewTotal})`, guidance.step2Done, guidance.step1Done && !guidance.step2Done, {
-        border: "rgba(103,232,249,0.62)",
-        background: "rgba(103,232,249,0.14)",
-        color: "#cffafe",
-        glow: "rgba(103,232,249,0.18)"
+        border: "rgba(59,130,246,0.6)",
+        background: "rgba(37,99,235,0.18)",
+        color: "#dbeafe"
       });
       const step3Chip = this.hudOverlay.querySelector("#sc-step-3");
       if (step3Chip) {
@@ -2335,12 +2559,191 @@
         this.isLaunching,
         guidance.canLaunchNow && !this.isLaunching,
         {
-          border: "rgba(52,211,153,0.62)",
-          background: "rgba(52,211,153,0.14)",
-          color: "#a7f3d0",
-          glow: "rgba(52,211,153,0.18)"
+          border: "rgba(34,197,94,0.6)",
+          background: "rgba(22,163,74,0.18)",
+          color: "#bbf7d0"
         }
       );
+    }
+
+    toggleLccConsole() {
+      this.openLccConsole(!this.lccConsoleOpen);
+    }
+
+    openLccConsole(open = true) {
+      const next = !!open && this._isLocalGroundCrew() && this.isGroundMode;
+      this.lccConsoleOpen = next;
+      if (this.lccConsoleOverlay) {
+        this.lccConsoleOverlay.style.display = next ? "flex" : "none";
+        if (next) {
+          this._renderLccConsole();
+        }
+      }
+      this._renderGroundHUD();
+    }
+
+    _syncLccConsoleLive() {
+      if (!this.lccConsoleOverlay || !this.lccConsoleOpen) return;
+      const mapWrap = this.lccConsoleOverlay.querySelector("#lcc-live-floorplan");
+      if (mapWrap && window.shipInterior && typeof window.shipInterior.renderExternalFloorplanHtml === "function") {
+        mapWrap.innerHTML = window.shipInterior.renderExternalFloorplanHtml(190);
+      }
+      const missionEl = this.lccConsoleOverlay.querySelector("#lcc-live-telemetry-readout");
+      if (missionEl && window.gameplay && typeof window.gameplay.getGroundTelemetrySummary === "function") {
+        const sum = window.gameplay.getGroundTelemetrySummary();
+        missionEl.textContent = `PHASE ${String(this.missionPhase || "gantry").toUpperCase()} · CHECKLIST ${sum.completed}/${sum.total} · READINESS ${sum.readiness}%`;
+      }
+    }
+
+    _renderLccConsole() {
+      if (!this.lccConsoleOverlay || !this.lccConsoleOpen) return;
+      const crewState = this._crewAboardState();
+      const gs = crewState.groundSupport || {};
+      const pollActive = !!(crewState.launchPollAt && !gs.goNoGoLaunch);
+      const phaseUpper = String(this.missionPhase || "gantry").toUpperCase();
+      const sum = (window.gameplay && typeof window.gameplay.getGroundTelemetrySummary === "function")
+        ? window.gameplay.getGroundTelemetrySummary()
+        : { completed: 0, total: 6, readiness: 0, o2: 100, temp: 21.5, rad: 0 };
+      const mapHtml = (window.shipInterior && typeof window.shipInterior.renderExternalFloorplanHtml === "function")
+        ? window.shipInterior.renderExternalFloorplanHtml(190)
+        : `<div style="font-size:11px;color:#94a3b8;">Station floorplan telemetry online upon docking.</div>`;
+      const activePing = gs.activePing;
+      const pingValid = activePing && (Date.now() - (activePing.at || 0) < 20000);
+      const roomButtons = [
+        { id: "HUB", label: "HUB · HARMONY" },
+        { id: "CMD", label: "CMD · CUPOLA" },
+        { id: "PWR", label: "PWR · EPS BAY" },
+        { id: "SCI", label: "SCI · LAB" },
+        { id: "LSS", label: "LSS · DESTINY" },
+        { id: "HULL", label: "HULL · COMMS" }
+      ];
+
+      this.lccConsoleOverlay.innerHTML = `
+        <div class="ground-lcc-header">
+          <div>
+            <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:1.6px;color:#93c5fd;">KENNEDY SPACE CENTER · FIRING ROOM 4</div>
+            <div id="lcc-live-telemetry-readout" style="font-size:12px;font-weight:700;color:#f8fafc;margin-top:2px;">
+              PHASE ${phaseUpper} · CHECKLIST ${sum.completed}/${sum.total} · READINESS ${sum.readiness}%
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <button type="button" class="ground-action-btn" id="btn-lcc-open-viz">ORBIT VIZ [U]</button>
+            <button type="button" class="ground-action-btn" id="btn-lcc-open-planner">ARCHITECTURE [M]</button>
+            <button type="button" class="ground-action-btn" id="btn-lcc-close">CLOSE [C]</button>
+          </div>
+        </div>
+
+        ${pingValid ? `
+          <div class="ground-ping-banner">
+            <span>ACTIVE FLIGHT PING: <strong>${String(activePing.roomLabel || activePing.roomId || "HUB").toUpperCase()}</strong>${activePing.message ? ` · ${activePing.message}` : ""} (${activePing.byName || "LCC"})</span>
+            <button type="button" class="ground-action-btn" id="btn-lcc-clear-ping">CLEAR PING</button>
+          </div>
+        ` : ""}
+
+        <div class="ground-lcc-grid">
+          <div class="ground-lcc-card">
+            <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:1.4px;color:#94a3b8;">LAUNCH & DOCKING CLEARANCES</div>
+            <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.goNoGoLaunch, pollActive)}" data-lcc-op="go_nogo_launch" style="text-align:left;padding:7px 10px;">
+              ${gs.goNoGoLaunch ? `GO FOR LAUNCH APPROVED (${gs.goNoGoBy || "GROUND"})` : (pollActive ? "POLL ACTIVE: ISSUE GO FOR LAUNCH" : "PRE-CLEAR GO FOR LAUNCH")}
+            </button>
+            <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.dockingClearance, this.missionPhase === "docking" && !gs.dockingClearance)}" data-lcc-op="docking_clearance" style="text-align:left;padding:7px 10px;">
+              ${gs.dockingClearance ? `DOCKING CORRIDOR CLEARED (${gs.dockingClearanceBy || "GROUND"})` : "ISSUE DOCKING CORRIDOR CLEARANCE"}
+            </button>
+            <div style="font-family:var(--font-mono);font-size:10px;color:#94a3b8;margin-top:4px;">FLIGHT CREW MANIFEST (${crewState.aboardCount}/${crewState.crewTotal} ABOARD)</div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              ${crewState.flightRoster.map((p) => `
+                <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:4px 7px;background:rgba(15,23,42,0.65);border:1px solid rgba(148,163,184,0.16);border-radius:3px;">
+                  <span style="color:#f8fafc;"><strong>${p.roleShort}</strong> · ${p.name}</span>
+                  <span style="font-family:var(--font-mono);font-size:9px;color:${this.missionPhase === "station" ? "#86efac" : (p.isAboard ? "#93c5fd" : "#94a3b8")};">
+                    ${this.missionPhase === "station" ? "STATION" : (p.isAboard ? "BOARDED" : "PAD 39A")}
+                  </span>
+                </div>
+              `).join("") || `<div style="font-size:11px;color:#94a3b8;">No Flight Crew assigned.</div>`}
+            </div>
+          </div>
+
+          <div class="ground-lcc-card">
+            <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:1.4px;color:#94a3b8;">GROUND NETWORK & SUBSYSTEM SUPPORT</div>
+            <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.dsnLocked)}" data-lcc-op="dsn_lock" style="text-align:left;padding:7px 10px;">
+              ${gs.dsnLocked ? `DSN TELEMETRY LOCKED (${gs.dsnLockedBy || "GROUND"})` : "LOCK DEEP SPACE NETWORK ANTENNA (+COMMS)"}
+            </button>
+            <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.powerRouted)}" data-lcc-op="power_route" style="text-align:left;padding:7px 10px;">
+              ${gs.powerRouted ? `EPS ARRAY POWER ROUTED (${gs.powerRoutedBy || "GROUND"})` : "ROUTE EPS SOLAR ARRAY TELEMETRY (+POWER)"}
+            </button>
+            <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.scienceCleared)}" data-lcc-op="science_downlink" style="text-align:left;padding:7px 10px;">
+              ${gs.scienceCleared ? `SCIENCE DOWNLINK CLEARED (${gs.scienceClearedBy || "GROUND"})` : "AUTHORIZE PAYLOAD SCIENCE DOWNLINK (+SCIENCE)"}
+            </button>
+            <div style="font-family:var(--font-mono);font-size:10px;color:#94a3b8;margin-top:4px;">PING STATION COMPARTMENT</div>
+            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;">
+              ${roomButtons.map((rm) => `
+                <button type="button" class="ground-action-btn ${pingValid && activePing.roomId === rm.id ? "is-approved" : ""}" data-lcc-ping="${rm.id}">
+                  PING ${rm.label}
+                </button>
+              `).join("")}
+            </div>
+          </div>
+
+          <div class="ground-lcc-card">
+            <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:1.4px;color:#94a3b8;">ORBITAL STATION LIVE CREW TRACKER</div>
+            <div id="lcc-live-floorplan" style="background:rgba(5,8,16,0.8);border:1px solid rgba(148,163,184,0.16);border-radius:4px;padding:6px;">
+              ${mapHtml}
+            </div>
+            <div style="font-size:10px;color:#94a3b8;line-height:1.4;">
+              Advisory model: Ground clearances boost &amp; guide Flight Crew telemetry without soft-locking mission progression. Hold [R] or click S-BAND RADIO to speak directly to orbit.
+            </div>
+          </div>
+        </div>
+      `;
+
+      const btnClose = this.lccConsoleOverlay.querySelector("#btn-lcc-close");
+      if (btnClose) btnClose.addEventListener("click", () => this.openLccConsole(false));
+      const btnViz = this.lccConsoleOverlay.querySelector("#btn-lcc-open-viz");
+      if (btnViz) btnViz.addEventListener("click", () => {
+        if (window.missionViz && typeof window.missionViz.toggle === "function") window.missionViz.toggle();
+      });
+      const btnPlanner = this.lccConsoleOverlay.querySelector("#btn-lcc-open-planner");
+      if (btnPlanner) btnPlanner.addEventListener("click", () => {
+        if (window.gameplay && typeof window.gameplay.openMissionPlannerFromGround === "function") {
+          window.gameplay.openMissionPlannerFromGround();
+        }
+      });
+      const btnClearPing = this.lccConsoleOverlay.querySelector("#btn-lcc-clear-ping");
+      if (btnClearPing) btnClearPing.addEventListener("click", () => this._triggerGroundAction("clear_ping"));
+
+      this.lccConsoleOverlay.querySelectorAll("[data-lcc-op]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const op = btn.getAttribute("data-lcc-op");
+          if (op) this._triggerGroundAction(op);
+        });
+      });
+
+      this.lccConsoleOverlay.querySelectorAll("[data-lcc-ping]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const targetRoom = btn.getAttribute("data-lcc-ping");
+          if (targetRoom) this._triggerGroundAction("ping_room", { targetRoom, message: "PRIORITY CHECK REQUESTED BY LCC" });
+        });
+      });
+    }
+
+    syncLocalRoleChange() {
+      const isGround = this._isLocalGroundCrew();
+      if (!isGround && this.lccConsoleOpen) {
+        this.lccConsoleOpen = false;
+        if (this.lccConsoleOverlay) this.lccConsoleOverlay.style.display = "none";
+      }
+      if (this.isGroundMode && this.missionPhase === "gantry" && !this.crewBoarded && window.localCrew && window.localCrew.group) {
+        const spawn = isGround
+          ? this._groundLccSpawnForIndex(this._localGroundIndex())
+          : this._groundSpawnForIndex(this._localPlayerIndex());
+        window.localCrew.group.visible = true;
+        window.localCrew.group.position.set(spawn.x, spawn.y, spawn.z);
+        window.localCrew.group.rotation.y = spawn.yaw;
+        if (typeof window.setCameraYawPitch === "function") {
+          window.setCameraYawPitch(spawn.yaw, isGround ? 0.03 : -0.05);
+        }
+      }
+      this._renderGroundHUD();
+      if (this.lccConsoleOpen) this._renderLccConsole();
     }
 
 
@@ -2367,8 +2770,8 @@
         if (window.gameplay && typeof window.gameplay.showToast === "function") {
           window.gameplay.showToast(
             nextState
-              ? "🌉 ACCESS ARM LOCKED · FOLLOW THE GLOWING MARKER TO THE ORBITER HATCH"
-              : "🌉 ORBITER ACCESS ARM RETRACTED"
+              ? "ACCESS ARM LOCKED · FOLLOW THE GLOWING MARKER TO THE ORBITER HATCH"
+              : "ORBITER ACCESS ARM RETRACTED"
           );
         }
         if (broadcast && window.netManager && typeof window.netManager.setMissionDockLocked === "function") {
@@ -2383,6 +2786,7 @@
      * the server, so each crew member can walk aboard independently.
      */
     boardSpacecraft(options = {}) {
+      if (this._isLocalGroundCrew()) return;
       const fromNetwork = !!options.fromNetwork;
       const broadcast = options.broadcast !== false;
 
@@ -2406,8 +2810,8 @@
           const touchUI = !!(window.isMobileDevice || (window.matchMedia && window.matchMedia("(pointer: coarse), (hover: none)").matches));
           window.gameplay.showToast(
             crewState.allAboard
-              ? "👨‍🚀 CREW MEMBER BOARDED & HATCH SEALED · STARTING AUTOMATIC LIFTOFF"
-              : `👨‍🚀 CREW MEMBER BOARDED (${crewState.aboardCount}/${crewState.crewTotal}) · ${touchUI ? "TAP LAUNCH NOW" : "PRESS [L] OR CLICK LAUNCH NOW"} TO START WITHOUT WAITING`
+              ? "CREW MEMBER BOARDED & HATCH SEALED · AUTOMATIC LIFTOFF SEQUENCE"
+              : `CREW MEMBER BOARDED (${crewState.aboardCount}/${crewState.crewTotal}) · ${touchUI ? "TAP LAUNCH NOW" : "PRESS [L] OR CLICK LAUNCH NOW"} TO START WITHOUT WAITING`
           );
         }
         if (broadcast && window.netManager && typeof window.netManager.boardSpacecraft === "function") {
@@ -2454,12 +2858,12 @@
     _stationSpawnForIndex(index = 0) {
       // Safe standing spots around the Transit Hub holotable.
       const slots = [
-        [0.0, 0.0, 2.2],
-        [-2.4, 0.0, 2.4],
-        [2.4, 0.0, 2.4],
-        [-2.4, 0.0, 0.0],
-        [2.4, 0.0, 0.0],
-        [0.0, 0.0, -2.6]
+        [0.0, 0.0, 2.0],
+        [-0.7, 0.0, 3.3],
+        [0.7, 0.0, 3.3],
+        [-0.7, 0.0, 4.6],
+        [0.7, 0.0, 4.6],
+        [0.0, 0.0, 5.8]
       ];
       const slot = slots[index % slots.length];
       return { x: slot[0], y: slot[1], z: slot[2], yaw: Math.PI };
@@ -2468,13 +2872,21 @@
     _syncRemoteCrewSpawns(phase = "gantry") {
       const nm = window.netManager;
       if (!nm || !nm.roomState || !Array.isArray(nm.roomState.players)) return;
-      nm.roomState.players.forEach((player, index) => {
-        if (!player || player.id === nm.socketId) return;
+      const roles = window.InterfellasRoles;
+      let groundIdx = 0;
+      let flightIdx = 0;
+      nm.roomState.players.forEach((player) => {
+        if (!player) return;
+        const isGround = player.team === "ground" || (roles && typeof roles.isGroundRole === "function" && roles.isGroundRole(player.role));
+        const roleSlot = isGround ? groundIdx++ : flightIdx++;
+        if (player.id === nm.socketId) return;
         const rp = nm.remotePlayers && nm.remotePlayers[player.id];
         if (!rp) return;
-        const spawn = phase === "station"
-          ? this._stationSpawnForIndex(index)
-          : this._groundSpawnForIndex(index);
+        const spawn = isGround
+          ? this._groundLccSpawnForIndex(roleSlot)
+          : (phase === "station"
+            ? this._stationSpawnForIndex(roleSlot)
+            : this._groundSpawnForIndex(roleSlot));
         rp.curPos = [spawn.x, spawn.y, spawn.z];
         rp.targetPos = [spawn.x, spawn.y, spawn.z];
         rp.curYaw = spawn.yaw;
@@ -2499,13 +2911,19 @@
       const forceReset = !!(meta && meta.action === "reset");
       const nm = window.netManager;
       const myId = nm ? nm.socketId : null;
-      const boardedByServer = Array.isArray(mission.boarded) && mission.boarded.indexOf(myId) !== -1;
+      const isGround = this._isLocalGroundCrew();
+      const boardedByServer = !isGround && Array.isArray(mission.boarded) && mission.boarded.indexOf(myId) !== -1;
 
       if (forceReset) {
         this._launchSequenceStarted = false;
         this._dockingPhaseStarted = false;
         this._stationEntered = false;
+        this._groundObserverLaunch = false;
+        this._autoLaunchPollSent = false;
+        this._localPollSentAt = 0;
         this.isGroundMode = false;
+        this.lccConsoleOpen = false;
+        if (this.lccConsoleOverlay) this.lccConsoleOverlay.style.display = "none";
         if (window.launchCutscene && window.launchCutscene.isPlaying && typeof window.launchCutscene.cancel === "function") {
           window.launchCutscene.cancel();
         }
@@ -2524,13 +2942,13 @@
 
       if (phase === "gantry") {
         this.dockLocked = !!mission.dockLocked;
-        if (boardedByServer) this.crewBoarded = true;
+        this.crewBoarded = isGround ? false : (this.crewBoarded || boardedByServer);
         this.targetDockSwingAngle = this.dockLocked ? 0.0 : 0.38;
         if (!this.isGroundMode) {
           this.enterSpaceCenter(mission);
           return;
         }
-        if (this.crewBoarded && window.localCrew && window.localCrew.group) {
+        if (!isGround && this.crewBoarded && window.localCrew && window.localCrew.group) {
           window.localCrew.group.visible = false;
         }
         if (this.dockStatusLightMat) {
@@ -2539,27 +2957,42 @@
           this.dockStatusLightMat.emissive.setHex(color);
         }
         this._renderGroundHUD();
+        if (this.lccConsoleOpen) this._renderLccConsole();
         return;
       }
 
       if (phase === "launch") {
-        // Never rewind a client that already moved on to orbital approach or
-        // the station interior (defensive against out-of-order snapshots).
-        if (this._dockingPhaseStarted || this._stationEntered) return;
+        if (!isGround && (this._dockingPhaseStarted || this._stationEntered)) return;
         if (!this.isGroundMode) {
           this.enterSpaceCenter(mission);
           return;
         }
         if (!this._launchSequenceStarted) {
           this.startLaunchCountdown({ fromNetwork: true });
-        } else if (window.launchCutscene && typeof window.launchCutscene.updateCrewStatus === "function") {
-          window.launchCutscene.updateCrewStatus(mission);
+        } else {
+          if (isGround) {
+            this._renderGroundHUD();
+            if (this.lccConsoleOpen) this._renderLccConsole();
+          }
+          if (window.launchCutscene && typeof window.launchCutscene.updateCrewStatus === "function") {
+            window.launchCutscene.updateCrewStatus(mission);
+          }
         }
         return;
       }
 
       if (phase === "docking") {
-        // Server transitioned the whole crew to docking (e.g. launch ended or skip vote passed).
+        if (isGround) {
+          if (!this.isGroundMode) {
+            this.enterSpaceCenter(mission);
+          } else {
+            this.startOrbitalDockingPhase({ fromNetwork: true });
+          }
+          this._renderGroundHUD();
+          if (this.lccConsoleOpen) this._renderLccConsole();
+          return;
+        }
+        // Server transitioned Flight Crew to docking (e.g. launch ended or skip vote passed).
         if (window.launchCutscene && window.launchCutscene.isPlaying && typeof window.launchCutscene.cancel === "function") {
           window.launchCutscene.cancel();
         }
@@ -2572,7 +3005,13 @@
       }
 
       if (phase === "station") {
+        if (isGround && !this.isGroundMode) {
+          this.enterSpaceCenter(mission);
+          return;
+        }
         this.completeDockingAndEnterStation({ fromNetwork: true });
+        this._renderGroundHUD();
+        if (this.lccConsoleOpen) this._renderLccConsole();
         if (typeof window.renderHudCrewRoster === "function") window.renderHudCrewRoster();
       }
     }
@@ -2585,15 +3024,16 @@
       const nm = window.netManager;
       const activeMission = mission || (nm && typeof nm.getMission === "function" ? nm.getMission() : null);
       const phase = activeMission && activeMission.phase ? activeMission.phase : "gantry";
+      const isGround = this._isLocalGroundCrew();
 
       this.siteTourActive = false;
       this.missionPhase = phase;
       this._launchSequenceStarted = false;
       this._dockingPhaseStarted = false;
       this._stationEntered = false;
+      this._groundObserverLaunch = false;
+      this._autoLaunchPollSent = false;
 
-      // Returning to the launch complex must tear down any active cinematic or
-      // docking controller; otherwise its camera/callback would keep running.
       if (window.launchCutscene && window.launchCutscene.isPlaying && typeof window.launchCutscene.cancel === "function") {
         window.launchCutscene.cancel();
       }
@@ -2601,8 +3041,6 @@
         window.dockingSim.stop();
       }
 
-      // Close any station console/minigame or alternate camera scene so the
-      // crew actually regains control of the astronaut on the pad.
       if (window.gameplay && window.gameplay.activeTask && typeof window.gameplay.closeTaskModal === "function") {
         window.gameplay.closeTaskModal();
       }
@@ -2613,13 +3051,14 @@
         window.issShowcase.toggle();
       }
 
-      // Late joiners should skip straight to the correct shared phase.
-      if (phase === "station") {
+      // Late Flight joiners skip straight to the active orbital phase. Ground
+      // Control ALWAYS remains at Kennedy Space Center on Earth.
+      if (!isGround && phase === "station") {
         this.isGroundMode = false;
         this.completeDockingAndEnterStation({ fromNetwork: true });
         return;
       }
-      if (phase === "docking") {
+      if (!isGround && phase === "docking") {
         this.isGroundMode = false;
         this.startOrbitalDockingPhase({ fromNetwork: true });
         return;
@@ -2632,14 +3071,14 @@
       document.body.classList.remove("interior-active", "launch-active", "docking-active", "iss-showcase-active");
       this.autoLaunchRemaining = null;
       if (this.stackGroup) {
-        this.stackGroup.visible = true;
+        this.stackGroup.visible = phase === "gantry" || phase === "launch";
         this.stackGroup.position.set(0, 20.2, 0);
         this.stackGroup.rotation.set(0, 0, 0);
       }
       this.boardingState = (activeMission && activeMission.dockLocked) ? "dock_locked" : "gantry";
       this.dockLocked = !!(activeMission && activeMission.dockLocked);
       const myId = nm ? nm.socketId : null;
-      this.crewBoarded = !!(activeMission && Array.isArray(activeMission.boarded) && activeMission.boarded.indexOf(myId) !== -1);
+      this.crewBoarded = !isGround && !!(activeMission && Array.isArray(activeMission.boarded) && activeMission.boarded.indexOf(myId) !== -1);
       this.dockSwingAngle = this.dockLocked ? 0.0 : 0.38;
       this.targetDockSwingAngle = this.dockSwingAngle;
       if (this.armPivotGroup) this.armPivotGroup.rotation.y = this.dockSwingAngle;
@@ -2674,26 +3113,34 @@
         window.shipInterior.hide();
       }
 
-      // Spread the crew along the east edge of the gantry deck with a clear
-      // line of sight down the boarding arm to the launch vehicle.
-      const spawn = this._groundSpawnForIndex(this._localPlayerIndex());
+      const spawn = isGround
+        ? this._groundLccSpawnForIndex(this._localGroundIndex())
+        : this._groundSpawnForIndex(this._localPlayerIndex());
       if (window.localCrew && window.localCrew.group) {
-        window.localCrew.group.visible = !this.crewBoarded;
+        window.localCrew.group.visible = isGround ? true : !this.crewBoarded;
         window.localCrew.group.position.set(spawn.x, spawn.y, spawn.z);
         window.localCrew.group.rotation.y = spawn.yaw;
       }
-      this._syncRemoteCrewSpawns("gantry");
+      this._syncRemoteCrewSpawns(phase);
       if (typeof window.setCameraYawPitch === "function") {
-        window.setCameraYawPitch(spawn.yaw, -0.05);
+        window.setCameraYawPitch(spawn.yaw, isGround ? 0.03 : -0.05);
       }
 
       if (this.hudOverlay) {
         this.hudOverlay.style.display = window.isGameStarted ? "flex" : "none";
         this._renderGroundHUD();
       }
+      if (this.lccConsoleOverlay && !isGround) {
+        this.lccConsoleOpen = false;
+        this.lccConsoleOverlay.style.display = "none";
+      }
 
       if (phase === "launch") {
         this.startLaunchCountdown({ fromNetwork: true });
+      } else if (isGround && phase === "docking") {
+        this.startOrbitalDockingPhase({ fromNetwork: true });
+      } else if (isGround && phase === "station") {
+        this.completeDockingAndEnterStation({ fromNetwork: true });
       }
     }
 
@@ -2703,15 +3150,43 @@
     startLaunchCountdown(options = {}) {
       const fromNetwork = !!options.fromNetwork;
       const broadcast = options.broadcast !== false;
-      if (this._stationEntered || this._launchSequenceStarted) return;
+      const isGround = this._isLocalGroundCrew();
+      if (this._launchSequenceStarted || (!isGround && this._stationEntered)) return;
 
-      this.siteTourActive = false;
+      if (!fromNetwork) {
+        if (isGround) return;
+        const nm = window.netManager;
+        const room = nm && nm.roomState;
+        const mission = nm && typeof nm.getMission === "function" ? nm.getMission() : null;
+        const gs = (mission && mission.groundSupport) || {};
+        const roles = window.InterfellasRoles;
+        const hasGround = !!(room && Array.isArray(room.players) && room.players.some((p) => p && (p.team === "ground" || (roles && roles.isGroundRole(p.role)))));
+
+        if (nm && nm.roomId && hasGround && !gs.goNoGoLaunch) {
+          const pollPending = !!(mission && mission.launchPollAt);
+          if (broadcast && typeof nm.requestLaunch === "function") {
+            nm.requestLaunch();
+          }
+          if (!pollPending || (Date.now() - this._localPollSentAt < 1200)) {
+            if (!pollPending) this._localPollSentAt = Date.now();
+            if (window.gameplay && typeof window.gameplay.showToast === "function") {
+              window.gameplay.showToast("GO/NO-GO LAUNCH POLL SENT TO GROUND CONTROL (8s AUTO-RELEASE · PRESS [L] AGAIN TO OVERRIDE)");
+            }
+            this._renderGroundHUD();
+            return;
+          }
+          return;
+        }
+      }
+
+      if (!isGround) this.siteTourActive = false;
       this._launchSequenceStarted = true;
       this.missionPhase = "launch";
       this.autoLaunchRemaining = null;
+      this._autoLaunchPollSent = false;
 
-      if (!this.dockLocked) this.toggleBoardingDock(true, { fromNetwork, broadcast });
-      if (!this.crewBoarded) this.boardSpacecraft({ fromNetwork, broadcast });
+      if (!this.dockLocked && !isGround) this.toggleBoardingDock(true, { fromNetwork, broadcast });
+      if (!this.crewBoarded && !isGround) this.boardSpacecraft({ fromNetwork, broadcast });
 
       if (!fromNetwork && broadcast && window.netManager && typeof window.netManager.requestLaunch === "function") {
         window.netManager.requestLaunch();
@@ -2719,9 +3194,7 @@
 
       this.isLaunching = true;
       this.launchTime = 0.0;
-      // Retract Orbiter Access Arm for launch clearance
       this.targetDockSwingAngle = 0.45;
-      this._renderGroundHUD();
 
       if (window.spaceAudio) {
         window.spaceAudio.playCountdownBeep(false);
@@ -2736,9 +3209,34 @@
         });
       }
 
-      // Keep the real LC-39A pad and tower visible for the ground liftoff
-      // stage.  The ascent cinematic hides them once the stack clears the
-      // tower and transitions to the orbital sequence.
+      if (isGround) {
+        this._groundObserverLaunch = true;
+        this.isGroundMode = true;
+        document.body.classList.add("ground-mode-active");
+        this._applyGroundAtmosphere();
+        if (this.group) this.group.visible = true;
+        if (this.stackGroup) {
+          this.stackGroup.visible = true;
+          this.stackGroup.position.set(0, 20.2, 0);
+          this.stackGroup.rotation.set(0, 0, 0);
+        }
+        if (this.flamePlumes) {
+          this.flamePlumes.forEach((p) => { p.visible = true; });
+        }
+        if (window.localCrew && window.localCrew.group) {
+          window.localCrew.group.visible = true;
+        }
+        if (this.hudOverlay) this.hudOverlay.style.display = "flex";
+        this._renderGroundHUD();
+        if (this.lccConsoleOpen) this._renderLccConsole();
+        if (window.gameplay && typeof window.gameplay.showToast === "function") {
+          window.gameplay.showToast("T-0 LIFTOFF AT LC-39A · OBSERVE ASCENT FROM SPACE CENTER · CONSOLE [C]");
+        }
+        return;
+      }
+
+      this._groundObserverLaunch = false;
+      this._renderGroundHUD();
       if (this.hudOverlay) this.hudOverlay.style.display = "none";
       this._applyGroundAtmosphere();
       if (this.group) this.group.visible = true;
@@ -2765,12 +3263,40 @@
     }
 
     /**
-     * After launch reaches orbit, players control the Orbital Approach & Docking with the ISS!
+     * After launch reaches orbit, Flight Crew controls Orbital Approach & Docking;
+     * Ground Control monitors from Kennedy Space Center and issues Docking Clearance.
      */
     startOrbitalDockingPhase(options = {}) {
       const fromNetwork = !!options.fromNetwork;
       const broadcast = options.broadcast !== false;
       const naturalEnd = !!options.naturalEnd;
+      const isGround = this._isLocalGroundCrew();
+
+      if (isGround) {
+        this._dockingPhaseStarted = true;
+        this.missionPhase = "docking";
+        this.isLaunching = false;
+        this._groundObserverLaunch = false;
+        this.isGroundMode = true;
+        document.body.classList.add("ground-mode-active");
+        if (this.group) this.group.visible = true;
+        if (this.stackGroup) this.stackGroup.visible = false;
+        if (this.flamePlumes) this.flamePlumes.forEach((p) => { p.visible = false; });
+        if (this.delugeWaterMesh && this.delugeWaterMesh.material) this.delugeWaterMesh.material.opacity = 0;
+        if (this.steamPlumes) this.steamPlumes.forEach((s) => { if (s.material) s.material.opacity = 0; });
+        if (window.issGroup) window.issGroup.visible = false;
+        if (window.photorealisticEarth && window.photorealisticEarth.group) window.photorealisticEarth.group.visible = false;
+        if (window.shipInterior) window.shipInterior.hide();
+        if (window.localCrew && window.localCrew.group) window.localCrew.group.visible = true;
+        if (this.hudOverlay) this.hudOverlay.style.display = "flex";
+        this._renderGroundHUD();
+        if (this.lccConsoleOpen) this._renderLccConsole();
+        if (window.gameplay && typeof window.gameplay.showToast === "function") {
+          window.gameplay.showToast("ORBITAL RENDEZVOUS · ISSUE DOCKING CORRIDOR CLEARANCE IN LCC CONSOLE [C]");
+        }
+        return;
+      }
+
       if (this._stationEntered) return;
       if (this._dockingPhaseStarted || (window.dockingSim && window.dockingSim.isActive)) return;
 
@@ -2790,7 +3316,6 @@
 
       if (typeof window.renderHudCrewRoster === "function") window.renderHudCrewRoster();
 
-      // In external orbital approach, the target station (ISS) and Earth ARE visible outside the approaching ship!
       if (window.issGroup) window.issGroup.visible = true;
       if (window.photorealisticEarth && window.photorealisticEarth.group) {
         window.photorealisticEarth.group.visible = true;
@@ -2804,7 +3329,7 @@
 
       if (window.dockingSim && typeof window.dockingSim.start === "function") {
         if (window.gameplay && typeof window.gameplay.showToast === "function") {
-          window.gameplay.showToast("🛰️ ORBITAL INSERTION COMPLETE • ALIGN & DOCK WITH STATION PORT PMA-2!");
+          window.gameplay.showToast("ORBITAL INSERTION COMPLETE · ALIGN & DOCK WITH STATION PORT PMA-2");
         }
         window.dockingSim.start(this.scene, this.camera, null, (info) => {
           this.completeDockingAndEnterStation({ corridorCapture: !!(info && info.corridorCapture) });
@@ -2821,6 +3346,33 @@
     completeDockingAndEnterStation(options = {}) {
       const fromNetwork = !!options.fromNetwork;
       const broadcast = options.broadcast !== false;
+      const isGround = this._isLocalGroundCrew();
+
+      if (isGround) {
+        const firstEntry = !this._stationEntered;
+        this._stationEntered = true;
+        this.missionPhase = "station";
+        this.isLaunching = false;
+        this._groundObserverLaunch = false;
+        this.isGroundMode = true;
+        document.body.classList.add("ground-mode-active");
+        if (this.group) this.group.visible = true;
+        if (this.stackGroup) this.stackGroup.visible = false;
+        if (this.flamePlumes) this.flamePlumes.forEach((p) => { p.visible = false; });
+        if (this.delugeWaterMesh && this.delugeWaterMesh.material) this.delugeWaterMesh.material.opacity = 0;
+        if (this.steamPlumes) this.steamPlumes.forEach((s) => { if (s.material) s.material.opacity = 0; });
+        if (window.issGroup) window.issGroup.visible = false;
+        if (window.photorealisticEarth && window.photorealisticEarth.group) window.photorealisticEarth.group.visible = false;
+        if (window.shipInterior) window.shipInterior.hide();
+        if (window.localCrew && window.localCrew.group) window.localCrew.group.visible = true;
+        if (this.hudOverlay) this.hudOverlay.style.display = "flex";
+        this._renderGroundHUD();
+        if (this.lccConsoleOpen) this._renderLccConsole();
+        if (firstEntry && window.gameplay && typeof window.gameplay.showToast === "function") {
+          window.gameplay.showToast("FLIGHT CREW DOCKED AT STATION · COORDINATE OPERATIONS FROM LCC CONSOLE [C]");
+        }
+        return;
+      }
 
       if (this._stationEntered) {
         // A network snapshot can arrive while the local docking callback is
@@ -2886,7 +3438,7 @@
       }
 
       if (!fromNetwork && window.gameplay && typeof window.gameplay.showToast === "function") {
-        window.gameplay.showToast("🛸 HARD CAPTURE & INGRESS COMPLETE • WELCOME ABOARD STATION INTERIOR!");
+        window.gameplay.showToast("HARD CAPTURE & INGRESS COMPLETE · WELCOME ABOARD STATION INTERIOR");
       }
     }
 
@@ -2898,7 +3450,7 @@
     requestMissionReset() {
       if (this.missionPhase === "gantry" && this.isGroundMode) {
         if (window.gameplay && typeof window.gameplay.showToast === "function") {
-          window.gameplay.showToast("🚀 ALREADY AT LC-39A · FOLLOW THE GLOWING MARKERS TO THE ACCESS ARM AND ORBITER HATCH");
+          window.gameplay.showToast("ALREADY AT LC-39A · FOLLOW THE GUIDANCE MARKERS TO THE ACCESS ARM AND ORBITER HATCH");
         }
         return false;
       }
@@ -2926,7 +3478,12 @@
       this._launchSequenceStarted = false;
       this._dockingPhaseStarted = false;
       this._stationEntered = false;
+      this._groundObserverLaunch = false;
+      this._autoLaunchPollSent = false;
+      this._localPollSentAt = 0;
       this.isGroundMode = false;
+      this.lccConsoleOpen = false;
+      if (this.lccConsoleOverlay) this.lccConsoleOverlay.style.display = "none";
       document.body.classList.remove("ground-mode-active");
       if (window.launchCutscene && window.launchCutscene.isPlaying && typeof window.launchCutscene.cancel === "function") {
         window.launchCutscene.cancel();
@@ -2939,7 +3496,7 @@
       }
       this.enterSpaceCenter(localMission);
       if (window.gameplay && typeof window.gameplay.showToast === "function") {
-        window.gameplay.showToast("🚀 CREW RETURNED TO KENNEDY SPACE CENTER LC-39A");
+        window.gameplay.showToast("CREW RETURNED TO KENNEDY SPACE CENTER LC-39A");
       }
     }
 
@@ -2969,8 +3526,7 @@
       // Guided boarding objectives, proximity triggers and auto-liftoff.
       this._updateBoardingGuidance(delta, clockElapsed);
 
-      // Launch-pad deluge and steam stay alive through the ground liftoff
-      // stage of the ascent cinematic.
+      // Launch-pad deluge, steam, and Ground Control rocket ascent animation.
       if (this.isLaunching) {
         this.launchTime += delta;
         const steamPulse = 0.65 + Math.sin(this.launchTime * 7.5) * 0.12;
@@ -2984,6 +3540,18 @@
             const grow = 1 + Math.sin(this.launchTime * 2.2 + i * 1.3) * 0.07;
             steam.scale.setScalar(grow);
           });
+        }
+        if (this._groundObserverLaunch && this.stackGroup && this.stackGroup.visible) {
+          const tClimb = Math.max(0, this.launchTime - 0.8);
+          const nextY = 20.2 + 0.9 * Math.pow(tClimb, 2.2);
+          this.stackGroup.position.y = nextY;
+          if (this.launchTime > 6.0) {
+            this.stackGroup.rotation.z = -Math.min(0.32, (this.launchTime - 6.0) * 0.016);
+          }
+          if (nextY > 2200) {
+            this.stackGroup.visible = false;
+            if (this.flamePlumes) this.flamePlumes.forEach((p) => { p.visible = false; });
+          }
         }
       }
 
