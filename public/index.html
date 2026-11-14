@@ -10,6 +10,7 @@
   <title>Lunaspis — Orbital Transit &amp; ISS Simulator</title>
   <link rel="stylesheet" href="css/style.css?v=4.7.5" />
   <link rel="stylesheet" href="css/premium.css?v=1.1.0" />
+  <link rel="stylesheet" href="css/academy.css?v=1.0.0" />
   <!-- Three.js Engine & 3D GLTF/GLB/Draco/KTX2/Meshopt Loaders -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" integrity="sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu" crossorigin="anonymous"></script>
   <script src="js/loaders/DRACOLoader.js?v=4.0.0"></script>
@@ -89,6 +90,7 @@
         <span>LUNASPIS // ORBITAL MISSION LAB</span>
       </div>
       <div class="title-top-actions">
+        <button class="title-chip-btn" id="btn-open-academy" title="First-flight guide, controls & trade-off cheat sheet [F1]">MISSION ACADEMY</button>
         <button class="title-chip-btn" id="btn-open-hangar-menu">3D HANGAR</button>
       </div>
     </header>
@@ -170,10 +172,13 @@
           <div class="lobby-mission-cards" id="lobby-mission-cards">
             <!-- Rendered dynamically by main.js -->
           </div>
+          <div class="lobby-mission-tip" id="lobby-mission-tip" style="display:none;"></div>
           <div class="lobby-difficulty-row" id="lobby-difficulty-row">
             <span class="field-label" style="margin:0;">DIFFICULTY</span>
             <div class="lobby-difficulty-pills" id="lobby-difficulty-pills"></div>
           </div>
+          <div class="lobby-difficulty-hint" id="lobby-difficulty-hint" style="display:none;"></div>
+          <button type="button" class="lobby-academy-link" id="btn-lobby-academy">NEW CREW? OPEN MISSION ACADEMY →</button>
         </div>
 
         <div class="lobby-customizer">
@@ -331,8 +336,17 @@
         <button id="btn-hud-hangar" class="voice-mic-btn" title="3D Asset Hangar [H]">
           <span>HANGAR</span>
         </button>
+        <button id="btn-hud-academy" class="voice-mic-btn" title="Mission Academy, controls &amp; trade-off guide [F1]">
+          <span>GUIDE [F1]</span>
+        </button>
         <button id="btn-hud-orbit-viz" class="voice-mic-btn" title="3D Mission Viz &amp; Trajectory Theater [U]">
           <span>VIZ [U]</span>
+        </button>
+        <button id="btn-hud-cml" class="voice-mic-btn" title="JPL Concept Maturity Levels Workbench (CML 1-9)">
+          <span>CML</span>
+        </button>
+        <button id="btn-hud-nasa-csa" class="voice-mic-btn" title="CSA Digital Games &amp; Activities + NASA GMAT / Telescope Lab">
+          <span>CSA/NASA</span>
         </button>
         <button id="btn-hud-solar" class="voice-mic-btn" title="Solar System Atlas [O]">
           <span>SOLAR [O]</span>
@@ -414,6 +428,7 @@
       <div id="briefing-meta" class="mission-briefing-meta"></div>
       <p id="briefing-summary" class="mission-briefing-summary"></p>
       <div id="briefing-objectives" class="mission-briefing-objectives"></div>
+      <div id="briefing-coach" class="briefing-coach" style="display:none;"></div>
       <button id="btn-briefing-begin" class="btn-primary" style="max-width:280px;margin-top:16px;">BEGIN PRE-FLIGHT</button>
     </div>
   </div>
@@ -436,6 +451,33 @@
 
   <div id="launch-countdown-banner">
     ISS INTERIOR — SYSTEMS ONLINE
+  </div>
+
+  <!-- ========================================================================
+       MISSION ACADEMY — FIRST FLIGHT BRIEF & BEGINNER GUIDE
+       ======================================================================== -->
+  <div id="modal-academy" class="settings-modal-overlay" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="academy-modal-title">
+    <div class="settings-modal-card academy-modal-card">
+      <div class="settings-modal-header">
+        <span class="settings-modal-title" id="academy-modal-title">LUNASPIS // MISSION ACADEMY</span>
+        <button id="btn-close-academy" class="settings-close-btn" title="Close [ESC]">&times;</button>
+      </div>
+      <div class="academy-body">
+        <div class="academy-progress" id="academy-progress" aria-label="Mission academy steps"></div>
+        <div class="academy-step" id="academy-step"></div>
+        <div class="academy-footer">
+          <label class="academy-tips-toggle" title="Show plain-language CADET COACH tips inside the design consoles">
+            <input type="checkbox" id="chk-academy-tips" checked />
+            <span>SHOW CADET TIPS IN CONSOLES</span>
+          </label>
+          <div class="academy-nav">
+            <button type="button" id="btn-academy-back" class="btn-secondary">← BACK</button>
+            <button type="button" id="btn-academy-next" class="btn-primary">NEXT →</button>
+            <button type="button" id="btn-academy-start" class="btn-primary">START CADET MISSION →</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ========================================================================
@@ -653,25 +695,28 @@
   <!-- NOTIFICATION TOAST -->
   <div id="action-toast">NOTIFICATION</div>
 
-  <!-- Core Engine Systems (Lunaspis Shaders, Audio, GLB Assets, Network & Voice) -->
+  <!-- Core Engine Systems (Lunaspis Shaders, Audio, GLB Assets, Network, Voice & JPL CML) -->
   <script src="js/core/cinematic_pass.js?v=4.3.2"></script>
   <script src="js/core/audio_synth.js?v=4.0.0"></script>
   <script src="js/core/glb_manager.js?v=4.2.3"></script>
-  <script src="js/core/network.js?v=4.6.1"></script>
+  <script src="js/core/network.js?v=4.9.5"></script>
   <script src="js/core/voice.js?v=4.4.0"></script>
+  <script src="js/core/cml_framework.js?v=1.0.0"></script>
 
   <!-- 3D World & Environments (Space Center LC-39A, Launch, Docking, Ship Interior, ISS Showcase & Earth) -->
   <script src="js/world/station_modules.js?v=4.7.3"></script>
   <script src="js/world/photorealistic_earth.js?v=4.1.1"></script>
-  <script src="js/world/space_center/shared.js?v=4.9.1"></script>
-  <script src="js/world/space_center/environment.js?v=4.9.1"></script>
-  <script src="js/world/space_center/pad.js?v=4.9.0"></script>
-  <script src="js/world/space_center/vab.js?v=4.9.1"></script>
-  <script src="js/world/space_center/lcc.js?v=4.9.0"></script>
-  <script src="js/world/space_center/crawler.js?v=4.9.0"></script>
-  <script src="js/world/space_center/utilities.js?v=4.9.0"></script>
-  <script src="js/world/space_center/site.js?v=4.9.0"></script>
-  <script src="js/world/space_center.js?v=5.0.1"></script>
+  <script src="js/world/space_center/shared.js?v=4.9.5"></script>
+  <script src="js/world/space_center/environment.js?v=4.9.5"></script>
+  <script src="js/world/space_center/pad.js?v=4.9.5"></script>
+  <script src="js/world/space_center/pad39b.js?v=4.9.5"></script>
+  <script src="js/world/space_center/mcc.js?v=4.9.5"></script>
+  <script src="js/world/space_center/vab.js?v=4.9.5"></script>
+  <script src="js/world/space_center/lcc.js?v=4.9.5"></script>
+  <script src="js/world/space_center/crawler.js?v=4.9.5"></script>
+  <script src="js/world/space_center/utilities.js?v=4.9.5"></script>
+  <script src="js/world/space_center/site.js?v=4.9.5"></script>
+  <script src="js/world/space_center.js?v=5.0.2"></script>
   <script src="js/world/launch_cutscene.js?v=4.9.1"></script>
   <script src="js/world/docking_simulator.js?v=4.8.0"></script>
   <script src="js/world/ship_interior.js?v=4.6.8"></script>
@@ -688,7 +733,8 @@
   <script src="js/game/shuttle_game.js?v=1.0.0"></script>
 
   <!-- Mission Simulation & Main Loop -->
-  <script src="js/game/gameplay.js?v=4.9.2"></script>
+  <script src="js/game/gameplay.js?v=4.9.6"></script>
+  <script src="js/game/mission_academy.js?v=1.0.0"></script>
   <script src="js/game/main.js?v=5.0.4"></script>
 
 </body>

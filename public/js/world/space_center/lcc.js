@@ -65,20 +65,220 @@
     site.box(g, 5.7, wallH, 0.6, cx + 8.85, wallY, 188, white, "LobbyPartitionE");
     site.box(g, 0.6, wallH, 30.1, cx, wallY, 172.65, white, "BackDivider");
 
-    // 1. Firing Room (west wing)
-    site.box(g, 18, 4.4, 0.35, cx - 23.2, floorTop + 8.2, cz - 22.0, m("screen"), "LaunchWallScreen");
-    site.label(g, "FIRING ROOM", cx - 23, 18.8, cz - 21.6, { width: 12, height: 2.2, fontSize: 52 });
-    for (let row = 0; row < 3; row++) {
-      const rz = cz - 14 + row * 7;
-      const tierH = floorTop + row * 0.35;
-      if (row > 0) {
-        site.box(g, 18.5, row * 0.35, 3.6, cx - 23, floorTop + row * 0.175, rz, concreteDark, "FiringRiser");
+    // 1. Mission Control Center (west wing) — two ground-crew stations
+    //    (Flight Director + Ground Systems) facing the main display wall.
+    const mcX = cx - 23; // room centreline
+    const screenZ = 158.6;
+
+    // Main display wall: hero status screen flanked by telemetry monitors.
+    site.canvasPlane(
+      g, 16.5, 5.6, mcX, 13.2, screenZ, 0, 0, 0,
+      (ctx, w, h) => {
+        ctx.fillStyle = "#03141f";
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = "#38bdf8";
+        ctx.lineWidth = 5;
+        ctx.strokeRect(4, 4, w - 8, h - 8);
+        ctx.fillStyle = "#7dd3fc";
+        ctx.font = "900 40px Arial, Helvetica, sans-serif";
+        ctx.textAlign = "left";
+        ctx.fillText("MISSION CONTROL · LC-39B", 28, 52);
+        ctx.font = "700 22px Arial, Helvetica, sans-serif";
+        ctx.fillStyle = "#4ade80";
+        ctx.fillText("FLIGHT STATUS: GO FOR LAUNCH", 28, 88);
+        // Telemetry plot lines.
+        ctx.strokeStyle = "#22d3ee";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        for (let i = 0; i < 60; i++) {
+          const x = 30 + i * 13;
+          const y = 230 + Math.sin(i * 0.55) * 34 + Math.sin(i * 0.17) * 18;
+          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.strokeStyle = "#facc15";
+        ctx.beginPath();
+        for (let i = 0; i < 60; i++) {
+          const x = 30 + i * 13;
+          const y = 330 + Math.cos(i * 0.4) * 22;
+          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.fillStyle = "#94a3b8";
+        ctx.font = "600 18px Arial, Helvetica, sans-serif";
+        ctx.fillText("T-00:04:12 · VEHICLE POWER NOMINAL · RANGE GREEN", 28, h - 26);
+      },
+      1024, 360,
+      { unlit: true, name: "MCC_MainScreen" }
+    );
+    for (const sx of [mcX - 11.5, mcX + 11.5]) {
+      site.box(g, 4.2, 2.6, 0.24, sx, 13.0, screenZ, m("screen"), "MCC_SideMonitor");
+      site.box(g, 4.4, 0.18, 0.4, sx, 14.4, screenZ, trim, "MCC_SideMonitorHood");
+      site.canvasPlane(
+        g, 3.9, 2.35, sx, 13.0, screenZ + 0.14, 0, 0, 0,
+        (ctx, w, h) => {
+          ctx.fillStyle = "#04101a";
+          ctx.fillRect(0, 0, w, h);
+          ctx.strokeStyle = "#0ea5e9";
+          ctx.lineWidth = 3;
+          ctx.strokeRect(3, 3, w - 6, h - 6);
+          // Orbital ground track graticule.
+          ctx.strokeStyle = "rgba(56,189,248,0.45)";
+          ctx.lineWidth = 1;
+          for (let i = 1; i < 6; i++) {
+            ctx.beginPath();
+            ctx.moveTo(0, (h / 6) * i);
+            ctx.lineTo(w, (h / 6) * i);
+            ctx.stroke();
+          }
+          ctx.strokeStyle = "#facc15";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          for (let i = 0; i < 40; i++) {
+            const x = (i / 39) * w;
+            const y = h * 0.5 + Math.sin(i * 0.34) * h * 0.24;
+            i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+          ctx.fillStyle = "#7dd3fc";
+          ctx.font = "700 14px Arial, Helvetica, sans-serif";
+          ctx.fillText("GROUND TRACK · 39B", 10, 22);
+        },
+        320, 180,
+        { unlit: true, name: "MCC_TrackingDisplay" }
+      );
+    }
+    site.label(g, "MISSION CONTROL CENTER", mcX, 17.2, screenZ + 0.3, { width: 14, height: 1.7, fontSize: 30 });
+
+    // Two ground-crew consoles, facing the display wall.
+    const stations = [
+      { x: mcX - 5.3, title: "FLIGHT DIRECTOR", sub: "GO / NO-GO & MISSION AUTHORITY", color: "#fbbf24" },
+      { x: mcX + 5.3, title: "GROUND SYSTEMS", sub: "COMMS · TRACKING · GROUND NETWORK", color: "#67e8f9" }
+    ];
+    for (const st of stations) {
+      // Desk body, top and modesty panel.
+      site.box(g, 8.6, 1.0, 2.0, st.x, floorTop + 0.5, cz - 4, steel, "MCC_ConsoleDesk");
+      site.box(g, 8.9, 0.12, 2.3, st.x, floorTop + 1.06, cz - 4, trim, "MCC_ConsoleTop");
+      site.box(g, 8.9, 0.5, 0.12, st.x, floorTop + 0.62, cz - 2.95, concreteDark, "MCC_ModestyPanel");
+      // Monitors, keyboard and comms headset.
+      for (const mx of [st.x - 2.7, st.x, st.x + 2.7]) {
+        site.box(g, 1.7, 0.95, 0.1, mx, floorTop + 1.72, cz - 4.55, m("black"), "MCC_MonitorBezel");
+        site.box(g, 1.56, 0.82, 0.02, mx, floorTop + 1.72, cz - 4.49, m("screen"), "MCC_MonitorScreen");
+        site.box(g, 0.3, 0.3, 0.22, mx, floorTop + 1.2, cz - 4.4, trim, "MCC_MonitorStand");
+        site.canvasPlane(
+          g, 1.5, 0.78, mx, floorTop + 1.72, cz - 4.47, 0, 0, 0,
+          (ctx, w, h) => {
+            ctx.fillStyle = "#04121c";
+            ctx.fillRect(0, 0, w, h);
+            ctx.strokeStyle = "#22d3ee";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(3, 3, w - 6, h - 6);
+            ctx.fillStyle = "#67e8f9";
+            ctx.font = "700 13px monospace";
+            ctx.fillText("ORBIT ........ NOMINAL", 10, 26);
+            ctx.fillText("POWER ........ 100%", 10, 48);
+            ctx.fillText("LINK ......... LOCK", 10, 70);
+            ctx.strokeStyle = "#4ade80";
+            ctx.beginPath();
+            for (let i = 0; i < 20; i++) {
+              const x = 10 + i * 12;
+              const y = 100 + Math.sin(i * 0.6) * 10;
+              i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+          },
+          256, 128,
+          { unlit: true, name: "MCC_ConsoleGraphic" }
+        );
       }
-      site.box(g, 17, 1.0, 1.5, cx - 23, tierH + 0.5, rz, steel, "ConsoleRow");
-      for (let seat = -6; seat <= 6; seat += 4) {
-        site.box(g, 1.2, 0.52, 0.08, cx - 23 + seat, tierH + 1.32, rz - 0.5, m("screen"), "ConsoleMonitor");
-        site.cyl(g, 0.42, 0.5, cx - 23 + seat, tierH + 0.25, rz + 1.35, m("black"), 10, "OperatorChair");
+      site.box(g, 1.8, 0.06, 0.45, st.x, floorTop + 1.14, cz - 3.3, m("black"), "MCC_Keyboard");
+      site.cyl(g, 0.16, 0.35, st.x + 3.3, floorTop + 1.22, cz - 3.3, m("black"), 8, "MCC_Headset");
+      // Nameplate facing the operator chair.
+      site.canvasPlane(
+        g, 4.4, 0.55, st.x, floorTop + 0.72, cz - 2.86, 0, 0, 0,
+        (ctx, w, h) => {
+          ctx.fillStyle = "#0b1524";
+          ctx.fillRect(0, 0, w, h);
+          ctx.strokeStyle = st.color;
+          ctx.lineWidth = 3;
+          ctx.strokeRect(2, 2, w - 4, h - 4);
+          ctx.fillStyle = st.color;
+          ctx.font = "900 30px Arial, Helvetica, sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(st.title, w * 0.5, h * 0.38);
+          ctx.fillStyle = "#94a3b8";
+          ctx.font = "600 15px Arial, Helvetica, sans-serif";
+          ctx.fillText(st.sub, w * 0.5, h * 0.74);
+        },
+        640, 80,
+        { unlit: true, name: "MCC_StationPlate" }
+      );
+      // Status lamps and operator chair.
+      for (const [li, lc] of [[0, "red"], [1, "yellow"], [2, "green"]]) {
+        site.sphere(g, 0.14, st.x + 3.9, floorTop + 1.18, cz - 3.9 + li * 0.35, m(lc), 8, "MCC_StatusLamp");
       }
+      site.cyl(g, 0.45, 0.5, st.x, floorTop + 0.25, cz - 0.9, trim, 10, "MCC_OperatorChair");
+      site.box(g, 0.95, 1.15, 0.18, st.x, floorTop + 0.95, cz - 0.28, trim, "MCC_ChairBack");
+    }
+
+    // Wall status boards: GO/NO-GO on the west wall, comms on the east partition.
+    site.canvasPlane(
+      g, 6.2, 4.4, cx - hx + wallT + 0.06, 7.4, 168, 0, Math.PI / 2, 0,
+      (ctx, w, h) => {
+        ctx.fillStyle = "#0f172a";
+        ctx.fillRect(0, 0, w, h);
+        ctx.fillStyle = "#e2e8f0";
+        ctx.font = "900 34px Arial, Helvetica, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("GO / NO-GO", w * 0.5, 46);
+        const tiles = ["CDR", "ENG", "SCI", "FD", "GND", "RANGE"];
+        tiles.forEach((t, i) => {
+          const tx = 40 + (i % 3) * 170;
+          const ty = 100 + Math.floor(i / 3) * 140;
+          ctx.fillStyle = i < 4 ? "#16a34a" : "#0ea5e9";
+          ctx.fillRect(tx, ty, 140, 90);
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "900 28px Arial, Helvetica, sans-serif";
+          ctx.fillText(t, tx + 70, ty + 45);
+          ctx.font = "700 20px Arial, Helvetica, sans-serif";
+          ctx.fillText("GO", tx + 70, ty + 74);
+        });
+      },
+      512, 360,
+      { unlit: true, name: "MCC_GoNoGoBoard" }
+    );
+    site.canvasPlane(
+      g, 5.6, 3.4, cx - 12 - wallT * 0.5 - 0.06, 7.6, 170, 0, -Math.PI / 2, 0,
+      (ctx, w, h) => {
+        ctx.fillStyle = "#071a13";
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = "#34d399";
+        ctx.lineWidth = 4;
+        ctx.strokeRect(4, 4, w - 8, h - 8);
+        ctx.fillStyle = "#6ee7b7";
+        ctx.font = "900 28px Arial, Helvetica, sans-serif";
+        ctx.textAlign = "left";
+        ctx.fillText("GROUND NETWORK", 20, 42);
+        ctx.font = "700 18px Arial, Helvetica, sans-serif";
+        ctx.fillStyle = "#d1fae5";
+        const rows = [
+          "DSN 34m · MADRID ...... LOCK",
+          "DSN 70m · CANBERRA .... LOCK",
+          "TDRS-W · KA-BAND ....... OK",
+          "LINK MARGIN ........ 6.4 dB",
+          "DOWNLINK ....... 1.2 GB/day",
+          "NEXT PASS .......... T+02:14"
+        ];
+        rows.forEach((r, i) => ctx.fillText(r, 20, 92 + i * 38));
+      },
+      512, 320,
+      { unlit: true, name: "MCC_GroundBoard" }
+    );
+
+    // Ceiling light strips over the console rows.
+    for (const lx of [mcX - 6, mcX, mcX + 6]) {
+      site.box(g, 1.4, 0.1, 9, lx, 21.5, cz - 4, m("lamp"), "MCC_CeilingLight");
     }
 
     // 2. Reception Lobby (south center)
@@ -208,5 +408,22 @@
     site.addBoxCollider(cx, 188, 6, 0.6, "LCC lobby wall");
     site.addBoxCollider(cx + 8.85, 188, 5.7, 0.6, "LCC lobby wall");
     site.addBoxCollider(cx, 172.65, 0.6, 30.1, "LCC utility divider");
+
+    // Mission Control Center consoles and all interior furniture are solid.
+    site.addBoxCollider(cx - 28.3, cz - 4, 8.6, 2.0, "MCC flight director console");
+    site.addBoxCollider(cx - 17.7, cz - 4, 8.6, 2.0, "MCC ground systems console");
+    site.addBoxCollider(cx, cz + 14.5, 8, 2.2, "LCC reception desk");
+    site.addBoxCollider(cx - 8, cz + 18, 3.2, 1.4, "LCC lobby sofa");
+    site.addBoxCollider(cx + 8, cz + 18, 3.2, 1.4, "LCC lobby sofa");
+    site.addBoxCollider(cx - 8.5, cz + 10.5, 1.4, 1.2, "LCC coffee counter");
+    site.addBoxCollider(cx + 23.5, cz - 2, 6.2, 13, "LCC conference table");
+    site.addBoxCollider(cx + 5.95, cz - 18, 8.4, 1.1, "LCC electrical racks");
+    site.addBoxCollider(cx - 14, south + 20, 16, 24, "LCC planter");
+    site.addBoxCollider(cx + 14, south + 20, 16, 24, "LCC planter");
+    site.addCircleCollider(cx - 5.4, south + 7.6, 0.6, "LCC canopy column");
+    site.addCircleCollider(cx + 5.4, south + 7.6, 0.6, "LCC canopy column");
+    site.addCircleCollider(cx - 22, south + 10, 0.8, "LCC flagpole");
+    site.addCircleCollider(cx + 22, south + 10, 0.8, "LCC flagpole");
+    site.addBoxCollider(cx - hx - 1.8, cz - 4, 3.6, 13, "LCC loading dock");
   });
 })(window);

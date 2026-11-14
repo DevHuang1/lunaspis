@@ -11,7 +11,7 @@
   const NS = (window.SpaceCenterModules = window.SpaceCenterModules || {});
 
   NS.constants = {
-    SITE_BOUNDS: { minX: -1050, maxX: 525, minZ: -850, maxZ: 850 },
+    SITE_BOUNDS: { minX: -1050, maxX: 525, minZ: -1050, maxZ: 850 },
     PAD: { x: 0, z: 0, radius: 74, topY: 12.2 },
     VAB: {
       x: -30,
@@ -45,12 +45,15 @@
   };
 
   NS.SITE_TOUR_SPAWNS = [
-    { id: "pad", label: "Pad 39A", short: "PAD 39A", x: 24, z: 168, yaw: Math.atan2(-24, -168), pitch: 0.14 },
+    { id: "pad", label: "Pad 39A", short: "PAD 39A", x: 30, z: 205, yaw: Math.atan2(-30, -205), pitch: 0.14 },
     { id: "vab", label: "Vehicle Assembly Building", short: "VAB", x: -30, z: 544, yaw: 0.02, pitch: 0.22 },
-    { id: "lcc", label: "Launch Control Center", short: "LCC", x: -148, z: 246, yaw: Math.atan2(-32, -66), pitch: 0.04 },
+    { id: "lcc", label: "Launch Control Center", short: "LCC", x: -180, z: 232, yaw: Math.PI, pitch: 0.05 },
+    { id: "mcc", label: "Mission Control Center", short: "MCC", x: -60, z: 280, yaw: Math.PI, pitch: 0.05 },
     { id: "crawler", label: "Crawler Transporter", short: "CRAWLER", x: 34, z: 452, yaw: Math.atan2(-34, 48), pitch: 0.06 },
     { id: "beach", label: "Beach View", short: "BEACH", x: 474, z: 18, yaw: Math.PI / 2 - 0.14, pitch: 0.0 },
-    { id: "press", label: "Press Site 39A", short: "PRESS", x: 162, z: 214, yaw: Math.atan2(-162, -214) - 0.14, pitch: 0.08 }
+    { id: "press", label: "Press Site 39A", short: "PRESS", x: 162, z: 214, yaw: Math.atan2(-162, -214) - 0.14, pitch: 0.08 },
+    { id: "pad39b", label: "Pad 39B", short: "PAD 39B", x: -120, z: -520, yaw: Math.PI, pitch: 0.1 },
+    { id: "crawlerway39b", label: "LC-39B Crawler Transporter", short: "39B CRAWLER", x: -185, z: -560, yaw: 2.123, pitch: 0.04 }
   ];
 
   NS.register = function (name, builder) {

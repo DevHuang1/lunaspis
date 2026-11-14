@@ -2889,9 +2889,9 @@
       // The ascent cinematic owns the camera and keyboard until it ends or is skipped.
       if (window.launchCutscene && window.launchCutscene.isPlaying) return;
 
-      // The site tour owns 1-6 fast travel; don't fire emote shortcuts.
+      // The site tour owns 1-9 fast travel; don't fire emote shortcuts.
       if (window.spaceCenter && window.spaceCenter.siteTourActive) {
-        if (/^Digit[1-6]$/.test(e.code) || e.code === "KeyT") return;
+        if (/^Digit[1-9]$/.test(e.code) || e.code === "KeyT") return;
       }
 
       // Solar Atlas is a full-screen takeover; close it before another view hotkey opens.

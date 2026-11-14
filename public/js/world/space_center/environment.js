@@ -99,6 +99,7 @@
 
     // -------------------------------------------------------------------------
     // 1. CRUSHED LIMESTONE CRAWLERWAY (VAB Portal z=591 -> Pad Ramp Toe z=185)
+    //    plus the southern spur that serves Launch Complex 39B.
     // -------------------------------------------------------------------------
     const cwLen = 406;
     const cwCenterZ = 388; // 185..591 (stops cleanly at Pad ramp toe)
@@ -112,6 +113,22 @@
     // Sloped grass shoulder verges flanking crawlerway
     for (const sx of [-23, 23]) {
       site.box(g, 4.5, 0.08, cwLen - 4, sx, 0.04, cwCenterZ, grass, "CrawlerShoulder");
+    }
+
+    // LC-39B crawlerway spur: Main Crawlerway toe (z=185) -> Pad 39B ramp (z=-622)
+    const spurLen = 807;
+    const spurCenterZ = -218.5; // 185..-622
+    for (const x of [-14, 14]) {
+      site.box(g, 13.5, 0.14, spurLen, x, 0.07, spurCenterZ, gravel, "CrawlerLane39B");
+      site.box(g, 4.2, 0.018, spurLen - 4, x, 0.149, spurCenterZ, concreteDark, "CrawlerRut39B");
+    }
+    site.box(g, 5.2, 0.06, spurLen - 4, 0, 0.03, spurCenterZ, grass, "CrawlerMedian39B");
+    for (const sx of [-23, 23]) {
+      site.box(g, 4.5, 0.08, spurLen - 4, sx, 0.04, spurCenterZ, grass, "CrawlerShoulder39B");
+    }
+    // Yellow clearance stripes at the 39B pad approach.
+    for (const sx of [-14, 14]) {
+      site.box(g, 13.9, 0.02, 1.2, sx, 0.152, -596, stripeYellow, "CrawlerApproachStripe39B");
     }
 
     // -------------------------------------------------------------------------
@@ -184,6 +201,7 @@
     // -------------------------------------------------------------------------
     const gateX = -390;
     const gateZ = 296;
+    site.addBoxCollider(gateX, gateZ, 6.4, 5.4, "Security gatehouse");
     site.box(g, 14, 0.22, 4.2, gateX, 0.11, gateZ, curbMat, "GateMedianIsland");
     site.box(g, 4.8, 3.4, 3.2, gateX, 1.92, gateZ, m("steel_white"), "GatehouseBody");
     site.box(g, 5.8, 0.45, 5.2, gateX, 3.85, gateZ, m("nasa_blue"), "GatehouseRoof");
@@ -405,9 +423,11 @@
       if (Math.abs(x - (-30)) < 115 && z > 520) continue; // Keep VAB clear
       pinePlacements.push({ x, z, s: 0.8 + pseudoRand(i + 500) * 0.6 });
     }
-    // Western horizon Space Coast preserve belt (around utilities, turn basin, Ave)
+    // Western horizon Space Coast preserve belt (around utilities, turn basin, Ave).
+    // Stops north of the LC-39B complex so the pad and crawlerway spur stay clear.
     for (let i = 0; i < 95; i++) {
       const z = -420 + i * 13 + (pseudoRand(i + 600) - 0.5) * 10;
+      if (z < -560) continue;
       const x = -540 - pseudoRand(i + 700) * 460;
       // Keep roads, substation, cooling tower, generator, turn basin & antenna farm clear
       if (Math.abs(z - 296) < 22 || Math.abs(z - 56) < 34 || Math.abs(z - 92) < 28) continue;
@@ -488,7 +508,7 @@
     }
 
     // -------------------------------------------------------------------------
-    // 8. TURN BASIN BARGE HARBOR & NORTH PAD 39B SILHOUETTE
+    // 8. TURN BASIN BARGE HARBOR (LC-39B itself lives in pad39b.js)
     // -------------------------------------------------------------------------
     const basin = C.TURN_BASIN; // (-930, 118)
     site.box(g, 74, 0.34, 48, basin.x, 0.17, basin.z, concreteDark, "BasinQuay");
@@ -500,14 +520,6 @@
     }
     site.label(g, "TURN BASIN", basin.x - 16, 4.2, basin.z + 24, { width: 8, height: 1.8, fontSize: 46 });
     site.addBoxCollider(basin.x, basin.z, 72, 48, "Turn basin");
-
-    // Distant Launch Complex 39B on the northern cape horizon
-    const padB = C.PAD_39B; // (-120, -760)
-    site.cone(g, 42, 62, 10, padB.x, 5, padB.z, grass, 8, "Pad39BBerm");
-    site.cyl(g, 41, 0.6, padB.x, 10.3, padB.z, concrete, 8, "Pad39BDeck");
-    site.box(g, 12, 74, 12, padB.x - 18, 47.6, padB.z, m("tower"), "Pad39BTower");
-    site.cyl(g, 2.2, 62, padB.x + 4, 42, padB.z, m("foam"), 14, "Pad39BCore");
-    site.addBoxCollider(padB.x, padB.z, 90, 90, "Pad 39B");
 
     function steelMat(s) {
       return s.mat("steel_grey");

@@ -28,7 +28,7 @@ Builders receive a `SpaceCenterSite` façade and must:
 
 `site.build()` runs the registered modules in this order:
 
-`environment → pad → vab → lcc → crawler → utilities`
+`environment → pad → pad39b → mcc → vab → lcc → crawler → utilities`
 
 Static box/beam meshes are automatically instanced per material in
 `_mergeStaticBoxes()` to keep draw calls low.
@@ -41,4 +41,84 @@ Static box/beam meshes are automatically instanced per material in
 4. Add the module name to the order list in `site.js` if it is part of the
    core complex.
 5. Register collision volumes and test the location through the site tour
-   (`1`–`6`, or the destination buttons on mobile).
+   (`1`–`8`, or the destination buttons on mobile).
+
+## Launch Complex 39B
+
+`pad39b.js` builds a second, fully walkable complex at `shared.js` →
+`constants.PAD_39B` (~26° rotated to the LC-39B bearing): octagonal hardstand
+and flame trench, SLS-class launch stack (core stage, boosters, Orion service
+module with X-configuration solar wings, LAS lattice, raceway and body decals)
+on a mobile launcher, a Fixed Service Structure loaded from `assets/space-shuttle-launching-platform-fss.glb`
+(the FSS-only extraction of `source/space-shuttle-launching-platform-low-poly.glb`,
+identical to how Pad 39A loads `assets/space-shuttle-fss-tower.glb`): the GLB is
+fetched asynchronously via `glbManager.loadGLB` and a procedural box-truss tower
+fallback (`Pad39B_FSS_Fallback`) is shown until the asset resolves, then hidden.
+The GLB includes the Launch Infrastructure base, Launching Tower, service-arm Plane
+Towers, and the Small Building support structure. A separate white lattice crane
+mast (`Pad39B_CraneMast`) with jib and beacon is kept as a procedural supplement, three
+lightning masts with catenary wires, elevated deluge water tower, LOX/LH2 propellant farm,
+gatehouse, a detailed crawler transporter CT-2 (four double-track truck
+assemblies, jacking cylinders, twin cabs, exhaust stacks, deck rails) and
+service road. The launch and boarding flow stays on Pad 39A; 39B is a site-tour
+destination. The `environment.js` crawlerway spur (Main Crawlerway toe at
+`z = 185` down to the 39B ramp) is the documented approach.
+
+Collision covers the hardstand mound, the crawlerway ramp, every lightning mast,
+both propellant spheres, the water tower, pump house, gatehouse, entrance sign,
+crawler transporter and the fixed service structure base. The crawlerway, service
+road and grass perimeter remain walkable.
+
+## Mission Control Center building (`mcc.js`)
+
+Standalone facility at `(-60, 240)` east of the LCC, registered as `mcc`:
+
+- Exterior: 58 × 40 m glazed control building, twin-height curtain wall with
+  sun hoods and mullions, entrance canopy, `MISSION CONTROL CENTER` header,
+  rooftop tracking dishes and chillers, USA/NASA flagpoles, hedged planters,
+  walkway and parking bays.
+- Arrival plaza at tour stop 9: NASA meatball walkway inlay, directional
+  directory kiosk, `T-00:04:12` mission clock, path bollard lights, entrance
+  bollards, crosswalk over the KSC avenue, bench, trash bin, hydrant, crew
+  drop-off lane with cones and a waiting van, and a `PARKING →` sign.
+- Interior: reception lobby with desk and seating, divider with central
+  doorway, main control room with a 20 m hero status wall, two ground consoles
+  (`Flight Director` at `(-68, 236)`, `Ground Systems` at `(-52, 236)`), GO/NO-GO
+  board, console monitors and ceiling light strips, plus a glazed comms/tracking
+  room with server racks.
+- Terminals: `mcc_flight_director` and `mcc_ground_systems` in
+  `space_center.js` (`[E]`), actions `mission` and `orbit`.
+- Collision: shell with a 10 m entrance gap, lobby divider with an 8 m doorway,
+  both consoles, reception desk, sofas, comms glass walls, analysis desk,
+  planters, canopy columns and flagpoles.
+
+## Mission Control Center (LCC firing room)
+
+The LCC firing room is built as a two-station **Mission Control Center** for the
+ground team:
+
+- **Flight Director console** — opens the mission charter/planner (scenario,
+  difficulty, roles).
+- **Ground Systems console** — opens the orbit & launch trade desk
+  (`openPreFlightMdlDesk("orbit")`).
+- Hero status screen (`MISSION CONTROL · LC-39B`), two ground-track side
+  displays, a GO/NO-GO wall board, a ground-network board, tiered desks with
+  monitor graphics, nameplates and operator chairs.
+- Facility terminals are defined in `space_center.js` (`mcc_flight_director`,
+  `mcc_ground_systems`); actions `mission` and `orbit` are routed in
+  `_activateFacilityTerminal`.
+- Interior furniture is collidable: both consoles, reception desk, sofas,
+  coffee counter, conference table, electrical racks and the lobby planters.
+
+## Collision coverage
+
+Every module contributes colliders to `site.boxColliders` /
+`site.circleColliders`; the site tour slides the walker along them
+(`_resolveSiteTourCollision`). Coverage includes the VAB shell plus its indoor
+launcher, comms room and support modules; the LCC shell and interior furniture;
+the crawler transporter; Pad 39A's 92 m berm footprint, crawlerway ramp and
+flanking embankments, propellant farm, egress bunker, lightning masts and guy
+anchors, water tower, kiosk, floodlight cart, jersey barriers and support
+vehicles; the security gatehouse, press mound,
+turn basin, substation, cooling tower, generator, fire tank and antenna farm;
+and the full LC-39B complex.
