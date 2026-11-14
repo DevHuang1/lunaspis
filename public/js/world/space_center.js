@@ -61,6 +61,14 @@
       this.floodlights = [];
       this.whiteRoomDoor = null;
 
+      // Elevator system
+      this.elevatorCab = null;          // THREE.Group — the moving cabin
+      this.elevatorY = 0;               // current cabin Y in towerGroup space
+      this.elevatorTargetY = 0;         // 0 = ground, 44 = gantry
+      this.elevatorMoving = false;
+      this.elevatorRidingPlayer = false;// true while player is in the cab
+      this._elevatorLightMat = null;    // status light material on call panel
+
       // Interactive UI
       this.hudOverlay = null;
       this.hudCollapsed = false;
@@ -241,6 +249,60 @@
       beam.receiveShadow = true;
       parent.add(beam);
       return beam;
+    }
+
+    // ── Elevator interaction ─────────────────────────────────────────────────
+    _handleElevatorKey() {
+      if (!this.elevatorCab || !this._elevatorConfig) return;
+      const cfg = this._elevatorConfig;
+
+      // World position of elevator base = towerGroup.position + (ELV_X, 0, ELV_Z)
+      // towerGroup is at padGroup(-34, 19.8, 0); padGroup is at scene origin.
+      const elevWorldX = -34 + cfg.x;
+      const elevWorldZ = 0  + cfg.z;
+      const gantryY    = 64.1; // world Y of gantry deck
+      const groundY    = 19.8; // world Y of pad ground level
+
+      // Current player world position
+      const cam = this.camera;
+      if (!cam) return;
+      const px = cam.position.x;
+      const pz = cam.position.z;
+      const py = cam.position.y;
+
+      const groundDist = Math.sqrt((px - elevWorldX) ** 2 + (pz - elevWorldZ) ** 2);
+      const atGround   = py < groundY + 5  && groundDist < 7;
+      const atGantry   = py >= groundY - 2 && groundDist < 10;
+
+      if (this.elevatorMoving) {
+        // Pressing G while moving: cancel / stop (player teleports to nearest floor)
+        this.elevatorMoving = false;
+        this.elevatorRidingPlayer = false;
+        return;
+      }
+
+      if (atGround) {
+        // Call elevator down (if needed) then ride up
+        this.elevatorTargetY = cfg.top;
+        this.elevatorMoving  = true;
+        this.elevatorRidingPlayer = true;
+        if (window.gameplay && typeof window.gameplay.showToast === "function") {
+          window.gameplay.showToast("🛗 ELEVATOR: Ascending to Gantry Level — stand clear of doors");
+        }
+      } else if (atGantry) {
+        // Send elevator back down
+        this.elevatorTargetY = cfg.bottom;
+        this.elevatorMoving  = true;
+        this.elevatorRidingPlayer = true;
+        if (window.gameplay && typeof window.gameplay.showToast === "function") {
+          window.gameplay.showToast("🛗 ELEVATOR: Descending to Ground Level");
+        }
+      } else {
+        // Too far — hint
+        if (window.gameplay && typeof window.gameplay.showToast === "function") {
+          window.gameplay.showToast("🛗 Walk to the ELEVATOR on the west side of the tower, then press [G]");
+        }
+      }
     }
 
     _updateSunShadowFocus(camPos) {
@@ -805,74 +867,312 @@
       this.towerGroup.position.set(-34, 19.8, 0);
       this.padGroup.add(this.towerGroup);
 
-      const towerHeight = 88;
-      const towerWidth = 12;
-      const half = towerWidth / 2;
       const steelMat = this.steelMat;
       const darkSteelMat = this.darkSteelMat;
       const deckMat = this.deckMat;
-      const diagonalAngle = Math.atan2(8, towerWidth);
-      const diagonalLength = Math.hypot(towerWidth, 8);
 
-      // Four main corner columns.
-      [
-        [-half, -half],
-        [half, -half],
-        [-half, half],
-        [half, half]
-      ].forEach(([cx, cz]) => {
-        this._makeBeam(this.towerGroup, 1.0, towerHeight, 1.0, cx, towerHeight / 2, cz, steelMat);
+      // ── GLB-based Fixed Service Structure ──────────────────────────────────
+      // Load the low-poly FSS from the reference GLB (rocket parts stripped).
+      const _loadFSSGLB = () => {
+        if (!window.glbManager) return;
+        const fssUrl = "assets/space-shuttle-fss-tower.glb";
+        window.glbManager.loadGLB(fssUrl).then(() => {
+          try {
+            const fssMesh = window.glbManager.instantiateModel(fssUrl, { scale: 1.0 });
+            if (fssMesh && this.padGroup) {
+              fssMesh.name = "LaunchTower_FSS_GLB";
+              fssMesh.position.set(-0.1035, -19.80, -4.702);
+              fssMesh.traverse((obj) => {
+                if (obj.isMesh) { obj.castShadow = true; obj.receiveShadow = true; }
+              });
+              this.padGroup.add(fssMesh);
+            }
+          } catch (e) { console.warn("[SpaceCenter] FSS GLB instantiate error:", e); }
+        }).catch((e) => { console.warn("[SpaceCenter] FSS GLB load error:", e); });
+      };
+      _loadFSSGLB();
+      // ───────────────────────────────────────────────────────────────────────
+
+      // ── Realistic FSS Detail Layer ─────────────────────────────────────────
+      // All in towerGroup space (towerGroup at padGroup(-34, 19.8, 0)).
+      // Tower extends from Y=0 (pad level) to Y=88 (gantry top).
+
+      const towerHeight = 88;
+      const half = 6; // half-width of main structural columns
+
+      // ── Main corner columns (4×) ──
+      const colMat = new THREE.MeshStandardMaterial({ color: 0xb0bec5, roughness: 0.5, metalness: 0.65 });
+      [[-half, -half], [half, -half], [-half, half], [half, half]].forEach(([cx, cz]) => {
+        this._makeBeam(this.towerGroup, 1.2, towerHeight, 1.2, cx, towerHeight / 2, cz, colMat);
       });
 
-      // Open lattice: inset horizontal rings and non-coplanar diagonal cross-bracing.
-      const ringSpan = towerWidth - 1.04;
-      for (let y = 0; y <= towerHeight; y += 8) {
-        this._makeBeam(this.towerGroup, ringSpan, 0.34, 0.34, 0, y, -half, darkSteelMat);
-        this._makeBeam(this.towerGroup, ringSpan, 0.34, 0.34, 0, y, half, darkSteelMat);
-        this._makeBeam(this.towerGroup, 0.34, 0.34, ringSpan, -half, y, 0, darkSteelMat);
-        this._makeBeam(this.towerGroup, 0.34, 0.34, ringSpan, half, y, 0, darkSteelMat);
-      }
-
+      // ── Diagonal X-bracing every 8m ──
+      const braceMat = new THREE.MeshStandardMaterial({ color: 0x90a4ae, roughness: 0.55, metalness: 0.6 });
+      const dAng = Math.atan2(8, half * 2);
+      const dLen = Math.hypot(half * 2, 8);
       for (let y = 0; y < towerHeight; y += 8) {
-        const midY = y + 4;
-        [-half, half].forEach((z) => {
-          this._makeBeam(this.towerGroup, diagonalLength, 0.22, 0.22, 0, midY, z + 0.04, steelMat, diagonalAngle, 0, 0);
-          this._makeBeam(this.towerGroup, diagonalLength, 0.22, 0.22, 0, midY, z - 0.04, steelMat, -diagonalAngle, 0, 0);
+        const my = y + 4;
+        // North & south faces
+        [-half, half].forEach(z => {
+          this._makeBeam(this.towerGroup, dLen, 0.18, 0.18, 0, my, z, braceMat, dAng, 0, 0);
+          this._makeBeam(this.towerGroup, dLen, 0.18, 0.18, 0, my, z, braceMat, -dAng, 0, 0);
         });
-        [-half, half].forEach((x) => {
-          // Leave a clear gantry-level opening on the east face where the
-          // boarding arm and crew view line leave the tower.
-          if (x > 0 && y === 40) return;
-          this._makeBeam(this.towerGroup, 0.22, 0.22, diagonalLength, x + 0.04, midY, 0, steelMat, 0, 0, diagonalAngle);
-          this._makeBeam(this.towerGroup, 0.22, 0.22, diagonalLength, x - 0.04, midY, 0, steelMat, 0, 0, -diagonalAngle);
+        // East & west faces
+        [-half, half].forEach(x => {
+          if (x > 0 && y === 40) return; // boarding arm opening
+          this._makeBeam(this.towerGroup, 0.18, 0.18, dLen, x, my, 0, braceMat, 0, 0, dAng);
+          this._makeBeam(this.towerGroup, 0.18, 0.18, dLen, x, my, 0, braceMat, 0, 0, -dAng);
         });
+        // Ring beams at every level
+        const span = half * 2 - 1.2;
+        this._makeBeam(this.towerGroup, span, 0.28, 0.28, 0, y, -half, braceMat);
+        this._makeBeam(this.towerGroup, span, 0.28, 0.28, 0, y, half, braceMat);
+        this._makeBeam(this.towerGroup, 0.28, 0.28, span, -half, y, 0, braceMat);
+        this._makeBeam(this.towerGroup, 0.28, 0.28, span, half, y, 0, braceMat);
       }
 
-      // Vertical cryogenic / purge standpipes & stairwell core on west tower face.
-      const cryPipeMat = new THREE.MeshStandardMaterial({ color: 0xe6e8ea, roughness: 0.42, metalness: 0.45 });
-      const orangePipeMat = new THREE.MeshStandardMaterial({ color: 0xd95a0d, roughness: 0.48, metalness: 0.35 });
-      this._makeBeam(this.towerGroup, 0.38, towerHeight - 4, 0.38, -half - 0.65, towerHeight * 0.5, -2.4, orangePipeMat);
-      this._makeBeam(this.towerGroup, 0.32, towerHeight - 4, 0.32, -half - 0.65, towerHeight * 0.5, -1.6, cryPipeMat);
-      this._makeBeam(this.towerGroup, 0.32, towerHeight - 4, 0.32, -half - 0.65, towerHeight * 0.5, 2.0, cryPipeMat);
+      // ── Cladding panels (east & west face alternating) ──
+      const claddingMat = new THREE.MeshStandardMaterial({ color: 0xcfd8dc, roughness: 0.75, metalness: 0.15, side: THREE.FrontSide });
+      for (let y = 0; y < towerHeight; y += 16) {
+        // West face panels
+        const panW = new THREE.Mesh(new THREE.PlaneGeometry(10, 15), claddingMat);
+        panW.rotation.y = Math.PI / 2;
+        panW.position.set(-half - 0.05, y + 7.5, 0);
+        this.towerGroup.add(panW);
+        // East face upper panels (above boarding arm)
+        if (y > 48) {
+          const panE = new THREE.Mesh(new THREE.PlaneGeometry(10, 15), claddingMat);
+          panE.rotation.y = -Math.PI / 2;
+          panE.position.set(half + 0.05, y + 7.5, 0);
+          this.towerGroup.add(panE);
+        }
+      }
 
-      // Elevator / equipment core on the west side of the tower + interior stairs.
-      const elevator = new THREE.Mesh(new THREE.BoxGeometry(3.2, towerHeight, 3.2), darkSteelMat);
-      elevator.position.set(-4.1, towerHeight / 2, 4.1);
-      elevator.castShadow = true;
-      elevator.receiveShadow = true;
-      this.towerGroup.add(elevator);
+      // ── Vertical pipe runs (cryogenic + purge + orange LH2 vent) ──
+      const cryPipeMat = new THREE.MeshStandardMaterial({ color: 0xe8edf0, roughness: 0.42, metalness: 0.45 });
+      const lh2PipeMat = new THREE.MeshStandardMaterial({ color: 0xe65c00, roughness: 0.45, metalness: 0.35 });
+      const goxPipeMat = new THREE.MeshStandardMaterial({ color: 0x78909c, roughness: 0.5, metalness: 0.5 });
+      const pipeX = -half - 0.9;
+      this._makeBeam(this.towerGroup, 0.42, towerHeight - 2, 0.42, pipeX, (towerHeight - 2) / 2, -2.8, lh2PipeMat);
+      this._makeBeam(this.towerGroup, 0.32, towerHeight - 2, 0.32, pipeX, (towerHeight - 2) / 2, -1.8, cryPipeMat);
+      this._makeBeam(this.towerGroup, 0.32, towerHeight - 2, 0.32, pipeX, (towerHeight - 2) / 2, 1.5, cryPipeMat);
+      this._makeBeam(this.towerGroup, 0.26, towerHeight - 2, 0.26, pipeX, (towerHeight - 2) / 2, 2.5, goxPipeMat);
+      // Horizontal pipe runs at key service levels
+      [24, 44, 64].forEach(y => {
+        this._makeBeam(this.towerGroup, 8, 0.28, 0.28, pipeX + 4.5, y, -2.3, lh2PipeMat);
+        this._makeBeam(this.towerGroup, 8, 0.22, 0.22, pipeX + 4.5, y + 1.0, -1.8, cryPipeMat);
+      });
 
-      const stairMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.65, metalness: 0.45 });
+      // ── Cable trays on south face ──
+      const cableMat = new THREE.MeshStandardMaterial({ color: 0x546e7a, roughness: 0.7, metalness: 0.3 });
+      this._makeBeam(this.towerGroup, 0.6, towerHeight * 0.75, 2.8, half + 0.4, towerHeight * 0.375, half + 0.3, cableMat);
+      for (let y = 4; y < towerHeight * 0.75; y += 4) {
+        this._makeBeam(this.towerGroup, 0.08, 0.08, 2.8, half + 0.4, y, half + 0.3, braceMat);
+      }
+
+      // ── Service work platforms at every 8m ──
+      const workPlatMat = new THREE.MeshStandardMaterial({ color: 0x455a64, roughness: 0.75, metalness: 0.35 });
+      const platRailMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.5, metalness: 0.3 });
+      [16, 24, 32, 40, 48, 56, 64, 72, 80].forEach((y) => {
+        const pw = 10, pd = 8;
+        const plat = new THREE.Mesh(new THREE.BoxGeometry(pw, 0.3, pd), workPlatMat);
+        plat.position.set(-1, y, -2);
+        plat.castShadow = true;
+        plat.receiveShadow = true;
+        this.towerGroup.add(plat);
+        // Yellow safety railings
+        this._makeBeam(this.towerGroup, pw, 0.1, 0.1, -1, y + 1.1, -6.1, platRailMat);
+        this._makeBeam(this.towerGroup, 0.1, 1.2, 0.1, -pw / 2 - 0.1, y + 0.7, -6.1, platRailMat);
+        this._makeBeam(this.towerGroup, 0.1, 1.2, 0.1, pw / 2 - 0.1, y + 0.7, -6.1, platRailMat);
+      });
+
+      // ── Floodlights at 3 levels ──
+      const floodHousingMat = new THREE.MeshStandardMaterial({ color: 0xeceff1, roughness: 0.4, metalness: 0.6 });
+      [[half + 0.5, 30, 2, 0.4, -0.2], [half + 0.5, 55, 2, 0.4, -0.3], [-half - 0.5, 30, 2, -0.4, -0.2]].forEach(([fx, fy, fz, rx, ry]) => {
+        const fh = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.35, 1.0), floodHousingMat);
+        fh.position.set(fx, fy, fz);
+        fh.rotation.set(rx, ry, 0);
+        this.towerGroup.add(fh);
+        const fLens = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.3),
+          new THREE.MeshStandardMaterial({ color: 0xfff8dc, emissive: 0xfff8dc, emissiveIntensity: 2.5 }));
+        fLens.position.set(fx + (fx > 0 ? 0.32 : -0.32), fy, fz);
+        fLens.rotation.y = fx > 0 ? -Math.PI / 2 : Math.PI / 2;
+        this.towerGroup.add(fLens);
+      });
+
+      // ── Nitrogen purge arm near pad ──
+      const nitMat = new THREE.MeshStandardMaterial({ color: 0xb0bec5, roughness: 0.6, metalness: 0.5 });
+      this._makeBeam(this.towerGroup, 14, 0.35, 0.35, 7, 8, 0, nitMat, 0, 0, 0.18);
+      this._makeBeam(this.towerGroup, 0.35, 10, 0.35, 14, 4, 0, nitMat);
+
+      // ── Hydrogen burn-off stack (flare boom) ──
+      const flareMat = new THREE.MeshStandardMaterial({ color: 0xb71c1c, roughness: 0.5, metalness: 0.55 });
+      this._makeBeam(this.towerGroup, 20, 0.5, 0.5, 10, 70, -3, flareMat, 0, 0, 0.14);
+      const flareTip = new THREE.Mesh(new THREE.ConeGeometry(0.5, 2, 8), flareMat);
+      flareTip.position.set(20.2, 72.2, -3);
+      this.towerGroup.add(flareTip);
+
+      // ── Umbilical carrier arms (LOX + LH2 at two heights) ──
+      const umbMat = new THREE.MeshStandardMaterial({ color: 0x37474f, roughness: 0.5, metalness: 0.65 });
+      [[half, 20, -3], [half, 36, -1]].forEach(([ux, uy, uz]) => {
+        this._makeBeam(this.towerGroup, 8, 0.5, 0.5, ux + 4.5, uy, uz, umbMat);
+        const umbEnd = new THREE.Mesh(new THREE.BoxGeometry(1.4, 2.0, 1.4), umbMat);
+        umbEnd.position.set(ux + 9.0, uy, uz);
+        this.towerGroup.add(umbEnd);
+      });
+
+      // ── Staircase risers (open grating style, west face) ──
+      const stairMat = new THREE.MeshStandardMaterial({ color: 0x607d8b, roughness: 0.65, metalness: 0.4 });
       for (let y = 0; y < 80; y += 8) {
         const dir = (y / 8) % 2 === 0 ? 1 : -1;
-        this._makeBeam(this.towerGroup, 5.2, 0.22, 1.4, 0, y + 4.0, -3.4, stairMat, dir * 0.68, 0, 0);
+        this._makeBeam(this.towerGroup, 6, 0.18, 1.2, -1, y + 4.0, -4.0, stairMat, dir * 0.65, 0, 0);
+        // Step edges
+        for (let s = 0; s < 5; s++) {
+          this._makeBeam(this.towerGroup, 6, 0.08, 0.08, -1, y + s * 1.6, -4.0 + dir * (s * 0.52 - 2.0), stairMat);
+        }
       }
 
-      const elevatorTrimMat = new THREE.MeshStandardMaterial({ color: 0x8b98a4, roughness: 0.5, metalness: 0.55 });
-      for (let y = 6; y < towerHeight; y += 8) {
-        const trim = new THREE.Mesh(new THREE.BoxGeometry(3.38, 0.24, 3.38), elevatorTrimMat);
-        trim.position.set(-4.1, y, 4.1);
-        this.towerGroup.add(trim);
+      // ── Electrical junction boxes ──
+      const jboxMat = new THREE.MeshStandardMaterial({ color: 0x1a237e, roughness: 0.5, metalness: 0.6 });
+      [[0, 12, -half - 0.4], [0, 36, -half - 0.4], [3, 52, half + 0.4]].forEach(([jx, jy, jz]) => {
+        const jb = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.0, 0.4), jboxMat);
+        jb.position.set(jx, jy, jz);
+        this.towerGroup.add(jb);
+      });
+
+      // ── Ground-level concrete blast wall extensions ──
+      const blastMat = new THREE.MeshStandardMaterial({ color: 0x9e9e9e, roughness: 0.9, metalness: 0.05 });
+      [-12, 12].forEach(bz => {
+        const bw = new THREE.Mesh(new THREE.BoxGeometry(16, 10, 1.5), blastMat);
+        bw.position.set(0, 5, bz);
+        bw.castShadow = true;
+        this.towerGroup.add(bw);
+      });
+
+      // ════════════════════════════════════════════════════════════════════════
+      // ── FUNCTIONAL ELEVATOR SYSTEM ──────────────────────────────────────────
+      // Elevator shaft on the west face of the tower.
+      // Shaft centre: X=-9, Z=4 in towerGroup space.
+      // Rides from Y=0 (ground) to Y=44 (gantry deck).
+      // ════════════════════════════════════════════════════════════════════════
+      const ELV_X = -9, ELV_Z = 4;
+      const ELV_BOTTOM = 0, ELV_TOP = 44;
+
+      // Shaft rails (two vertical I-beams)
+      const shaftMat = new THREE.MeshStandardMaterial({ color: 0x37474f, roughness: 0.6, metalness: 0.75 });
+      this._makeBeam(this.towerGroup, 0.3, towerHeight, 0.3, ELV_X - 1.2, towerHeight / 2, ELV_Z, shaftMat);
+      this._makeBeam(this.towerGroup, 0.3, towerHeight, 0.3, ELV_X + 1.2, towerHeight / 2, ELV_Z, shaftMat);
+      // Shaft cross ties
+      for (let y = 8; y <= towerHeight; y += 8) {
+        this._makeBeam(this.towerGroup, 2.6, 0.18, 0.18, ELV_X, y, ELV_Z, shaftMat);
+      }
+
+      // Elevator cabin (animated group)
+      this.elevatorCab = new THREE.Group();
+      this.elevatorCab.name = "ElevatorCab";
+      this.elevatorCab.position.set(ELV_X, ELV_BOTTOM, ELV_Z);
+      this.towerGroup.add(this.elevatorCab);
+
+      // Cabin walls — steel + glass
+      const cabSteel = new THREE.MeshStandardMaterial({ color: 0x546e7a, roughness: 0.5, metalness: 0.75 });
+      const cabGlass = new THREE.MeshStandardMaterial({
+        color: 0x80deea, roughness: 0.1, metalness: 0.0,
+        transparent: true, opacity: 0.42, side: THREE.DoubleSide
+      });
+      // Floor
+      const cabFloor = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.12, 2.4), cabSteel);
+      cabFloor.position.set(0, 0.06, 0);
+      this.elevatorCab.add(cabFloor);
+      // Ceiling
+      const cabCeil = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.12, 2.4), cabSteel);
+      cabCeil.position.set(0, 2.5, 0);
+      this.elevatorCab.add(cabCeil);
+      // Back wall (steel)
+      const cabBack = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.4, 0.12), cabSteel);
+      cabBack.position.set(0, 1.25, -1.2);
+      this.elevatorCab.add(cabBack);
+      // Side walls (glass)
+      [-1.3, 1.3].forEach(x => {
+        const sw = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.4, 2.4), cabGlass);
+        sw.position.set(x, 1.25, 0);
+        this.elevatorCab.add(sw);
+      });
+      // Front glass (facing tower exterior)
+      const cabFront = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.4, 0.08), cabGlass);
+      cabFront.position.set(0, 1.25, 1.2);
+      this.elevatorCab.add(cabFront);
+      // Corner pillars
+      [[-1.25, -1.1], [1.25, -1.1], [-1.25, 1.1], [1.25, 1.1]].forEach(([px, pz]) => {
+        const cp = new THREE.Mesh(new THREE.BoxGeometry(0.14, 2.65, 0.14), cabSteel);
+        cp.position.set(px, 1.25, pz);
+        this.elevatorCab.add(cp);
+      });
+      // Interior ambient light inside cab
+      const cabLight = new THREE.PointLight(0xfff5e0, 0.9, 6);
+      cabLight.position.set(0, 2.2, 0);
+      this.elevatorCab.add(cabLight);
+      // Cabin status strip (green = at gantry, amber = moving, red = at ground)
+      this._elevatorLightMat = new THREE.MeshStandardMaterial({
+        color: 0x34d399, emissive: 0x34d399, emissiveIntensity: 2.0
+      });
+      const cabStatus = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.08, 0.08), this._elevatorLightMat);
+      cabStatus.position.set(0, 2.45, -1.14);
+      this.elevatorCab.add(cabStatus);
+
+      // ── Ground-level call panel ──
+      const callPanelGroup = new THREE.Group();
+      callPanelGroup.name = "ElevatorCallPanel";
+      callPanelGroup.position.set(ELV_X - 1.6, 2.0, ELV_Z + 1.6);
+      this.towerGroup.add(callPanelGroup);
+      const cpBase = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.2, 0.12),
+        new THREE.MeshStandardMaterial({ color: 0x1c2a35, roughness: 0.45, metalness: 0.65 }));
+      cpBase.position.set(0, 0, 0);
+      callPanelGroup.add(cpBase);
+      // Up button
+      const btnMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xfacc15, emissiveIntensity: 1.5 });
+      const btn = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.08, 12), btnMat);
+      btn.rotation.x = Math.PI / 2;
+      btn.position.set(0, 0.2, 0.08);
+      callPanelGroup.add(btn);
+      // "ELEVATOR" text texture label
+      const lblCanvas = document.createElement("canvas");
+      lblCanvas.width = 256; lblCanvas.height = 96;
+      const lblCtx = lblCanvas.getContext("2d");
+      lblCtx.fillStyle = "#0f172a";
+      lblCtx.fillRect(0, 0, 256, 96);
+      lblCtx.fillStyle = "#fbbf24";
+      lblCtx.font = "bold 28px Arial";
+      lblCtx.textAlign = "center";
+      lblCtx.fillText("ELEVATOR", 128, 36);
+      lblCtx.fillStyle = "#94a3b8";
+      lblCtx.font = "18px Arial";
+      lblCtx.fillText("[G] Call / Ride", 128, 68);
+      const lblTex = new THREE.CanvasTexture(lblCanvas);
+      const lbl = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.26), new THREE.MeshBasicMaterial({ map: lblTex, transparent: true }));
+      lbl.position.set(0, -0.28, 0.07);
+      callPanelGroup.add(lbl);
+
+      // ── Gantry-level call panel (same design, at top) ──
+      const callPanelTop = callPanelGroup.clone();
+      callPanelTop.name = "ElevatorCallPanelTop";
+      callPanelTop.position.set(ELV_X - 1.6, ELV_TOP + 2.0, ELV_Z + 1.6);
+      this.towerGroup.add(callPanelTop);
+
+      // Store elevator config for update() / key handler
+      this._elevatorConfig = { x: ELV_X, z: ELV_Z, bottom: ELV_BOTTOM, top: ELV_TOP };
+      this.elevatorY = ELV_BOTTOM;
+      this.elevatorTargetY = ELV_BOTTOM;
+
+      // ── [G] key → call elevator / ride ──
+      if (!this._elevatorKeyBound) {
+        this._elevatorKeyBound = true;
+        window.addEventListener("keydown", (ev) => {
+          if (!window.isGameStarted || !this.isGroundMode) return;
+          if (ev.code !== "KeyG") return;
+          if (ev.target && (ev.target.tagName === "INPUT" || ev.target.tagName === "TEXTAREA")) return;
+          ev.preventDefault();
+          this._handleElevatorKey();
+        });
       }
 
       // Small service platforms at a few levels.
@@ -1370,6 +1670,7 @@
             id: "vab_mdl",
             x: -42,
             z: 652,
+            y: 0.22,
             radius: 5.5,
             label: "E · VAB SPACECRAFT INTEGRATION DESK",
             shortAction: "OPEN VAB INTEGRATION DESK [E]",
@@ -1377,10 +1678,55 @@
             color: 0x38bdf8
           },
           {
+            id: "mcc_flight_director",
+            x: -68,
+            z: 240.5,
+            y: 0.3,
+            radius: 4.6,
+            label: "E · MCC FLIGHT DIRECTOR CONSOLE",
+            shortAction: "FLIGHT DIRECTOR · MISSION CHARTER [E]",
+            action: "mission",
+            color: 0xfbbf24
+          },
+          {
+            id: "mcc_ground_systems",
+            x: -52,
+            z: 240.5,
+            y: 0.3,
+            radius: 4.6,
+            label: "E · MCC GROUND SYSTEMS CONSOLE",
+            shortAction: "GROUND SYSTEMS · ORBIT & LINK [E]",
+            action: "orbit",
+            color: 0x67e8f9
+          },
+          {
+            id: "lcc_fd",
+            x: -208.3,
+            z: 181,
+            y: 0.3,
+            radius: 4.6,
+            label: "E · FIRING ROOM FLIGHT DIRECTOR",
+            shortAction: "FIRING ROOM · MISSION CHARTER [E]",
+            action: "mission",
+            color: 0xfbbf24
+          },
+          {
+            id: "lcc_gs",
+            x: -197.7,
+            z: 181,
+            y: 0.3,
+            radius: 4.6,
+            label: "E · FIRING ROOM GROUND SYSTEMS",
+            shortAction: "FIRING ROOM · ORBIT & LINK [E]",
+            action: "orbit",
+            color: 0x67e8f9
+          },
+          {
             id: "lcc_viz",
-            x: -203,
-            z: 184,
-            radius: 5.5,
+            x: -160,
+            z: 188,
+            y: 0.3,
+            radius: 5.0,
             label: "E · LCC FLIGHT DYNAMICS & ORBIT VIZ",
             shortAction: "OPEN LCC ORBIT VIZ / MDL [E]",
             action: "viz",
@@ -1389,8 +1735,9 @@
         ];
         specs.forEach((spec) => {
           const marker = this._createGuidanceMarker(spec.label, spec.color);
-          marker.position.set(spec.x, 0.08, spec.z);
-          marker.userData.baseY = 0.08;
+          const markerY = typeof spec.y === "number" ? spec.y : 0.08;
+          marker.position.set(spec.x, markerY, spec.z);
+          marker.userData.baseY = markerY;
           marker.visible = false;
           this.group.add(marker);
           this.facilityTerminals.push(Object.assign({}, spec, { marker }));
@@ -1417,6 +1764,12 @@
     _activateFacilityTerminal(term) {
       if (!term) return;
       if (window.spaceAudio) window.spaceAudio.playClick();
+      if (term.action === "mission") {
+        if (window.gameplay && typeof window.gameplay.openMissionPlannerFromGround === "function") {
+          window.gameplay.openMissionPlannerFromGround();
+        }
+        return;
+      }
       if (term.action === "viz") {
         if (window.missionViz && typeof window.missionViz.open === "function") {
           window.missionViz.open();
@@ -1681,8 +2034,10 @@
     }
 
     teleportSiteTour(index) {
+      const spawns = (window.SpaceCenterModules && window.SpaceCenterModules.SITE_TOUR_SPAWNS) || [];
       const spawn = this._siteTourSpawn(index);
-      this.siteTourIndex = ((index % 6) + 6) % 6;
+      const count = spawns.length || 6;
+      this.siteTourIndex = ((index % count) + count) % count;
       if (window.localCrew && window.localCrew.group) {
         window.localCrew.group.visible = true;
         window.localCrew.group.position.set(spawn.x, 0.2, spawn.z);
@@ -1693,7 +2048,7 @@
       }
       this._updateSunShadowFocus({ x: spawn.x, z: spawn.z });
       if (window.gameplay && typeof window.gameplay.showToast === "function") {
-        window.gameplay.showToast(`🏗️ SITE TOUR · ${spawn.label.toUpperCase()} · [1-6] FAST TRAVEL · [T] GANTRY`);
+        window.gameplay.showToast(`🏗️ SITE TOUR · ${spawn.label.toUpperCase()} · [1-${count}] FAST TRAVEL · [T] GANTRY`);
       }
       this._renderGroundHUD();
     }
@@ -1824,7 +2179,8 @@
           if (briefingEl && briefingEl.style.display === "flex") return;
 
           if (this.siteTourActive) {
-            const tourCodes = ["Digit1", "Digit2", "Digit3", "Digit4", "Digit5", "Digit6"];
+            const tourCount = Math.max(6, ((window.SpaceCenterModules && window.SpaceCenterModules.SITE_TOUR_SPAWNS) || []).length);
+            const tourCodes = Array.from({ length: tourCount }, (_, i) => `Digit${i + 1}`);
             const tourIndex = tourCodes.indexOf(e.code);
             if (tourIndex !== -1) {
               e.preventDefault();
@@ -2071,9 +2427,10 @@
           statusColor = "#67e8f9";
         } else {
           const loc = (current && (current.short || current.label) ? (current.short || current.label) : "PAD 39A").toUpperCase();
+          const jumpRange = tourSpawns.length || 6;
           statusText = touchUI
-            ? `LC-39A TOUR · ${loc}`
-            : `LC-39A TOUR · ${loc} · [1-6] JUMP · [T] GANTRY`;
+            ? `SITE TOUR · ${loc}`
+            : `SITE TOUR · ${loc} · [1-${jumpRange}] JUMP · [T] GANTRY`;
           statusColor = "#d0a15c";
         }
       } else if (this.isLaunching) {
@@ -2956,6 +3313,52 @@
       if (this.beaconLight) {
         this.beaconLight.intensity = Math.sin(Date.now() * 0.006) > 0.5 ? 3.0 : 0.0;
       }
+
+      // ── Elevator animation ──────────────────────────────────────────────────
+      if (this.elevatorMoving && this.elevatorCab && this._elevatorConfig) {
+        const cfg = this._elevatorConfig;
+        const speed = 8.0; // metres per second
+        const diff  = this.elevatorTargetY - this.elevatorY;
+        const step  = Math.sign(diff) * Math.min(Math.abs(diff), speed * delta);
+        this.elevatorY += step;
+        this.elevatorCab.position.y = this.elevatorY;
+
+        // Status strip: amber while moving
+        if (this._elevatorLightMat) {
+          this._elevatorLightMat.color.setHex(0xf59e0b);
+          this._elevatorLightMat.emissive.setHex(0xf59e0b);
+        }
+
+        // Carry the player if riding (towerGroup world Y offset = 19.8)
+        if (this.elevatorRidingPlayer && this.camera) {
+          this.camera.position.y = 19.8 + this.elevatorY + 1.4;
+        }
+
+        // Arrived?
+        if (Math.abs(diff) < 0.05) {
+          this.elevatorY = this.elevatorTargetY;
+          this.elevatorCab.position.y = this.elevatorY;
+          this.elevatorMoving = false;
+          this.elevatorRidingPlayer = false;
+
+          if (this.camera) {
+            const isTop = this.elevatorY >= cfg.top - 1;
+            this.camera.position.y = isTop ? 64.1 : 19.8;
+            if (window.gameplay && typeof window.gameplay.showToast === "function") {
+              window.gameplay.showToast(isTop
+                ? "🛗 GANTRY LEVEL — extend the Orbiter Access Arm with [F]"
+                : "🛗 GROUND LEVEL — Elevator doors open");
+            }
+          }
+
+          if (this._elevatorLightMat) {
+            const col = this.elevatorY >= cfg.top - 1 ? 0x34d399 : 0xef4444;
+            this._elevatorLightMat.color.setHex(col);
+            this._elevatorLightMat.emissive.setHex(col);
+          }
+        }
+      }
+      // ───────────────────────────────────────────────────────────────────────
 
       // Smoothly swing the Player-Controlled Orbiter Access Arm (OAA)
       if (this.armPivotGroup) {

@@ -3707,7 +3707,7 @@ body.telemetry-collapsed #space-center-ground-hud {
 
 .sc-tour-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 4px;
   width: 100%;
 }
@@ -4779,7 +4779,7 @@ body.interior-active #hud-active-speakers {
   }
 
   .sc-tour-grid {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .sc-tour-btn {

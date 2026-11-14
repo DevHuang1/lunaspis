@@ -286,6 +286,7 @@
       site.cyl(g, 1.9, 1.6, cx + bx, 12, cz, m("red"), 16, "IndoorSRBBand");
     }
     site.addCircleCollider(cx, cz, 10, "Indoor launch vehicle");
+    site.addBoxCollider(cx, cz, 28, 28, "Indoor mobile launcher");
 
     // Comms mezzanine facing the pad doorway inside West VAB floor (cleanly offset glazing)
     const commsX = cx - 42;
@@ -315,5 +316,9 @@
     site.addBoxCollider(cx - doorHalf - panelWidth * 0.5, southFaceZ + wallT * 0.5, panelWidth, wallT, "VAB south wall");
     site.addBoxCollider(cx + doorHalf + panelWidth * 0.5, southFaceZ + wallT * 0.5, panelWidth, wallT, "VAB south wall");
     site.addBoxCollider(cx - 134, cz + 62, 104, 76, "VAB low bay");
+    // Interior comms mezzanine, office/restroom modules are solid.
+    site.addBoxCollider(cx - 42, cz - 14, 18, 12, "VAB comms room");
+    site.addBoxCollider(cx + 48, cz - 86, 10, 8, "VAB operations office");
+    site.addBoxCollider(cx + 48, cz - 72, 8, 7, "VAB restroom module");
   });
 })(window);

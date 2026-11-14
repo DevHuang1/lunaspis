@@ -50,7 +50,9 @@ Interfellas/
 │       │   ├── space_center/      # Modular Space Center 2 web port
 │       │   │   ├── site.js        # Orchestrator, collision registry & instanced batching
 │       │   │   ├── environment.js # Terrain, roads, beach, palms, press site
-│       │   │   ├── pad.js         # Pad support, propellant farm, masts & water tower
+│       │   │   ├── pad.js         # Pad 39A support, propellant farm, masts & water tower
+│   │   ├── pad39b.js      # Walkable LC-39B: hardstand, SLS stack, crawler CT-2 & collision
+│   │   ├── mcc.js         # Mission Control Center building, interior & two ground stations
 │       │   │   ├── vab.js         # Walkable VAB high bay + spacecraft integration terminal
 │       │   │   ├── lcc.js         # Walkable Launch Control Center + flight dynamics terminal
 │       │   │   ├── crawler.js     # Crawler transporter
@@ -77,6 +79,8 @@ Interfellas/
 - **3D NASA Mission Viz & GMAT Trajectory Theater (`mission_viz.js`, `[U]`)**: Inspect Earth/Moon/L2/Asteroid orbital trajectories, Van Allen radiation belts, Earth shadow umbra cones, ground station coverage cones & RF beams, and scrub mission event timelines across all mission phases.
 - **WebXR & Stereo VR Mode (`vr_mode.js`)**: Enter native `immersive-vr` WebXR headsets or universal Desktop/Mobile Side-by-Side Stereo VR (with adjustable IPD & mobile gyro support) for Mission Viz, the 27-part ISS Showcase, and Station exploration.
 - **Interactive VAB High Bay & LCC Firing Room Terminals (`space_center.js`)**: Open the pre-flight MDL Spacecraft Integration Desk inside the VAB and the Flight Dynamics / 3D Mission Viz console inside the LCC during the LC-39A Site Tour (`[E]`).
+- **Mission Control Center building (`mcc.js`)**: A dedicated ground-team facility east of the LCC — glazed facade, entrance canopy, rooftop tracking dishes, flags, planters and a glazed comms room. Inside: reception lobby, a two-station control room with the **Flight Director** and **Ground Systems** consoles (mission charter and orbit/link trade desks), a hero `MISSION CONTROL · KSC` status wall, GO/NO-GO board and live console monitors. Enter from the `MCC` site-tour stop and press `[E]` at either desk.
+- **Full site collision**: Every complex contributes solid volumes — 39A mound/masts/propellant farm/kiosk, VAB and its indoor launcher, LCC shell and furniture, gatehouse, press mound, utilities and the whole LC-39B complex. The ground tour slides along them instead of walking through structures.
 - **Full Mobile Compatibility (Width, Height & Performance)**:
   - Dynamic viewport adaptation (`visualViewport`, `100dvw`/`100dvh`, safe-area insets, and portrait-adaptive vertical FOV).
   - Multi-touch controls: left-thumb analog virtual joystick with auto-sprint, right-thumb 360° camera look, and 2-finger pinch-to-zoom.
@@ -93,7 +97,8 @@ Interfellas/
 | **Switch 1st / 3rd Person** | `[C]` | Tap `👁️` Camera button in HUD |
 | **Boarding** | Follow the glowing Access Arm Control and Orbiter Hatch markers; arm lock, boarding and liftoff trigger automatically | Same glowing markers |
 | **Docking Camera** | Drag to orbit, wheel to zoom, double-click to reset, `[V]` chase/cockpit | Drag to orbit, pinch to zoom |
-| **LC-39A Site Tour** | `LC-39A SITE TOUR` on the pad HUD, `1`–`6` fast travel, `T` return to gantry | Tap `LC-39A SITE TOUR`, then tap a destination |
+| **Site Tour** | `SITE TOUR` on the pad HUD, `1`–`9` fast travel (39A, VAB, LCC, crawler, beach, press, Pad 39B, 39B crawler, MCC), `T` return to gantry | Tap `SITE TOUR`, then tap a destination |
+| **Ground Consoles** | `[E]` at the Flight Director / Ground Systems desks in the LCC, or the VAB integration desk | Tap the `⚡ ACCESS TERMINAL` prompt |
 | **27-Part NASA ISS 3D Showcase** | `[J]` | Tap `🛰️ ISS 3D` button in HUD |
 | **3D Lunar Touchdown Scene** | `[K]` | Tap `🌕 MOON` button in HUD |
 | **3D Mission Viz / Trajectory Theater** | `[U]` | Tap `🛰️ VIZ` or `🛰️ 3D ORBIT VIZ` in HUD |
@@ -130,9 +135,14 @@ the production container.
   static boxes into instanced meshes. The tour controller itself lives in
   `space_center.js`.
 
-Open the **LC-39A SITE TOUR** from the launch-pad HUD, then use `1`–`6` to fast
-travel between Pad 39A, the VAB, the LCC, the crawler, the beach and the press
-site. Press `T` to return to the gantry and continue boarding.
+Open the **SITE TOUR** from the launch-pad HUD, then use `1`–`9` to fast travel
+between Pad 39A, the VAB, the LCC, the crawler, the beach, the press site,
+the walkable **LC-39B** complex (Pad 39B and its crawlerway approach) and the
+**Mission Control Center**. Pad 39B
+has its own octagonal hardstand, flame trench, SLS-class launch stack, fixed
+service structure, lightning masts, water tower and propellant farm; the launch
+and boarding flow still runs from Pad 39A. Press `T` to return to the gantry and
+continue boarding.
 
 ## 🔐 Security Configuration
 
