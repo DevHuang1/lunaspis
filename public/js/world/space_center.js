@@ -63,6 +63,7 @@
       this.rssGroup = null;
       this.goxVentArm = null;
       this.openCar = null;              // Drivable open-top NASA ground car
+      this.lccDoors = null;             // Interactive secure entrance doors to Launch Control Center (LCC)
 
       // Elevator system
       this.elevatorCab = null;          // THREE.Group — the moving cabin
@@ -554,6 +555,37 @@
           window.gameplay.showToast("🛗 ELEVATOR: Descending to Gantry Level (44m) for Spacecraft Boarding");
         }
       }
+    }
+
+    // ── Launch Control Center (LCC) Entrance Door Interaction ─────────────────
+    _isNearLccDoor() {
+      const pos = (window.localCrew && window.localCrew.group)
+        ? window.localCrew.group.position
+        : (this.camera ? this.camera.position : null);
+      if (!pos) return false;
+      const d = this.lccDoors || { cx: -180, cz: 203 };
+      return Math.hypot(pos.x - d.cx, pos.z - d.cz) < 6.8 && pos.y < 8.0;
+    }
+
+    toggleLccDoors(forceState) {
+      if (!this.lccDoors) return;
+      const d = this.lccDoors;
+      d.isOpen = forceState !== undefined ? !!forceState : !d.isOpen;
+      d.target = d.isOpen ? 1.0 : 0.0;
+      if (d.collider) d.collider.disabled = d.isOpen;
+
+      if (window.spaceAudio && typeof window.spaceAudio.playAirlockCycle === "function") {
+        window.spaceAudio.playAirlockCycle();
+      }
+
+      if (window.gameplay && typeof window.gameplay.showToast === "function") {
+        window.gameplay.showToast(
+          d.isOpen
+            ? "🚪 LAUNCH CONTROL CENTER: Doors Open — Welcome to Firing Room & Mission Control"
+            : "🚪 LAUNCH CONTROL CENTER: Doors Closed — Access Secured"
+        );
+      }
+      this._renderGroundHUD();
     }
 
     _updateSunShadowFocus(camPos) {
@@ -3157,6 +3189,7 @@
       let nz = Math.max(bounds.minZ, Math.min(bounds.maxZ, proposedPos.z));
       const blocked = (x, z) => {
         for (const box of boxes) {
+          if (box.disabled) continue;
           if (box.rotated) {
             const dx = x - box.cx;
             const dz = z - box.cz;
@@ -3379,6 +3412,11 @@
               return;
             }
             if (e.code === "KeyE") {
+              if (this.lccDoors && this._isNearLccDoor()) {
+                e.preventDefault();
+                this.toggleLccDoors();
+                return;
+              }
               const elevX = -34 + (this._elevatorConfig ? this._elevatorConfig.x : -8.2);
               const elevZ = (this._elevatorConfig ? this._elevatorConfig.z : -4.0);
               if (pos && Math.hypot(pos.x - elevX, pos.z - elevZ) < 24.0) {
@@ -3485,6 +3523,11 @@
           }
 
           if (e.code === "KeyE") {
+            if (this.lccDoors && this._isNearLccDoor()) {
+              e.preventDefault();
+              this.toggleLccDoors();
+              return;
+            }
             const elevX = -34 + (this._elevatorConfig ? this._elevatorConfig.x : -8.2);
             const elevZ = (this._elevatorConfig ? this._elevatorConfig.z : -4.0);
             const pos = (window.localCrew && window.localCrew.group) ? window.localCrew.group.position : (this.camera ? this.camera.position : null);
@@ -3718,6 +3761,8 @@
       const isAtTop = camPos ? camPos.y >= 85.0 : false;
       const isAtGantry = !isAtGround && !isAtTop;
       const canGoTop = isAtGantry && !this.isLaunching && !this.siteTourActive;
+      const nearLccDoor = this._isNearLccDoor();
+      const lccDoorOpen = !!(this.lccDoors && this.lccDoors.isOpen);
 
       const armOwnerLabel = crewState.armOwner
         ? (crewState.armOwner.isSelf ? `YOU (${crewState.armOwner.roleShort})` : `${crewState.armOwner.roleShort} · ${crewState.armOwner.name}`)
@@ -3740,7 +3785,12 @@
       let target = null;
 
       const nearTerm = (this.siteTourActive || isGround) ? this._getNearbyFacilityTerminal() : null;
-      if (isGround) {
+      if (nearLccDoor) {
+        statusText = lccDoorOpen
+          ? "LAUNCH CONTROL CENTER · DOORS OPEN · PRESS [E] TO CLOSE"
+          : "LAUNCH CONTROL CENTER ENTRANCE · DOORS LOCKED · PRESS [E] TO ENTER";
+        statusColor = lccDoorOpen ? "#86efac" : "#ef4444";
+      } else if (isGround) {
         if (nearTerm) {
           statusText = `${nearTerm.label} · [E] OPEN`;
           statusColor = "#60a5fa";
@@ -3830,6 +3880,8 @@
         crewBoarded: this.crewBoarded,
         canBoard,
         canUnboard,
+        nearLccDoor,
+        lccDoorOpen,
         nearTerm,
         nearElevator,
         canGoTop,
@@ -3881,6 +3933,9 @@
           </div>
 
           <div class="sc-hud-primary">
+            <button type="button" id="btn-sc-lcc-door" class="sc-hud-btn ${guidance.lccDoorOpen ? "sc-btn-plan" : "sc-btn-launch"}" style="display:${guidance.nearLccDoor ? "inline-flex" : "none"};">
+              ${guidance.lccDoorOpen ? (touchUI ? "🚪 CLOSE LCC" : "🚪 CLOSE DOORS [E]") : (touchUI ? "🚪 ENTER LCC" : "🚪 ENTER LCC [E]")}
+            </button>
             <button type="button" id="btn-sc-term-act" class="sc-hud-btn sc-btn-term" style="display:${guidance.nearTerm ? "inline-flex" : "none"};">
               ${guidance.nearTerm ? guidance.nearTerm.shortAction : "TERMINAL [E]"}
             </button>
@@ -3982,6 +4037,13 @@
         btnToggle.addEventListener("click", () => {
           this.hudCollapsed = !this.hudCollapsed;
           this._renderGroundHUD();
+        });
+      }
+
+      const btnLccDoor = this.hudOverlay.querySelector("#btn-sc-lcc-door");
+      if (btnLccDoor) {
+        btnLccDoor.addEventListener("click", () => {
+          this.toggleLccDoors();
         });
       }
 
@@ -4172,6 +4234,15 @@
         btnBoarding.textContent = guidance.canUnboard
           ? (guidance.touchUI ? "STEP OUT" : "STEP OUT [E/B]")
           : (guidance.touchUI ? "BOARD" : "BOARD [E/B]");
+      }
+
+      const btnLccDoor = this.hudOverlay.querySelector("#btn-sc-lcc-door");
+      if (btnLccDoor) {
+        btnLccDoor.style.display = guidance.nearLccDoor ? "inline-flex" : "none";
+        btnLccDoor.textContent = guidance.lccDoorOpen
+          ? (guidance.touchUI ? "🚪 CLOSE LCC" : "🚪 CLOSE DOORS [E]")
+          : (guidance.touchUI ? "🚪 ENTER LCC" : "🚪 ENTER LCC [E]");
+        btnLccDoor.className = `sc-hud-btn ${guidance.lccDoorOpen ? "sc-btn-plan" : "sc-btn-launch"}`;
       }
 
       const btnTermAct = this.hudOverlay.querySelector("#btn-sc-term-act");
@@ -5373,6 +5444,39 @@
         const targetGoxAngle = this.isLaunching ? -0.55 : 0.0;
         if (Math.abs(this.goxVentArm.rotation.y - targetGoxAngle) > 0.001) {
           this.goxVentArm.rotation.y += (targetGoxAngle - this.goxVentArm.rotation.y) * Math.min(1, delta * 2.5);
+        }
+      }
+
+      // ── Launch Control Center (LCC) entrance doors animation ────────────────
+      if (this.lccDoors) {
+        const d = this.lccDoors;
+        const diff = d.target - d.progress;
+        if (Math.abs(diff) > 0.0005) {
+          const step = Math.sign(diff) * Math.min(Math.abs(diff), delta * 2.8);
+          d.progress += step;
+          if (Math.abs(d.target - d.progress) < 0.002) {
+            d.progress = d.target;
+          }
+          if (d.leftDoor) {
+            d.leftDoor.position.x = d.leftBaseX - d.progress * d.slideDist;
+          }
+          if (d.rightDoor) {
+            d.rightDoor.position.x = d.rightBaseX + d.progress * d.slideDist;
+          }
+          if (d.statusMat) {
+            const p = d.progress;
+            const r = (0xef * (1 - p) + 0x22 * p) / 255;
+            const g = (0x44 * (1 - p) + 0xc5 * p) / 255;
+            const b = (0x44 * (1 - p) + 0x5e * p) / 255;
+            d.statusMat.color.setRGB(r, g, b);
+            d.statusMat.emissive.setRGB(r * 0.85, g * 0.85, b * 0.85);
+          }
+          if (d.markerMat) {
+            d.markerMat.color.setHex(d.progress > 0.5 ? 0x22c55e : 0x38bdf8);
+            d.markerMat.opacity = 0.55 + 0.35 * Math.sin(clockElapsed * 3.5);
+          }
+        } else if (d.markerMat) {
+          d.markerMat.opacity = 0.55 + 0.35 * Math.sin(clockElapsed * 3.5);
         }
       }
 

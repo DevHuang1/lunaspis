@@ -1004,6 +1004,7 @@
       if (opts && typeof opts.minY === "number") entry.minY = opts.minY;
       if (opts && typeof opts.maxY === "number") entry.maxY = opts.maxY;
       this.boxColliders.push(entry);
+      return entry;
     }
 
     addRotatedBoxCollider(cx, cz, width, depth, yaw = 0, name, opts) {

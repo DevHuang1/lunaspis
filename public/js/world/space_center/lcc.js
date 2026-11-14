@@ -323,12 +323,157 @@
       }
     }
 
-    // Glazed Vestibule Entrance Canopy & Sliding Doors
+    // Glazed Vestibule Entrance Canopy & LCC Sliding Doors
     site.box(g, 13.5, 0.55, 8.2, cx, 9.8, south + 4.1, steel, "LCCCanopy");
     site.box(g, 13.7, 0.22, 8.4, cx, 10.18, south + 4.1, m("nasa_blue"), "LCCCanopyFascia");
     site.cyl(g, 0.34, 9.6, cx - 5.4, 4.8, south + 7.6, concrete, 10, "CanopyColW");
     site.cyl(g, 0.34, 9.6, cx + 5.4, 4.8, south + 7.6, concrete, 10, "CanopyColE");
-    site.box(g, 5.8, 3.8, 0.22, cx, 2.0, south + 0.14, m("glass"), "LCCEntryDoor");
+
+    // ── LCC Secure Sliding Entrance Doors (starts CLOSED, press [E] to open/enter) ──
+    const THREE = window.THREE;
+    const doorSystemGroup = new THREE.Group();
+    doorSystemGroup.name = "LCC_EntranceDoorSystem";
+    g.add(doorSystemGroup);
+
+    // Frame side jambs, threshold, track and transom window above doors
+    site.box(g, 1.8, 4.4, wallT * 1.1, cx - 4.1, 2.2, south - halfWall, white, "LCCDoorJambW");
+    site.box(g, 1.8, 4.4, wallT * 1.1, cx + 4.1, 2.2, south - halfWall, white, "LCCDoorJambE");
+    site.box(g, 10, 5.6, wallT, cx, 7.2, south - halfWall, white, "LCCTransomWall");
+    site.box(g, 6.4, 4.6, 0.22, cx, 7.2, south + 0.12, m("glass"), "LCCTransomGlass");
+    site.box(g, 6.6, 0.2, 0.35, cx, 4.45, south + 0.14, trim, "LCCTransomMullion");
+    site.box(g, 7.2, 0.3, 0.5, cx, 4.25, south + 0.18, trim, "LCCDoorSlideTrack");
+    site.box(g, 7.0, 0.08, 0.9, cx, 0.16, south + 0.05, steel, "LCCDoorThreshold");
+
+    // Illuminated status light material (starts Red = Locked/Closed, transitions to Green = Open)
+    const doorStatusLightMat = new THREE.MeshStandardMaterial({
+      color: 0xef4444,
+      emissive: 0xdc2626,
+      emissiveIntensity: 0.95,
+      roughness: 0.28,
+      metalness: 0.1
+    });
+
+    // Overhead illuminated status LED light bar
+    const statusLightBar = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.14, 0.16), doorStatusLightMat);
+    statusLightBar.position.set(cx, 4.48, south + 0.25);
+    doorSystemGroup.add(statusLightBar);
+
+    // Keycard access reader & LED on exterior entry column
+    site.box(doorSystemGroup, 0.28, 0.55, 0.16, cx + 3.45, 1.35, south + 0.35, trim, "LCCCardReaderExt");
+    const readerLedExt = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.04, 12), doorStatusLightMat);
+    readerLedExt.rotation.x = Math.PI / 2;
+    readerLedExt.position.set(cx + 3.45, 1.5, south + 0.44);
+    doorSystemGroup.add(readerLedExt);
+
+    // Keycard access reader & LED on interior lobby column (for exiting)
+    site.box(doorSystemGroup, 0.28, 0.55, 0.16, cx + 3.45, 1.35, south - 0.35, trim, "LCCCardReaderInt");
+    const readerLedInt = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.04, 12), doorStatusLightMat);
+    readerLedInt.rotation.x = -Math.PI / 2;
+    readerLedInt.position.set(cx + 3.45, 1.5, south - 0.44);
+    doorSystemGroup.add(readerLedInt);
+
+    // Left Sliding Door Leaf
+    const leftDoor = new THREE.Group();
+    leftDoor.name = "LCC_LeftDoor";
+    const leftBaseX = cx - 1.52;
+    leftDoor.position.set(leftBaseX, 0, south + 0.12);
+    doorSystemGroup.add(leftDoor);
+
+    const doorGlassMat = m("glass");
+    const doorFrameMat = steel;
+
+    const lGlass = new THREE.Mesh(new THREE.BoxGeometry(2.95, 3.9, 0.08), doorGlassMat);
+    lGlass.position.set(0, 2.05, 0);
+    leftDoor.add(lGlass);
+
+    site.box(leftDoor, 0.16, 4.0, 0.14, -1.4, 2.05, 0, doorFrameMat, "LDoorFrameL");
+    site.box(leftDoor, 0.16, 4.0, 0.14, 1.4, 2.05, 0, doorFrameMat, "LDoorFrameR");
+    site.box(leftDoor, 2.95, 0.16, 0.14, 0, 4.0, 0, doorFrameMat, "LDoorFrameT");
+    site.box(leftDoor, 2.95, 0.2, 0.14, 0, 0.18, 0, doorFrameMat, "LDoorFrameB");
+    site.cyl(leftDoor, 0.035, 1.4, 1.18, 1.6, 0.14, steel, 8, "LDoorHandleExt");
+    site.cyl(leftDoor, 0.035, 1.4, 1.18, 1.6, -0.14, steel, 8, "LDoorHandleInt");
+    site.box(leftDoor, 2.9, 0.24, 0.09, 0, 1.35, 0, m("steel_white"), "LDoorDecal");
+
+    // Right Sliding Door Leaf
+    const rightDoor = new THREE.Group();
+    rightDoor.name = "LCC_RightDoor";
+    const rightBaseX = cx + 1.52;
+    rightDoor.position.set(rightBaseX, 0, south + 0.12);
+    doorSystemGroup.add(rightDoor);
+
+    const rGlass = new THREE.Mesh(new THREE.BoxGeometry(2.95, 3.9, 0.08), doorGlassMat);
+    rGlass.position.set(0, 2.05, 0);
+    rightDoor.add(rGlass);
+
+    site.box(rightDoor, 0.16, 4.0, 0.14, -1.4, 2.05, 0, doorFrameMat, "RDoorFrameL");
+    site.box(rightDoor, 0.16, 4.0, 0.14, 1.4, 2.05, 0, doorFrameMat, "RDoorFrameR");
+    site.box(rightDoor, 2.95, 0.16, 0.14, 0, 4.0, 0, doorFrameMat, "RDoorFrameT");
+    site.box(rightDoor, 2.95, 0.2, 0.14, 0, 0.18, 0, doorFrameMat, "RDoorFrameB");
+    site.cyl(rightDoor, 0.035, 1.4, -1.18, 1.6, 0.14, steel, 8, "RDoorHandleExt");
+    site.cyl(rightDoor, 0.035, 1.4, -1.18, 1.6, -0.14, steel, 8, "RDoorHandleInt");
+    site.box(rightDoor, 2.9, 0.24, 0.09, 0, 1.35, 0, m("steel_white"), "RDoorDecal");
+
+    // High-tech Door Status Sign
+    site.canvasPlane(
+      g,
+      6.4,
+      0.65,
+      cx,
+      4.88,
+      south + 0.22,
+      0,
+      0,
+      0,
+      (ctx, w, h) => {
+        ctx.fillStyle = "#0a192f";
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = "#38bdf8";
+        ctx.lineWidth = 4;
+        ctx.strokeRect(2, 2, w - 4, h - 4);
+        ctx.fillStyle = "#38bdf8";
+        ctx.font = "900 24px Arial, Helvetica, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("SECURITY ACCESS CONTROL · PRESS [E] TO ENTER", w * 0.5, 34);
+      },
+      512,
+      64,
+      { unlit: true, name: "LCC_DoorAccessSign" }
+    );
+
+    // Glowing Circular Ground Access Marker Indicator
+    const entryMarkerMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.85,
+      side: THREE.DoubleSide
+    });
+    const entryMarker = new THREE.Mesh(new THREE.RingGeometry(0.85, 1.18, 32), entryMarkerMat);
+    entryMarker.rotation.x = -Math.PI / 2;
+    entryMarker.position.set(cx, 0.12, south + 2.2);
+    g.add(entryMarker);
+
+    // Door solid collider (ACTIVE by default when doors are CLOSED)
+    const doorCollider = site.addBoxCollider(cx, south - halfWall, 6.4, wallT * 1.5, "LCC entrance doors");
+
+    // Register door controller on spaceCenter
+    if (site.sc) {
+      site.sc.lccDoors = {
+        isOpen: false,
+        progress: 0.0,
+        target: 0.0,
+        leftDoor: leftDoor,
+        rightDoor: rightDoor,
+        leftBaseX: leftBaseX,
+        rightBaseX: rightBaseX,
+        slideDist: 2.75,
+        statusMat: doorStatusLightMat,
+        markerMat: entryMarkerMat,
+        marker: entryMarker,
+        collider: doorCollider,
+        cx: cx,
+        cz: south
+      };
+    }
 
     // Crisp LCC Title Plaque over the Canopy
     site.canvasPlane(
