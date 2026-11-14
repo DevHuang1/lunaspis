@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PERILUNE ORBITAL TRANSIT & ISS SIMULATOR STYLES
+   LUNASPIS ORBITAL TRANSIT & ISS SIMULATOR STYLES
    Obsidian & Warm Ivory Aerospace Minimalism + Full Mobile Responsiveness
    ========================================================================== */
 
@@ -16,13 +16,13 @@
   --surface-elevated: rgba(12, 17, 24, 0.94);
   --border-hairline: rgba(255, 255, 255, 0.12);
   --border-strong: rgba(255, 255, 255, 0.24);
-  --text-ivory: #ece7dc;
-  --text-slate: rgba(154, 164, 174, 0.78);
-  --accent-cyan: #67e8f9;
+  --text-ivory: #eceae3;
+  --text-slate: rgba(166, 173, 182, 0.78);
+  --accent-cyan: #d0a15c;
   --accent-amber: #d0a15c;
-  --accent-sage: #7fb8a6;
-  --accent-rose: #c08a8a;
-  --accent-lavender: #9a8fc4;
+  --accent-sage: #83a896;
+  --accent-rose: #c67979;
+  --accent-lavender: #a6adb6;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
@@ -80,7 +80,7 @@ body {
   inset: 0;
   pointer-events: none;
   z-index: 2;
-  box-shadow: inset 0 0 110px rgba(0, 0, 0, 0.8), inset 0 0 28px rgba(103, 232, 249, 0.08);
+  box-shadow: inset 0 0 110px rgba(0, 0, 0, 0.8), inset 0 0 28px rgba(208, 161, 92, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.06);
   display: block;
 }
@@ -96,7 +96,7 @@ body {
 }
 
 /* ==========================================================================
-   SCREEN 1: PERILUNE ORBITAL TITLE SCREEN
+   SCREEN 1: LUNASPIS ORBITAL TITLE SCREEN
    ========================================================================== */
 #screen-menu {
   justify-content: space-between;
@@ -124,7 +124,7 @@ body {
   font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 2.2px;
-  color: rgba(236, 231, 220, 0.85);
+  color: rgba(236, 234, 227, 0.85);
 }
 
 .title-brand-dot {
@@ -199,7 +199,7 @@ body {
 .title-premise {
   font-size: 13px;
   line-height: 1.55;
-  color: rgba(236, 231, 220, 0.68);
+  color: rgba(236, 234, 227, 0.68);
   max-width: 390px;
 }
 
@@ -260,7 +260,7 @@ body {
 }
 
 .btn-title-primary:hover {
-  background: #ffffff;
+  background: #eceae3;
   transform: translateY(-1px);
 }
 
@@ -282,7 +282,7 @@ body {
 
 .btn-title-secondary:hover {
   border-color: var(--accent-cyan);
-  background: rgba(103, 232, 249, 0.08);
+  background: rgba(208, 161, 92, 0.08);
 }
 
 .title-join-row {
@@ -410,8 +410,8 @@ body {
 }
 
 .btn-danger-outline {
-  background: rgba(192, 138, 138, 0.1) !important;
-  border-color: rgba(192, 138, 138, 0.45) !important;
+  background: rgba(198, 121, 121, 0.1) !important;
+  border-color: rgba(198, 121, 121, 0.45) !important;
   color: var(--accent-rose) !important;
 }
 
@@ -476,15 +476,15 @@ body {
 }
 
 .auth-msg-banner.error {
-  background: rgba(192, 138, 138, 0.14);
-  border: 1px solid rgba(192, 138, 138, 0.45);
-  color: #f3c6c6;
+  background: rgba(198, 121, 121, 0.14);
+  border: 1px solid rgba(198, 121, 121, 0.45);
+  color: #c67979;
 }
 
 .auth-msg-banner.success {
-  background: rgba(127, 184, 166, 0.14);
-  border: 1px solid rgba(127, 184, 166, 0.45);
-  color: #bfe3d7;
+  background: rgba(131, 168, 150, 0.14);
+  border: 1px solid rgba(131, 168, 150, 0.45);
+  color: #83a896;
 }
 
 .dossier-stat-grid {
@@ -552,7 +552,7 @@ body {
 }
 
 .btn-primary:hover {
-  background: #ffffff;
+  background: #eceae3;
   transform: translateY(-1px);
 }
 
@@ -577,13 +577,13 @@ body {
 }
 
 .btn-accent-subtle {
-  border-color: rgba(103, 232, 249, 0.32);
+  border-color: rgba(208, 161, 92, 0.32);
   color: var(--accent-cyan);
 }
 
 .btn-accent-subtle:hover {
   border-color: var(--accent-cyan);
-  background: rgba(103, 232, 249, 0.1);
+  background: rgba(208, 161, 92, 0.1);
 }
 
 .join-code-row {
@@ -684,7 +684,7 @@ body {
 }
 
 .lobby-player-pod.occupied {
-  border-color: rgba(103, 232, 249, 0.4);
+  border-color: rgba(208, 161, 92, 0.4);
 }
 
 .pod-color-indicator {
@@ -714,8 +714,8 @@ body {
 
 .pod-ready-badge {
   padding: 3px 8px;
-  background: rgba(127, 184, 166, 0.15);
-  border: 1px solid rgba(127, 184, 166, 0.45);
+  background: rgba(131, 168, 150, 0.15);
+  border: 1px solid rgba(131, 168, 150, 0.45);
   color: var(--accent-sage);
   border-radius: 4px;
   font-family: var(--font-mono);
@@ -762,7 +762,7 @@ body {
 .lobby-color-btn:hover,
 .lobby-color-btn.active {
   transform: scale(1.08);
-  border-color: #ffffff;
+  border-color: #eceae3;
 }
 
 .lobby-roles-list {
@@ -810,20 +810,20 @@ body {
 }
 
 .lobby-role-holders.filled {
-  background: rgba(103, 232, 249, 0.12);
+  background: rgba(208, 161, 92, 0.12);
   color: var(--accent-cyan);
-  border-color: rgba(103, 232, 249, 0.35);
+  border-color: rgba(208, 161, 92, 0.35);
 }
 
 .lobby-role-card:hover {
   border-color: var(--accent-cyan);
-  background: rgba(103, 232, 249, 0.08);
+  background: rgba(208, 161, 92, 0.08);
 }
 
 .lobby-role-card.active {
   border-color: var(--accent-cyan);
-  background: rgba(103, 232, 249, 0.16);
-  box-shadow: 0 0 0 1px rgba(103, 232, 249, 0.45), 0 6px 18px rgba(0, 0, 0, 0.35);
+  background: rgba(208, 161, 92, 0.16);
+  box-shadow: 0 0 0 1px rgba(208, 161, 92, 0.45), 0 6px 18px rgba(0, 0, 0, 0.35);
 }
 
 .lobby-role-card.active[data-role="engineer"] {
@@ -833,9 +833,9 @@ body {
 }
 
 .lobby-role-card.active[data-role="scientist"] {
-  border-color: #7fb8a6;
-  background: rgba(127, 184, 166, 0.16);
-  box-shadow: 0 0 0 1px rgba(127, 184, 166, 0.45), 0 6px 18px rgba(0, 0, 0, 0.35);
+  border-color: #83a896;
+  background: rgba(131, 168, 150, 0.16);
+  box-shadow: 0 0 0 1px rgba(131, 168, 150, 0.45), 0 6px 18px rgba(0, 0, 0, 0.35);
 }
 
 .role-sub {
@@ -852,20 +852,20 @@ body {
   font-family: var(--font-mono);
   font-size: 9.5px;
   line-height: 1.35;
-  color: #cbd5e1;
+  color: #eceae3;
   background: rgba(15, 23, 42, 0.65);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .lobby-role-coverage.warn {
-  color: #fcd34d;
-  border-color: rgba(250, 204, 21, 0.35);
+  color: #e7c58c;
+  border-color: rgba(208, 161, 92, 0.35);
   background: rgba(120, 53, 15, 0.25);
 }
 
 .lobby-role-coverage.ready {
-  color: #86efac;
-  border-color: rgba(127, 184, 166, 0.38);
+  color: #83a896;
+  border-color: rgba(131, 168, 150, 0.38);
   background: rgba(6, 78, 59, 0.25);
 }
 
@@ -877,7 +877,7 @@ body {
   padding: 6px 7px;
   border-radius: 5px;
   background: rgba(10, 17, 28, 0.85);
-  border: 1px solid rgba(103, 232, 249, 0.22);
+  border: 1px solid rgba(208, 161, 92, 0.22);
   font-family: var(--font-mono);
 }
 
@@ -901,13 +901,13 @@ body {
 }
 
 .crew-role-chip.is-self {
-  border-color: rgba(103, 232, 249, 0.6);
-  background: rgba(103, 232, 249, 0.14);
+  border-color: rgba(208, 161, 92, 0.6);
+  background: rgba(208, 161, 92, 0.14);
 }
 
 .crew-role-chip.is-unstaffed {
   border-style: dashed;
-  border-color: rgba(250, 204, 21, 0.35);
+  border-color: rgba(208, 161, 92, 0.35);
   opacity: 0.82;
 }
 
@@ -920,7 +920,7 @@ body {
 }
 
 .crew-role-chip-names {
-  color: #e2e8f0;
+  color: #eceae3;
   font-size: 8.5px;
   white-space: nowrap;
   overflow: hidden;
@@ -930,18 +930,18 @@ body {
 .crew-duty-callout {
   font-size: 9.5px;
   line-height: 1.35;
-  color: #bae6fd;
+  color: #e7c58c;
   padding-top: 4px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .crew-duty-callout strong {
-  color: #fef08a;
+  color: #e7c58c;
 }
 
 .lobby-pod-duty {
   font-size: 9.5px;
-  color: #94a3b8;
+  color: #a6adb6;
   line-height: 1.25;
   margin-top: 2px;
 }
@@ -1022,12 +1022,12 @@ body {
 }
 
 .btn-start-game:hover {
-  background: #ffffff;
+  background: #eceae3;
   transform: translateY(-1px);
 }
 
 /* ==========================================================================
-   SCREEN 3: IN-GAME HUD (PERILUNE MINIMALIST TELEMETRY)
+   SCREEN 3: IN-GAME HUD (LUNASPIS MINIMALIST TELEMETRY)
    ========================================================================== */
 #screen-game {
   display: none;
@@ -1138,7 +1138,7 @@ body {
   position: absolute;
   width: 18px;
   height: 18px;
-  border: 1px solid rgba(236, 231, 220, 0.4);
+  border: 1px solid rgba(236, 234, 227, 0.4);
   border-radius: 50%;
   transition: all 0.2s ease;
 }
@@ -1225,9 +1225,9 @@ body {
   font-weight: 700;
   padding: 1px 6px;
   border-radius: 4px;
-  background: rgba(103, 232, 249, 0.12);
+  background: rgba(208, 161, 92, 0.12);
   color: var(--accent-cyan);
-  border: 1px solid rgba(103, 232, 249, 0.3);
+  border: 1px solid rgba(208, 161, 92, 0.3);
 }
 
 .checklist-chevron {
@@ -1287,12 +1287,12 @@ body {
 }
 
 .task-checklist-item:hover {
-  border-color: rgba(103, 232, 249, 0.3);
+  border-color: rgba(208, 161, 92, 0.3);
 }
 
 .task-checklist-item.done {
   opacity: 0.45;
-  border-color: rgba(127, 184, 166, 0.2);
+  border-color: rgba(131, 168, 150, 0.2);
 }
 
 .task-status-icon {
@@ -1343,9 +1343,9 @@ body {
 }
 
 .badge-cmd {
-  background: rgba(192, 138, 138, 0.15);
+  background: rgba(198, 121, 121, 0.15);
   color: var(--accent-rose);
-  border: 1px solid rgba(192, 138, 138, 0.35);
+  border: 1px solid rgba(198, 121, 121, 0.35);
 }
 
 .badge-eng {
@@ -1355,9 +1355,9 @@ body {
 }
 
 .badge-sci {
-  background: rgba(127, 184, 166, 0.15);
+  background: rgba(131, 168, 150, 0.15);
   color: var(--accent-sage);
-  border: 1px solid rgba(127, 184, 166, 0.35);
+  border: 1px solid rgba(131, 168, 150, 0.35);
 }
 
 .task-location-row {
@@ -1389,7 +1389,7 @@ body {
   padding: 0 16px;
   border-radius: 6px;
   background: rgba(6, 10, 15, 0.92);
-  border: 1px solid rgba(103, 232, 249, 0.6);
+  border: 1px solid rgba(208, 161, 92, 0.6);
   color: var(--text-ivory);
   font-family: var(--font-mono);
   font-size: 11px;
@@ -1420,8 +1420,8 @@ body {
   width: 22px;
   height: 22px;
   border-radius: 4px;
-  background: rgba(103, 232, 249, 0.16);
-  border: 1px solid rgba(103, 232, 249, 0.5);
+  background: rgba(208, 161, 92, 0.16);
+  border: 1px solid rgba(208, 161, 92, 0.5);
   color: var(--accent-cyan);
   font-size: 11px;
   font-weight: 700;
@@ -1525,7 +1525,7 @@ body {
 }
 
 .wire-node.selected {
-  border-color: #ffffff;
+  border-color: #eceae3;
   transform: scale(1.06);
 }
 
@@ -1556,7 +1556,7 @@ body {
 .card-item-draggable {
   width: 90px;
   height: 66px;
-  background: rgba(103, 232, 249, 0.18);
+  background: rgba(208, 161, 92, 0.18);
   border: 1px solid var(--accent-cyan);
   border-radius: 4px;
   position: absolute;
@@ -1768,14 +1768,14 @@ body {
 }
 
 .voice-mic-btn.muted {
-  background: rgba(192, 138, 138, 0.14);
-  border-color: rgba(192, 138, 138, 0.45);
+  background: rgba(198, 121, 121, 0.14);
+  border-color: rgba(198, 121, 121, 0.45);
   color: var(--accent-rose);
 }
 
 .voice-mic-btn.active {
-  background: rgba(103, 232, 249, 0.12);
-  border-color: rgba(103, 232, 249, 0.55);
+  background: rgba(208, 161, 92, 0.12);
+  border-color: rgba(208, 161, 92, 0.55);
   color: var(--accent-cyan);
 }
 
@@ -1790,7 +1790,7 @@ body {
   max-width: calc(100vw - 24px);
   padding: 10px;
   background: rgba(7, 12, 21, 0.94);
-  border: 1px solid rgba(103, 232, 249, 0.28);
+  border: 1px solid rgba(208, 161, 92, 0.28);
   border-radius: 10px;
   box-shadow: 0 16px 44px rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(14px);
@@ -1852,8 +1852,8 @@ body {
 
 .emote-btn:hover,
 .emote-btn:focus-visible {
-  background: rgba(103, 232, 249, 0.11);
-  border-color: rgba(103, 232, 249, 0.5);
+  background: rgba(208, 161, 92, 0.11);
+  border-color: rgba(208, 161, 92, 0.5);
   transform: translateY(-1px);
 }
 
@@ -1879,7 +1879,7 @@ body {
   right: 6px;
   font-size: 8px;
   font-weight: 700;
-  color: rgba(154, 164, 174, 0.65);
+  color: rgba(166, 173, 182, 0.65);
 }
 
 #emote-toast {
@@ -1889,7 +1889,7 @@ body {
   transform: translate(-50%, 8px);
   padding: 7px 14px;
   background: rgba(7, 12, 21, 0.9);
-  border: 1px solid rgba(103, 232, 249, 0.35);
+  border: 1px solid rgba(208, 161, 92, 0.35);
   border-radius: 999px;
   color: var(--text-ivory);
   font-family: var(--font-mono);
@@ -1971,7 +1971,7 @@ body {
 }
 
 .btn-lobby-voice.active {
-  background: rgba(127, 184, 166, 0.16);
+  background: rgba(131, 168, 150, 0.16);
   border-color: var(--accent-sage);
   color: var(--accent-sage);
 }
@@ -2010,9 +2010,9 @@ body {
   padding: 1px 5px;
   border-radius: 3px;
   letter-spacing: 0.8px;
-  background: rgba(127, 184, 166, 0.15);
+  background: rgba(131, 168, 150, 0.15);
   color: var(--accent-sage);
-  border: 1px solid rgba(127, 184, 166, 0.35);
+  border: 1px solid rgba(131, 168, 150, 0.35);
   margin-left: 2px;
 }
 
@@ -2023,9 +2023,9 @@ body {
 }
 
 .perf-status-badge.perf-caution {
-  background: rgba(192, 138, 138, 0.2);
+  background: rgba(198, 121, 121, 0.2);
   color: var(--accent-rose);
-  border-color: rgba(192, 138, 138, 0.45);
+  border-color: rgba(198, 121, 121, 0.45);
 }
 
 .perf-metric {
@@ -2263,7 +2263,7 @@ body {
 }
 
 .btn-deafen.active {
-  background: rgba(192, 138, 138, 0.16);
+  background: rgba(198, 121, 121, 0.16);
   border-color: var(--accent-rose);
   color: var(--accent-rose);
 }
@@ -2471,13 +2471,13 @@ body {
 }
 
 .btn-preset.active {
-  background: rgba(103, 232, 249, 0.14);
+  background: rgba(208, 161, 92, 0.14);
   border-color: var(--accent-cyan);
   color: var(--accent-cyan);
 }
 
 .btn-preset-reset {
-  border-color: rgba(192, 138, 138, 0.3);
+  border-color: rgba(198, 121, 121, 0.3);
   color: var(--accent-rose);
 }
 
@@ -2506,7 +2506,7 @@ body {
 .sys-tab-btn.active {
   color: var(--accent-cyan);
   border-bottom-color: var(--accent-cyan);
-  background: rgba(103, 232, 249, 0.05);
+  background: rgba(208, 161, 92, 0.05);
 }
 
 .sys-tab-content {
@@ -2694,7 +2694,7 @@ body {
 
 .hangar-catalog-card.active {
   border-color: var(--accent-cyan);
-  background: rgba(103, 232, 249, 0.08);
+  background: rgba(208, 161, 92, 0.08);
 }
 
 .hangar-card-header {
@@ -2709,7 +2709,7 @@ body {
   font-size: 8.5px;
   font-weight: 700;
   color: var(--accent-cyan);
-  background: rgba(103, 232, 249, 0.12);
+  background: rgba(208, 161, 92, 0.12);
   padding: 2px 6px;
   border-radius: 3px;
 }
@@ -2892,7 +2892,7 @@ body {
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  border: 1px dashed rgba(103, 232, 249, 0.28);
+  border: 1px dashed rgba(208, 161, 92, 0.28);
   pointer-events: none;
 }
 
@@ -2900,8 +2900,8 @@ body {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: rgba(236, 231, 220, 0.9);
-  border: 1px solid #ffffff;
+  background: rgba(236, 234, 227, 0.9);
+  border: 1px solid #eceae3;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
   transition: transform 0.04s linear;
   pointer-events: none;
@@ -3351,7 +3351,7 @@ body.touch-ui #virtual-dpad {
   padding: 8px 16px;
   border-radius: 6px;
   background: rgba(6, 10, 15, 0.94);
-  border: 1px solid rgba(103, 232, 249, 0.45);
+  border: 1px solid rgba(208, 161, 92, 0.45);
   color: var(--text-ivory);
   font-size: 11px;
   font-weight: 700;
@@ -3428,9 +3428,9 @@ body.touch-ui #virtual-dpad {
   height: 30px;
   padding: 0 9px;
   background: rgba(6, 10, 16, 0.90);
-  border: 1px solid rgba(103, 232, 249, 0.34);
+  border: 1px solid rgba(208, 161, 92, 0.34);
   border-radius: 6px;
-  color: rgba(236, 231, 220, 0.90);
+  color: rgba(236, 234, 227, 0.90);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 9px;
   font-weight: 700;
@@ -3442,8 +3442,8 @@ body.touch-ui #virtual-dpad {
 }
 
 #btn-telemetry-toggle:hover {
-  border-color: rgba(103, 232, 249, 0.65);
-  color: #ffffff;
+  border-color: rgba(208, 161, 92, 0.65);
+  color: #eceae3;
 }
 
 body.game-active #btn-telemetry-toggle {
@@ -3451,11 +3451,11 @@ body.game-active #btn-telemetry-toggle {
 }
 
 body:not(.telemetry-collapsed) #btn-telemetry-toggle {
-  border-color: rgba(103, 232, 249, 0.60);
+  border-color: rgba(208, 161, 92, 0.60);
   color: var(--accent-cyan);
 }
 
-#perilune-resource-meters {
+#lunaspis-resource-meters {
   position: fixed;
   bottom: calc(10px + var(--safe-bottom));
   left: calc(88px + var(--safe-left));
@@ -3473,30 +3473,30 @@ body:not(.telemetry-collapsed) #btn-telemetry-toggle {
   pointer-events: none;
 }
 
-body.game-active #perilune-resource-meters {
+body.game-active #lunaspis-resource-meters {
   display: flex;
 }
 
-body.telemetry-collapsed #perilune-resource-meters {
+body.telemetry-collapsed #lunaspis-resource-meters {
   display: none !important;
 }
 
-.perilune-res-item {
+.lunaspis-res-item {
   min-width: 76px;
   overflow: hidden;
 }
 
-.perilune-res-head {
+.lunaspis-res-head {
   display: flex;
   justify-content: space-between;
   gap: 5px;
   font-size: 8px;
   letter-spacing: 0.7px;
-  color: rgba(236, 231, 220, 0.88);
+  color: rgba(236, 234, 227, 0.88);
   white-space: nowrap;
 }
 
-.perilune-res-track {
+.lunaspis-res-track {
   margin-top: 2px;
   height: 3px;
   background: rgba(255, 255, 255, 0.12);
@@ -3522,7 +3522,7 @@ body.telemetry-collapsed #perilune-resource-meters {
   max-height: calc(var(--app-height, 100dvh) - 180px);
   overflow-y: auto;
   background: rgba(6, 10, 16, 0.90);
-  border: 1px solid rgba(103, 232, 249, 0.34);
+  border: 1px solid rgba(208, 161, 92, 0.34);
   padding: 7px 10px;
   border-radius: 8px;
   backdrop-filter: blur(12px);
@@ -3570,15 +3570,15 @@ body.telemetry-collapsed #space-center-ground-hud {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #67e8f9;
-  box-shadow: 0 0 8px rgba(103, 232, 249, 0.7);
+  background: #d0a15c;
+  box-shadow: 0 0 8px rgba(208, 161, 92, 0.7);
   flex: 0 0 auto;
 }
 
 .sc-status-label {
   font-size: 10px;
   font-weight: 600;
-  color: rgba(236, 231, 220, 0.94);
+  color: rgba(236, 234, 227, 0.94);
   line-height: 1.25;
   white-space: nowrap;
   overflow: hidden;
@@ -3601,7 +3601,7 @@ body.telemetry-collapsed #space-center-ground-hud {
   border-radius: 5px;
   border: 1px solid rgba(255, 255, 255, 0.16);
   background: rgba(14, 22, 34, 0.88);
-  color: rgba(236, 231, 220, 0.92);
+  color: rgba(236, 234, 227, 0.92);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 9px;
   font-weight: 700;
@@ -3613,35 +3613,35 @@ body.telemetry-collapsed #space-center-ground-hud {
 }
 
 .sc-hud-btn:hover {
-  border-color: rgba(103, 232, 249, 0.6);
-  color: #ffffff;
+  border-color: rgba(208, 161, 92, 0.6);
+  color: #eceae3;
 }
 
 .sc-hud-btn.is-active,
 .sc-btn-tour.is-active {
-  border-color: rgba(103, 232, 249, 0.72);
+  border-color: rgba(208, 161, 92, 0.72);
   background: rgba(18, 56, 74, 0.88);
-  color: #a5f3fc;
+  color: #e7c58c;
 }
 
 .sc-btn-term {
-  border-color: rgba(103, 232, 249, 0.45);
+  border-color: rgba(208, 161, 92, 0.45);
   background: rgba(12, 36, 48, 0.78);
-  color: #67e8f9;
+  color: #d0a15c;
 }
 
 .sc-btn-launch {
   border-color: rgba(245, 158, 11, 0.55);
   background: rgba(54, 34, 10, 0.80);
-  color: #fbbf24;
+  color: #d0a15c;
 }
 
 .sc-btn-plan {
-  border-color: rgba(167, 139, 250, 0.35);
+  border-color: rgba(208, 161, 92, 0.35);
 }
 
 .sc-btn-mdl {
-  border-color: rgba(251, 191, 36, 0.35);
+  border-color: rgba(208, 161, 92, 0.35);
 }
 
 .sc-btn-viz {
@@ -3694,15 +3694,15 @@ body.telemetry-collapsed #space-center-ground-hud {
 }
 
 .sc-step-chip.is-done {
-  border-color: rgba(52, 211, 153, 0.45);
+  border-color: rgba(131, 168, 150, 0.45);
   background: rgba(16, 62, 46, 0.45);
-  color: #6ee7b7;
+  color: #83a896;
 }
 
 .sc-step-chip.is-active {
-  border-color: rgba(103, 232, 249, 0.55);
+  border-color: rgba(208, 161, 92, 0.55);
   background: rgba(14, 52, 68, 0.55);
-  color: #67e8f9;
+  color: #d0a15c;
 }
 
 .sc-tour-grid {
@@ -3735,14 +3735,14 @@ body.telemetry-collapsed #space-center-ground-hud {
 }
 
 .sc-tour-btn:hover {
-  border-color: rgba(103, 232, 249, 0.6);
-  color: #ffffff;
+  border-color: rgba(208, 161, 92, 0.6);
+  color: #eceae3;
 }
 
 .sc-tour-btn.is-active {
-  border-color: rgba(103, 232, 249, 0.75);
+  border-color: rgba(208, 161, 92, 0.75);
   background: rgba(16, 60, 78, 0.85);
-  color: #a5f3fc;
+  color: #e7c58c;
 }
 
 #ship-interior-hud {
@@ -3768,7 +3768,7 @@ body.telemetry-collapsed #space-center-ground-hud {
 }
 
 /* Minimap strictly below the top-right voice panel */
-#perilune-ship-minimap {
+#lunaspis-ship-minimap {
   position: fixed;
   top: calc(96px + var(--safe-top));
   right: calc(16px + var(--safe-right));
@@ -3802,7 +3802,7 @@ body.interior-active #hud-active-speakers {
     left: calc(142px + var(--safe-left));
   }
 
-  #perilune-resource-meters {
+  #lunaspis-resource-meters {
     left: calc(216px + var(--safe-left));
     max-width: calc(100vw - 448px);
   }
@@ -3831,7 +3831,7 @@ body.interior-active #hud-active-speakers {
 
 .dock-title-card {
   background: rgba(6, 10, 16, 0.9);
-  border: 1px solid rgba(103, 232, 249, 0.38);
+  border: 1px solid rgba(208, 161, 92, 0.38);
   border-radius: 8px;
   padding: 8px 14px;
   backdrop-filter: blur(10px);
@@ -3839,13 +3839,13 @@ body.interior-active #hud-active-speakers {
 
 #dock-status-badge {
   background: rgba(6, 10, 16, 0.9);
-  border: 1px solid rgba(103, 232, 249, 0.5);
+  border: 1px solid rgba(208, 161, 92, 0.5);
   padding: 8px 16px;
   border-radius: 20px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 1px;
-  color: #67e8f9;
+  color: #d0a15c;
   backdrop-filter: blur(10px);
 }
 
@@ -3864,7 +3864,7 @@ body.interior-active #hud-active-speakers {
   font-size: 8.5px;
   font-weight: 700;
   letter-spacing: 1px;
-  color: #94a3b8;
+  color: #a6adb6;
 }
 
 .dock-reticle {
@@ -3896,7 +3896,7 @@ body.interior-active #hud-active-speakers {
 
 .dock-telem-card {
   background: rgba(6, 10, 16, 0.92);
-  border: 1px solid rgba(103, 232, 249, 0.3);
+  border: 1px solid rgba(208, 161, 92, 0.3);
   border-radius: 8px;
   padding: 8px 14px;
   text-align: center;
@@ -3938,7 +3938,7 @@ body.interior-active #hud-active-speakers {
 
 .launch-badge-card {
   background: rgba(15, 23, 42, 0.85);
-  border: 1px solid rgba(56, 189, 248, 0.4);
+  border: 1px solid rgba(208, 161, 92, 0.4);
   border-radius: 8px;
   padding: 8px 16px;
   backdrop-filter: blur(8px);
@@ -3948,7 +3948,7 @@ body.interior-active #hud-active-speakers {
   pointer-events: auto;
   background: rgba(15, 23, 42, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.25);
-  color: #cbd5e1;
+  color: #eceae3;
   padding: 8px 16px;
   border-radius: 6px;
   font-size: 11px;
@@ -3962,16 +3962,16 @@ body.interior-active #hud-active-speakers {
 #launch-capcom-banner {
   align-self: center;
   background: rgba(6, 9, 19, 0.85);
-  border-left: 4px solid #38bdf8;
+  border-left: 4px solid #d0a15c;
   padding: 10px 24px;
   border-radius: 4px;
   font-size: 13px;
   font-weight: 900;
-  color: #38bdf8;
+  color: #d0a15c;
   letter-spacing: 1px;
   text-align: center;
   max-width: min(680px, calc(100vw - 24px));
-  box-shadow: 0 0 24px rgba(56, 189, 248, 0.25);
+  box-shadow: 0 0 24px rgba(208, 161, 92, 0.25);
   backdrop-filter: blur(8px);
 }
 
@@ -3987,7 +3987,7 @@ body.interior-active #hud-active-speakers {
 #launch-flash {
   position: fixed;
   inset: 0;
-  background: #ffffff;
+  background: #eceae3;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.08s linear;
@@ -4050,7 +4050,7 @@ body.interior-active #hud-active-speakers {
     left: calc(142px + var(--safe-left));
   }
 
-  body.touch-ui #perilune-resource-meters {
+  body.touch-ui #lunaspis-resource-meters {
     left: calc(216px + var(--safe-left));
     max-width: calc(100vw - 448px);
   }
@@ -4084,7 +4084,7 @@ body.interior-active #hud-active-speakers {
     font-size: 8px;
   }
 
-  #perilune-ship-minimap {
+  #lunaspis-ship-minimap {
     top: calc(108px + var(--safe-top));
     width: 170px;
   }
@@ -4105,12 +4105,12 @@ body.interior-active #hud-active-speakers {
     max-width: clamp(200px, calc(100vw - 580px), 320px);
   }
 
-  #perilune-resource-meters {
+  #lunaspis-resource-meters {
     gap: 8px;
     padding: 5px 9px;
   }
 
-  .perilune-res-item {
+  .lunaspis-res-item {
     min-width: 64px;
   }
 
@@ -4204,7 +4204,7 @@ body.interior-active #hud-active-speakers {
   }
 
   /* Minimap sits strictly below the top-right voice panel */
-  #perilune-ship-minimap {
+  #lunaspis-ship-minimap {
     top: calc(108px + var(--safe-top));
     right: calc(8px + var(--safe-right));
     width: 148px;
@@ -4256,11 +4256,11 @@ body.interior-active #hud-active-speakers {
     left: calc(120px + var(--safe-left));
   }
 
-  body.game-active #perilune-resource-meters {
+  body.game-active #lunaspis-resource-meters {
     display: grid;
   }
 
-  #perilune-resource-meters {
+  #lunaspis-resource-meters {
     bottom: calc(44px + var(--safe-bottom));
     left: calc(8px + var(--safe-left));
     right: calc(8px + var(--safe-right));
@@ -4274,7 +4274,7 @@ body.interior-active #hud-active-speakers {
     z-index: 54;
   }
 
-  body.touch-ui #perilune-resource-meters {
+  body.touch-ui #lunaspis-resource-meters {
     bottom: calc(126px + var(--safe-bottom));
   }
 
@@ -4529,7 +4529,7 @@ body.interior-active #hud-active-speakers {
     padding: 2px;
   }
 
-  #perilune-ship-minimap {
+  #lunaspis-ship-minimap {
     top: calc(98px + var(--safe-top));
     right: calc(8px + var(--safe-right));
     width: 126px;
@@ -4571,17 +4571,17 @@ body.interior-active #hud-active-speakers {
     left: calc(108px + var(--safe-left));
   }
 
-  #perilune-resource-meters {
+  #lunaspis-resource-meters {
     bottom: calc(44px + var(--safe-bottom));
     padding: 4px 6px;
     gap: 4px 6px;
   }
 
-  body.touch-ui #perilune-resource-meters {
+  body.touch-ui #lunaspis-resource-meters {
     bottom: calc(116px + var(--safe-bottom));
   }
 
-  .perilune-res-head {
+  .lunaspis-res-head {
     font-size: 6.5px;
     letter-spacing: 0.3px;
   }
@@ -4686,7 +4686,7 @@ body.interior-active #hud-active-speakers {
     padding: 4px;
   }
 
-  #perilune-ship-minimap {
+  #lunaspis-ship-minimap {
     top: calc(102px + var(--safe-top));
     right: calc(8px + var(--safe-right));
     width: 132px;
@@ -4719,7 +4719,7 @@ body.interior-active #hud-active-speakers {
   }
 
   body.touch-ui #btn-telemetry-toggle,
-  body.touch-ui #perilune-resource-meters {
+  body.touch-ui #lunaspis-resource-meters {
     display: none !important;
   }
 
@@ -4813,10 +4813,10 @@ body.docking-active #hud-crew-roster,
 body.docking-active #hud-voice-panel,
 body.docking-active #hud-active-speakers,
 body.docking-active #btn-telemetry-toggle,
-body.docking-active #perilune-resource-meters,
+body.docking-active #lunaspis-resource-meters,
 body.docking-active #space-center-ground-hud,
 body.docking-active #ship-interior-hud,
-body.docking-active #perilune-ship-minimap,
+body.docking-active #lunaspis-ship-minimap,
 body.docking-active #btn-proximity-use,
 body.docking-active #mobile-joystick-zone,
 body.docking-active #virtual-dpad,
@@ -4831,10 +4831,10 @@ body.launch-active #hud-crew-roster,
 body.launch-active #hud-voice-panel,
 body.launch-active #hud-active-speakers,
 body.launch-active #btn-telemetry-toggle,
-body.launch-active #perilune-resource-meters,
+body.launch-active #lunaspis-resource-meters,
 body.launch-active #space-center-ground-hud,
 body.launch-active #ship-interior-hud,
-body.launch-active #perilune-ship-minimap,
+body.launch-active #lunaspis-ship-minimap,
 body.launch-active #btn-proximity-use,
 body.launch-active #mobile-joystick-zone,
 body.launch-active #virtual-dpad,
@@ -4849,10 +4849,10 @@ body.iss-showcase-active #hud-crew-roster,
 body.iss-showcase-active #hud-voice-panel,
 body.iss-showcase-active #hud-active-speakers,
 body.iss-showcase-active #btn-telemetry-toggle,
-body.iss-showcase-active #perilune-resource-meters,
+body.iss-showcase-active #lunaspis-resource-meters,
 body.iss-showcase-active #space-center-ground-hud,
 body.iss-showcase-active #ship-interior-hud,
-body.iss-showcase-active #perilune-ship-minimap,
+body.iss-showcase-active #lunaspis-ship-minimap,
 body.iss-showcase-active #btn-proximity-use,
 body.iss-showcase-active #mobile-joystick-zone,
 body.iss-showcase-active #virtual-dpad,
@@ -4867,10 +4867,10 @@ body.mission-viz-active #hud-crew-roster,
 body.mission-viz-active #hud-voice-panel,
 body.mission-viz-active #hud-active-speakers,
 body.mission-viz-active #btn-telemetry-toggle,
-body.mission-viz-active #perilune-resource-meters,
+body.mission-viz-active #lunaspis-resource-meters,
 body.mission-viz-active #space-center-ground-hud,
 body.mission-viz-active #ship-interior-hud,
-body.mission-viz-active #perilune-ship-minimap,
+body.mission-viz-active #lunaspis-ship-minimap,
 body.mission-viz-active #btn-proximity-use,
 body.mission-viz-active #mobile-joystick-zone,
 body.mission-viz-active #virtual-dpad,
@@ -4885,10 +4885,10 @@ body.solar-system-active #hud-crew-roster,
 body.solar-system-active #hud-voice-panel,
 body.solar-system-active #hud-active-speakers,
 body.solar-system-active #btn-telemetry-toggle,
-body.solar-system-active #perilune-resource-meters,
+body.solar-system-active #lunaspis-resource-meters,
 body.solar-system-active #space-center-ground-hud,
 body.solar-system-active #ship-interior-hud,
-body.solar-system-active #perilune-ship-minimap,
+body.solar-system-active #lunaspis-ship-minimap,
 body.solar-system-active #btn-proximity-use,
 body.solar-system-active #mobile-joystick-zone,
 body.solar-system-active #virtual-dpad,
@@ -4905,10 +4905,10 @@ body.vr-stereo-active #hud-crew-roster,
 body.vr-stereo-active #hud-voice-panel,
 body.vr-stereo-active #hud-active-speakers,
 body.vr-stereo-active #btn-telemetry-toggle,
-body.vr-stereo-active #perilune-resource-meters,
+body.vr-stereo-active #lunaspis-resource-meters,
 body.vr-stereo-active #space-center-ground-hud,
 body.vr-stereo-active #ship-interior-hud,
-body.vr-stereo-active #perilune-ship-minimap,
+body.vr-stereo-active #lunaspis-ship-minimap,
 body.vr-stereo-active #btn-proximity-use,
 body.vr-stereo-active #mobile-joystick-zone,
 body.vr-stereo-active #virtual-dpad,

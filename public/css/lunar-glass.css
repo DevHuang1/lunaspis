@@ -1,0 +1,1365 @@
+/* ==========================================================================
+   LUNASPIS — LUNAR GLASS INTERFACE
+   Frosted glass surfaces, one trademark accent, calm ivory type.
+   Loaded after premium.css. Layout lives in style.css/premium.css.
+   ========================================================================== */
+
+:root {
+  --brand: #d0a15c;
+  --brand-strong: #e7c58c;
+  --brand-soft: rgba(208, 161, 92, 0.12);
+  --brand-line: rgba(208, 161, 92, 0.42);
+  --brand-ink: #1a1206;
+  --brand-dim: #8f7448;
+
+  --ink-1: #eceae3;
+  --ink-2: #a6adb6;
+  --ink-3: #6f7782;
+  --state-ok: #83a896;
+  --state-crit: #c67979;
+
+  --glass-tint: rgba(16, 20, 26, 0.66);
+  --glass-tint-strong: rgba(12, 15, 20, 0.84);
+  --glass-tint-heavy: rgba(9, 12, 16, 0.9);
+  --glass-fill: rgba(255, 255, 255, 0.035);
+  --glass-fill-strong: rgba(255, 255, 255, 0.07);
+  --glass-border: rgba(255, 255, 255, 0.13);
+  --glass-border-soft: rgba(255, 255, 255, 0.08);
+  --glass-highlight: rgba(255, 255, 255, 0.08);
+  --glass-blur: 18px;
+  --glass-saturate: 135%;
+  --glass-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+}
+
+/* --------------------------------------------------------------------------
+   Glass primitives
+   -------------------------------------------------------------------------- */
+
+.glass,
+.glass-panel,
+.glass-bar,
+.glass-modal,
+.glass-sheet {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055) 0%, rgba(255, 255, 255, 0.012) 55%, rgba(255, 255, 255, 0.02) 100%),
+    var(--glass-tint);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    var(--glass-shadow);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+}
+
+.glass-bar {
+  --glass-blur: 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.01)),
+    rgba(12, 16, 21, 0.72);
+}
+
+.glass-modal {
+  --glass-blur: 24px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.012)),
+    var(--glass-tint-strong);
+}
+
+.glass-sheet {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.012)),
+    rgba(12, 15, 20, 0.92);
+}
+
+.glass-row {
+  background: var(--glass-fill);
+  border: 1px solid var(--glass-border-soft);
+}
+
+.glass-row:hover {
+  background: var(--glass-fill-strong);
+  border-color: var(--glass-border);
+}
+
+.glass-scrim {
+  background: rgba(4, 6, 9, 0.72);
+  -webkit-backdrop-filter: blur(10px) saturate(110%);
+  backdrop-filter: blur(10px) saturate(110%);
+}
+
+/* --------------------------------------------------------------------------
+   Typography: calm ivory, one accent
+   -------------------------------------------------------------------------- */
+
+.ui-eyebrow,
+.ui-label,
+.field-label,
+.settings-label,
+.settings-label-row,
+.title-eyebrow,
+.title-callsign-lbl,
+.preset-label,
+.deck-eyebrow,
+.deck-tab,
+.deck-row__label,
+.sc-hud-btn,
+.dock-hint-line,
+.emote-label,
+.emote-hotkey {
+  color: var(--ink-2);
+}
+
+.ui-value,
+.ui-muted,
+.ui-dim {
+  color: var(--ink-2);
+}
+
+.ui-dim,
+.settings-keybinds-box .keybind-row span:last-child,
+.ss-kind,
+.ss-overview-meta,
+.ss-note,
+.dock-hint-line,
+#perf-overlay .perf-label {
+  color: var(--ink-3);
+}
+
+.ui-eyebrow,
+.ui-label,
+.field-label,
+.settings-label,
+.settings-label-row,
+.title-eyebrow,
+.title-callsign-lbl,
+.preset-label,
+.deck-eyebrow,
+.deck-tab,
+.deck-row__label,
+.settings-modal-title,
+.task-modal-title,
+.mission-briefing-title,
+.victory-eyebrow,
+.diag-title,
+.diag-stat-label,
+.diag-stat-sub,
+#perf-overlay,
+.hud-checklist-header,
+.objective-card__meta,
+.objective-card__notice,
+.lunaspis-res-head,
+.sc-status-label,
+.dock-telem-lbl,
+.launch-telem-lbl,
+.hangar-stat-lbl,
+.catalog-btn,
+.ss-kicker,
+.ss-kind,
+.ss-section-title,
+.ss-row,
+.ss-note,
+.ss-overview-row,
+.mv-chip,
+.mv-segment-badge,
+.vr-label,
+.vr-value,
+.deck-foot {
+  text-shadow: none !important;
+}
+
+/* Brand is reserved for active / primary / selected states. */
+::selection {
+  background: var(--brand-soft);
+  color: var(--ink-1);
+}
+
+:focus-visible {
+  outline-color: var(--brand);
+}
+
+/* --------------------------------------------------------------------------
+   Buttons, inputs, chips
+   -------------------------------------------------------------------------- */
+
+.btn-title-primary,
+.btn-primary,
+.btn-start-game,
+.btn-deck-cta {
+  background: linear-gradient(180deg, var(--brand-strong), var(--brand));
+  border: 1px solid var(--brand-strong);
+  color: var(--brand-ink);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
+}
+
+.btn-title-primary:hover,
+.btn-primary:hover,
+.btn-start-game:hover,
+.btn-deck-cta:hover {
+  background: linear-gradient(180deg, #f0d6a3, var(--brand-strong));
+  border-color: #f0d6a3;
+  color: var(--brand-ink);
+}
+
+.btn-title-secondary,
+.btn-secondary,
+.btn-lobby-voice,
+.btn-copy,
+.voice-mic-btn,
+.hangar-ctrl-btn,
+.btn-title-join,
+.sc-hud-btn,
+.dock-assist-btn,
+.rcs-btn,
+.ss-btn,
+.deck-row {
+  background: var(--glass-fill);
+  border-color: var(--glass-border);
+  color: var(--ink-1);
+  box-shadow: none;
+}
+
+.btn-title-secondary:hover,
+.btn-secondary:hover,
+.btn-lobby-voice:hover,
+.btn-copy:hover,
+.voice-mic-btn:hover,
+.hangar-ctrl-btn:hover,
+.btn-title-join:hover,
+.sc-hud-btn:hover,
+.dock-assist-btn:hover,
+.rcs-btn:hover,
+.ss-btn:hover {
+  background: var(--glass-fill-strong);
+  border-color: var(--brand-line);
+  color: var(--brand-strong);
+}
+
+.btn-danger-outline,
+#ss-exit,
+#btn-skip-launch {
+  border-color: rgba(198, 121, 121, 0.4) !important;
+  color: var(--state-crit) !important;
+  background: rgba(198, 121, 121, 0.08) !important;
+}
+
+.btn-danger-outline:hover,
+#ss-exit:hover {
+  border-color: var(--state-crit) !important;
+  background: rgba(198, 121, 121, 0.16) !important;
+}
+
+.voice-mic-btn.active,
+.btn-lobby-voice.active,
+.btn-preset.active,
+.sys-tab-btn.active,
+.ss-strip-btn.is-active,
+.ss-btn.is-active,
+.sc-tour-btn.is-active {
+  background: var(--brand-soft);
+  border-color: var(--brand-line);
+  color: var(--brand-strong);
+}
+
+.settings-select,
+.title-code-input,
+.title-callsign-input,
+.lobby-chat-input,
+.input-styled {
+  background: rgba(255, 255, 255, 0.045);
+  border-color: var(--glass-border);
+  color: var(--ink-1);
+}
+
+.settings-select:focus,
+.title-code-input:focus,
+.title-callsign-input:focus,
+.lobby-chat-input:focus,
+.input-styled:focus {
+  border-color: var(--brand-line);
+  box-shadow: 0 0 0 1px var(--brand-line);
+}
+
+.settings-slider,
+input[type="range"] {
+  accent-color: var(--brand);
+}
+
+/* --------------------------------------------------------------------------
+   Surfaces: apply glass to every top-level UI surface
+   -------------------------------------------------------------------------- */
+
+.lobby-top-bar,
+.lobby-customizer,
+.lobby-mission-panel,
+.lobby-player-pod,
+.lobby-chat-box,
+.lobby-bottom-bar,
+.hud-race-bar-container,
+.hud-checklist-panel,
+#hud-voice-panel,
+#perf-overlay,
+#btn-proximity-use,
+#btn-telemetry-toggle,
+#lunaspis-resource-meters,
+#ship-interior-hud,
+#lunaspis-ship-minimap,
+#space-center-ground-hud,
+.hud-diagnostics-deck,
+.task-modal-card,
+.settings-modal-card,
+.mission-briefing-card,
+.hangar-modal-card,
+#victory-overlay .victory-card,
+#victory-overlay > .victory-panel,
+.active-speaker-tag {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.01)),
+    var(--glass-tint) !important;
+  border: 1px solid var(--glass-border) !important;
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    var(--glass-shadow) !important;
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate)) !important;
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate)) !important;
+}
+
+#hud-voice-panel,
+#perf-overlay,
+#btn-telemetry-toggle {
+  box-shadow: inset 0 1px 0 var(--glass-highlight), 0 10px 30px rgba(0, 0, 0, 0.28) !important;
+}
+
+.settings-modal-card,
+.task-modal-card,
+.mission-briefing-card,
+.hangar-modal-card {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.012)),
+    var(--glass-tint-strong) !important;
+}
+
+.settings-modal-overlay,
+#task-modal-overlay,
+#mission-briefing-overlay,
+#victory-overlay {
+  background: rgba(4, 6, 9, 0.72) !important;
+  -webkit-backdrop-filter: blur(10px) saturate(110%) !important;
+  backdrop-filter: blur(10px) saturate(110%) !important;
+}
+
+/* JS-created hotkey pages */
+#iss-showcase-topbar,
+#iss-showcase-left,
+#iss-showcase-right,
+#mission-viz-ui #mv-topbar,
+#mission-viz-ui #mv-telemetry-card,
+#mission-viz-ui #mv-timeline-bar,
+#solar-system-ui .ss-panel,
+#vr-mode-overlay > div:nth-child(2),
+#docking-hud-overlay .dock-title-card,
+#docking-hud-overlay #dock-status-badge,
+#docking-hud-overlay .dock-telem-card,
+#docking-hud-overlay .dock-rcs-bar,
+#docking-hud-overlay #dock-crew-role-bar,
+#launch-cutscene-overlay .launch-badge-card,
+#launch-cutscene-overlay #launch-telem-bar,
+#btn-skip-launch,
+#ship-interior-hud,
+#lunaspis-ship-minimap,
+#space-center-ground-hud {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.012)),
+    var(--glass-tint) !important;
+  border: 1px solid var(--glass-border) !important;
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    var(--glass-shadow) !important;
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate)) !important;
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate)) !important;
+}
+
+#iss-showcase-topbar,
+#mission-viz-ui #mv-topbar,
+#solar-system-ui #ss-topbar,
+#docking-hud-overlay .dock-title-card,
+#docking-hud-overlay #dock-status-badge,
+#launch-cutscene-overlay .launch-badge-card {
+  box-shadow: inset 0 1px 0 var(--glass-highlight), 0 10px 30px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Inner rows and chips: translucent, never a second blur layer. */
+.task-option,
+.md-card,
+.md-orbit-card,
+.md-lv-card,
+.md-bus-card,
+.md-pwr-card,
+.md-prop-card,
+.md-com-card,
+.md-disp-card,
+.md-gnd-card,
+.md-inst-card,
+.md-csform-card,
+.md-wave-card,
+.md-thm-card,
+.md-bat-card,
+.ss-chip,
+.ss-overview-row,
+.mv-chip,
+.mv-segment-badge,
+.hpp-card,
+.objective-card,
+.crew-role-chip,
+.net-diag-col,
+.settings-keybinds-box,
+.crewmate-volume-list,
+.diag-stat-card,
+.lobby-mission-card,
+.mission-card,
+.pod-card,
+.dock-assist-btn,
+.rcs-btn {
+  background: var(--glass-fill) !important;
+  border-color: var(--glass-border-soft) !important;
+  box-shadow: none !important;
+}
+
+.task-option:hover,
+.md-card:hover,
+.lobby-mission-card:hover,
+.mission-card:hover,
+.ss-overview-row:hover {
+  background: var(--glass-fill-strong) !important;
+  border-color: var(--glass-border) !important;
+}
+
+/* Selected states use only the trademark accent. */
+.md-card.is-selected,
+.md-orbit-card.is-selected,
+.md-lv-card.is-selected,
+.md-bus-card.is-selected,
+.md-pwr-card.is-selected,
+.md-prop-card.is-selected,
+.md-com-card.is-selected,
+.md-disp-card.is-selected,
+.md-gnd-card.is-selected,
+.md-inst-card.is-selected,
+.md-csform-card.is-selected,
+.md-wave-card.is-selected,
+.md-thm-card.is-selected,
+.md-bat-card.is-selected,
+.lobby-mission-card.active,
+.mission-card.active,
+.task-option.selected,
+.objective-card.is-mine {
+  border-color: var(--brand-line) !important;
+  background: var(--brand-soft) !important;
+}
+
+/* Status colors: functional only, muted. */
+.val-sage,
+.perf-status-badge,
+.crew-role-chip--scientist,
+.net-diag-val.ok,
+.t-val-ok {
+  color: var(--state-ok) !important;
+}
+
+.val-amber {
+  color: var(--brand) !important;
+}
+
+.val-rose,
+.perf-status-badge.perf-caution,
+.crew-role-chip--commander {
+  color: var(--state-crit) !important;
+}
+
+.crew-role-chip--engineer {
+  color: var(--brand) !important;
+}
+
+/* Remove decorative glows from all UI chrome. */
+.title-brand-dot,
+.sc-status-dot,
+.perf-dot,
+.ss-dot,
+#hud-checklist-team-icon,
+.lobby-mission-selected::before,
+.dock-reticle,
+#hud-crosshair {
+  box-shadow: none !important;
+  text-shadow: none !important;
+  filter: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   Top-right controls
+   -------------------------------------------------------------------------- */
+
+#hud-voice-panel {
+  top: calc(12px + var(--safe-top));
+  right: calc(16px + var(--safe-right));
+  padding: 6px;
+  border-radius: 10px;
+  gap: 6px;
+}
+
+#hud-voice-panel .voice-header-row {
+  gap: 4px;
+  flex-wrap: nowrap;
+}
+
+#hud-voice-panel .voice-mic-btn {
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  border-radius: 6px;
+}
+
+#hud-voice-panel .voice-mic-btn .ui-icon {
+  width: 16px;
+  height: 16px;
+}
+
+#btn-quick-deck {
+  border-color: var(--brand-line);
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+}
+
+#btn-quick-deck:hover,
+#btn-quick-deck.active {
+  border-color: var(--brand);
+  background: rgba(208, 161, 92, 0.2);
+  color: var(--brand-strong);
+}
+
+/* --------------------------------------------------------------------------
+   Quick Deck
+   -------------------------------------------------------------------------- */
+
+#quick-deck {
+  position: fixed;
+  top: calc(62px + var(--safe-top));
+  right: calc(16px + var(--safe-right));
+  z-index: 9500;
+  display: none;
+  flex-direction: column;
+  width: 344px;
+  max-width: calc(100vw - 24px);
+  max-height: min(80vh, 700px);
+  border-radius: 14px;
+  overflow: hidden;
+  color: var(--ink-1);
+  font-family: var(--ui-font-mono);
+  transform-origin: top right;
+}
+
+#quick-deck.open {
+  display: flex;
+  animation: deck-in var(--ui-dur) var(--ui-ease);
+}
+
+@keyframes deck-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.deck-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--glass-border-soft);
+}
+
+.deck-emblem {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 1px solid var(--brand-line);
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+.deck-emblem .ui-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.deck-head-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.deck-eyebrow {
+  font-size: 8.5px;
+  letter-spacing: 0.16em;
+  color: var(--ink-3);
+}
+
+#quick-deck-title {
+  margin-top: 1px;
+  font-family: var(--ui-font-mono);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: var(--ink-1);
+}
+
+.deck-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-fill);
+  color: var(--ink-2);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.deck-close:hover {
+  border-color: var(--brand-line);
+  color: var(--brand-strong);
+}
+
+.deck-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--glass-border-soft);
+}
+
+.deck-tab {
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-2);
+  font-family: var(--ui-font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+}
+
+.deck-tab:hover {
+  background: var(--glass-fill);
+  color: var(--ink-1);
+}
+
+.deck-tab.active {
+  border-color: var(--brand-line);
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+}
+
+.deck-detail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--glass-border-soft);
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+
+.deck-detail strong {
+  color: var(--brand-strong);
+  font-weight: 700;
+}
+
+.deck-detail .detail-dot {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--brand);
+}
+
+.deck-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+  padding: 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.deck-body[hidden] {
+  display: none !important;
+}
+
+.deck-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink-1);
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--ui-font-mono);
+}
+
+.deck-row:hover,
+.deck-row:focus-visible {
+  border-color: var(--glass-border);
+  background: var(--glass-fill-strong);
+}
+
+.deck-row.is-active {
+  border-color: var(--brand-line);
+  background: var(--brand-soft);
+}
+
+.deck-row__icon {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  border-radius: 6px;
+  background: var(--glass-fill);
+  color: var(--brand);
+  font-size: 13px;
+}
+
+.deck-row__copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.deck-row__label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--ink-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.deck-row__sub {
+  font-size: 8.5px;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.deck-row__hint {
+  flex: 0 0 auto;
+  padding: 2px 5px;
+  border: 1px solid var(--glass-border);
+  border-radius: 3px;
+  color: var(--ink-2);
+  font-size: 8.5px;
+  line-height: 1.4;
+}
+
+.deck-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--glass-border-soft);
+  color: var(--ink-3);
+  font-size: 8.5px;
+  letter-spacing: 0.06em;
+}
+
+.deck-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  margin-right: 3px;
+  padding: 0 4px;
+  border: 1px solid var(--glass-border);
+  border-radius: 3px;
+  color: var(--ink-2);
+  font-size: 8px;
+}
+
+/* Keep body-scoped hotkey UIs clear of the deck. */
+body.deck-open #screen-game {
+  pointer-events: none;
+}
+
+body.deck-open #quick-deck,
+body.deck-open #hud-voice-panel {
+  pointer-events: auto;
+}
+
+body.deck-open #btn-proximity-use,
+body.deck-open #btn-telemetry-toggle,
+body.deck-open #lunaspis-resource-meters,
+body.deck-open #mobile-joystick-zone,
+body.deck-open #virtual-dpad,
+body.deck-open #hud-active-speakers,
+body.deck-open #hud-crosshair,
+body.deck-open #space-center-ground-hud,
+body.deck-open #ship-interior-hud,
+body.deck-open #lunaspis-ship-minimap,
+body.deck-open .hud-race-bar-container {
+  display: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   Title shell
+   -------------------------------------------------------------------------- */
+
+#screen-menu {
+  background:
+    linear-gradient(90deg, rgba(5, 7, 10, 0.92) 0%, rgba(5, 7, 10, 0.6) 38%, rgba(5, 7, 10, 0.08) 74%, transparent 100%),
+    linear-gradient(0deg, rgba(5, 7, 10, 0.86) 0%, transparent 46%);
+}
+
+.title-topbar {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--glass-border-soft);
+  background: linear-gradient(180deg, rgba(8, 11, 15, 0.6), rgba(8, 11, 15, 0.06));
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.title-brand {
+  color: var(--ink-2);
+  letter-spacing: 0.24em;
+}
+
+.title-brand-dot {
+  background: var(--brand);
+}
+
+.title-display {
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--ink-1);
+}
+
+.title-premise {
+  color: var(--ink-2);
+}
+
+.title-auth-pill {
+  background: var(--glass-fill);
+  border-color: var(--glass-border);
+}
+
+/* --------------------------------------------------------------------------
+   Lobby
+   -------------------------------------------------------------------------- */
+
+#screen-lobby {
+  background:
+    radial-gradient(circle at 50% 38%, rgba(20, 25, 33, 0.45) 0%, rgba(5, 7, 10, 0.95) 100%);
+}
+
+.lobby-controls-hint {
+  color: var(--ink-3);
+}
+
+.lobby-controls-hint strong {
+  color: var(--brand-strong);
+}
+
+/* --------------------------------------------------------------------------
+   In-game HUD
+   -------------------------------------------------------------------------- */
+
+#hud-crosshair .crosshair-ring {
+  border-color: rgba(236, 234, 227, 0.32);
+}
+
+#hud-crosshair .crosshair-dot {
+  background: var(--ink-1);
+  box-shadow: none;
+}
+
+.hud-race-fill,
+.fill-coop {
+  background: var(--brand);
+}
+
+.hud-race-track,
+.hud-task-track,
+.lunaspis-res-track {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.hud-systems-badge {
+  color: var(--state-ok);
+  border-color: rgba(131, 168, 150, 0.34);
+  background: rgba(131, 168, 150, 0.08);
+}
+
+#btn-proximity-use {
+  border-color: var(--brand-line) !important;
+}
+
+.prox-key-badge {
+  background: var(--brand);
+  color: var(--brand-ink);
+}
+
+.lunaspis-res-head {
+  color: var(--ink-2);
+}
+
+#perf-overlay .perf-val {
+  color: var(--ink-1);
+}
+
+#perf-overlay .perf-dot {
+  background: var(--state-ok);
+}
+
+#perf-latency-badge {
+  color: var(--state-ok);
+  border-color: rgba(131, 168, 150, 0.34);
+  background: rgba(131, 168, 150, 0.08);
+}
+
+#hud-active-speakers .active-speaker-tag {
+  background: var(--glass-fill) !important;
+  border-color: var(--glass-border) !important;
+  color: var(--ink-1) !important;
+}
+
+#hud-active-speakers .active-speaker-tag.speaker-local {
+  border-color: rgba(131, 168, 150, 0.38) !important;
+  color: var(--state-ok) !important;
+}
+
+#hud-active-speakers .active-speaker-tag.speaker-radio {
+  border-color: var(--brand-line) !important;
+  color: var(--brand-strong) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Modals and settings
+   -------------------------------------------------------------------------- */
+
+.settings-modal-header,
+.task-modal-header {
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.settings-modal-title,
+.task-modal-title {
+  color: var(--ink-1);
+}
+
+.settings-val-badge {
+  color: var(--brand-strong);
+}
+
+.sys-tab-btn {
+  color: var(--ink-3);
+}
+
+.sys-tab-btn:hover {
+  color: var(--ink-1);
+}
+
+.sys-tab-btn.active {
+  color: var(--brand-strong);
+  border-bottom-color: var(--brand);
+}
+
+.btn-preset {
+  color: var(--ink-2);
+}
+
+.btn-preset.active {
+  color: var(--brand-strong);
+}
+
+.keybind-row span:first-child {
+  color: var(--brand-strong);
+}
+
+.mic-meter-fill {
+  background: var(--state-ok);
+}
+
+/* Briefing / debrief */
+.mission-briefing-meta {
+  color: var(--brand);
+}
+
+.mission-briefing-summary,
+.mission-briefing-objectives {
+  color: var(--ink-2);
+}
+
+.briefing-objective__code {
+  color: var(--brand-strong);
+}
+
+.briefing-objective.is-done .briefing-objective__state {
+  color: var(--state-ok);
+}
+
+.victory-eyebrow {
+  color: var(--brand);
+}
+
+/* --------------------------------------------------------------------------
+   World HUDs
+   -------------------------------------------------------------------------- */
+
+.sc-status-dot {
+  background: var(--brand) !important;
+}
+
+.sc-status-label {
+  color: var(--ink-1) !important;
+}
+
+.sc-tour-btn.is-active {
+  border-color: var(--brand-line);
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+}
+
+#ship-interior-hud .ship-room-title,
+#ship-room-title {
+  color: var(--ink-1);
+}
+
+#dock-status-badge {
+  color: var(--brand-strong);
+  border-color: var(--brand-line);
+}
+
+.dock-title-card {
+  border-color: var(--glass-border) !important;
+}
+
+.dock-telem-lbl {
+  color: var(--ink-3);
+}
+
+.dock-range-val,
+.dock-rate-val,
+.dock-align-val,
+#dock-range-val,
+#dock-rate-val,
+#dock-align-val {
+  color: var(--ink-1);
+}
+
+.launch-badge-card {
+  border-color: var(--glass-border) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Mobile and performance fallbacks
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 900px), (pointer: coarse) {
+  #quick-deck {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-width: none;
+    max-height: 78dvh;
+    border-radius: 18px 18px 0 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    padding-bottom: var(--safe-bottom);
+  }
+
+  #quick-deck.open {
+    animation: deck-sheet-in var(--ui-dur) var(--ui-ease);
+  }
+
+  @keyframes deck-sheet-in {
+    from { opacity: 0; transform: translateY(18px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .deck-body {
+    max-height: 54dvh;
+  }
+
+  .deck-row {
+    min-height: 46px;
+  }
+
+  .deck-tab {
+    min-height: 42px;
+  }
+
+  #hud-voice-panel .voice-mic-btn {
+    width: 40px;
+    height: 40px;
+    min-height: 40px;
+  }
+
+  /* Keep touch GPUs cool: solid tint, no blur. */
+  .glass,
+  .glass-panel,
+  .glass-bar,
+  .glass-modal,
+  .glass-sheet,
+  .lobby-top-bar,
+  .lobby-customizer,
+  .lobby-mission-panel,
+  .lobby-player-pod,
+  .lobby-chat-box,
+  .lobby-bottom-bar,
+  .hud-race-bar-container,
+  .hud-checklist-panel,
+  #hud-voice-panel,
+  #perf-overlay,
+  #btn-proximity-use,
+  #btn-telemetry-toggle,
+  #lunaspis-resource-meters,
+  #ship-interior-hud,
+  #lunaspis-ship-minimap,
+  #space-center-ground-hud,
+  .hud-diagnostics-deck,
+  .task-modal-card,
+  .settings-modal-card,
+  .mission-briefing-card,
+  .hangar-modal-card,
+  #quick-deck,
+  #iss-showcase-topbar,
+  #iss-showcase-left,
+  #iss-showcase-right,
+  #mission-viz-ui #mv-topbar,
+  #mission-viz-ui #mv-telemetry-card,
+  #mission-viz-ui #mv-timeline-bar,
+  #solar-system-ui .ss-panel,
+  #vr-mode-overlay > div:nth-child(2),
+  #docking-hud-overlay .dock-title-card,
+  #docking-hud-overlay #dock-status-badge,
+  #docking-hud-overlay .dock-telem-card,
+  #docking-hud-overlay .dock-rcs-bar,
+  #docking-hud-overlay #dock-crew-role-bar,
+  #launch-cutscene-overlay .launch-badge-card,
+  #launch-cutscene-overlay #launch-telem-bar,
+  #btn-skip-launch {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background: rgba(14, 18, 23, 0.94) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 12px 30px rgba(0, 0, 0, 0.35) !important;
+  }
+
+  #quick-deck {
+    background: rgba(12, 15, 20, 0.98) !important;
+  }
+
+  .settings-modal-overlay,
+  #task-modal-overlay,
+  #mission-briefing-overlay,
+  #victory-overlay {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background: rgba(4, 6, 9, 0.96) !important;
+  }
+}
+
+body.quality-fast .glass,
+body.quality-fast .glass-panel,
+body.quality-fast .glass-bar,
+body.quality-fast .glass-modal,
+body.quality-fast .glass-sheet,
+body.quality-fast #quick-deck,
+body.quality-fast #hud-voice-panel,
+body.quality-fast #perf-overlay,
+body.quality-fast #btn-telemetry-toggle,
+body.quality-fast #lunaspis-resource-meters,
+body.quality-fast #space-center-ground-hud,
+body.quality-fast #ship-interior-hud,
+body.quality-fast #lunaspis-ship-minimap,
+body.quality-fast .hud-checklist-panel,
+body.quality-fast .hud-diagnostics-deck,
+body.quality-fast .lobby-top-bar,
+body.quality-fast .lobby-customizer,
+body.quality-fast .lobby-mission-panel,
+body.quality-fast .lobby-player-pod,
+body.quality-fast .settings-modal-card,
+body.quality-fast .task-modal-card,
+body.quality-fast .mission-briefing-card,
+body.quality-fast .hangar-modal-card {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  background: rgba(13, 17, 22, 0.96) !important;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass,
+  .glass-panel,
+  .glass-bar,
+  .glass-modal,
+  .glass-sheet,
+  #quick-deck,
+  #hud-voice-panel,
+  .hud-checklist-panel,
+  .settings-modal-card,
+  .task-modal-card,
+  .mission-briefing-card,
+  .hangar-modal-card {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background: rgba(12, 15, 20, 0.97) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #quick-deck.open {
+    animation: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Small-screen spacing for the condensed action bar
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 540px) {
+  #hud-voice-panel {
+    gap: 4px;
+    padding: 5px;
+  }
+
+  #hud-voice-panel .voice-mic-btn {
+    width: 38px;
+    height: 38px;
+    min-height: 38px;
+  }
+
+  #quick-deck {
+    max-height: 82dvh;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Toasts, banner, and touch controls
+   -------------------------------------------------------------------------- */
+
+#action-toast,
+#emote-toast,
+#launch-countdown-banner {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.012)),
+    var(--glass-tint-strong) !important;
+  border: 1px solid var(--glass-border) !important;
+  color: var(--ink-1) !important;
+  box-shadow: inset 0 1px 0 var(--glass-highlight), 0 14px 40px rgba(0, 0, 0, 0.4) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(var(--glass-saturate));
+  backdrop-filter: blur(14px) saturate(var(--glass-saturate));
+  text-shadow: none !important;
+}
+
+#launch-countdown-banner {
+  border-color: var(--brand-line) !important;
+}
+
+#mobile-joystick-base {
+  background: rgba(16, 20, 26, 0.42) !important;
+  border: 1px solid var(--glass-border) !important;
+  box-shadow: inset 0 1px 0 var(--glass-highlight), 0 10px 28px rgba(0, 0, 0, 0.3) !important;
+  -webkit-backdrop-filter: blur(10px) saturate(var(--glass-saturate));
+  backdrop-filter: blur(10px) saturate(var(--glass-saturate));
+}
+
+#mobile-joystick-stick {
+  background: rgba(236, 234, 227, 0.16) !important;
+  border: 1px solid rgba(236, 234, 227, 0.28) !important;
+  box-shadow: none !important;
+}
+
+#mobile-joystick-hint {
+  color: var(--ink-3) !important;
+}
+
+.dpad-btn {
+  background: var(--glass-fill) !important;
+  border-color: var(--glass-border) !important;
+  color: var(--ink-1) !important;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.dpad-btn:active {
+  background: var(--brand-soft) !important;
+  border-color: var(--brand-line) !important;
+  color: var(--brand-strong) !important;
+}
+
+@media (max-width: 900px), (pointer: coarse) {
+  #action-toast,
+  #emote-toast,
+  #launch-countdown-banner,
+  #mobile-joystick-base,
+  .dpad-btn {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}
+
+/* Smaller persistent HUD panels get a lighter blur to protect frame time. */
+#hud-voice-panel,
+#perf-overlay,
+#btn-telemetry-toggle,
+#lunaspis-resource-meters,
+#hud-active-speakers .active-speaker-tag,
+#space-center-ground-hud,
+#ship-interior-hud,
+#lunaspis-ship-minimap {
+  -webkit-backdrop-filter: blur(10px) saturate(125%) !important;
+  backdrop-filter: blur(10px) saturate(125%) !important;
+}
+
+.hud-checklist-panel {
+  -webkit-backdrop-filter: blur(12px) saturate(125%) !important;
+  backdrop-filter: blur(12px) saturate(125%) !important;
+}
+
+/* Top command bars read over bright orbital scenes: stronger tint. */
+@media (min-width: 901px) and (pointer: fine) {
+  #iss-showcase-topbar,
+  #mission-viz-ui #mv-topbar,
+  #solar-system-ui #ss-topbar,
+  #vr-mode-overlay > div:nth-child(2),
+  #docking-hud-overlay .dock-title-card,
+  #docking-hud-overlay #dock-status-badge,
+  #launch-cutscene-overlay .launch-badge-card,
+  #launch-cutscene-overlay #launch-telem-bar {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.012)),
+      rgba(12, 15, 20, 0.82) !important;
+    border-color: var(--glass-border) !important;
+  }
+}

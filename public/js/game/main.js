@@ -3,8 +3,8 @@
  * INTERFELLAS 3D MULTIPLAYER ENGINE & THREE.JS SCENE PIPELINE (SPACESHIP EDITION)
  * ============================================================================
  * Integrates all 3D ship designs, interiors, models, shaders, and interactive
- * systems from SpaceShip (Perilune — Orbital / Mission Lab) in vanilla Three.js:
- * - 6-Room Perilune Orbital Transit Craft Interior + Exterior Hull & Solar Arrays
+ * systems from SpaceShip (Lunaspis — Orbital / Mission Lab) in vanilla Three.js:
+ * - 6-Room Lunaspis Orbital Transit Craft Interior + Exterior Hull & Solar Arrays
  * - Draco, KTX2/Basis Universal, and Meshopt GLTF 2.0 3D asset pipeline
  * - SpaceShip NASA Astronaut rigs (astronaut_lod0.glb & astronaut_lod1.glb)
  * - 27-Part Interactive NASA ISS Reference Showcase [J]
@@ -151,6 +151,9 @@
   }
 
   function applyPerfSettings() {
+    if (window.UITheme && typeof window.UITheme.setQualityClass === "function") {
+      window.UITheme.setQualityClass(perfSettings.cinematicPreset);
+    }
     const { w, h } = syncViewportCSSVars();
 
     // 1. Render Resolution Scale & Post-Processing Target Resolution
@@ -235,7 +238,7 @@
     rightLeg: null,
     nameBadge: null,
     role: "commander",
-    color: "#67e8f9",
+    color: "#d0a15c",
     isEva: false,
     suitLights: true,
     magBoots: true,
@@ -300,7 +303,7 @@
     const btnLabel = document.getElementById("cam-mode-label");
     const btnIcon = document.getElementById("cam-mode-icon");
     if (btnLabel) btnLabel.textContent = cur.name;
-    if (btnIcon) btnIcon.textContent = cur.icon;
+    if (btnIcon) btnIcon.innerHTML = uiIcon(cameraMode === 0 ? "eye" : "camera");
 
     const visorOverlay = document.getElementById("helmet-visor-overlay");
     if (visorOverlay) {
@@ -311,19 +314,68 @@
   // Key tracking
   const keys = {};
 
-  // Crew emote wheel state
-  let emoteWheelOpen = false;
+  // Quick Deck state (crew expressions + ship systems)
+  let quickDeckOpen = false;
+  let quickDeckTab = "crew";
   let emoteToastTimer = null;
 
-  function setEmoteWheelOpen(open) {
-    const wheel = document.getElementById("emote-wheel");
-    const btn = document.getElementById("btn-emote-menu");
-    emoteWheelOpen = Boolean(open);
-    if (wheel) {
-      wheel.classList.toggle("open", emoteWheelOpen);
-      wheel.setAttribute("aria-hidden", emoteWheelOpen ? "false" : "true");
+  function setQuickDeckTab(tab) {
+    quickDeckTab = tab === "systems" ? "systems" : "crew";
+    const crewTab = document.getElementById("tab-deck-crew");
+    const systemsTab = document.getElementById("tab-deck-systems");
+    const crewPanel = document.getElementById("deck-crew-panel");
+    const systemsPanel = document.getElementById("deck-systems-panel");
+    const detail = document.getElementById("deck-detail-text");
+    const isCrew = quickDeckTab === "crew";
+    if (crewTab) {
+      crewTab.classList.toggle("active", isCrew);
+      crewTab.setAttribute("aria-selected", String(isCrew));
     }
-    if (btn) btn.classList.toggle("active", emoteWheelOpen);
+    if (systemsTab) {
+      systemsTab.classList.toggle("active", !isCrew);
+      systemsTab.setAttribute("aria-selected", String(!isCrew));
+    }
+    if (crewPanel) crewPanel.hidden = !isCrew;
+    if (systemsPanel) systemsPanel.hidden = isCrew;
+    if (detail) {
+      detail.textContent = isCrew
+        ? "Crew expressions, ready for the whole expedition."
+        : "Ship systems, mission views, and display modes.";
+    }
+  }
+
+  function setQuickDeckOpen(open, tab) {
+    const deck = document.getElementById("quick-deck");
+    const btn = document.getElementById("btn-quick-deck");
+    quickDeckOpen = Boolean(open);
+    if (tab) setQuickDeckTab(tab);
+    if (deck) {
+      deck.classList.toggle("open", quickDeckOpen);
+      deck.setAttribute("aria-hidden", quickDeckOpen ? "false" : "true");
+    }
+    if (btn) {
+      btn.classList.toggle("active", quickDeckOpen);
+      btn.setAttribute("aria-expanded", String(quickDeckOpen));
+    }
+    document.body.classList.toggle("deck-open", quickDeckOpen);
+    if (quickDeckOpen) {
+      Object.keys(keys).forEach((key) => { keys[key] = false; });
+      const activePanel = document.getElementById(quickDeckTab === "crew" ? "deck-crew-panel" : "deck-systems-panel");
+      const first = activePanel ? activePanel.querySelector(".deck-row") : null;
+      if (first && typeof first.focus === "function") first.focus({ preventScroll: true });
+    }
+  }
+
+  function isFullscreenViewActive() {
+    return Boolean(
+      (window.solarSystem && window.solarSystem.isActive) ||
+      (window.missionViz && window.missionViz.isActive) ||
+      (window.issShowcase && window.issShowcase.isActive) ||
+      (window.vrManager && window.vrManager.isAnyVRActive) ||
+      (window.dockingSim && window.dockingSim.isActive) ||
+      (window.launchCutscene && window.launchCutscene.isPlaying) ||
+      (window.glbManager && window.glbManager.hangarActive)
+    );
   }
 
   function showEmoteToast(def) {
@@ -382,23 +434,25 @@
 
     const checklistTitle = document.getElementById("hud-checklist-title");
     if (checklistTitle) {
-      checklistTitle.textContent = (isNarrow || isMobile) ? "OBJECTIVES" : "MISSION OBJECTIVES";
+      checklistTitle.textContent = "OBJECTIVES";
     }
 
     const settingsBtn = document.getElementById("btn-voice-settings");
     if (settingsBtn) {
-      settingsBtn.innerHTML = (isNarrow || isMobile) ? "<span>&#9881;</span><span>SET</span>" : "<span>&#9881;</span>";
+      settingsBtn.innerHTML = uiIcon("settings");
     }
 
     if (!userToggledChecklist) {
       const checklistPanel = document.getElementById("hud-checklist-panel");
+      const checklistToggle = document.getElementById("hud-checklist-toggle");
       if (checklistPanel) {
-        checklistPanel.classList.toggle("collapsed", isCompact);
+        const collapsed = checklistPanel.classList.toggle("collapsed", isCompact);
+        if (checklistToggle) checklistToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
       }
     }
 
     if (!userToggledTelemetry) {
-      document.body.classList.toggle("telemetry-collapsed", isCompact);
+      document.body.classList.add("telemetry-collapsed");
     }
     syncTelemetryToggleUI();
   }
@@ -436,7 +490,7 @@
 
     const lobbyHint = document.querySelector(".lobby-controls-hint");
     if (lobbyHint) {
-      lobbyHint.innerHTML = "<strong>Thumbstick</strong> Move &bull; <strong>Drag</strong> Look &bull; <strong>Tap</strong> Console &bull; <strong>EMOTE</strong> &bull; <strong>CAM</strong>";
+      lobbyHint.innerHTML = "<strong>Thumbstick</strong> Move &bull; <strong>Drag</strong> Look &bull; <strong>Tap</strong> Console &bull; <strong>DECK</strong> &bull; <strong>CAM</strong>";
     }
 
     const voiceKeyHint = document.querySelector(".voice-key-hint");
@@ -445,39 +499,94 @@
     }
   }
 
-  function setupEmoteWheel() {
-    const wheel = document.getElementById("emote-wheel");
-    const btn = document.getElementById("btn-emote-menu");
-    const grid = document.getElementById("emote-grid");
-    if (!wheel || !btn || !grid) return;
+  function setupQuickDeck() {
+    const deck = document.getElementById("quick-deck");
+    const btn = document.getElementById("btn-quick-deck");
+    const crewPanel = document.getElementById("deck-crew-panel");
+    const systemsPanel = document.getElementById("deck-systems-panel");
+    if (!deck || !btn || !crewPanel) return;
 
     const defs = window.ASTRONAUT_EMOTES || [];
-    grid.innerHTML = defs.map((def, index) => `
-      <button type="button" class="emote-btn" data-emote="${def.id}">
-        <span class="emote-hotkey">${index + 1}</span>
-        <span class="emote-icon">${def.icon}</span>
-        <span class="emote-label">${def.label}</span>
+    crewPanel.innerHTML = defs.map((def, index) => `
+      <button type="button" class="deck-row" data-emote="${def.id}" title="${def.label}">
+        <span class="deck-row__icon" aria-hidden="true">${def.icon}</span>
+        <span class="deck-row__copy">
+          <span class="deck-row__label">${String(def.label || "").toUpperCase()}</span>
+          <span class="deck-row__sub">Crew expression</span>
+        </span>
+        <span class="deck-row__hint">${index + 1}</span>
       </button>
     `).join("");
 
     btn.addEventListener("click", () => {
-      setEmoteWheelOpen(!emoteWheelOpen);
+      setQuickDeckOpen(!quickDeckOpen, quickDeckTab);
       if (window.spaceAudio && typeof window.spaceAudio.playClick === "function") {
         window.spaceAudio.playClick();
       }
     });
 
-    grid.addEventListener("click", (event) => {
+    const closeBtn = document.getElementById("btn-deck-close");
+    if (closeBtn) {
+      closeBtn.addEventListener("click", () => setQuickDeckOpen(false));
+    }
+
+    document.querySelectorAll("[data-deck-tab]").forEach((tabBtn) => {
+      tabBtn.addEventListener("click", () => {
+        setQuickDeckTab(tabBtn.getAttribute("data-deck-tab"));
+      });
+    });
+
+    crewPanel.addEventListener("click", (event) => {
       const target = event.target.closest("[data-emote]");
       if (!target) return;
       playLocalEmote(target.getAttribute("data-emote"));
-      setEmoteWheelOpen(false);
+      setQuickDeckOpen(false);
     });
 
+    if (systemsPanel) {
+      systemsPanel.addEventListener("click", (event) => {
+        if (event.target.closest(".deck-row")) setQuickDeckOpen(false);
+      });
+    }
+
     document.addEventListener("pointerdown", (event) => {
-      if (!emoteWheelOpen) return;
-      if (wheel.contains(event.target) || btn.contains(event.target)) return;
-      setEmoteWheelOpen(false);
+      if (!quickDeckOpen) return;
+      if (deck.contains(event.target) || btn.contains(event.target)) return;
+      setQuickDeckOpen(false);
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (!quickDeckOpen) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setQuickDeckOpen(false);
+        return;
+      }
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        moveDeckFocus(event.key === "ArrowDown" ? 1 : -1);
+        return;
+      }
+      if (event.key === "Enter" || event.key === " ") {
+        if (document.activeElement && document.activeElement.classList && document.activeElement.classList.contains("deck-row")) {
+          event.preventDefault();
+          document.activeElement.click();
+        }
+        return;
+      }
+      if (event.key === "Tab") {
+        const focusable = Array.from(deck.querySelectorAll("button:not([disabled])")).filter((el) => el.offsetParent !== null);
+        if (!focusable.length) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
     });
   }
 
@@ -526,7 +635,7 @@
     // 4. Lighting & Cosmos Environment
     setupCosmosEnvironment();
 
-    // 5. Initialize Perilune 27-Part Interactive ISS Reference Showcase, Mission Viz & VR Mode
+    // 5. Initialize Lunaspis 27-Part Interactive ISS Reference Showcase, Mission Viz & VR Mode
     if (window.issShowcase && typeof window.issShowcase.init === "function") {
       window.issShowcase.init(scene, camera, renderer);
     }
@@ -543,7 +652,7 @@
     // 5a. Build Station & Attach ISS Model
     buildSpaceStationAndFleet();
 
-    // 5b. Preload Perilune GLB Assets
+    // 5b. Preload Lunaspis GLB Assets
     if (window.glbManager) {
       const primaryAstronautPath = isMobile ? "models/astronaut/astronaut_lod1.glb" : "models/astronaut/astronaut_lod0.glb";
       window.glbManager.loadGLB(primaryAstronautPath).catch(() => {});
@@ -551,7 +660,7 @@
       window.glbManager.loadGLB("models/iss/ISS_stationary_opt.glb").catch(() => {});
     }
 
-    // 5c. Perilune 6-Room Modular Spacecraft Interior (hidden during orbital title screen until mission launch)
+    // 5c. Lunaspis 6-Room Modular Spacecraft Interior (hidden during orbital title screen until mission launch)
     if (window.shipInterior && typeof window.shipInterior.init === "function") {
       window.shipInterior.init(scene);
       window.shipInterior.hide();
@@ -569,7 +678,7 @@
     };
 
     // 6. Build Local Player Astronaut Rig
-    buildLocalAstronaut("#67e8f9", "commander", isMobile ? "astronaut_lod1" : "astronaut_lod0");
+    buildLocalAstronaut("#d0a15c", "commander", isMobile ? "astronaut_lod1" : "astronaut_lod0");
 
     // 7. Setup UI & Network Flow
     setupMissionControlFlow();
@@ -597,7 +706,7 @@
 
     // 9. Input controls & resize/orientation listeners
     setupInputControls();
-    setupEmoteWheel();
+    setupQuickDeck();
     setupMobileUX();
     window.addEventListener("resize", onWindowResize);
     window.addEventListener("orientationchange", () => {
@@ -723,7 +832,7 @@
   // ============================================================================
   // NASA ASTRONAUT RIG, FLOATING NAMETAGS & FLIGHT SPECIALIZATION
   // ============================================================================
-  function createNameBadgeSprite(name = "Astronaut", color = "#67e8f9", role = "commander", isHost = false, team = "crew") {
+  function createNameBadgeSprite(name = "Astronaut", color = "#d0a15c", role = "commander", isHost = false, team = "crew") {
     const canvas = document.createElement("canvas");
     canvas.width = 512;
     canvas.height = 160;
@@ -734,9 +843,9 @@
       const pillX = 36, pillY = 24, pillW = 440, pillH = 112, rad = 24;
 
       ctx.save();
-      let glowColor = c || (currentTeam === "crew" ? "#67e8f9" : currentTeam === "bravo" ? "#3b82f6" : "#ef4444");
-      if (isRadio) glowColor = "#f59e0b";
-      else if (isSpeaking) glowColor = "#22c55e";
+      let glowColor = c || (currentTeam === "crew" ? "#d0a15c" : currentTeam === "bravo" ? "#8a8194" : "#c67979");
+      if (isRadio) glowColor = "#d0a15c";
+      else if (isSpeaking) glowColor = "#83a896";
 
       ctx.shadowColor = glowColor;
       ctx.shadowBlur = (isRadio || isSpeaking) ? 30 : 18;
@@ -778,9 +887,9 @@
 
       const displayName = prefix + String(n || "CREW").toUpperCase();
       ctx.font = "900 34px 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-      if (isRadio) ctx.fillStyle = "#fef08a";
-      else if (isSpeaking) ctx.fillStyle = "#4ade80";
-      else ctx.fillStyle = "#ffffff";
+      if (isRadio) ctx.fillStyle = "#e7c58c";
+      else if (isSpeaking) ctx.fillStyle = "#83a896";
+      else ctx.fillStyle = "#eceae3";
 
       ctx.fillText(displayName, 256, 62);
 
@@ -791,13 +900,13 @@
 
       ctx.font = "800 22px 'SF Mono', Monaco, Consolas, monospace";
       if (isRadio) {
-        ctx.fillStyle = "#fde047";
+        ctx.fillStyle = "#e7c58c";
         ctx.fillText("● " + roleBanner + " [RADIO]", 256, 104);
       } else if (isSpeaking) {
-        ctx.fillStyle = "#86efac";
+        ctx.fillStyle = "#83a896";
         ctx.fillText("● " + roleBanner + " [PROX]", 256, 104);
       } else {
-        ctx.fillStyle = c || roleMeta.color || "#67e8f9";
+        ctx.fillStyle = c || roleMeta.color || "#d0a15c";
         ctx.fillText("● " + roleBanner, 256, 104);
       }
     }
@@ -832,7 +941,7 @@
   }
   window.createNameBadgeSprite = createNameBadgeSprite;
 
-  function createAstronautMesh(suitHexColor = "#67e8f9", role = "commander", name = "Astronaut", isHost = false, modelKey = null, team = "crew", options = {}) {
+  function createAstronautMesh(suitHexColor = "#d0a15c", role = "commander", name = "Astronaut", isHost = false, modelKey = null, team = "crew", options = {}) {
     if (window.glbManager && typeof window.glbManager.createAstronautRig === "function") {
       return window.glbManager.createAstronautRig(suitHexColor, role, name, isHost, modelKey, team, options);
     }
@@ -840,7 +949,7 @@
     return { root };
   }
 
-  function buildLocalAstronaut(color = "#67e8f9", role = "commander", modelKey = null) {
+  function buildLocalAstronaut(color = "#d0a15c", role = "commander", modelKey = null) {
     const prevPos = (isGameStarted && localCrew.group) ? localCrew.group.position.clone() : null;
     const prevRotY = (isGameStarted && localCrew.group) ? localCrew.group.rotation.y : null;
 
@@ -882,7 +991,7 @@
     localCrew.team = team;
 
     // Preserve active in-world coordinates when swapping suits/roles mid-mission;
-    // otherwise spawn at Perilune's PLAYER_SPAWN in Transit Hub facing -Z.
+    // otherwise spawn at Lunaspis's PLAYER_SPAWN in Transit Hub facing -Z.
     if (prevPos) {
       localCrew.group.position.copy(prevPos);
       localCrew.group.rotation.y = prevRotY != null ? prevRotY : Math.PI;
@@ -951,8 +1060,8 @@
     const authStatusDesc = document.getElementById("auth-status-desc");
     const authStatusIcon = document.getElementById("auth-status-icon");
 
-    let regSelectedColor = "#67e8f9";
-    let dossierSelectedColor = "#67e8f9";
+    let regSelectedColor = "#d0a15c";
+    let dossierSelectedColor = "#d0a15c";
 
     function showAuthBanner(msg, isError = false) {
       if (!authBanner) return;
@@ -1034,15 +1143,15 @@
         const defName = localStorage.getItem("interfellas_name") || "CDR. Vance";
         if (inputName) inputName.value = defName;
         window.netManager.localPlayer.name = defName;
-        window.netManager.localPlayer.color = "#67e8f9";
+        window.netManager.localPlayer.color = "#d0a15c";
         window.netManager.localPlayer.role = "commander";
-        buildLocalAstronaut("#67e8f9", "commander", defaultModel);
+        buildLocalAstronaut("#d0a15c", "commander", defaultModel);
         return;
       }
 
       const rank = astro.flight_title || "Commander";
       const callsign = astro.callsign || astro.username;
-      const color = astro.suit_color || "#67e8f9";
+      const color = astro.suit_color || "#d0a15c";
 
       if (authStatusTitle) authStatusTitle.textContent = `${callsign.toUpperCase()}`;
       if (authStatusDesc) authStatusDesc.textContent = `${rank.toUpperCase()}`;
@@ -1091,7 +1200,7 @@
       if (dVictories) dVictories.textContent = currentAstronaut.games_won || 0;
       if (dTasks) dTasks.textContent = currentAstronaut.tasks_completed || 0;
 
-      dossierSelectedColor = currentAstronaut.suit_color || "#67e8f9";
+      dossierSelectedColor = currentAstronaut.suit_color || "#d0a15c";
       document.querySelectorAll("#dossier-color-swatches .lobby-color-btn").forEach(b => {
         b.classList.toggle("active", b.getAttribute("data-color") === dossierSelectedColor);
       });
@@ -1302,7 +1411,7 @@
       btnHost.addEventListener("click", () => {
         const name = inputName ? inputName.value.trim() : (currentAstronaut ? currentAstronaut.callsign : "Commander");
         const color = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.color)
-          || (currentAstronaut ? currentAstronaut.suit_color : "#67e8f9");
+          || (currentAstronaut ? currentAstronaut.suit_color : "#d0a15c");
         const rawRole = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.role)
           || (currentAstronaut ? (currentAstronaut.preferred_role || currentAstronaut.flight_title) : "commander");
         const role = window.InterfellasRoles ? window.InterfellasRoles.normalizeRole(rawRole, "commander") : "commander";
@@ -1321,7 +1430,7 @@
         }
         const name = inputName ? inputName.value.trim() : (currentAstronaut ? currentAstronaut.callsign : "Crew");
         const color = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.color)
-          || (currentAstronaut ? currentAstronaut.suit_color : "#67e8f9");
+          || (currentAstronaut ? currentAstronaut.suit_color : "#d0a15c");
         const explicitRole = !!(window.netManager && window.netManager.explicitRoleSelected);
         const rawRole = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.role)
           || (currentAstronaut ? (currentAstronaut.preferred_role || currentAstronaut.flight_title) : "commander");
@@ -1334,7 +1443,7 @@
       btnQuick.addEventListener("click", () => {
         const name = inputName ? inputName.value.trim() : (currentAstronaut ? currentAstronaut.callsign : "Crew");
         const color = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.color)
-          || (currentAstronaut ? currentAstronaut.suit_color : "#67e8f9");
+          || (currentAstronaut ? currentAstronaut.suit_color : "#d0a15c");
         const explicitRole = !!(window.netManager && window.netManager.explicitRoleSelected);
         const rawRole = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.role)
           || (currentAstronaut ? (currentAstronaut.preferred_role || currentAstronaut.flight_title) : "commander");
@@ -1413,7 +1522,7 @@
         window.gameplay.closeTaskModal();
       }
 
-      const resBar = document.getElementById("perilune-resource-meters");
+      const resBar = document.getElementById("lunaspis-resource-meters");
       if (resBar) resBar.style.display = "none";
       const btnUse = document.getElementById("btn-proximity-use");
       if (btnUse) btnUse.style.display = "none";
@@ -1560,6 +1669,64 @@
       });
     }
 
+    const btnDeckInterior = document.getElementById("btn-deck-interior");
+    if (btnDeckInterior) {
+      btnDeckInterior.addEventListener("click", () => {
+        if (window.missionViz && window.missionViz.isActive) window.missionViz.close();
+        if (window.issShowcase && window.issShowcase.isActive) {
+          window.issShowcase.close();
+          return;
+        }
+        if (window.glbManager && window.glbManager.hangarActive) {
+          window.glbManager.closeHangar();
+          return;
+        }
+        if (window.shipInterior) {
+          const visible = window.shipInterior.toggleInterior();
+          if (window.showActionToast) {
+            window.showActionToast(visible ? "LUNASPIS 6-ROOM SHIP INTERIOR: ACTIVE" : "EXTERIOR / EVA VIEW: ACTIVE");
+          }
+        }
+      });
+    }
+
+    const btnDeckIss = document.getElementById("btn-deck-iss");
+    if (btnDeckIss) {
+      btnDeckIss.addEventListener("click", () => {
+        if (window.missionViz && window.missionViz.isActive) window.missionViz.close();
+        if (window.glbManager && window.glbManager.hangarActive) window.glbManager.closeHangar();
+        if (window.issShowcase) window.issShowcase.toggle();
+      });
+    }
+
+    const btnDeckMoon = document.getElementById("btn-deck-moon");
+    if (btnDeckMoon) {
+      btnDeckMoon.addEventListener("click", () => {
+        if (window.missionViz && window.missionViz.isActive) window.missionViz.close();
+        if (window.glbManager && window.glbManager.hangarActive) window.glbManager.closeHangar();
+        if (window.shipInterior && typeof window.shipInterior.toggleMoonLandingScene === "function") {
+          window.shipInterior.toggleMoonLandingScene();
+        }
+      });
+    }
+
+    const btnDeckSpaceCenter = document.getElementById("btn-deck-space-center");
+    if (btnDeckSpaceCenter) {
+      btnDeckSpaceCenter.addEventListener("click", () => {
+        if (window.missionViz && window.missionViz.isActive) window.missionViz.close();
+        if (window.spaceCenter && typeof window.spaceCenter.toggleGroundOrbit === "function") {
+          window.spaceCenter.toggleGroundOrbit();
+        }
+      });
+    }
+
+    const btnDeckSettings = document.getElementById("btn-deck-settings");
+    if (btnDeckSettings) {
+      btnDeckSettings.addEventListener("click", () => {
+        document.getElementById("btn-voice-settings")?.click();
+      });
+    }
+
     const btnIssHUD = document.getElementById("btn-hud-iss-showcase");
     if (btnIssHUD) {
       btnIssHUD.addEventListener("click", () => {
@@ -1577,7 +1744,7 @@
     window.netManager.on("auto_join_url", (roomCode) => {
       if (inputCode) inputCode.value = roomCode;
       const color = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.color)
-        || (currentAstronaut ? currentAstronaut.suit_color : "#67e8f9");
+        || (currentAstronaut ? currentAstronaut.suit_color : "#d0a15c");
       const explicitRole = !!(window.netManager && window.netManager.explicitRoleSelected);
       const rawRole = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.role)
         || (currentAstronaut ? (currentAstronaut.preferred_role || currentAstronaut.flight_title) : "commander");
@@ -1699,13 +1866,13 @@
       if (btnLobbyVoice && lobbyVoiceText) {
         if (!vm.isEnabled) {
           btnLobbyVoice.classList.remove("active");
-          lobbyVoiceText.textContent = "ENABLE COMMS";
+          lobbyVoiceText.textContent = "MIC OFF";
         } else if (vm.isMuted) {
           btnLobbyVoice.classList.remove("active");
-          lobbyVoiceText.textContent = "COMMS MUTED";
+          lobbyVoiceText.textContent = "MUTED";
         } else {
           btnLobbyVoice.classList.add("active");
-          lobbyVoiceText.textContent = vm.isSpeaking ? "TRANSMITTING" : "COMMS LIVE";
+          lobbyVoiceText.textContent = vm.isSpeaking ? "TX" : "MIC ON";
         }
       }
 
@@ -1796,14 +1963,14 @@
       if (crewVolList) {
         const remotes = (window.netManager && window.netManager.remotePlayers) ? Object.values(window.netManager.remotePlayers) : [];
         if (remotes.length === 0) {
-          crewVolList.innerHTML = `<div style="font-size:11px;color:rgba(154,164,174,0.7);text-align:center;padding:8px;">No crewmates in room</div>`;
+          crewVolList.innerHTML = `<div style="font-size:11px;color:rgba(166,173,182,0.7);text-align:center;padding:8px;">No crewmates in room</div>`;
         } else {
           crewVolList.innerHTML = "";
           remotes.forEach((rp) => {
             const curVol = Math.round((vm.playerVolumes[rp.id] !== undefined ? vm.playerVolumes[rp.id] : 1.0) * 100);
             const row = document.createElement("div");
             row.className = "crewmate-vol-row";
-            const volColor = safeHexColor(rp.color, "#ece7dc");
+            const volColor = safeHexColor(rp.color, "#eceae3");
             const volName = escapeHtml(rp.name || "Crew");
             row.innerHTML = `
               <span class="crewmate-vol-name" style="color:${volColor};">${volName}</span>
@@ -2083,7 +2250,7 @@
         : (lp.role || "commander");
       lp.role = normRole;
       if (localCrew && (localCrew.role !== normRole || localCrew.color !== lp.color)) {
-        buildLocalAstronaut(lp.color || "#67e8f9", normRole);
+        buildLocalAstronaut(lp.color || "#d0a15c", normRole);
       }
       if (typeof window.syncLobbySelectionUI === "function") window.syncLobbySelectionUI();
       if (typeof window.renderHudCrewRoster === "function") window.renderHudCrewRoster();
@@ -2158,7 +2325,7 @@
         document.body.classList.add("game-active");
         screenGame.style.display = "flex";
         syncResponsiveHudState();
-        const resBar = document.getElementById("perilune-resource-meters");
+        const resBar = document.getElementById("lunaspis-resource-meters");
         if (resBar) {
           if (window.gameplay && typeof window.gameplay._applyResourceBarLayout === "function") {
             window.gameplay._applyResourceBarLayout(resBar);
@@ -2283,8 +2450,6 @@
   function renderLobbyMission(mission) {
     const cards = document.getElementById("lobby-mission-cards");
     const difficultyRow = document.getElementById("lobby-difficulty-pills");
-    const selectedLabel = document.getElementById("lobby-mission-selected");
-    const hint = document.getElementById("lobby-mission-hint");
     if (!cards) return;
 
     const catalog = window.gameplay && typeof window.gameplay.getScenarioCatalog === "function"
@@ -2304,60 +2469,63 @@
     const isHost = !!(window.netManager && window.netManager.isHost);
     const canSelect = isHost && status === "lobby";
 
-    if (selectedLabel && selected) {
-      selectedLabel.textContent = `${selected.code} · ${selected.badge}`;
-    }
-    if (hint) {
-      hint.textContent = canSelect
-        ? "HOST CONTROL — SELECT EXPEDITION PROFILE"
-        : "HOST SELECTS THE EXPEDITION — CREW VIEW";
-      hint.style.color = canSelect ? "#67e8f9" : "#9aa4ae";
-    }
+    const scenarioIcons = {
+      earth_climate: "globe",
+      lunar_south_pole: "moon",
+      asteroid_rendezvous: "asteroid",
+      space_telescope: "telescope",
+      cubesat_101: "cubesat",
+      sandbox: "flask"
+    };
 
-    cards.innerHTML = catalog.map((scenario) => {
+    const buttons = catalog.map((scenario) => {
       const active = scenario.id === selected.id;
+      const icon = uiIcon(scenarioIcons[scenario.id] || "orbit", "ui-icon ui-icon--lg");
+      return { scenario, active, icon };
+    });
+
+    cards.innerHTML = buttons.map(({ scenario, active, icon }) => {
+      const budget = Number(scenario.baseBudgetM || 0);
+      const months = Number(scenario.targetLifetimeMonths || 0);
       return `
-        <button type="button" data-scenario-id="${escapeHtml(scenario.id)}" style="
-          flex:1 1 170px;
-          min-width:170px;
-          text-align:left;
-          padding:10px;
-          border-radius:8px;
-          border:1px solid ${active ? "#67e8f9" : "rgba(255,255,255,0.12)"};
-          background:${active ? "rgba(103,232,249,0.10)" : "rgba(255,255,255,0.025)"};
-          color:inherit;
-          font-family:inherit;
-          cursor:${canSelect ? "pointer" : "default"};
-          opacity:${canSelect ? "1" : "0.82"};
-          transition:all 0.15s;
-        ">
-          <div style="font-family:monospace;font-size:8.5px;font-weight:700;color:#67e8f9;letter-spacing:1.1px;">${escapeHtml(scenario.badge)}</div>
-          <div style="font-size:11px;font-weight:700;color:#ece7dc;margin:4px 0 3px;">${escapeHtml(scenario.code)} · ${escapeHtml(scenario.name)}</div>
-          <div style="font-size:9.5px;color:#9aa4ae;line-height:1.35;height:39px;overflow:hidden;">${escapeHtml(scenario.summary)}</div>
-          <div style="display:flex;justify-content:space-between;margin-top:6px;font-family:monospace;font-size:8.5px;color:#7fb8a6;">
-            <span>$${Number(scenario.baseBudgetM || 0)}M CAP</span>
-            <span>${Number(scenario.targetLifetimeMonths || 0)} MO</span>
+        <button type="button" class="mission-card${active ? " is-active" : ""}${canSelect ? "" : " is-disabled"}"
+          role="radio" aria-checked="${active ? "true" : "false"}"
+          ${canSelect ? "" : 'aria-disabled="true"'} tabindex="${active ? "0" : "-1"}"
+          title="${escapeHtml(scenario.name)} — ${escapeHtml(scenario.summary)}"
+          data-scenario-id="${escapeHtml(scenario.id)}">
+          <div class="mission-card__header">
+            <span class="mission-card__icon" aria-hidden="true">${icon}</span>
+            <span class="mission-card__titles">
+              <span class="mission-card__title">${escapeHtml(scenario.name)}</span>
+              <span class="ui-eyebrow">${escapeHtml(scenario.code)}</span>
+            </span>
+            ${active ? `<span class="mission-card__check" aria-hidden="true">${uiIcon("check", "ui-icon ui-icon--sm")}</span>` : ""}
           </div>
+          <dl class="mission-card__stats">
+            <div class="mission-card__stat"><dt>BUDGET</dt><dd>$${budget}M</dd></div>
+            <div class="mission-card__stat"><dt>DURATION</dt><dd>${months} MO</dd></div>
+          </dl>
         </button>
       `;
     }).join("");
 
+    requestAnimationFrame(() => {
+      const activeCard = cards.querySelector(".mission-card.is-active");
+      if (activeCard && cards.scrollWidth > cards.clientWidth + 4) {
+        cards.scrollLeft = activeCard.offsetLeft - cards.offsetLeft;
+      }
+    });
+
     if (difficultyRow) {
+      const difficultyLabels = { cadet: "CADET", engineer: "ENGINEER", director: "DIRECTOR" };
       difficultyRow.innerHTML = difficulties.map((difficulty) => {
         const active = difficulty.id === selectedDifficultyId;
         return `
-          <button type="button" data-difficulty-id="${escapeHtml(difficulty.id)}" title="${escapeHtml(difficulty.desc)}" style="
-            padding:5px 9px;
-            border-radius:999px;
-            border:1px solid ${active ? "#d0a15c" : "rgba(255,255,255,0.14)"};
-            background:${active ? "rgba(208,161,92,0.16)" : "rgba(255,255,255,0.03)"};
-            color:${active ? "#fde68a" : "#9aa4ae"};
-            font-family:monospace;
-            font-size:9px;
-            font-weight:700;
-            letter-spacing:0.8px;
-            cursor:${canSelect ? "pointer" : "default"};
-          ">${escapeHtml(String(difficulty.name || difficulty.id).split("(")[0].trim().toUpperCase())}</button>
+          <button type="button" class="difficulty-pill${active ? " is-active" : ""}"
+            data-difficulty-id="${escapeHtml(difficulty.id)}"
+            title="${escapeHtml(difficulty.desc)}"
+            aria-pressed="${active ? "true" : "false"}"
+            ${canSelect ? "" : "disabled"}>${escapeHtml(difficultyLabels[difficulty.id] || String(difficulty.name || difficulty.id).split("(")[0].trim().toUpperCase())}</button>
         `;
       }).join("");
     }
@@ -2367,6 +2535,20 @@
         if (!canSelect) return;
         window.netManager.selectMission(button.getAttribute("data-scenario-id"));
         if (window.spaceAudio) window.spaceAudio.playClick();
+      });
+      button.addEventListener("keydown", (event) => {
+        if (!canSelect) return;
+        if (!["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+        event.preventDefault();
+        const list = Array.from(cards.querySelectorAll("[data-scenario-id]"));
+        const index = list.indexOf(button);
+        const dir = (event.key === "ArrowRight" || event.key === "ArrowDown") ? 1 : -1;
+        const next = list[(index + dir + list.length) % list.length];
+        if (next) {
+          window.netManager.selectMission(next.getAttribute("data-scenario-id"));
+          if (window.spaceAudio) window.spaceAudio.playClick();
+          next.focus();
+        }
       });
     });
     if (difficultyRow) {
@@ -2381,7 +2563,7 @@
 
     const btnStart = document.getElementById("btn-start-mission");
     if (btnStart && status === "lobby" && isHost && selected) {
-      btnStart.textContent = `LAUNCH ${selected.code} →`;
+      btnStart.textContent = "LAUNCH →";
     }
   }
 
@@ -2395,32 +2577,26 @@
     const btnBegin = document.getElementById("btn-briefing-begin");
 
     if (title) {
-      title.textContent = `${mission.scenarioCode || "PERILUNE"} · ${mission.scenarioName || "CO-OP EXPEDITION"}`;
+      title.textContent = `${mission.scenarioCode || "MISSION"} · ${mission.scenarioName || "EXPEDITION"}`;
     }
     if (meta) {
       const crew = window.netManager && window.netManager.roomState && Array.isArray(window.netManager.roomState.players)
         ? window.netManager.roomState.players.length
         : 0;
-      meta.textContent = `DIFFICULTY: ${String(mission.difficultyId || "engineer").toUpperCase()} · CREW: ${crew}/6 · SEED: ${mission.seed || "—"}`;
+      meta.textContent = `${String(mission.difficultyId || "engineer").toUpperCase()} · ${crew} CREW`;
     }
     if (summary) {
-      summary.textContent = mission.scenarioSummary ||
-        "Complete the shared mission objectives across the station before the expedition window closes.";
+      summary.textContent = mission.scenarioSummary || "";
     }
     if (list) {
       const objectives = Array.isArray(mission.objectives) ? mission.objectives : [];
       const completed = new Set(mission.completedObjectives || []);
       list.innerHTML = objectives.map((objective) => {
         const done = completed.has(objective.id);
-        const deps = (objective.dependsOn || []).map((id) => {
-          const dep = objectives.find((entry) => entry.id === id);
-          return dep ? dep.room : id;
-        });
         return `
-          <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
-            <span style="font-family:monospace;font-size:9px;font-weight:700;color:${done ? "#34d399" : "#67e8f9"};min-width:38px;">${escapeHtml(objective.room)}</span>
-            <span style="flex:1;font-size:11px;color:${done ? "#7fb8a6" : "#ece7dc"};">${escapeHtml(objective.title)}</span>
-            <span style="font-family:monospace;font-size:8.5px;color:#9aa4ae;">${done ? "COMPLETE" : deps.length ? "AFTER " + deps.join("+") : "FIRST"}</span>
+          <div class="briefing-objective${done ? " is-done" : ""}">
+            <span class="briefing-objective__code">${escapeHtml(objective.room)}</span>
+            <span class="briefing-objective__title">${escapeHtml(objective.title)}</span>
           </div>
         `;
       }).join("");
@@ -2441,29 +2617,22 @@
     const btnStart = document.getElementById("btn-start-mission");
     const status = roomStatus || (window.netManager.roomState && window.netManager.roomState.status) || "lobby";
 
-    if (countBadge) countBadge.textContent = `${players.length} / 6 ASTRONAUTS (CO-OP CREW)`;
+    if (countBadge) countBadge.textContent = `${players.length}/6 CREW`;
     if (btnStart) {
       const isHost = window.netManager.socketId === hostId;
+      btnStart.style.display = "block";
       if (status === "victory") {
-        btnStart.style.display = "block";
         btnStart.disabled = !isHost;
-        btnStart.style.opacity = isHost ? "1" : "0.55";
-        btnStart.textContent = isHost ? "MISSION SELECT →" : "MISSION COMPLETE";
+        btnStart.textContent = isHost ? "CHANGE MISSION →" : "COMPLETE";
       } else if (status === "playing") {
-        btnStart.style.display = "block";
         btnStart.disabled = false;
-        btnStart.style.opacity = "1";
-        btnStart.textContent = "JOIN ACTIVE MISSION";
+        btnStart.textContent = "JOIN";
       } else if (isHost) {
-        btnStart.style.display = "block";
         btnStart.disabled = false;
-        btnStart.style.opacity = "1";
-        btnStart.textContent = "LAUNCH MISSION";
+        btnStart.textContent = "LAUNCH";
       } else {
-        btnStart.style.display = "block";
         btnStart.disabled = true;
-        btnStart.style.opacity = "0.55";
-        btnStart.textContent = "WAITING FOR HOST...";
+        btnStart.textContent = "WAITING FOR HOST";
       }
     }
 
@@ -2471,15 +2640,10 @@
     slotsContainer.innerHTML = "";
 
     const header = document.createElement("div");
-    header.style.gridColumn = "1 / -1";
-    header.style.display = "flex";
-    header.style.justifyContent = "space-between";
-    header.style.alignItems = "center";
-    header.style.padding = "4px 6px";
-    header.style.borderBottom = "1px solid rgba(255, 255, 255, 0.12)";
+    header.className = "lobby-players-header";
     header.innerHTML = `
-      <div style="font-weight:700;color:#ece7dc;font-size:11px;letter-spacing:1.6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">PERILUNE CREW MANIFEST</div>
-      <div style="font-size:10px;font-weight:700;color:#9aa4ae;letter-spacing:1px;">${players.length} / 6 ABOARD</div>
+      <span class="lobby-players-header__title">CREW</span>
+      <span class="lobby-players-header__count">${players.length}/6</span>
     `;
     slotsContainer.appendChild(header);
 
@@ -2493,20 +2657,14 @@
       const expectedRole = ROLES_ORDER[i % ROLES_ORDER.length];
       const expectedMeta = window.InterfellasRoles
         ? window.InterfellasRoles.getRoleMeta(expectedRole)
-        : { short: expectedRole.slice(0, 3).toUpperCase(), label: expectedRole.toUpperCase(), color: "#67e8f9", duties: {} };
+        : { short: expectedRole.slice(0, 3).toUpperCase(), label: expectedRole.toUpperCase(), color: "#d0a15c", duties: {} };
       const p = players[i];
       const pod = document.createElement("div");
-      pod.className = `lobby-player-pod ${p ? 'occupied' : 'empty'}`;
-      pod.style.cursor = p ? "default" : "pointer";
-      pod.style.padding = "12px 14px";
-      pod.style.flexDirection = "row";
-      pod.style.justifyContent = "space-between";
-      pod.style.gap = "8px";
-      pod.style.minHeight = "64px";
+      pod.className = `lobby-player-pod ${p ? "occupied" : "empty"}`;
 
       if (p) {
         const isSelf = p.id === window.netManager.socketId;
-        const color = safeHexColor(p.color, "#ef4444");
+        const color = safeHexColor(p.color, "#c67979");
         const name = escapeHtml(p.name || "Astronaut");
         const normRole = window.InterfellasRoles
           ? window.InterfellasRoles.normalizeRole(p.role, expectedRole)
@@ -2514,28 +2672,32 @@
         const roleMeta = window.InterfellasRoles
           ? window.InterfellasRoles.getRoleMeta(normRole)
           : expectedMeta;
-        const dutyBrief = roleMeta.duties && roleMeta.duties.station ? roleMeta.duties.station : "";
+        pod.style.setProperty("--pod-color", roleMeta.color || color);
         pod.innerHTML = `
-          <div style="display:flex;align-items:center;gap:8px;min-width:0;">
-            <div class="pod-color-indicator" style="width:30px;height:30px;flex-shrink:0;background:${color};box-shadow:0 0 10px ${color};"></div>
-            <div style="text-align:left;min-width:0;">
-              <div class="pod-name" style="font-size:12px;">${name} ${p.isHost ? '<span style="color:#fde047;">[HOST]</span>' : ''} ${isSelf ? '<span style="color:#67e8f9;">(YOU)</span>' : ''}</div>
-              <div class="pod-role" style="color:${color};font-size:10px;">[${escapeHtml(roleMeta.short)}] ${escapeHtml(roleMeta.label)}</div>
-              ${dutyBrief ? `<div class="lobby-pod-duty">${escapeHtml(dutyBrief)}</div>` : ""}
+          <div class="pod-card">
+            <div class="pod-color-indicator" style="background:${color};"></div>
+            <div class="pod-card__body">
+              <div class="pod-name">
+                <span class="ui-truncate">${name}</span>
+                ${p.isHost ? '<span class="pod-tag pod-tag--host">HOST</span>' : ""}
+                ${isSelf ? '<span class="pod-tag pod-tag--you">YOU</span>' : ""}
+              </div>
+              <div class="pod-role" title="${escapeHtml(roleMeta.label)}">${escapeHtml(roleMeta.short)}</div>
             </div>
           </div>
-          <div class="pod-ready-badge ready" style="padding:2px 6px;font-size:9px;flex-shrink:0;">READY</div>
+          <span class="pod-status-dot" title="Ready"></span>
         `;
       } else {
+        pod.title = `Join as ${expectedMeta.label}`;
         pod.innerHTML = `
-          <div style="display:flex;align-items:center;gap:8px;">
-            <div class="pod-color-indicator empty" style="width:30px;height:30px;"></div>
-            <div style="text-align:left;">
-              <div class="pod-name" style="color:#9aa4ae;font-size:12px;">OPEN CREW SLOT</div>
-              <div class="pod-role" style="font-size:9px;color:rgba(154,164,174,0.85);">Click to assume [${escapeHtml(expectedMeta.short)}] ${escapeHtml(expectedMeta.label)}</div>
+          <div class="pod-card">
+            <div class="pod-color-indicator empty"></div>
+            <div class="pod-card__body">
+              <div class="pod-name">OPEN</div>
+              <div class="pod-role" title="${escapeHtml(expectedMeta.label)}">${escapeHtml(expectedMeta.short)}</div>
             </div>
           </div>
-          <div style="font-size:10px;color:#67e8f9;font-weight:700;letter-spacing:1px;">SWITCH &rarr;</div>
+          <span class="pod-switch" aria-hidden="true">${uiIcon("arrow-right", "ui-icon ui-icon--sm")}</span>
         `;
         pod.addEventListener("click", () => {
           window.netManager.explicitRoleSelected = true;
@@ -2553,7 +2715,7 @@
   function syncLobbySelectionUI(explicitPlayers) {
     const net = window.netManager;
     const lp = net && net.localPlayer ? net.localPlayer : {};
-    const myColor = String(lp.color || "#67e8f9").toLowerCase();
+    const myColor = String(lp.color || "#d0a15c").toLowerCase();
     const myRole = window.InterfellasRoles
       ? window.InterfellasRoles.normalizeRole(lp.role, "commander")
       : String(lp.role || "commander").toLowerCase();
@@ -2580,7 +2742,7 @@
           holderEl.textContent = list.map((p) => (p.id === net.socketId ? `${p.name} (YOU)` : p.name)).join(", ");
           holderEl.classList.add("filled");
         } else {
-          holderEl.textContent = "UNSTAFFED";
+          holderEl.textContent = "OPEN";
           holderEl.classList.remove("filled");
         }
       }
@@ -2617,7 +2779,7 @@
 
     let players = rs && Array.isArray(rs.players) && rs.players.length > 0
       ? rs.players
-      : [{ id: net ? net.socketId : "local", name: lp.name || "YOU", role: myRole, isHost: !!(net && net.isHost), color: lp.color || "#67e8f9" }];
+      : [{ id: net ? net.socketId : "local", name: lp.name || "YOU", role: myRole, isHost: !!(net && net.isHost), color: lp.color || "#d0a15c" }];
 
     const grouped = window.InterfellasRoles
       ? window.InterfellasRoles.getCrewByRole(players)
@@ -2634,16 +2796,16 @@
     const chipsHtml = order.map((r) => {
       const meta = window.InterfellasRoles
         ? window.InterfellasRoles.getRoleMeta(r)
-        : { short: r.slice(0, 3).toUpperCase(), label: r.toUpperCase(), color: "#67e8f9" };
+        : { short: r.slice(0, 3).toUpperCase(), label: r.toUpperCase(), color: "#d0a15c" };
       const holders = grouped[r] || [];
       const isSelf = r === myRole;
       const namesText = holders.length > 0
         ? holders.map((p) => (p.id === (net && net.socketId) ? `${p.name}*` : p.name)).join(", ")
         : "OPEN";
-      const cls = `crew-role-chip${isSelf ? " is-self" : ""}${holders.length === 0 ? " is-unstaffed" : ""}`;
+      const cls = `crew-role-chip crew-role-chip--${r}${isSelf ? " is-self" : ""}${holders.length === 0 ? " is-unstaffed" : ""}`;
       return `
-        <div class="${cls}" title="${escapeHtml(meta.label)}: ${escapeHtml(namesText)}">
-          <div class="crew-role-chip-head" style="color:${meta.color};">
+        <div class="${cls}" data-role="${r}" title="${escapeHtml(meta.label)}: ${escapeHtml(namesText)}">
+          <div class="crew-role-chip-head">
             <span>${escapeHtml(meta.short)}${isSelf ? " · YOU" : ""}</span>
           </div>
           <div class="crew-role-chip-names">${escapeHtml(namesText)}</div>
@@ -2710,7 +2872,7 @@
           : (grouped[nextOther.role] && grouped[nextOther.role][0] ? grouped[nextOther.role][0].name : `${otherRole} UNSTAFFED`);
         callout = `<strong>YOUR ROLE DONE:</strong> Assist <strong>${escapeHtml(otherHolder)}</strong> with [${escapeHtml(nextOther.code || nextOther.room || nextOther.id)}] ${escapeHtml(nextOther.name)}.`;
       } else {
-        callout = `<strong>PERILUNE STATION:</strong> Walk with [WASD] and interact [E] at your ${escapeHtml(myRole.toUpperCase())} consoles.`;
+        callout = `<strong>LUNASPIS STATION:</strong> Walk with [WASD] and interact [E] at your ${escapeHtml(myRole.toUpperCase())} consoles.`;
       }
     }
 
@@ -2721,7 +2883,7 @@
   }
   window.renderHudCrewRoster = renderHudCrewRoster;
 
-  function safeHexColor(color, fallback = "#ef4444") {
+  function safeHexColor(color, fallback = "#c67979") {
     return typeof color === "string" && /^#[0-9a-fA-F]{6}$/.test(color) ? color : fallback;
   }
 
@@ -2734,13 +2896,19 @@
       .replace(/'/g, "&#39;");
   }
 
+  function uiIcon(name, className) {
+    const cls = className || "ui-icon";
+    return `<svg class="${cls}" aria-hidden="true" focusable="false"><use href="#i-${name}"></use></svg>`;
+  }
+  window.uiIcon = uiIcon;
+
   function appendLobbyChat(comm) {
     const container = document.getElementById("lobby-chat-msgs");
     if (!container) return;
     const div = document.createElement("div");
     div.className = "lobby-msg";
     const sender = document.createElement("strong");
-    sender.style.color = safeHexColor(comm && comm.color, "#ef4444");
+    sender.style.color = safeHexColor(comm && comm.color, "#c67979");
     sender.textContent = String((comm && comm.sender) || "Crew");
     const sep = document.createTextNode(": ");
     const text = document.createElement("span");
@@ -2755,14 +2923,188 @@
   // ============================================================================
   // INPUT CONTROLS, ANALOG THUMBSTICK & MULTI-TOUCH CAMERA LOOK + PINCH ZOOM
   // ============================================================================
+  // ============================================================================
+  // GAMEPAD + INPUT-MODE PROMPTS
+  // ============================================================================
+  const gamepadEdges = new Set();
+  const gamepadMove = { x: 0, y: 0, magnitude: 0 };
+  const gamepadLook = { x: 0, y: 0 };
+  let gamepadNavCooldown = 0;
+
+  function activeGamepad() {
+    if (!navigator.getGamepads) return null;
+    const pads = navigator.getGamepads();
+    for (let i = 0; i < pads.length; i += 1) {
+      if (pads[i]) return pads[i];
+    }
+    return null;
+  }
+
+  function applyStickDeadzone(value, deadzone = 0.18) {
+    const v = Number(value) || 0;
+    if (Math.abs(v) < deadzone) return 0;
+    return Math.max(-1, Math.min(1, (v - Math.sign(v) * deadzone) / (1 - deadzone)));
+  }
+
+  function gamepadButtonPressed(pad, index) {
+    const button = pad && pad.buttons ? pad.buttons[index] : null;
+    return Boolean(button && (button.pressed || button.value > 0.5));
+  }
+
+  function gamepadButtonJustPressed(pad, index) {
+    const pressed = gamepadButtonPressed(pad, index);
+    const key = `${pad ? pad.index : "none"}:${index}`;
+    if (pressed && !gamepadEdges.has(key)) {
+      gamepadEdges.add(key);
+      return true;
+    }
+    if (!pressed) gamepadEdges.delete(key);
+    return false;
+  }
+
+  function moveDeckFocus(direction) {
+    const deck = document.getElementById("quick-deck");
+    if (!deck || !deck.classList.contains("open")) return;
+    const panel = deck.querySelector(".deck-body:not([hidden])");
+    if (!panel) return;
+    const rows = Array.from(panel.querySelectorAll(".deck-row:not([disabled])"));
+    if (!rows.length) return;
+    const current = rows.indexOf(document.activeElement);
+    const next = (current + direction + rows.length) % rows.length;
+    rows[next].focus({ preventScroll: true });
+  }
+
+  function activateDeckFocus() {
+    const active = document.activeElement;
+    if (active && active.classList && active.classList.contains("deck-row")) {
+      active.click();
+      return true;
+    }
+    const deck = document.getElementById("quick-deck");
+    const panel = deck ? deck.querySelector(".deck-body:not([hidden])") : null;
+    const first = panel ? panel.querySelector(".deck-row") : null;
+    if (first) {
+      first.click();
+      return true;
+    }
+    return false;
+  }
+
+  function closeTopLayer() {
+    if (quickDeckOpen) {
+      setQuickDeckOpen(false);
+      return true;
+    }
+    const settingsModal = document.getElementById("modal-station-systems");
+    if (settingsModal && settingsModal.style.display === "flex") {
+      settingsModal.style.display = "none";
+      return true;
+    }
+    const taskModal = document.getElementById("task-modal-overlay");
+    if (taskModal && taskModal.style.display === "flex") {
+      if (window.gameplay && typeof window.gameplay.closeTaskModal === "function") {
+        window.gameplay.closeTaskModal();
+      } else {
+        taskModal.style.display = "none";
+      }
+      return true;
+    }
+    return false;
+  }
+
+  function updateGamepad(delta) {
+    if (typeof document !== "undefined" && document.hidden) return;
+    const pad = activeGamepad();
+    if (!pad) return;
+
+    if (!isGameStarted) {
+      gamepadMove.x = 0;
+      gamepadMove.y = 0;
+      gamepadMove.magnitude = 0;
+      gamepadLook.x = 0;
+      gamepadLook.y = 0;
+      return;
+    }
+
+    const editing = document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+    if (editing) return;
+
+    const lx = applyStickDeadzone(pad.axes[0]);
+    const ly = applyStickDeadzone(pad.axes[1]);
+    const rx = applyStickDeadzone(pad.axes[2], 0.2);
+    const ry = applyStickDeadzone(pad.axes[3], 0.2);
+    gamepadMove.x = lx;
+    gamepadMove.y = ly;
+    gamepadMove.magnitude = Math.min(1, Math.hypot(lx, ly));
+    gamepadLook.x = rx;
+    gamepadLook.y = ry;
+
+    const anyButtonDown = pad.buttons ? pad.buttons.some((button) => button && (button.pressed || button.value > 0.2)) : false;
+    if ((Math.hypot(lx, ly) > 0.08 || Math.hypot(rx, ry) > 0.08 || anyButtonDown) && window.UITheme) {
+      window.UITheme.setInputMode("pad");
+    }
+
+    // A = select / interact, B = back, X = deck crew, Y = camera.
+    if (gamepadButtonJustPressed(pad, 0)) {
+      if (quickDeckOpen) {
+        activateDeckFocus();
+      } else {
+        const proximity = document.getElementById("btn-proximity-use");
+        if (proximity && proximity.style.display !== "none") proximity.click();
+      }
+    }
+    if (gamepadButtonJustPressed(pad, 1)) {
+      closeTopLayer();
+    }
+    if (gamepadButtonJustPressed(pad, 2)) {
+      const deck = document.getElementById("quick-deck");
+      if (deck && deck.classList.contains("open")) {
+        activateDeckFocus();
+      } else {
+        const proximity = document.getElementById("btn-proximity-use");
+        if (proximity && proximity.style.display !== "none") proximity.click();
+      }
+    }
+    if (gamepadButtonJustPressed(pad, 3)) {
+      cycleCameraMode();
+    }
+    if (gamepadButtonJustPressed(pad, 4)) {
+      setQuickDeckOpen(!quickDeckOpen || quickDeckTab !== "crew", "crew");
+    }
+    if (gamepadButtonJustPressed(pad, 5)) {
+      setQuickDeckOpen(!quickDeckOpen || quickDeckTab !== "systems", "systems");
+    }
+    if (gamepadButtonJustPressed(pad, 9)) {
+      document.getElementById("btn-voice-settings")?.click();
+    }
+
+    if (quickDeckOpen) {
+      gamepadNavCooldown = Math.max(0, gamepadNavCooldown - delta);
+      const navUp = ly < -0.55 || gamepadButtonPressed(pad, 12);
+      const navDown = ly > 0.55 || gamepadButtonPressed(pad, 13);
+      if ((navUp || navDown) && gamepadNavCooldown <= 0) {
+        moveDeckFocus(navUp ? -1 : 1);
+        gamepadNavCooldown = 0.18;
+      }
+      return;
+    }
+
+    // Right stick look — scaled by frame time, capped for stability.
+    if (Math.abs(rx) > 0.01 || Math.abs(ry) > 0.01) {
+      const lookScale = Math.min(delta, 0.05);
+      camYaw -= rx * 2.4 * lookScale;
+      camPitch = Math.max(-0.75, Math.min(0.65, camPitch - ry * 1.7 * lookScale));
+    }
+  }
+
   function setupInputControls() {
     let isMouseDown = false;
     let lastMouseX = 0, lastMouseY = 0;
 
     window.addEventListener("keydown", (e) => {
       if (e.code === "Escape" || e.key === "Escape") {
-        if (emoteWheelOpen) {
-          setEmoteWheelOpen(false);
+        if (quickDeckOpen) {
+          setQuickDeckOpen(false);
           return;
         }
         const settingsModal = document.getElementById("modal-station-systems");
@@ -2808,10 +3150,18 @@
         });
       if (blockingOverlay) return;
 
+      if (quickDeckOpen) {
+        if (e.code === "KeyQ" || e.code === "KeyX" || e.key === "q" || e.key === "x" || e.key === "Q" || e.key === "X") {
+          e.preventDefault();
+          setQuickDeckOpen(false);
+        }
+        return;
+      }
+
       keys[e.code] = true;
       if (e.key) keys[e.key.toLowerCase()] = true;
 
-      // 6-Room Perilune Ship Interior Toggle [I]
+      // 6-Room Lunaspis Ship Interior Toggle [I]
       // Telemetry & Diagnostics Deck [P] or [F3]
       if (e.code === "KeyP" || e.code === "F3" || e.key === "p" || e.key === "P") {
         e.preventDefault();
@@ -2847,10 +3197,15 @@
         return;
       }
 
-      // Crew emotes [X] to open the wheel, [1]-[6] to express
+      // Quick Deck [Q] / Crew expressions [X], [1]-[6] to express
+      if (e.code === "KeyQ" || e.key === "q" || e.key === "Q") {
+        e.preventDefault();
+        if (!isFullscreenViewActive()) setQuickDeckOpen(!quickDeckOpen, quickDeckTab);
+        return;
+      }
       if (e.code === "KeyX" || e.key === "x" || e.key === "X") {
         e.preventDefault();
-        setEmoteWheelOpen(!emoteWheelOpen);
+        if (!isFullscreenViewActive()) setQuickDeckOpen(!quickDeckOpen, "crew");
         return;
       }
       if (/^Digit[1-6]$/.test(e.code)) {
@@ -2859,7 +3214,7 @@
         if (emoteDef) {
           e.preventDefault();
           playLocalEmote(emoteDef.id);
-          setEmoteWheelOpen(false);
+          setQuickDeckOpen(false);
         }
         return;
       }
@@ -2886,7 +3241,7 @@
         return;
       }
 
-      // 6-Room Perilune Ship Interior Toggle [I]
+      // 6-Room Lunaspis Ship Interior Toggle [I]
       if (e.code === "KeyI" || e.key === "i" || e.key === "I") {
         e.preventDefault();
         if (window.missionViz && window.missionViz.isActive) window.missionViz.close();
@@ -2903,7 +3258,7 @@
         if (window.shipInterior) {
           const vis = window.shipInterior.toggleInterior();
           if (window.showActionToast) {
-            window.showActionToast(vis ? "PERILUNE 6-ROOM SHIP INTERIOR: ACTIVE" : "EXTERIOR / EVA VIEW: ACTIVE");
+            window.showActionToast(vis ? "LUNASPIS 6-ROOM SHIP INTERIOR: ACTIVE" : "EXTERIOR / EVA VIEW: ACTIVE");
           }
         }
       }
@@ -2966,7 +3321,7 @@
       if (!target || typeof target.closest !== "function") return false;
       return Boolean(
         target.closest(
-          "button, input, textarea, select, a, .hud-checklist-panel, .hud-race-bar-container, #hud-crew-roster, #hud-voice-panel, #virtual-dpad, #mobile-joystick-zone, #task-modal-overlay, #iss-showcase-ui, #mission-viz-ui, #vr-mode-overlay, #perilune-ship-minimap, #ship-interior-hud, #space-center-ground-hud, #docking-hud-overlay, #launch-cutscene-overlay, #perilune-resource-meters, #btn-telemetry-toggle, #emote-wheel, #hud-diagnostics-overlay, #modal-auth, #modal-station-systems, #victory-overlay, #mission-briefing-overlay, #action-toast, .modal-card, .menu-card"
+          "button, input, textarea, select, a, .hud-checklist-panel, .hud-race-bar-container, #hud-crew-roster, #hud-voice-panel, #virtual-dpad, #mobile-joystick-zone, #task-modal-overlay, #iss-showcase-ui, #mission-viz-ui, #vr-mode-overlay, #lunaspis-ship-minimap, #ship-interior-hud, #space-center-ground-hud, #docking-hud-overlay, #launch-cutscene-overlay, #lunaspis-resource-meters, #btn-telemetry-toggle, #quick-deck, #hud-diagnostics-overlay, #modal-auth, #modal-station-systems, #victory-overlay, #mission-briefing-overlay, #action-toast, .modal-card, .menu-card"
         )
       );
     };
@@ -3062,7 +3417,7 @@
         }
         if (joyHint) {
           joyHint.textContent = mag > 0.82 ? "SPRINT" : "MOVE";
-          joyHint.style.color = mag > 0.82 ? "#67e8f9" : "rgba(154, 164, 174, 0.78)";
+          joyHint.style.color = mag > 0.82 ? "#d0a15c" : "rgba(166, 173, 182, 0.78)";
         }
       };
 
@@ -3240,6 +3595,7 @@
       return;
     }
     if (
+      quickDeckOpen ||
       (window.gameplay && window.gameplay.activeTask) ||
       (window.launchCutscene && window.launchCutscene.isPlaying) ||
       (window.dockingSim && window.dockingSim.isActive) ||
@@ -3252,8 +3608,9 @@
       return;
     }
 
+    const padActive = gamepadMove.magnitude > 0.05 && !quickDeckOpen;
     const joyMag = window.virtualJoyActive ? Math.hypot(window.virtualJoyX || 0, window.virtualJoyY || 0) : 0;
-    const isRunning = keys["ShiftLeft"] || keys["ShiftRight"] || joyMag > 0.82;
+    const isRunning = keys["ShiftLeft"] || keys["ShiftRight"] || joyMag > 0.82 || (padActive && gamepadMove.magnitude > 0.82);
     const speed = localCrew.isEva ? 4.8 : (isRunning ? 5.6 : 3.9);
 
     const isRight = keys["KeyD"] || keys["ArrowRight"] || keys["d"] || window.virtualMoveRight;
@@ -3268,6 +3625,10 @@
       fwd += window.virtualJoyY || 0;
       strafe += window.virtualJoyX || 0;
     }
+    if (padActive) {
+      fwd += -gamepadMove.y;
+      strafe += gamepadMove.x;
+    }
 
     const isMoving = Math.abs(fwd) > 0.05 || Math.abs(strafe) > 0.05;
 
@@ -3278,7 +3639,7 @@
     let dz = fwd * cosY + strafe * sinY;
     const len = Math.hypot(dx, dz);
     if (len > 0.001) {
-      const moveScale = window.virtualJoyActive ? Math.min(1.0, len) : 1.0;
+      const moveScale = (window.virtualJoyActive || padActive) ? Math.min(1.0, len) : 1.0;
       dx = (dx / len) * speed * moveScale * delta;
       dz = (dz / len) * speed * moveScale * delta;
 
@@ -3471,7 +3832,7 @@
 
     if (fpsVal) {
       fpsVal.textContent = currentFps;
-      const fpsColor = currentFps >= 50 ? "#22c55e" : (currentFps >= 30 ? "#f59e0b" : "#ef4444");
+      const fpsColor = currentFps >= 50 ? "#83a896" : (currentFps >= 30 ? "#d0a15c" : "#c67979");
       fpsVal.style.color = fpsColor;
       if (fpsDot) fpsDot.style.background = fpsColor;
     }
@@ -3480,18 +3841,18 @@
     let statusText = "NOMINAL";
     if (pingVal && currentPing !== null) {
       pingVal.textContent = `${currentPing} ms`;
-      let pingColor = "#22c55e";
+      let pingColor = "#83a896";
 
       if (currentPing < 80) {
-        pingColor = "#22c55e";
+        pingColor = "#83a896";
         statusText = "NOMINAL";
         latencyTier = "nominal";
       } else if (currentPing < 180) {
-        pingColor = "#f59e0b";
+        pingColor = "#d0a15c";
         statusText = "MODERATE";
         latencyTier = "moderate";
       } else {
-        pingColor = "#ef4444";
+        pingColor = "#c67979";
         statusText = "HIGH LATENCY";
         latencyTier = "caution";
       }
@@ -3545,7 +3906,7 @@
     const netDiagJitter = document.getElementById("net-diag-jitter");
     if (netDiagStatus) {
       netDiagStatus.textContent = isConnected ? "ONLINE" : "OFFLINE";
-      netDiagStatus.style.color = isConnected ? "#7fb8a6" : "#c08a8a";
+      netDiagStatus.style.color = isConnected ? "#83a896" : "#c67979";
     }
     if (netDiagPing) netDiagPing.textContent = `${currentPing !== null ? currentPing : "--"} ms`;
     if (netDiagJitter) netDiagJitter.textContent = `±${jitterMs} ms`;
@@ -3587,6 +3948,8 @@
 
     const delta = Math.min(clock.getDelta(), 0.05);
     const elapsed = clock.getElapsedTime();
+
+    updateGamepad(delta);
 
     if (window.photorealisticEarth && typeof window.photorealisticEarth.update === "function") {
       window.photorealisticEarth.update(delta, camera);
@@ -3675,7 +4038,7 @@
           const isH = window.netManager.roomState && window.netManager.roomState.hostId === id;
           const chosenModel = rp.modelId || "astronaut_lod1";
           const rig = createAstronautMesh(
-            rp.color || "#3b82f6",
+            rp.color || "#8a8194",
             rp.role || "engineer",
             rp.name || "Crew",
             isH,

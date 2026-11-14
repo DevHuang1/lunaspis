@@ -497,9 +497,9 @@
       this.overlayEl.innerHTML = `
         <div class="launch-header-row">
           <div class="launch-badge-card">
-            <div style="font-size:10px;font-weight:900;letter-spacing:1.5px;color:#38bdf8;">NASA MISSION CONTROL &bull; KENNEDY LC-39A</div>
-            <div class="launch-title-main" style="font-size:14px;font-weight:900;color:#f1f5f9;letter-spacing:1px;">EX-01 LAUNCH VEHICLE ASCENT &amp; PAYLOAD DEPLOY</div>
-            <div id="launch-crew-banner" style="font-size:10px;font-weight:700;color:#cbd5e1;margin-top:4px;letter-spacing:0.6px;"></div>
+            <div style="font-size:10px;font-weight:900;letter-spacing:1.5px;color:#d0a15c;">NASA MISSION CONTROL &bull; KENNEDY LC-39A</div>
+            <div class="launch-title-main" style="font-size:14px;font-weight:900;color:#eceae3;letter-spacing:1px;">EX-01 LAUNCH VEHICLE ASCENT &amp; PAYLOAD DEPLOY</div>
+            <div id="launch-crew-banner" style="font-size:10px;font-weight:700;color:#eceae3;margin-top:4px;letter-spacing:0.6px;"></div>
           </div>
 
           <button id="btn-skip-launch">

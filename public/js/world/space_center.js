@@ -63,7 +63,7 @@
 
       // Interactive UI
       this.hudOverlay = null;
-      this.hudCollapsed = false;
+      this.hudCollapsed = !!(window.matchMedia && window.matchMedia("(max-width: 900px)").matches);
 
       // Ground atmosphere / lighting state
       this.savedFog = null;
@@ -205,7 +205,7 @@
 
     _makeSandTexture(size = 512) {
       return this._makeCanvasTexture(size, (ctx, s) => {
-        ctx.fillStyle = "#dfd0aa";
+        ctx.fillStyle = "#c9b89a";
         ctx.fillRect(0, 0, s, s);
         for (let y = 0; y < s; y += 8) {
           ctx.fillStyle = y % 16 === 0 ? "rgba(255,246,220,0.14)" : "rgba(182,158,118,0.14)";
@@ -904,7 +904,7 @@
           ctx.lineTo(s, p);
           ctx.stroke();
         }
-        ctx.strokeStyle = "rgba(250,204,21,0.55)";
+        ctx.strokeStyle = "rgba(208,161,92,0.55)";
         ctx.lineWidth = 6;
         ctx.strokeRect(4, 4, s - 8, s - 8);
       }, 4, 4);
@@ -1050,10 +1050,10 @@
       const signCtx = signCanvas.getContext("2d");
       signCtx.fillStyle = "#101820";
       signCtx.fillRect(0, 0, 512, 160);
-      signCtx.strokeStyle = "#e2e8f0";
+      signCtx.strokeStyle = "#eceae3";
       signCtx.lineWidth = 8;
       signCtx.strokeRect(8, 8, 496, 144);
-      signCtx.fillStyle = "#f8fafc";
+      signCtx.fillStyle = "#eceae3";
       signCtx.font = "900 82px Arial, Helvetica, sans-serif";
       signCtx.textAlign = "center";
       signCtx.textBaseline = "middle";
@@ -1509,7 +1509,7 @@
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
-      ctx.fillStyle = "#f8fafc";
+      ctx.fillStyle = "#eceae3";
       ctx.font = "800 45px Arial, Helvetica, sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
@@ -1926,7 +1926,7 @@
         : ((r, f) => String(r || f || "commander").toLowerCase());
       const getMeta = window.InterfellasRoles
         ? window.InterfellasRoles.getRoleMeta
-        : ((r) => ({ short: String(r || "CMD").slice(0, 3).toUpperCase(), color: "#67e8f9" }));
+        : ((r) => ({ short: String(r || "CMD").slice(0, 3).toUpperCase(), color: "#d0a15c" }));
 
       const roster = players.length
         ? players.map((p) => {
@@ -2058,8 +2058,10 @@
         : "CMD";
       const unboardedNames = crewState.roster.filter((p) => !p.isAboard).map((p) => p.name);
 
-      let statusText = `LC-39A · STEP 1 (${armOwnerLabel}): ARM [F]`;
-      let statusColor = "#fbbf24";
+      const armKey = touchUI ? "TAP" : "[F]";
+      const useKey = touchUI ? "TAP" : "[E]";
+      let statusText = `ARM ${armKey}`;
+      let statusColor = "#d0a15c";
       let distance = null;
       let target = null;
 
@@ -2067,41 +2069,37 @@
       if (this.siteTourActive) {
         const current = tourSpawns[this.siteTourIndex] || tourSpawns[0];
         if (nearTerm) {
-          statusText = `★ ${nearTerm.label} · [E] OPEN TERMINAL`;
-          statusColor = "#67e8f9";
+          statusText = `${useKey} ${nearTerm.label}`;
+          statusColor = "#d0a15c";
         } else {
           const loc = (current && (current.short || current.label) ? (current.short || current.label) : "PAD 39A").toUpperCase();
-          statusText = touchUI
-            ? `LC-39A TOUR · ${loc}`
-            : `LC-39A TOUR · ${loc} · [1-6] JUMP · [T] GANTRY`;
+          statusText = `TOUR · ${loc}`;
           statusColor = "#d0a15c";
         }
       } else if (this.isLaunching) {
-        statusText = "T-0: MAIN ENGINE & BOOSTER IGNITION · LIFTOFF!";
-        statusColor = "#f87171";
+        statusText = "LIFTOFF";
+        statusColor = "#c67979";
       } else if (!step1Done) {
         distance = this._distanceToGuidancePoint(-25.9, -6.3);
         target = "arm";
-        statusText = `LC-39A · STEP 1 (${armOwnerLabel}): ARM [F]${distance !== null ? ` · ${Math.max(1, Math.round(distance))}m` : ""}`;
-        statusColor = "#fbbf24";
+        statusText = `ARM ${armKey}${distance !== null ? ` · ${Math.max(1, Math.round(distance))}m` : ""}`;
+        statusColor = "#d0a15c";
       } else if (!step2Done) {
         distance = this._distanceToGuidancePoint(-7.8, -7.2);
         target = "hatch";
-        statusText = `LC-39A · STEP 2: HATCH [E/B] (${crewState.aboardCount}/${crewState.crewTotal})${distance !== null ? ` · ${Math.max(1, Math.round(distance))}m` : ""}`;
-        statusColor = "#67e8f9";
+        statusText = `BOARD ${useKey} · ${crewState.aboardCount}/${crewState.crewTotal}${distance !== null ? ` · ${Math.max(1, Math.round(distance))}m` : ""}`;
+        statusColor = "#d0a15c";
       } else if (this.autoLaunchRemaining !== null) {
         const seconds = Math.max(1, Math.ceil(this.autoLaunchRemaining));
-        statusText = `ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · LIFTOFF IN ${seconds}s`;
-        statusColor = "#34d399";
+        statusText = `LIFTOFF IN ${seconds}s`;
+        statusColor = "#83a896";
       } else if (crewState.allAboard) {
-        statusText = `ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · AUTO LIFTOFF...`;
-        statusColor = "#34d399";
+        statusText = "AUTO LIFTOFF";
+        statusColor = "#83a896";
       } else {
         const waitingOn = unboardedNames.length ? `WAIT: ${unboardedNames.join(", ")} · ` : "";
-        statusText = touchUI
-          ? `ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · ${waitingOn}AUTH: ${launchAuthLabel}`
-          : `ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · ${waitingOn}${launchAuthLabel} [L]`;
-        statusColor = "#fbbf24";
+        statusText = `CREW ${crewState.aboardCount}/${crewState.crewTotal} · WAITING`;
+        statusColor = "#d0a15c";
       }
 
       const canLaunchNow = this._canLaunchNow(crewState);
@@ -2131,12 +2129,13 @@
       const guidance = this._groundGuidanceState();
       const touchUI = guidance.touchUI;
       const tourSpawns = (window.SpaceCenterModules && window.SpaceCenterModules.SITE_TOUR_SPAWNS) || [];
+      const ico = (name) => (window.uiIcon ? window.uiIcon(name, "ui-icon ui-icon--sm") : "");
 
       this.hudOverlay.classList.toggle("is-collapsed", !!this.hudCollapsed);
       this.hudOverlay.innerHTML = `
         <div class="sc-hud-top">
           <div class="sc-hud-status">
-            <span id="sc-status-dot" class="sc-status-dot" style="background:${guidance.statusColor};box-shadow:0 0 8px ${guidance.statusColor};"></span>
+            <span id="sc-status-dot" class="sc-status-dot" style="background:${guidance.statusColor};"></span>
             <span id="sc-status-label" class="sc-status-label" style="color:${guidance.statusColor};">${guidance.statusText}</span>
           </div>
 
@@ -2145,7 +2144,7 @@
               ${guidance.nearTerm ? guidance.nearTerm.shortAction : "TERMINAL [E]"}
             </button>
             <button type="button" id="btn-sc-launch" class="sc-hud-btn sc-btn-launch" style="display:${guidance.canLaunchNow ? "inline-flex" : "none"};">
-              ${touchUI ? "🚀 LAUNCH" : "🚀 LAUNCH [L]"}
+              ${ico("zap")}${touchUI ? "LAUNCH" : "LAUNCH [L]"}
             </button>
             <button type="button" id="btn-sc-hud-toggle" class="sc-hud-btn sc-btn-collapse" title="${this.hudCollapsed ? "Expand LC-39A Dock" : "Minimize LC-39A Dock"}">
               ${this.hudCollapsed ? "▸" : "▾"}
@@ -2156,16 +2155,16 @@
         <div class="sc-hud-body" style="display:${this.hudCollapsed ? "none" : "flex"};">
           <div class="sc-hud-tools">
             <button type="button" id="btn-sc-mission-plan" class="sc-hud-btn sc-btn-plan">
-              ${touchUI ? "📋 DESIGN" : "📋 DESIGN [M]"}
+              ${ico("box")}${touchUI ? "DESIGN" : "DESIGN [M]"}
             </button>
             <button type="button" id="btn-sc-mdl-desk" class="sc-hud-btn sc-btn-mdl">
-              🧠 MDL DESK
+              ${ico("chart")}MDL DESK
             </button>
             <button type="button" id="btn-sc-orbit-viz" class="sc-hud-btn sc-btn-viz">
-              ${touchUI ? "🛰️ ORBIT" : "🛰️ ORBIT [U]"}
+              ${ico("orbit")}${touchUI ? "ORBIT" : "ORBIT [U]"}
             </button>
             <button type="button" id="btn-sc-site-tour" class="sc-hud-btn sc-btn-tour">
-              ${this.siteTourActive ? (touchUI ? "↩ GANTRY" : "↩ GANTRY [T]") : "🏗️ SITE TOUR"}
+              ${ico(this.siteTourActive ? "arrow-right" : "pin")}${this.siteTourActive ? (touchUI ? "GANTRY" : "GANTRY [T]") : "SITE TOUR"}
             </button>
           </div>
 
@@ -2307,23 +2306,23 @@
         const chip = this.hudOverlay.querySelector(`#${id}`);
         if (!chip) return;
         chip.textContent = `${done ? "✓" : active ? "●" : "○"} ${text}`;
-        chip.style.borderColor = done ? "rgba(52,211,153,0.55)" : active ? accent.border : "rgba(255,255,255,0.14)";
-        chip.style.background = done ? "rgba(52,211,153,0.12)" : active ? accent.background : "rgba(255,255,255,0.03)";
-        chip.style.color = done ? "#a7f3d0" : active ? accent.color : "#64748b";
+        chip.style.borderColor = done ? "rgba(131,168,150,0.55)" : active ? accent.border : "rgba(255,255,255,0.14)";
+        chip.style.background = done ? "rgba(131,168,150,0.12)" : active ? accent.background : "rgba(255,255,255,0.03)";
+        chip.style.color = done ? "#83a896" : active ? accent.color : "#6f7782";
         chip.style.boxShadow = active ? `0 0 8px ${accent.glow}` : "none";
       };
 
       applyChip("sc-step-1", `1 · ARM [F]`, guidance.step1Done, !guidance.step1Done, {
-        border: "rgba(251,191,36,0.62)",
-        background: "rgba(251,191,36,0.14)",
-        color: "#fde68a",
-        glow: "rgba(251,191,36,0.18)"
+        border: "rgba(208,161,92,0.62)",
+        background: "rgba(208,161,92,0.14)",
+        color: "#e7c58c",
+        glow: "rgba(208,161,92,0.18)"
       });
       applyChip("sc-step-2", `2 · HATCH [E/B] (${guidance.aboardCount}/${guidance.crewTotal})`, guidance.step2Done, guidance.step1Done && !guidance.step2Done, {
-        border: "rgba(103,232,249,0.62)",
-        background: "rgba(103,232,249,0.14)",
-        color: "#cffafe",
-        glow: "rgba(103,232,249,0.18)"
+        border: "rgba(208,161,92,0.62)",
+        background: "rgba(208,161,92,0.14)",
+        color: "#e7c58c",
+        glow: "rgba(208,161,92,0.18)"
       });
       const step3Chip = this.hudOverlay.querySelector("#sc-step-3");
       if (step3Chip) {
@@ -2335,10 +2334,10 @@
         this.isLaunching,
         guidance.canLaunchNow && !this.isLaunching,
         {
-          border: "rgba(52,211,153,0.62)",
-          background: "rgba(52,211,153,0.14)",
-          color: "#a7f3d0",
-          glow: "rgba(52,211,153,0.18)"
+          border: "rgba(131,168,150,0.62)",
+          background: "rgba(131,168,150,0.14)",
+          color: "#83a896",
+          glow: "rgba(131,168,150,0.18)"
         }
       );
     }

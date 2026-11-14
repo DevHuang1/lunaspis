@@ -3,7 +3,7 @@
  * INTERFELLAS HIGH-PERFORMANCE 3D GLB/glTF ASSET & HANGAR ENGINE (SPACESHIP EDITION)
  * ============================================================================
  * Provides comprehensive, production-grade .glb/.gltf 3D model support ported from
- * SpaceShip (Perilune — Orbital / Mission Lab):
+ * SpaceShip (Lunaspis — Orbital / Mission Lab):
  * 1. Asynchronous multi-asset loading & in-memory caching with Draco, KTX2/Basis
  *    Universal, and Meshopt decompression support
  * 2. SpaceShip NASA Astronaut suit integration (astronaut_lod0.glb & astronaut_lod1.glb)
@@ -22,22 +22,22 @@
     // --- SPACESHIP PRIMARY ASTRONAUT RIGS ---
     "astronaut_lod0": {
       id: "astronaut_lod0",
-      name: "Perilune NASA Astronaut (LOD0 High-Detail)",
+      name: "Lunaspis NASA Astronaut (LOD0 High-Detail)",
       category: "astronauts",
       role: "commander",
       file: "models/astronaut/astronaut_lod0.glb",
-      defaultColor: "#67e8f9",
+      defaultColor: "#d0a15c",
       targetHeight: 1.90,
       rotateY: 0,
       description: "High-detail SpaceShip NASA spacesuit rig with KTX2 2K PBR textures, Meshopt geometry, and 4 skeletal animation clips (idle, walk, look_around, wave)."
     },
     "astronaut_lod1": {
       id: "astronaut_lod1",
-      name: "Perilune NASA Crewmate (LOD1 Optimized)",
+      name: "Lunaspis NASA Crewmate (LOD1 Optimized)",
       category: "astronauts",
       role: "scientist",
       file: "models/astronaut/astronaut_lod1.glb",
-      defaultColor: "#f59e0b",
+      defaultColor: "#d0a15c",
       targetHeight: 1.90,
       rotateY: 0,
       description: "Optimized SpaceShip NASA spacesuit rig with 1K KTX2 textures and 4 skeletal animations for AI crew and multiplayer squad."
@@ -46,7 +46,7 @@
     // --- SPACESHIP PRIMARY ISS & SPACECRAFT MODELS ---
     "iss_stationary_opt": {
       id: "iss_stationary_opt",
-      name: "NASA International Space Station (Perilune Primary)",
+      name: "NASA International Space Station (Lunaspis Primary)",
       category: "spacecraft",
       file: "models/iss/ISS_stationary_opt.glb",
       scale: 1.0,
@@ -186,7 +186,7 @@
     ctx.arc(w / 2, h * 0.44, h * 0.4, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.strokeStyle = "rgba(103, 232, 249, 0.9)";
+    ctx.strokeStyle = "rgba(208, 161, 92, 0.9)";
     ctx.lineWidth = 6;
     ctx.beginPath();
     ctx.arc(w / 2, h * 0.44, h * 0.36, 0, Math.PI * 2);
@@ -199,7 +199,7 @@
     ctx.lineTo(w * 0.58, h * 0.76);
     ctx.closePath();
     ctx.fill();
-    ctx.strokeStyle = "rgba(103, 232, 249, 0.5)";
+    ctx.strokeStyle = "rgba(208, 161, 92, 0.5)";
     ctx.lineWidth = 3;
     ctx.stroke();
 
@@ -209,7 +209,7 @@
     ctx.fillText(def.icon, w / 2, h * 0.41);
 
     ctx.font = "800 19px 'SF Mono', Monaco, Consolas, monospace";
-    ctx.fillStyle = "rgba(236, 231, 220, 0.96)";
+    ctx.fillStyle = "rgba(236, 234, 227, 0.96)";
     ctx.fillText(def.label.toUpperCase(), w / 2, h * 0.7);
 
     ctx.restore();
@@ -515,7 +515,7 @@
       this.hangarCurrentModel = null;
       this.hangarAutoRotate = true;
       this.hangarWireframe = false;
-      this.hangarColorTest = "#67e8f9";
+      this.hangarColorTest = "#d0a15c";
       this.hangarMouse = { down: false, x: 0, y: 0, rotX: 0.2, rotY: 0.8, dist: 3.5 };
 
       this._initDragAndDrop();
@@ -636,7 +636,7 @@
               name: cleanName.toUpperCase(),
               category: "custom",
               file: filename,
-              defaultColor: "#67e8f9",
+              defaultColor: "#d0a15c",
               targetHeight: 1.90,
               isCustom: true,
               gltf,
@@ -778,7 +778,7 @@
                 const isStripe = /stripe/i.test(m.name) || /role/i.test(m.name) || /trim/i.test(m.name) || /insignia/i.test(m.name);
                 const isLED = /led/i.test(m.name) || /telemetry/i.test(m.name);
                 if (isStripe || isLED) {
-                  const hex = parseInt(String(suitColor).replace("#", "0x")) || 0x38bdf8;
+                  const hex = parseInt(String(suitColor).replace("#", "0x")) || 0xd0a15c;
                   m.color = new window.THREE.Color(hex);
                   if (m.emissive) {
                     m.emissive = new window.THREE.Color(hex);
@@ -841,7 +841,7 @@
      * - Role accent ring at y = 0.035
      * - Overhead billboard nametag and optional helmet lamp
      */
-    createAstronautRig(suitHexColor = "#67e8f9", role = "commander", name = "Astronaut", isHost = false, modelKey = null, team = "crew", options = {}) {
+    createAstronautRig(suitHexColor = "#d0a15c", role = "commander", name = "Astronaut", isHost = false, modelKey = null, team = "crew", options = {}) {
       const root = new window.THREE.Group();
       root.name = `Astronaut_${name}_Rig`;
 
@@ -860,7 +860,7 @@
       root.add(shadowMesh);
 
       // Role / player accent ring on the floor
-      const hexVal = parseInt(String(suitHexColor).replace("#", "0x")) || 0x67e8f9;
+      const hexVal = parseInt(String(suitHexColor).replace("#", "0x")) || 0xd0a15c;
       const accentRingMat = new window.THREE.MeshBasicMaterial({
         color: hexVal,
         transparent: true,
@@ -1090,7 +1090,7 @@
 
         setColor: (newColorHex) => {
           rig.currentColor = newColorHex;
-          const cHex = parseInt(String(newColorHex).replace("#", "0x")) || 0x38bdf8;
+          const cHex = parseInt(String(newColorHex).replace("#", "0x")) || 0xd0a15c;
           if (rig.accentRingMat) {
             rig.accentRingMat.color.setHex(cHex);
           }
@@ -1176,21 +1176,21 @@
       function redraw(n, c, r, h) {
         ctx.clearRect(0, 0, 384, 96);
         ctx.fillStyle = "rgba(11, 18, 33, 0.88)";
-        ctx.strokeStyle = c || "#38bdf8";
+        ctx.strokeStyle = c || "#d0a15c";
         ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.roundRect(8, 8, 368, 80, 12);
         ctx.fill();
         ctx.stroke();
 
-        ctx.fillStyle = "#ffffff";
+        ctx.fillStyle = "#eceae3";
         ctx.font = "bold 28px sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         const title = (h ? "★ " : "") + (n || "Astronaut").toUpperCase();
         ctx.fillText(title, 192, 40);
 
-        ctx.fillStyle = c || "#38bdf8";
+        ctx.fillStyle = c || "#d0a15c";
         ctx.font = "bold 18px sans-serif";
         ctx.fillText((r || "CREW").toUpperCase(), 192, 68);
       }
@@ -1211,7 +1211,7 @@
     }
 
     spawnOrbitalFleet() {
-      // Perilune uses only the 6-room transit craft, ISS reference craft, and Lunar Lander.
+      // Lunaspis uses only the 6-room transit craft, ISS reference craft, and Lunar Lander.
     }
 
     updateFleet(delta, elapsed) {
@@ -1506,8 +1506,8 @@
         <div class="settings-modal-card hangar-modal-card">
           <div class="settings-modal-header hangar-header">
             <div>
-              <div class="settings-modal-title">PERILUNE // 3D ASSET INSPECTOR</div>
-              <div style="font-size:10px;color:rgba(154,164,174,0.75);letter-spacing:1.2px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">DRACO / KTX2 / MESHOPT RIG STUDIO</div>
+              <div class="settings-modal-title">LUNASPIS // 3D ASSET INSPECTOR</div>
+              <div style="font-size:10px;color:rgba(166,173,182,0.75);letter-spacing:1.2px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">DRACO / KTX2 / MESHOPT RIG STUDIO</div>
             </div>
             <button class="settings-close-btn" id="hangar-btn-close">&times;</button>
           </div>
@@ -1537,13 +1537,13 @@
                 <button class="hangar-ctrl-btn" id="hangar-btn-reset-cam" title="Reset Camera">RESET</button>
               </div>
               <div class="hangar-viewport-status">
-                <span class="perf-dot" style="background:#67e8f9;"></span>
+                <span class="perf-dot" style="background:#d0a15c;"></span>
                 <span id="hangar-status-text">INITIALIZING 3D ENGINE...</span>
               </div>
             </div>
 
             <div class="hangar-specs-panel">
-              <div style="font-size:9.5px;font-weight:700;letter-spacing:1.8px;color:#67e8f9;text-transform:uppercase;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">MODEL DOSSIER</div>
+              <div style="font-size:9.5px;font-weight:700;letter-spacing:1.8px;color:#d0a15c;text-transform:uppercase;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">MODEL DOSSIER</div>
               <div id="hangar-spec-title" class="hangar-spec-title">ASTRONAUT MODEL</div>
               <div id="hangar-spec-desc" class="hangar-spec-desc">Model technical overview and description.</div>
 
@@ -1571,13 +1571,13 @@
               </div>
 
               <div style="margin-top:10px;">
-                <label style="font-size:11px;color:#94a3b8;font-weight:700;display:block;margin-bottom:6px;">TEST SUIT COLOR ACCENT</label>
+                <label style="font-size:11px;color:#a6adb6;font-weight:700;display:block;margin-bottom:6px;">TEST SUIT COLOR ACCENT</label>
                 <div class="color-swatches" id="hangar-color-swatches">
-                  <button type="button" class="lobby-color-btn" data-color="#ef4444" style="background:#ef4444;" title="Apollo Red"></button>
-                  <button type="button" class="lobby-color-btn" data-color="#3b82f6" style="background:#3b82f6;" title="ESA Blue"></button>
-                  <button type="button" class="lobby-color-btn" data-color="#f59e0b" style="background:#f59e0b;" title="JAXA Gold"></button>
-                  <button type="button" class="lobby-color-btn" data-color="#10b981" style="background:#10b981;" title="EVA Green"></button>
-                  <button type="button" class="lobby-color-btn" data-color="#f8fafc" style="background:#f8fafc;" title="NASA White"></button>
+                  <button type="button" class="lobby-color-btn" data-color="#c67979" style="background:#c67979;" title="Apollo Red"></button>
+                  <button type="button" class="lobby-color-btn" data-color="#8a8194" style="background:#8a8194;" title="ESA Blue"></button>
+                  <button type="button" class="lobby-color-btn" data-color="#d0a15c" style="background:#d0a15c;" title="JAXA Gold"></button>
+                  <button type="button" class="lobby-color-btn" data-color="#83a896" style="background:#83a896;" title="EVA Green"></button>
+                  <button type="button" class="lobby-color-btn" data-color="#eceae3" style="background:#eceae3;" title="NASA White"></button>
                   <button type="button" class="lobby-color-btn" data-color="#334155" style="background:#334155;" title="Carbon Stealth"></button>
                 </div>
               </div>
@@ -1741,12 +1741,12 @@
           align-items: center;
           flex-direction: column;
           gap: 12px;
-          border: 1px dashed rgba(103, 232, 249, 0.55);
+          border: 1px dashed rgba(208, 161, 92, 0.55);
           pointer-events: none;
         `;
         dropOverlay.innerHTML = `
-          <div style="font-size:18px;font-weight:700;letter-spacing:2.4px;color:#ece7dc;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">DROP .GLB / .GLTF MODEL</div>
-          <div style="font-size:12px;color:rgba(154,164,174,0.8);">Inspect, equip as astronaut rig, or spawn in orbit</div>
+          <div style="font-size:18px;font-weight:700;letter-spacing:2.4px;color:#eceae3;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">DROP .GLB / .GLTF MODEL</div>
+          <div style="font-size:12px;color:rgba(166,173,182,0.8);">Inspect, equip as astronaut rig, or spawn in orbit</div>
         `;
         document.body.appendChild(dropOverlay);
         return dropOverlay;

@@ -65,7 +65,7 @@
       5.4,
       1.3,
       (ctx, w, h) => {
-        ctx.fillStyle = "#facc15";
+        ctx.fillStyle = "#e7c58c";
         ctx.fillRect(0, 0, w, h);
         ctx.strokeStyle = "#111827";
         ctx.lineWidth = 8;

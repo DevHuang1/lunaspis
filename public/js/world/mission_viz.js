@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * PERILUNE // 3D NASA MISSION VIZ & GMAT TRAJECTORY THEATER
+ * LUNASPIS // 3D NASA MISSION VIZ & GMAT TRAJECTORY THEATER
  * ============================================================================
  * Interactive 3D mission visualization inspired by NASA Mission Viz & GMAT:
  * - High-resolution 3D Earth with day/night, clouds, Rayleigh limb glow & umbra shadow cone
@@ -633,24 +633,24 @@
         z-index:160;
         pointer-events:none;
         font-family:var(--font-mono, monospace);
-        color:#ece7dc;
+        color:#eceae3;
       `;
 
       root.innerHTML = `
-        <div id="mv-topbar" style="pointer-events:auto;position:absolute;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;border-radius:8px;background:rgba(6,11,22,0.88);border:1px solid rgba(103,232,249,0.28);backdrop-filter:blur(10px);">
+        <div id="mv-topbar" style="pointer-events:auto;position:absolute;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;border-radius:8px;background:rgba(6,11,22,0.88);border:1px solid rgba(208,161,92,0.28);backdrop-filter:blur(10px);">
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-            <span style="width:8px;height:8px;border-radius:50%;background:#67e8f9;box-shadow:0 0 8px #67e8f9;"></span>
+            <span style="width:8px;height:8px;border-radius:50%;background:#d0a15c;box-shadow:0 0 8px #d0a15c;"></span>
             <div>
-              <div style="font-size:11px;font-weight:700;letter-spacing:1.4px;color:#67e8f9;" id="mv-title">NASA MISSION VIZ // GMAT TRAJECTORY THEATER</div>
-              <div style="font-size:10px;color:#94a3b8;" id="mv-subtitle">Drag to orbit · Scroll/Pinch to zoom · Scrub Mission Timeline below</div>
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.4px;color:#d0a15c;" id="mv-title">NASA MISSION VIZ // GMAT TRAJECTORY THEATER</div>
+              <div style="font-size:10px;color:#a6adb6;" id="mv-subtitle">Drag to orbit · Scroll/Pinch to zoom · Scrub Mission Timeline below</div>
             </div>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-            <button type="button" id="mv-btn-cam-sys" style="padding:6px 10px;border-radius:5px;border:1px solid rgba(103,232,249,0.45);background:rgba(103,232,249,0.14);color:#cffafe;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">EARTH / SYSTEM</button>
-            <button type="button" id="mv-btn-cam-craft" style="padding:6px 10px;border-radius:5px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.05);color:#ece7dc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">FOLLOW CRAFT</button>
-            <button type="button" id="mv-btn-cam-target" style="padding:6px 10px;border-radius:5px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.05);color:#ece7dc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">TARGET BODY</button>
-            <button type="button" id="mv-btn-vr" style="padding:6px 10px;border-radius:5px;border:1px solid rgba(167,139,250,0.5);background:rgba(167,139,250,0.14);color:#ddd6fe;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">🥽 VR MODE</button>
-            <button type="button" id="mv-btn-close" style="padding:6px 12px;border-radius:5px;border:1px solid rgba(248,113,113,0.55);background:rgba(239,68,68,0.16);color:#fecaca;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">EXIT [U]</button>
+            <button type="button" id="mv-btn-cam-sys" style="padding:6px 10px;border-radius:5px;border:1px solid rgba(208,161,92,0.45);background:rgba(208,161,92,0.14);color:#e7c58c;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">EARTH / SYSTEM</button>
+            <button type="button" id="mv-btn-cam-craft" style="padding:6px 10px;border-radius:5px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.05);color:#eceae3;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">FOLLOW CRAFT</button>
+            <button type="button" id="mv-btn-cam-target" style="padding:6px 10px;border-radius:5px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.05);color:#eceae3;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">TARGET BODY</button>
+            <button type="button" id="mv-btn-vr" style="padding:6px 10px;border-radius:5px;border:1px solid rgba(208,161,92,0.5);background:rgba(208,161,92,0.14);color:#e7c58c;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">🥽 VR MODE</button>
+            <button type="button" id="mv-btn-close" style="padding:6px 12px;border-radius:5px;border:1px solid rgba(198,121,121,0.55);background:rgba(198,121,121,0.16);color:#c67979;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">EXIT [U]</button>
           </div>
         </div>
 
@@ -663,13 +663,13 @@
         <div id="mv-timeline-bar" style="pointer-events:auto;position:absolute;bottom:14px;left:12px;right:12px;padding:10px 14px;border-radius:8px;background:rgba(6,11,22,0.90);border:1px solid rgba(255,255,255,0.16);backdrop-filter:blur(10px);">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:7px;">
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-              <button type="button" id="mv-btn-play" style="padding:5px 10px;border-radius:4px;border:1px solid #67e8f9;background:rgba(103,232,249,0.14);color:#cffafe;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">❚❚ PAUSE</button>
-              <button type="button" id="mv-btn-speed" style="padding:5px 9px;border-radius:4px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.05);color:#ece7dc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">1x</button>
-              <span id="mv-event-active" style="font-size:10px;font-weight:700;color:#7fb8a6;margin-left:4px;">T+0 LAUNCH</span>
+              <button type="button" id="mv-btn-play" style="padding:5px 10px;border-radius:4px;border:1px solid #d0a15c;background:rgba(208,161,92,0.14);color:#e7c58c;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">❚❚ PAUSE</button>
+              <button type="button" id="mv-btn-speed" style="padding:5px 9px;border-radius:4px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.05);color:#eceae3;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">1x</button>
+              <span id="mv-event-active" style="font-size:10px;font-weight:700;color:#83a896;margin-left:4px;">T+0 LAUNCH</span>
             </div>
             <div id="mv-event-chips" style="display:flex;gap:5px;flex-wrap:wrap;"></div>
           </div>
-          <input type="range" id="mv-timeline-slider" min="0" max="1000" value="140" style="width:100%;accent-color:#67e8f9;cursor:pointer;" />
+          <input type="range" id="mv-timeline-slider" min="0" max="1000" value="140" style="width:100%;accent-color:#d0a15c;cursor:pointer;" />
         </div>
       `;
 
@@ -708,7 +708,7 @@
 
       const chipsHost = root.querySelector("#mv-event-chips");
       chipsHost.innerHTML = TIMELINE_EVENTS.map((ev) => `
-        <button type="button" data-ev-t="${ev.t}" title="${ev.desc}" style="padding:3px 7px;border-radius:4px;border:1px solid rgba(255,255,255,0.14);background:rgba(255,255,255,0.04);color:#cbd5e1;font-family:inherit;font-size:9px;cursor:pointer;">${ev.label}</button>
+        <button type="button" data-ev-t="${ev.t}" title="${ev.desc}" style="padding:3px 7px;border-radius:4px;border:1px solid rgba(255,255,255,0.14);background:rgba(255,255,255,0.04);color:#eceae3;font-family:inherit;font-size:9px;cursor:pointer;">${ev.label}</button>
       `).join("");
       chipsHost.querySelectorAll("[data-ev-t]").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -742,8 +742,8 @@
           const el = this.uiRoot.querySelector(map[k]);
           if (!el) return;
           const active = k === mode;
-          el.style.borderColor = active ? "rgba(103,232,249,0.55)" : "rgba(255,255,255,0.18)";
-          el.style.background = active ? "rgba(103,232,249,0.16)" : "rgba(255,255,255,0.05)";
+          el.style.borderColor = active ? "rgba(208,161,92,0.55)" : "rgba(255,255,255,0.18)";
+          el.style.background = active ? "rgba(208,161,92,0.16)" : "rgba(255,255,255,0.05)";
         });
       }
     }
@@ -961,26 +961,26 @@
           ? `${(t.orbit.altitudeKm / 1000).toFixed(0)}k km`
           : `${t.orbit.altitudeKm.toLocaleString()} km`;
         const orbVel = t.orbit.id === "sun_earth_l2" ? "1.02 km/s (L2)" : t.orbit.id === "lunar_polar_100" ? "1.63 km/s (LPO)" : t.orbit.id === "gto_heo" ? "1.6–10.1 km/s" : "7.6 km/s";
-        const cell = (k, v, c = "#ece7dc") => `
+        const cell = (k, v, c = "#eceae3") => `
           <div style="padding:5px 7px;border-radius:5px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);">
-            <div style="font-size:8.5px;color:#94a3b8;">${k}</div>
+            <div style="font-size:8.5px;color:#a6adb6;">${k}</div>
             <div style="font-size:10.5px;font-weight:700;color:${c};margin-top:2px;">${v}</div>
           </div>
         `;
         rows.innerHTML = [
-          cell("ALTITUDE / INC", `${altLabel} · ${t.orbit.inclinationDeg}°`, "#67e8f9"),
+          cell("ALTITUDE / INC", `${altLabel} · ${t.orbit.inclinationDeg}°`, "#d0a15c"),
           cell("ORBIT VELOCITY", orbVel),
-          cell("ILLUMINATION", inShadow ? "UMBRA ECLIPSE" : "SOLAR DAYLIGHT", inShadow ? "#fbbf24" : "#4ade80"),
-          cell("GROUND LINK", activeStationName, activeStationName.includes("OCCULTED") ? "#94a3b8" : (t.commsOk ? "#34d399" : "#f87171")),
-          cell("PROPULSION ΔV", `${t.achievedDeltaV} / ${t.requiredDeltaV} m/s`, t.deltaVOk ? "#38bdf8" : "#f87171"),
-          cell("RAD / LIFE", `${t.orbit.radiationEnvKrad} krad · ${t.estimatedLifetimeMonths} mo`, t.radiationOk ? "#7fb8a6" : "#f87171")
+          cell("ILLUMINATION", inShadow ? "UMBRA ECLIPSE" : "SOLAR DAYLIGHT", inShadow ? "#d0a15c" : "#83a896"),
+          cell("GROUND LINK", activeStationName, activeStationName.includes("OCCULTED") ? "#a6adb6" : (t.commsOk ? "#83a896" : "#c67979")),
+          cell("PROPULSION ΔV", `${t.achievedDeltaV} / ${t.requiredDeltaV} m/s`, t.deltaVOk ? "#d0a15c" : "#c67979"),
+          cell("RAD / LIFE", `${t.orbit.radiationEnvKrad} krad · ${t.estimatedLifetimeMonths} mo`, t.radiationOk ? "#83a896" : "#c67979")
         ].join("");
       }
 
       const segEl = this.uiRoot.querySelector("#mv-segment-badges");
       if (segEl) {
         const seg = (label, ok) => `
-          <div style="text-align:center;padding:4px 2px;border-radius:4px;background:${ok ? "rgba(74,222,128,0.12)" : "rgba(239,68,68,0.15)"};border:1px solid ${ok ? "rgba(74,222,128,0.35)" : "rgba(239,68,68,0.45)"};font-size:8.5px;font-weight:700;color:${ok ? "#86efac" : "#fca5a5"};">
+          <div style="text-align:center;padding:4px 2px;border-radius:4px;background:${ok ? "rgba(74,222,128,0.12)" : "rgba(198,121,121,0.15)"};border:1px solid ${ok ? "rgba(74,222,128,0.35)" : "rgba(198,121,121,0.45)"};font-size:8.5px;font-weight:700;color:${ok ? "#83a896" : "#c67979"};">
             ${label}
           </div>
         `;

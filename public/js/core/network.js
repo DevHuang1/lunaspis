@@ -13,7 +13,7 @@
       short: "CMD",
       title: "Commander",
       label: "Commander",
-      color: "#c08a8a",
+      color: "#c67979",
       padDuty: "Board White Room & Initiate Liftoff [L]",
       dockDuty: "Primary 6DOF Pilot & Capture Latch [SPACE]",
       consolesSummary: "Charter [HUB] · Orbit & Launch [CMD] · Sim [LDR]",
@@ -47,7 +47,7 @@
       short: "SCI",
       title: "Science Officer",
       label: "Science Officer",
-      color: "#7fb8a6",
+      color: "#83a896",
       padDuty: "White Room Ingress & Cabin Bio-Check",
       dockDuty: "Boresight Auto-Align [3] & Corridor Ping [4]",
       consolesSummary: "Instruments [SCI] · Thermal & ECLSS [LSS]",
@@ -118,7 +118,7 @@
       this.userProfile = null;
       this.localPlayer = {
         name: localStorage.getItem("interfellas_name") || "Astronaut " + Math.floor(100 + Math.random() * 900),
-        color: "#ef4444",
+        color: "#c67979",
         role: "commander",
         team: "crew",
         ready: false

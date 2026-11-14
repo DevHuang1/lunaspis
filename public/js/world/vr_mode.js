@@ -366,17 +366,17 @@
       root.id = "vr-mode-overlay";
       root.style.cssText = "display:none;position:fixed;inset:0;z-index:1200;pointer-events:none;font-family:'JetBrains Mono','Inter',monospace;";
       root.innerHTML = `
-        <div id="vr-stereo-divider" style="position:absolute;top:0;bottom:0;left:50%;width:2px;margin-left:-1px;background:linear-gradient(to bottom,rgba(167,139,250,0.15),rgba(167,139,250,0.7),rgba(167,139,250,0.15));"></div>
-        <div style="position:absolute;top:12px;left:50%;transform:translateX(-50%);pointer-events:auto;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px;padding:6px 12px;border-radius:18px;background:rgba(10,14,26,0.9);border:1px solid rgba(167,139,250,0.5);box-shadow:0 6px 24px rgba(0,0,0,0.55);color:#ede9fe;font-size:10px;width:max-content;max-width:calc(100vw - 20px);">
-          <span id="vr-mode-badge" style="font-weight:800;letter-spacing:0.08em;color:#c4b5fd;">VR STEREO</span>
-          <label style="display:inline-flex;align-items:center;gap:4px;color:#94a3b8;font-size:9px;">
+        <div id="vr-stereo-divider" style="position:absolute;top:0;bottom:0;left:50%;width:2px;margin-left:-1px;background:linear-gradient(to bottom,rgba(208,161,92,0.15),rgba(208,161,92,0.7),rgba(208,161,92,0.15));"></div>
+        <div style="position:absolute;top:12px;left:50%;transform:translateX(-50%);pointer-events:auto;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px;padding:6px 12px;border-radius:18px;background:rgba(10,14,26,0.9);border:1px solid rgba(208,161,92,0.5);box-shadow:0 6px 24px rgba(0,0,0,0.55);color:#eceae3;font-size:10px;width:max-content;max-width:calc(100vw - 20px);">
+          <span id="vr-mode-badge" style="font-weight:800;letter-spacing:0.08em;color:#e7c58c;">VR STEREO</span>
+          <label style="display:inline-flex;align-items:center;gap:4px;color:#a6adb6;font-size:9px;">
             IPD
-            <input type="range" id="vr-ipd-slider" min="52" max="76" value="64" step="1" style="width:68px;accent-color:#a78bfa;cursor:pointer;" />
-            <span id="vr-ipd-val" style="color:#e2e8f0;min-width:30px;">64mm</span>
+            <input type="range" id="vr-ipd-slider" min="52" max="76" value="64" step="1" style="width:68px;accent-color:#d0a15c;cursor:pointer;" />
+            <span id="vr-ipd-val" style="color:#eceae3;min-width:30px;">64mm</span>
           </label>
-          <button type="button" id="vr-btn-gyro" style="padding:3px 7px;border-radius:5px;border:1px solid rgba(56,189,248,0.45);background:rgba(56,189,248,0.12);color:#7dd3fc;font-family:inherit;font-size:9px;font-weight:700;cursor:pointer;">GYRO OFF</button>
-          <button type="button" id="vr-btn-recenter" style="padding:3px 7px;border-radius:5px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.06);color:#e2e8f0;font-family:inherit;font-size:9px;font-weight:700;cursor:pointer;">RECENTER</button>
-          <button type="button" id="vr-btn-exit" style="padding:3px 9px;border-radius:5px;border:1px solid rgba(248,113,113,0.6);background:rgba(239,68,68,0.2);color:#fecaca;font-family:inherit;font-size:9px;font-weight:800;cursor:pointer;">EXIT VR [ESC]</button>
+          <button type="button" id="vr-btn-gyro" style="padding:3px 7px;border-radius:5px;border:1px solid rgba(208,161,92,0.45);background:rgba(208,161,92,0.12);color:#d0a15c;font-family:inherit;font-size:9px;font-weight:700;cursor:pointer;">GYRO OFF</button>
+          <button type="button" id="vr-btn-recenter" style="padding:3px 7px;border-radius:5px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.06);color:#eceae3;font-family:inherit;font-size:9px;font-weight:700;cursor:pointer;">RECENTER</button>
+          <button type="button" id="vr-btn-exit" style="padding:3px 9px;border-radius:5px;border:1px solid rgba(198,121,121,0.6);background:rgba(198,121,121,0.2);color:#c67979;font-family:inherit;font-size:9px;font-weight:800;cursor:pointer;">EXIT VR [ESC]</button>
         </div>
       `;
       document.body.appendChild(root);
@@ -420,7 +420,7 @@
         const gyroBtn = this.uiRoot.querySelector("#vr-btn-gyro");
         if (gyroBtn) {
           gyroBtn.textContent = this.gyroEnabled ? "GYRO ON" : "GYRO OFF";
-          gyroBtn.style.background = this.gyroEnabled ? "rgba(56,189,248,0.28)" : "rgba(56,189,248,0.12)";
+          gyroBtn.style.background = this.gyroEnabled ? "rgba(208,161,92,0.28)" : "rgba(208,161,92,0.12)";
         }
       }
 
@@ -435,9 +435,16 @@
       }
       const hudVrBtn = document.getElementById("btn-hud-vr-main");
       if (hudVrBtn) {
-        hudVrBtn.innerHTML = this.isAnyVRActive
-          ? "<span>⏹</span><span>EXIT VR</span>"
-          : "<span>🥽</span><span>VR</span>";
+        const deckLabel = hudVrBtn.querySelector(".deck-row__label");
+        const deckSub = hudVrBtn.querySelector(".deck-row__sub");
+        if (deckLabel) {
+          deckLabel.textContent = this.isAnyVRActive ? "EXIT VR" : "VR MODE";
+          if (deckSub) deckSub.textContent = this.isAnyVRActive ? "Return to standard view" : "WebXR or side-by-side stereo";
+        } else {
+          hudVrBtn.innerHTML = this.isAnyVRActive
+            ? "<span>⏹</span><span>EXIT VR</span>"
+            : "<span>🥽</span><span>VR</span>";
+        }
         hudVrBtn.title = this.isAnyVRActive ? "Exit WebXR / Stereo VR Mode [ESC]" : "Toggle WebXR / Stereo VR Mode";
       }
       const interiorVrBtn = document.getElementById("btn-hud-vr");

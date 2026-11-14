@@ -1,4 +1,4 @@
-# 🚀 Interfellas — Perilune Orbital Transit & NASA ISS 3D Simulator
+# 🚀 Interfellas — Lunaspis Orbital Transit & NASA ISS 3D Simulator
 
 **Interfellas** is a real-time 6-player cooperative 3D space simulator built with **vanilla Three.js**, **Express**, **Socket.IO**, **WebRTC Proximity Voice**, and **Web Audio API**. Fully optimized for both **desktop** and **mobile/tablet** viewports and ready for instant deployment on **Railway**.
 
@@ -18,10 +18,12 @@ Interfellas/
 ├── public/                        # Static frontend (Vanilla Three.js — no Next.js)
 │   ├── index.html                 # Main application shell & responsive HUD overlays
 │   ├── css/
-│   │   └── style.css              # Desktop + mobile responsive styles & touch thumbstick UI
+│   │   ├── style.css              # Desktop + mobile responsive layout & touch thumbstick UI
+│   │   ├── premium.css            # Interface tokens & component system
+│   │   └── lunar-glass.css        # Lunar Brass accent, frosted glass surfaces & Quick Deck
 │   ├── basis/                     # Basis Universal / KTX2 GPU texture transcoder (JS + WASM)
 │   ├── draco/                     # Google Draco 3D mesh decompression workers (JS + WASM)
-│   ├── models/                    # Primary SpaceShip (Perilune) 3D GLB assets
+│   ├── models/                    # Primary SpaceShip (Lunaspis) 3D GLB assets
 │   │   ├── astronaut/             # astronaut_lod0.glb (2K KTX2) & astronaut_lod1.glb (1K KTX2)
 │   │   └── iss/                   # ISS_stationary_opt.glb (27-part NASA ISS) & ISS_B.glb
 │   ├── assets/                    # Fleet spacecraft, launch stack, xEMU suits & Solar System .glb models
@@ -35,13 +37,14 @@ Interfellas/
 │       │   ├── GLTFLoader.js
 │       │   └── SkeletonUtils.js
 │       ├── core/                  # Core engine subsystems
+│       │   ├── ui_theme.js        # Shared UI palette, input-mode prompts & canvas colors
 │       │   ├── glb_manager.js     # GLB/KTX2/Draco/Meshopt loader, astronaut rig & 3D Hangar Studio
 │       │   ├── network.js         # Socket.IO client state sync & snapshot interpolation
 │       │   ├── voice.js           # WebRTC spatial proximity & long-range radio voice chat
 │       │   ├── audio_synth.js     # Procedural Web Audio synthesizer & Quindar radio tones
 │       │   └── cinematic_pass.js  # ACES Filmic post-processing shader pass
 │       ├── world/                 # 3D scenes & interactive environments
-│       │   ├── ship_interior.js   # 6-room Perilune spacecraft interior/exterior, HoloTable orbit sync & Lunar scene
+│       │   ├── ship_interior.js   # 6-room Lunaspis spacecraft interior/exterior, HoloTable orbit sync & Lunar scene
 │       │   ├── station_modules.js # 27-part interactive NASA ISS 3D reference showcase
 │       │   ├── mission_viz.js     # Interactive 3D NASA Mission Viz & GMAT trajectory theater
 │       │   ├── vr_mode.js         # WebXR ("immersive-vr") + desktop/mobile Side-by-Side Stereo VR mode
@@ -69,10 +72,10 @@ Interfellas/
 
 ## 🛸 Key Features
 
-- **6-Room Perilune Spacecraft (`ship_interior.js`)**: Explore the Transit Hub, Command Deck (with 3D Earth Cupola window), Power Bay, Life Support, Hull Access, and Lander Bay with real-time wall/rack sliding collision, live crew markers on a collapsible SVG ship minimap, and no AI-controlled crewmates.
+- **6-Room Lunaspis Spacecraft (`ship_interior.js`)**: Explore the Transit Hub, Command Deck (with 3D Earth Cupola window), Power Bay, Life Support, Hull Access, and Lander Bay with real-time wall/rack sliding collision, live crew markers on a collapsible SVG ship minimap, and no AI-controlled crewmates.
 - **Space Center 2 Web Port (`public/js/world/space_center/`)**: The full LC-39A complex rebuilt in Three.js as reusable modules — Pad 39A support structures, propellant farm, lightning protection, water tower, walkable VAB high bay and comms room, walkable Launch Control Center, crawler transporter, press site, substation, cooling tower, fire water, antenna farm, roads, beach and Pad 39B silhouette. Includes a ground-level site tour with fast travel from the launch-pad HUD.
 - **27-Part Interactive NASA ISS Showcase (`station_modules.js`, `[J]`)**: Inspect 27 curated NASA ISS modules, trusses, solar wings, and robotic arms with raycast selection, component isolation, floating 3D labels, and searchable engineering dossiers.
-- **Crew Emotes & Fresh Expedition Codes**: Wave, salute, dance, laugh, look around, and heart emotes (`[X]`, `[1]`–`[6]`) combine skeletal animation with two-bone arm/hand IK — heart hands meet above the helmet, laugh hands cover the visor, and every gesture is relayed to crewmates with floating 3D emoji bubbles. Quick play now fills an open public crew or creates a brand-new random expedition code instead of reusing a permanent room.
+- **Crew Emotes & Fresh Expedition Codes**: Wave, salute, dance, laugh, look around, and heart emotes (`[Q]`/`[X]` Quick Deck, `[1]`–`[6]`) combine skeletal animation with two-bone arm/hand IK — heart hands meet above the helmet, laugh hands cover the visor, and every gesture is relayed to crewmates with floating 3D emoji bubbles. Quick play now fills an open public crew or creates a brand-new random expedition code instead of reusing a permanent room.
 - **7 NASA Systems Engineering & MDL Consoles (`gameplay.js`, `[E]`, `[K]`)**: Design missions across Earth Climate EO, Lunar South Pole, Asteroid Rendezvous, **COSMOS-L2 Space Telescope** (wavelength-optics-cryo constraints), **NASA CSLI CubeSat 101** (`3U`/`6U`/`12U` mass & 5-year End-of-Mission deorbit rules), and Sandbox mode. Tracks **CML 1–4** maturity, **Launch/Space/Ground/User** segment readiness, Option A vs. Option B trade studies, live 3D Point-Design previews, Risk Matrices, simulated science product plots, NASA/CSA heritage mission matches, and JSON MDL export.
 - **3D NASA Mission Viz & GMAT Trajectory Theater (`mission_viz.js`, `[U]`)**: Inspect Earth/Moon/L2/Asteroid orbital trajectories, Van Allen radiation belts, Earth shadow umbra cones, ground station coverage cones & RF beams, and scrub mission event timelines across all mission phases.
 - **WebXR & Stereo VR Mode (`vr_mode.js`)**: Enter native `immersive-vr` WebXR headsets or universal Desktop/Mobile Side-by-Side Stereo VR (with adjustable IPD & mobile gyro support) for Mission Viz, the 27-part ISS Showcase, and Station exploration.
@@ -89,7 +92,7 @@ Interfellas/
 | **Move / Sprint** | `WASD` / `Arrow Keys` (`Shift` to sprint) | Left-thumb Analog Joystick (outer ring auto-sprints) |
 | **Look / Orbit** | Drag Mouse / Pointer Lock | Right-thumb Drag + 2-Finger Pinch-to-Zoom |
 | **Interact with Console** | `[E]` or click prompt | Tap floating `⚡ ACCESS TERMINAL` button |
-| **Crew Emotes** | `[X]` wheel / `[1]`–`[6]` quick emotes | Tap `💬 EMOTE` in HUD |
+| **Quick Deck** | `[Q]` deck / `[X]` crew tab / `[1]`–`[6]` quick emotes | Tap `▦ DECK` in HUD |
 | **Switch 1st / 3rd Person** | `[C]` | Tap `👁️` Camera button in HUD |
 | **Boarding** | Follow the glowing Access Arm Control and Orbiter Hatch markers; arm lock, boarding and liftoff trigger automatically | Same glowing markers |
 | **Docking Camera** | Drag to orbit, wheel to zoom, double-click to reset, `[V]` chase/cockpit | Drag to orbit, pinch to zoom |
@@ -99,6 +102,7 @@ Interfellas/
 | **3D Mission Viz / Trajectory Theater** | `[U]` | Tap `🛰️ VIZ` or `🛰️ 3D ORBIT VIZ` in HUD |
 | **WebXR / Stereo VR Inspection** | `VR VIEW` button (`[ESC]` to exit) | Tap `🥽 VR` / `🥽 STEREO VR` button |
 | **3D Model Hangar / Ground Planner** | `[H]` / `[M]` | Tap `GLB HANGAR` or `📋 MISSION DESIGN` in HUD |
+| **Gamepad** | `A` select/interact, `B` back, `X` interact, `Y` camera, `LB/RB` deck tabs, `Start` settings | Bluetooth/USB controller with standard mapping |
 
 ## 🌐 Local Development
 

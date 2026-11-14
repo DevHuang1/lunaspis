@@ -6,10 +6,11 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="theme-color" content="#05060a" />
-  <title>Perilune — Orbital Transit &amp; ISS Simulator</title>
-  <link rel="stylesheet" href="css/style.css?v=4.7.3" />
-  <link rel="stylesheet" href="css/premium.css?v=1.0.1" />
+  <meta name="theme-color" content="#080a0e" />
+  <title>Lunaspis — Orbital Transit &amp; ISS Simulator</title>
+  <link rel="stylesheet" href="css/style.css?v=5.1.3" />
+  <link rel="stylesheet" href="css/premium.css?v=5.1.3" />
+  <link rel="stylesheet" href="css/lunar-glass.css?v=5.1.3" />
   <!-- Three.js Engine & 3D GLTF/GLB/Draco/KTX2/Meshopt Loaders -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" integrity="sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu" crossorigin="anonymous"></script>
   <script src="js/loaders/DRACOLoader.js?v=4.0.0"></script>
@@ -21,6 +22,44 @@
   <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
+
+  <!-- Icon sprite -->
+  <svg width="0" height="0" style="position:absolute;overflow:hidden;" aria-hidden="true" focusable="false">
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18"/><path d="M12 3a15 15 0 0 0 0 18"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol>
+    <symbol id="i-asteroid" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><circle cx="19" cy="5" r="2"/><circle cx="4" cy="18" r="2.5"/></symbol>
+    <symbol id="i-telescope" viewBox="0 0 24 24"><path d="M2 13l18-7-2 6-16 5z"/><path d="M14 6l4 1"/><path d="M7 15l-2 6"/><path d="M10 14l2 6"/></symbol>
+    <symbol id="i-cubesat" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 3v18M16 3v18M3 8h18M3 16h18"/></symbol>
+    <symbol id="i-flask" viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4A2 2 0 0 0 19 18l-5-9V3"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="7" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2"/><circle cx="17" cy="8" r="2.5"/><path d="M21 21v-1.5a5 5 0 0 0-4-4.9"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+    <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M15 9.5c0-1.4-1.3-2.5-3-2.5s-3 1.1-3 2.5 1.3 2 3 2 3 .9 3 2.5-1.3 2.5-3 2.5-3-1.1-3-2.5"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M3 7h4l2-2h6l2 2h4v12H3z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-vr" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="10" rx="3"/><path d="M12 17v-4"/><circle cx="7" cy="12" r="2"/><circle cx="17" cy="12" r="2"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.65 1.65 0 0 0 15 19.4a1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+    <symbol id="i-leave" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3l9 16H3z"/><path d="M12 9v4M12 17h.01"/></symbol>
+    <symbol id="i-radio" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 16.2a6 6 0 0 0 0-8.4M5 5a10 10 0 0 0 0 14M19 19a10 10 0 0 0 0-14"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></symbol>
+    <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
+    <symbol id="i-orbit" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(-20 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(70 12 12)"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></symbol>
+    <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.1 2.1-2.8-2.8 2.1-2.1z"/></symbol>
+    <symbol id="i-zap" viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 10-12h-7z"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></symbol>
+    <symbol id="i-deck" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+    <symbol id="i-enter" viewBox="0 0 24 24"><path d="M9 10l3 3 3-3"/><path d="M12 13V3"/><path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></symbol>
+  </svg>
 
   <!-- Persistent Top Performance Bar (FPS & PING) -->
   <div id="perf-overlay" title="Click to toggle Flight Telemetry &amp; Diagnostics [P] / [F3]">
@@ -41,7 +80,7 @@
   <!-- Flight Telemetry & Diagnostics Deck [P] / [F3] -->
   <div id="hud-diagnostics-overlay" class="hud-diagnostics-deck" style="display:none;">
     <div class="diag-header">
-      <div class="diag-title">PERILUNE // FLIGHT TELEMETRY &amp; DIAGNOSTICS</div>
+      <div class="diag-title">DIAGNOSTICS</div>
       <div class="diag-actions">
         <button id="btn-diag-open-settings" class="diag-btn-gear" title="Open Systems &amp; Performance Settings">SETTINGS</button>
         <button id="btn-diag-close" class="diag-btn-close" title="Close Diagnostics [P] / [F3]">&times;</button>
@@ -54,23 +93,22 @@
         <div class="diag-stat-sub" id="diag-fps-minmax">FPS: 60 | Min: 58 Max: 62</div>
       </div>
       <div class="diag-stat-card">
-        <div class="diag-stat-label">PING RTT &amp; JITTER</div>
+        <div class="diag-stat-label">LATENCY</div>
         <div class="diag-stat-value" id="diag-ping-jitter">-- ms (&plusmn;0 ms)</div>
         <div class="diag-stat-sub" id="diag-conn-quality">STATUS: NOMINAL</div>
       </div>
       <div class="diag-stat-card">
-        <div class="diag-stat-label">PACKET RATE</div>
+        <div class="diag-stat-label">PACKETS</div>
         <div class="diag-stat-value" id="diag-packet-rates">&uarr; 0 /s &bull; &darr; 0 /s</div>
         <div class="diag-stat-sub" id="diag-tickrate-cull">20 Hz | DELTA CULLING</div>
       </div>
       <div class="diag-stat-card">
-        <div class="diag-stat-label">VIEWPORT &amp; SHADER</div>
+        <div class="diag-stat-label">VIEWPORT</div>
         <div class="diag-stat-value" id="diag-resolution">1920x1080 @ 1.0x</div>
         <div class="diag-stat-sub" id="diag-shader-status">POST-FX: BALANCED</div>
       </div>
     </div>
     <div class="diag-footer">
-      <span>[P] / [F3] Diagnostics &bull; [J] ISS 3D &bull; [K] Lunar &bull; [H] Hangar &bull; [O] Solar</span>
       <span id="diag-clock">UTC 00:00:00</span>
     </div>
   </div>
@@ -79,14 +117,14 @@
   <div id="canvas-container"></div>
 
   <!-- ========================================================================
-       SCREEN 1: PERILUNE ORBITAL TITLE SCREEN
+       SCREEN 1: LUNASPIS ORBITAL TITLE SCREEN
        ======================================================================== -->
   <div class="app-screen" id="screen-menu">
     <!-- Top Hairline Header -->
     <header class="title-topbar">
       <div class="title-brand">
         <span class="title-brand-dot"></span>
-        <span>PERILUNE // ORBITAL MISSION LAB</span>
+        <span>LUNASPIS</span>
       </div>
       <div class="title-top-actions">
         <button class="title-chip-btn" id="btn-open-hangar-menu">3D HANGAR</button>
@@ -102,10 +140,9 @@
 
     <!-- Bottom-Left Asymmetric Hero Lockup (Leaves 3D Earth & ISS Unobstructed) -->
     <main class="title-hero">
-      <div class="title-eyebrow">EXPEDITION 72 &middot; LOW EARTH ORBIT &middot; 418 KM</div>
-      <h1 class="title-display">PERILUNE</h1>
+      <h1 class="title-display">LUNASPIS</h1>
       <p class="title-premise">
-        Six-compartment orbital transit craft. Stabilize station systems, coordinate crew, and align lunar descent.
+        Stabilize systems. Reach the Moon.
       </p>
 
       <div class="title-callsign-row">
@@ -114,16 +151,16 @@
       </div>
 
       <div class="title-cta-row">
-        <button class="btn-title-primary" id="btn-quick-play">ENTER MISSION</button>
-        <button class="btn-title-secondary" id="btn-host-game">HOST CREW</button>
+        <button class="btn-title-primary" id="btn-quick-play">PLAY</button>
+        <button class="btn-title-secondary" id="btn-host-game">HOST</button>
       </div>
 
       <div class="title-join-row">
-        <input type="text" id="input-join-code" class="title-code-input" placeholder="EXPEDITION CODE" maxlength="8" />
+        <input type="text" id="input-join-code" class="title-code-input" placeholder="ROOM CODE" maxlength="8" />
         <button class="btn-title-join" id="btn-join-game">JOIN</button>
       </div>
 
-      <div id="user-stats-card" class="title-telemetry-strip">
+      <div id="user-stats-card" class="title-telemetry-strip" hidden>
         <span>MISSIONS <strong id="stat-missions">0</strong></span>
         <span class="strip-sep">&middot;</span>
         <span>COMPLETED <strong id="stat-victories" class="val-sage">0</strong></span>
@@ -139,34 +176,35 @@
   <div class="app-screen" id="screen-lobby">
     <div class="lobby-top-bar">
       <div class="room-code-badge">
-        <span class="field-label" style="margin:0;">EXPEDITION:</span>
+        <span class="field-label" style="margin:0;">CODE</span>
         <span class="room-code-text" id="lobby-room-code">------</span>
-        <button class="btn-copy" id="btn-copy-invite">COPY LINK</button>
+        <button class="btn-copy" id="btn-copy-invite">COPY</button>
       </div>
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-        <button id="btn-lobby-voice" class="btn-lobby-voice">
-          <span id="lobby-voice-icon">MIC</span>
-          <span id="lobby-voice-text">ENABLE COMMS</span>
+      <div class="lobby-top-actions">
+        <button id="btn-lobby-voice" class="btn-lobby-voice" title="Toggle microphone">
+          <svg class="ui-icon" aria-hidden="true"><use href="#i-mic"></use></svg>
+          <span id="lobby-voice-text">MIC OFF</span>
         </button>
-        <button id="btn-lobby-audio-settings" class="btn-lobby-voice" style="padding:6px 10px;" title="Systems &amp; Audio Settings">
-          <span>SYSTEMS</span>
+        <button id="btn-lobby-audio-settings" class="btn-lobby-voice btn-compact" title="Settings" aria-label="Settings">
+          <svg class="ui-icon" aria-hidden="true"><use href="#i-settings"></use></svg>
+          <span class="btn-label">SETTINGS</span>
         </button>
-        <div class="lobby-count-text" id="lobby-player-count">1 / 6 CREW</div>
-        <button id="btn-leave-room" class="btn-lobby-voice btn-danger-outline" style="padding:6px 10px;" title="Leave Room">
+        <div class="lobby-count-text" id="lobby-player-count">1/6 CREW</div>
+        <button id="btn-leave-room" class="btn-lobby-voice btn-compact btn-danger-outline" title="Leave Room">
           <span>LEAVE</span>
         </button>
       </div>
     </div>
 
     <div class="lobby-mission-panel" id="lobby-mission-panel">
-      <div class="lobby-mission-header">
+      <div class="lobby-mission-header" hidden>
         <div>
           <div class="field-label" style="margin:0;">EXPEDITION PROFILE</div>
           <div id="lobby-mission-selected" class="lobby-mission-selected">ARTEMIS-LSP · LUNAR EXPLORATION</div>
         </div>
         <div id="lobby-mission-hint" class="lobby-mission-hint">HOST CONTROL — SELECT EXPEDITION PROFILE</div>
       </div>
-      <div class="lobby-mission-cards" id="lobby-mission-cards">
+      <div class="lobby-mission-cards" id="lobby-mission-cards" role="radiogroup" aria-label="Expedition profile">
         <!-- Rendered dynamically by main.js -->
       </div>
       <div class="lobby-difficulty-row">
@@ -181,58 +219,51 @@
       </div>
 
       <div class="lobby-customizer">
-        <div class="customizer-title">CREW SPECIALIZATION</div>
-
         <div>
-          <label class="field-label">SUIT ACCENT</label>
+          <label class="field-label">COLOR</label>
           <div class="color-swatches">
-            <button class="lobby-color-btn" data-color="#67e8f9" style="background:#67e8f9;" title="Perilune Cyan"></button>
-            <button class="lobby-color-btn" data-color="#d0a15c" style="background:#d0a15c;" title="Solar Amber"></button>
-            <button class="lobby-color-btn" data-color="#7fb8a6" style="background:#7fb8a6;" title="ECLSS Sage"></button>
-            <button class="lobby-color-btn" data-color="#c08a8a" style="background:#c08a8a;" title="Hull Rose"></button>
-            <button class="lobby-color-btn" data-color="#9a8fc4" style="background:#9a8fc4;" title="Lander Violet"></button>
-            <button class="lobby-color-btn" data-color="#ece7dc" style="background:#ece7dc;" title="EVA Ivory"></button>
+            <button class="lobby-color-btn" data-color="#d0a15c" style="background:#d0a15c;" title="Lunar Brass"></button>
+            <button class="lobby-color-btn" data-color="#b88355" style="background:#b88355;" title="Solar Copper"></button>
+            <button class="lobby-color-btn" data-color="#83a896" style="background:#83a896;" title="ECLSS Sage"></button>
+            <button class="lobby-color-btn" data-color="#c67979" style="background:#c67979;" title="Hull Rose"></button>
+            <button class="lobby-color-btn" data-color="#8a8194" style="background:#8a8194;" title="Regolith Violet"></button>
+            <button class="lobby-color-btn" data-color="#eceae3" style="background:#eceae3;" title="EVA Ivory"></button>
           </div>
         </div>
 
         <div>
-          <label class="field-label">STATION ROLE (SELECT YOUR DUTY)</label>
+          <label class="field-label">ROLE</label>
           <div class="lobby-roles-list">
             <div class="lobby-role-card" data-role="commander">
               <div class="lobby-role-top">
                 <span>COMMANDER</span>
                 <span class="lobby-role-holders" data-role-holders="commander">OPEN</span>
               </div>
-              <span class="role-sub">Launch Authority · Docking Pilot · Architecture &amp; Sim [HUB/CMD/LDR]</span>
             </div>
             <div class="lobby-role-card" data-role="engineer">
               <div class="lobby-role-top">
                 <span>ENGINEER</span>
                 <span class="lobby-role-holders" data-role-holders="engineer">OPEN</span>
               </div>
-              <span class="role-sub">Pad Access Arm [F] · Docking RCS [1/2] · Power &amp; Hull [PWR/HULL]</span>
             </div>
             <div class="lobby-role-card" data-role="scientist">
               <div class="lobby-role-top">
                 <span>SCIENTIST</span>
                 <span class="lobby-role-holders" data-role-holders="scientist">OPEN</span>
               </div>
-              <span class="role-sub">Docking Boresight &amp; Ping [3/4] · Life Support &amp; Science [LSS/SCI]</span>
             </div>
           </div>
-          <div class="lobby-role-coverage" id="lobby-role-coverage">Select a role — unpicked roles are auto-balanced when joining a crew.</div>
+          <div class="lobby-role-coverage" id="lobby-role-coverage" hidden></div>
         </div>
 
-        <button type="button" class="btn-secondary btn-accent-subtle" id="btn-open-hangar-lobby" style="padding:8px;font-size:10.5px;">
-          INSPECT 3D RIG (.GLB)
+        <button type="button" class="btn-secondary btn-accent-subtle" id="btn-open-hangar-lobby">
+          3D RIG
         </button>
 
         <div class="lobby-chat-box">
-          <div id="lobby-chat-msgs" class="lobby-chat-msgs">
-            <div style="color:rgba(154,164,174,0.7);">Staging bay online. Share invite link with crew.</div>
-          </div>
+          <div id="lobby-chat-msgs" class="lobby-chat-msgs"></div>
           <div style="display:flex;gap:6px;margin-top:6px;">
-            <input type="text" id="lobby-chat-input" placeholder="Comms message..." class="lobby-chat-input" />
+            <input type="text" id="lobby-chat-input" placeholder="Message" class="lobby-chat-input" />
             <button id="lobby-chat-send" class="lobby-chat-send">SEND</button>
           </div>
         </div>
@@ -241,14 +272,14 @@
 
     <div class="lobby-bottom-bar">
       <div class="lobby-controls-hint">
-        <strong>WASD</strong> Move &bull; <strong>Drag</strong> Look &bull; <strong>[E]</strong> Console &bull; <strong>[C]</strong> Camera &bull; <strong>[X]</strong> Emotes &bull; <strong>[J]</strong> ISS 3D &bull; <strong>[K]</strong> Lunar
+        <strong>WASD</strong> Move &bull; <strong>E</strong> Use &bull; <strong>C</strong> View
       </div>
-      <button class="btn-start-game" id="btn-start-mission">LAUNCH MISSION</button>
+      <button class="btn-start-game" id="btn-start-mission">LAUNCH</button>
     </div>
   </div>
 
   <!-- ========================================================================
-       SCREEN 3: IN-GAME HUD (PERILUNE MINIMALIST TELEMETRY)
+       SCREEN 3: IN-GAME HUD (LUNASPIS MINIMALIST TELEMETRY)
        ======================================================================== -->
   <div class="app-screen" id="screen-game">
     <div id="helmet-visor-overlay"></div>
@@ -263,7 +294,7 @@
       <div class="hud-race-team coop">
         <div class="hud-race-team-info">
           <span class="hud-race-team-dot dot-coop"></span>
-          <span class="hud-race-team-name">PERILUNE CO-OP OBJECTIVES</span>
+          <span class="hud-race-team-name">OBJECTIVES</span>
           <span class="hud-race-score" id="race-score-coop">0 / 7</span>
         </div>
         <div class="hud-race-track">
@@ -286,18 +317,18 @@
 
     <!-- Left Fault Queue & Flight Plan Checklist -->
     <div class="hud-checklist-panel" id="hud-checklist-panel">
-      <div class="hud-checklist-header" id="hud-checklist-toggle" title="Click to collapse / expand">
+      <div class="hud-checklist-header" id="hud-checklist-toggle" role="button" tabindex="0" aria-expanded="true" aria-controls="hud-task-list" title="Click to collapse / expand">
         <div class="hud-checklist-title-wrap">
-          <span id="hud-checklist-team-icon" style="width:6px;height:6px;border-radius:50%;background:#67e8f9;display:inline-block;flex-shrink:0;"></span>
-          <span style="font-weight:700;letter-spacing:1.1px;" id="hud-checklist-title">MISSION OBJECTIVES</span>
-          <span id="hud-checklist-count" class="checklist-count-pill">0/7</span>
+          <span id="hud-checklist-team-icon" aria-hidden="true"></span>
+          <span id="hud-checklist-title">OBJECTIVES</span>
+          <span id="hud-checklist-count" class="checklist-count-pill" aria-live="polite">0/7</span>
         </div>
         <div class="hud-checklist-meta-wrap">
-          <span id="hud-room-code" style="color:#d0a15c;font-weight:700;font-size:9.5px;letter-spacing:0.8px;">------</span>
-          <span id="hud-checklist-chevron" class="checklist-chevron">&#9662;</span>
+          <span id="hud-room-code">------</span>
+          <span id="hud-checklist-chevron" class="checklist-chevron" aria-hidden="true">&#9662;</span>
         </div>
       </div>
-      <div id="hud-crew-roster" class="hud-crew-roster">
+      <div id="hud-crew-roster" class="hud-crew-roster" hidden>
         <!-- Rendered dynamically by main.js: WHO MUST DO WHAT & CREW ROLES -->
       </div>
       <div id="hud-task-list" class="hud-task-list-body">
@@ -317,63 +348,107 @@
       <span id="proximity-task-label">ACCESS CONSOLE</span>
     </button>
 
-    <!-- Top-Right Compact Controls (View, Mic, Hangar, Systems) -->
+    <!-- Top-Right Condensed Controls (Camera, Mic, Deck, Settings, Leave) -->
     <div id="hud-voice-panel">
       <div class="voice-header-row">
-        <button id="btn-camera-mode" class="voice-mic-btn" title="Switch Camera View [C]">
-          <span id="cam-mode-icon">CAM</span>
-          <span id="cam-mode-label">3RD PERSON</span>
+        <button id="btn-camera-mode" class="voice-mic-btn" title="Camera [C]" aria-label="Switch camera view">
+          <span id="cam-mode-icon" class="voice-btn__icon" aria-hidden="true"></span>
+          <span id="cam-mode-label" class="voice-btn__label">3RD PERSON</span>
         </button>
-        <button id="btn-voice-mic" class="voice-mic-btn" title="Toggle Mute [M]">
-          <span id="voice-mic-icon">MIC</span>
-          <span id="voice-mic-label">ON</span>
+        <button id="btn-voice-mic" class="voice-mic-btn" title="Mute [M]" aria-label="Toggle microphone">
+          <span id="voice-mic-icon" class="voice-btn__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-mic"></use></svg></span>
+          <span id="voice-mic-label" class="voice-btn__label">ON</span>
         </button>
-        <button id="btn-emote-menu" class="voice-mic-btn" title="Crew Emotes [X]">
-          <span>💬</span>
-          <span>EMOTE</span>
+        <button id="btn-quick-deck" class="voice-mic-btn" title="Quick Deck [Q] / Emotes [X]" aria-label="Open Quick Deck" aria-haspopup="dialog" aria-expanded="false">
+          <span class="voice-btn__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-deck"></use></svg></span>
+          <span class="voice-btn__label">DECK</span>
         </button>
-        <button id="btn-hud-hangar" class="voice-mic-btn" title="3D Asset Hangar [H]">
-          <span>GLB</span>
-          <span>HANGAR</span>
+        <button id="btn-voice-settings" class="voice-settings-btn" title="Settings" aria-label="Settings">
+          <svg class="ui-icon"><use href="#i-settings"></use></svg>
         </button>
-        <button id="btn-hud-orbit-viz" class="voice-mic-btn" title="3D Mission Viz & GMAT Trajectory Theater [U]">
-          <span>🛰️</span>
-          <span>VIZ</span>
-        </button>
-        <button id="btn-hud-solar" class="voice-mic-btn" title="Solar System Atlas [O]">
-          <span>◉</span>
-          <span>SOLAR</span>
-        </button>
-        <button id="btn-hud-vr-main" class="voice-mic-btn" title="Toggle WebXR / Stereo VR Mode">
-          <span>🥽</span>
-          <span>VR</span>
-        </button>
-        <button id="btn-voice-settings" class="voice-settings-btn" title="Systems &amp; Performance Settings">
-          <span>&#9881;</span>
-        </button>
-        <button id="btn-hud-leave-room" class="voice-mic-btn btn-danger-outline" title="Leave Room">
-          <span>LEAVE</span>
+        <button id="btn-hud-leave-room" class="voice-mic-btn btn-danger-outline" title="Leave" aria-label="Leave room">
+          <span class="voice-btn__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-leave"></use></svg></span>
+          <span class="voice-btn__label">LEAVE</span>
         </button>
       </div>
-      <div class="voice-sub-row">
-        <div class="voice-status-badge" id="voice-status-badge">
-          <span class="voice-pulse-dot" id="voice-pulse-dot"></span>
-          <span id="voice-mode-label">COMMS</span>
+    </div>
+
+    <!-- Quick Deck: crew expressions + systems, frosted glass command panel -->
+    <div id="quick-deck" class="glass-panel" role="dialog" aria-modal="false" aria-labelledby="quick-deck-title" aria-hidden="true">
+      <div class="deck-head">
+        <span class="deck-emblem" aria-hidden="true"><svg class="ui-icon"><use href="#i-deck"></use></svg></span>
+        <div class="deck-head-copy">
+          <div class="deck-eyebrow">LUNASPIS // COMMAND</div>
+          <div id="quick-deck-title">QUICK DECK</div>
         </div>
-        <div class="voice-key-hint"><strong>[U]</strong> Orbit Viz &middot; <strong>[O]</strong> Solar &middot; <strong>[J]</strong> ISS 3D &middot; <strong>[K]</strong> Lunar &middot; <strong>[C]</strong> View</div>
+        <button type="button" class="deck-close" id="btn-deck-close" title="Close [ESC]" aria-label="Close Quick Deck">&times;</button>
+      </div>
+      <div class="deck-tabs" role="tablist" aria-label="Quick Deck sections">
+        <button type="button" class="deck-tab active" id="tab-deck-crew" data-deck-tab="crew" role="tab" aria-selected="true" aria-controls="deck-crew-panel">CREW</button>
+        <button type="button" class="deck-tab" id="tab-deck-systems" data-deck-tab="systems" role="tab" aria-selected="false" aria-controls="deck-systems-panel">SYSTEMS</button>
+      </div>
+      <div class="deck-detail" id="deck-detail">
+        <span class="detail-dot" aria-hidden="true"></span>
+        <span id="deck-detail-text">Crew expressions and ship systems in one place.</span>
+      </div>
+      <div class="deck-body" id="deck-crew-panel" role="tabpanel" aria-labelledby="tab-deck-crew">
+        <!-- Rendered by main.js from ASTRONAUT_EMOTES -->
+      </div>
+      <div class="deck-body" id="deck-systems-panel" role="tabpanel" aria-labelledby="tab-deck-systems" hidden>
+        <button type="button" id="btn-hud-hangar" class="deck-row" title="Open the 3D model hangar [H]">
+          <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-box"></use></svg></span>
+          <span class="deck-row__copy"><span class="deck-row__label">3D HANGAR</span><span class="deck-row__sub">Inspect and equip GLB models</span></span>
+          <span class="deck-row__hint">H</span>
+        </button>
+        <button type="button" id="btn-deck-interior" class="deck-row" title="Toggle the Lunaspis ship interior [I]">
+          <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-eye"></use></svg></span>
+          <span class="deck-row__copy"><span class="deck-row__label">SHIP INTERIOR</span><span class="deck-row__sub">Six-room transit craft</span></span>
+          <span class="deck-row__hint">I</span>
+        </button>
+        <button type="button" id="btn-deck-iss" class="deck-row" title="Open the 27-part NASA ISS showcase [J]">
+          <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-cubesat"></use></svg></span>
+          <span class="deck-row__copy"><span class="deck-row__label">ISS 3D SHOWCASE</span><span class="deck-row__sub">27 curated station components</span></span>
+          <span class="deck-row__hint">J</span>
+        </button>
+        <button type="button" id="btn-hud-orbit-viz" class="deck-row" title="Open the trajectory theater [U]">
+          <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-orbit"></use></svg></span>
+          <span class="deck-row__copy"><span class="deck-row__label">ORBIT VIZ</span><span class="deck-row__sub">NASA mission trajectory theater</span></span>
+          <span class="deck-row__hint">U</span>
+        </button>
+        <button type="button" id="btn-hud-solar" class="deck-row" title="Open the Solar System Atlas [O]">
+          <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-globe"></use></svg></span>
+          <span class="deck-row__copy"><span class="deck-row__label">SOLAR ATLAS</span><span class="deck-row__sub">Destinations across the system</span></span>
+          <span class="deck-row__hint">O</span>
+        </button>
+        <button type="button" id="btn-deck-moon" class="deck-row" title="Open the 3D lunar touchdown scene [K]">
+          <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-moon"></use></svg></span>
+          <span class="deck-row__copy"><span class="deck-row__label">LUNAR SCENE</span><span class="deck-row__sub">Apollo touchdown on the Moon</span></span>
+          <span class="deck-row__hint">K</span>
+        </button>
+        <button type="button" id="btn-hud-vr-main" class="deck-row" title="Toggle WebXR / stereo VR">
+          <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-vr"></use></svg></span>
+          <span class="deck-row__copy"><span class="deck-row__label">VR MODE</span><span class="deck-row__sub">WebXR or side-by-side stereo</span></span>
+          <span class="deck-row__hint">VR</span>
+        </button>
+        <button type="button" id="btn-deck-space-center" class="deck-row" title="Toggle Kennedy Space Center LC-39A [G]">
+          <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-pin"></use></svg></span>
+          <span class="deck-row__copy"><span class="deck-row__label">LC-39A / SHIP</span><span class="deck-row__sub">Ground site and interior transit</span></span>
+          <span class="deck-row__hint">G</span>
+        </button>
+        <button type="button" id="btn-deck-settings" class="deck-row" title="Open systems and performance settings">
+          <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-settings"></use></svg></span>
+          <span class="deck-row__copy"><span class="deck-row__label">SYSTEMS SETTINGS</span><span class="deck-row__sub">Audio, graphics, network, display</span></span>
+          <span class="deck-row__hint">ESC</span>
+        </button>
+      </div>
+      <div class="deck-foot">
+        <span><span class="deck-glyph" id="deck-glyph-nav">WASD</span> NAVIGATE</span>
+        <span><span class="deck-glyph" id="deck-glyph-select">&#8629;</span> SELECT</span>
+        <span><span class="deck-glyph" id="deck-glyph-close">ESC</span> CLOSE</span>
       </div>
     </div>
 
     <div id="hud-active-speakers"></div>
-
-    <!-- Crew Emote Wheel [X] -->
-    <div id="emote-wheel" aria-hidden="true">
-      <div class="emote-wheel-header">
-        <span>CREW EMOTES</span>
-        <span class="emote-wheel-hint">[X] CLOSE &middot; [1-6] QUICK</span>
-      </div>
-      <div id="emote-grid" class="emote-grid"></div>
-    </div>
     <div id="emote-toast"></div>
 
     <!-- Mobile Analog Virtual Thumbstick -->
@@ -415,12 +490,12 @@
        ======================================================================== -->
   <div id="mission-briefing-overlay">
     <div class="mission-briefing-card">
-      <div class="victory-eyebrow">PERILUNE // CREW MISSION BRIEFING</div>
-      <h2 id="briefing-title" class="mission-briefing-title">ARTEMIS-LSP · CO-OP EXPEDITION</h2>
+      <div class="victory-eyebrow">MISSION BRIEFING</div>
+      <h2 id="briefing-title" class="mission-briefing-title">ARTEMIS-LSP</h2>
       <div id="briefing-meta" class="mission-briefing-meta"></div>
       <p id="briefing-summary" class="mission-briefing-summary"></p>
       <div id="briefing-objectives" class="mission-briefing-objectives"></div>
-      <button id="btn-briefing-begin" class="btn-primary" style="max-width:280px;margin-top:16px;">BEGIN PRE-FLIGHT</button>
+      <button id="btn-briefing-begin" class="btn-primary modal-cta">START MISSION</button>
     </div>
   </div>
 
@@ -428,21 +503,17 @@
        EXPEDITION MISSION COMPLETION (DEBRIEF)
        ======================================================================== -->
   <div id="victory-overlay">
-    <div id="victory-icon" class="victory-eyebrow">PERILUNE // MISSION DEBRIEF</div>
+    <div id="victory-icon" class="victory-eyebrow">MISSION DEBRIEF</div>
     <h1 id="victory-title" class="victory-title">ALL SYSTEMS NOMINAL</h1>
-    <p id="victory-msg" class="victory-msg">
-      Flight telemetry confirms all orbital transit systems and lunar descent parameters are 100% nominal.
-    </p>
+    <p id="victory-msg" class="victory-msg">Mission complete.</p>
     <div id="victory-debrief" class="victory-debrief"></div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
-      <button id="btn-victory-next" class="btn-primary" style="max-width:240px;">NEXT MISSION →</button>
-      <button id="btn-victory-close" class="btn-secondary" style="max-width:200px;">REVIEW STATION</button>
+    <div class="modal-cta-row">
+      <button id="btn-victory-next" class="btn-primary">NEXT MISSION →</button>
+      <button id="btn-victory-close" class="btn-secondary">REVIEW STATION</button>
     </div>
   </div>
 
-  <div id="launch-countdown-banner">
-    PERILUNE TRANSIT CRAFT — SYSTEMS ONLINE
-  </div>
+  <div id="launch-countdown-banner">SYSTEMS ONLINE</div>
 
   <!-- ========================================================================
        SYSTEMS & PERFORMANCE SETTINGS MODAL
@@ -450,16 +521,16 @@
   <div id="modal-station-systems" class="settings-modal-overlay">
     <div class="settings-modal-card systems-modal-card">
       <div class="settings-modal-header">
-        <span class="settings-modal-title">PERILUNE // SYSTEMS &amp; PERFORMANCE</span>
+        <span class="settings-modal-title">SETTINGS</span>
         <button id="btn-close-settings" class="settings-close-btn" title="Close [ESC]">&times;</button>
       </div>
 
       <div class="preset-profiles-container">
-        <span class="preset-label">PRESET:</span>
+        <span class="preset-label">QUALITY</span>
         <div class="preset-buttons-group">
-          <button type="button" class="btn-preset" data-preset="cinematic">HIGH-FIDELITY</button>
+          <button type="button" class="btn-preset" data-preset="cinematic">HIGH</button>
           <button type="button" class="btn-preset active" data-preset="balanced">BALANCED</button>
-          <button type="button" class="btn-preset" data-preset="potato">ULTRA-FPS</button>
+          <button type="button" class="btn-preset" data-preset="potato">FAST</button>
           <button type="button" class="btn-preset btn-preset-reset" id="btn-reset-defaults">RESET</button>
         </div>
       </div>
@@ -474,7 +545,7 @@
       <div class="settings-modal-body">
         <div id="tab-comms" class="sys-tab-content active">
           <div class="settings-group">
-            <label class="settings-label">MICROPHONE INPUT DEVICE</label>
+            <label class="settings-label">MICROPHONE</label>
             <select id="audio-input-device" class="settings-select">
               <option value="default">Default System Microphone</option>
             </select>
@@ -490,14 +561,14 @@
           </div>
           <div class="settings-group">
             <div class="settings-label-row">
-              <label class="settings-label">NOISE GATE SENSITIVITY</label>
+              <label class="settings-label">NOISE GATE</label>
               <span id="sensitivity-val-badge" class="settings-val-badge">22</span>
             </div>
             <input type="range" id="mic-sensitivity-slider" min="5" max="75" value="22" class="settings-slider" />
           </div>
           <div class="settings-group">
             <div class="settings-label-row">
-              <label class="settings-label">MASTER COMMS VOLUME</label>
+              <label class="settings-label">MASTER VOLUME</label>
               <span id="master-vol-badge" class="settings-val-badge">100%</span>
             </div>
             <div style="display:flex;gap:10px;align-items:center;">
@@ -506,28 +577,28 @@
             </div>
           </div>
           <div class="settings-group">
-            <label class="settings-label">CREWMATE COMMS BALANCE</label>
+            <label class="settings-label">CREW VOLUME</label>
             <div id="crewmate-volume-list" class="crewmate-volume-list">
-              <div style="font-size:11px;color:rgba(154,164,174,0.7);text-align:center;padding:8px;">No crewmates in room</div>
+              <div style="font-size:11px;color:rgba(166,173,182,0.7);text-align:center;padding:8px;">No crewmates in room</div>
             </div>
           </div>
           <div class="settings-keybinds-box">
-            <div class="keybind-row"><span>[M]</span><span>Toggle Microphone Mute</span></div>
-            <div class="keybind-row"><span>[V]</span><span>Hold for Proximity PTT</span></div>
-            <div class="keybind-row"><span>[R]</span><span>Hold for Station Radio</span></div>
+            <div class="keybind-row"><span>[M]</span><span>Mute</span></div>
+            <div class="keybind-row"><span>[V]</span><span>Proximity</span></div>
+            <div class="keybind-row"><span>[R]</span><span>Radio</span></div>
           </div>
         </div>
 
         <div id="tab-graphics" class="sys-tab-content">
           <div class="settings-group">
             <div class="settings-label-row">
-              <label class="settings-label">RENDER RESOLUTION SCALE</label>
+              <label class="settings-label">RESOLUTION</label>
               <span id="render-scale-val-badge" class="settings-val-badge">100% (1.0x)</span>
             </div>
             <input type="range" id="render-scale-slider" min="50" max="150" step="5" value="100" class="settings-slider" />
           </div>
           <div class="settings-group">
-            <label class="settings-label">POST-PROCESSING SHADER</label>
+            <label class="settings-label">POST-FX</label>
             <select id="select-cinematic-preset" class="settings-select">
               <option value="cinematic">Cinematic (HDR Bloom + ACES + Vignette)</option>
               <option value="balanced" selected>Balanced (ACES + Vignette)</option>
@@ -536,7 +607,7 @@
           </div>
           <div class="settings-group">
             <div class="settings-label-row">
-              <label class="settings-label">TARGET MAX FPS</label>
+              <label class="settings-label">FPS CAP</label>
               <span id="fps-cap-badge" class="settings-val-badge">60 FPS</span>
             </div>
             <select id="select-fps-cap" class="settings-select">
@@ -547,7 +618,7 @@
             </select>
           </div>
           <div class="settings-group">
-            <label class="settings-label">LIGHTING QUALITY</label>
+            <label class="settings-label">LIGHTING</label>
             <select id="select-lighting-quality" class="settings-select">
               <option value="high" selected>High — Full Interior Point Lights</option>
               <option value="low">Optimized — Reduced Point Lights</option>
@@ -555,7 +626,7 @@
           </div>
           <div class="settings-group">
             <div class="settings-label-row">
-              <label class="settings-label">CAMERA FIELD OF VIEW (FOV)</label>
+              <label class="settings-label">FIELD OF VIEW</label>
               <span id="fov-val-badge" class="settings-val-badge">62&deg;</span>
             </div>
             <input type="range" id="camera-fov-slider" min="55" max="90" step="1" value="62" class="settings-slider" />
@@ -564,7 +635,7 @@
 
         <div id="tab-network" class="sys-tab-content">
           <div class="settings-group">
-            <label class="settings-label">TRANSMISSION TICK RATE</label>
+            <label class="settings-label">TICK RATE</label>
             <select id="select-tick-rate" class="settings-select">
               <option value="15">15 Hz (Low Bandwidth)</option>
               <option value="20" selected>20 Hz (Balanced)</option>
@@ -572,7 +643,7 @@
             </select>
           </div>
           <div class="settings-group">
-            <label class="settings-label">INTERPOLATION BUFFER</label>
+            <label class="settings-label">INTERPOLATION</label>
             <select id="select-interp-buffer" class="settings-select">
               <option value="smooth">Smooth (130ms)</option>
               <option value="balanced" selected>Balanced (90ms)</option>
@@ -582,8 +653,8 @@
           <div class="settings-group">
             <div class="settings-toggle-row">
               <div>
-                <div class="settings-toggle-title">STATIONARY DELTA-CULLING</div>
-                <div class="settings-toggle-desc">Suppresses redundant packets while stationary.</div>
+                <div class="settings-toggle-title">DELTA CULLING</div>
+                <div class="settings-toggle-desc">Skip idle packets.</div>
               </div>
               <label class="switch-toggle">
                 <input type="checkbox" id="toggle-delta-culling" checked />
@@ -594,7 +665,7 @@
           <div class="network-diagnostics-summary">
             <div class="net-diag-col">
               <div class="net-diag-lbl">SERVER</div>
-              <div class="net-diag-val" id="net-diag-status" style="color:#7fb8a6;">ONLINE</div>
+              <div class="net-diag-val" id="net-diag-status" style="color:#83a896;">ONLINE</div>
             </div>
             <div class="net-diag-col">
               <div class="net-diag-lbl">RTT</div>
@@ -611,8 +682,8 @@
           <div class="settings-group">
             <div class="settings-toggle-row">
               <div>
-                <div class="settings-toggle-title">PERFORMANCE TELEMETRY PILL</div>
-                <div class="settings-toggle-desc">Displays FPS and Ping in the top bar.</div>
+                <div class="settings-toggle-title">FPS &amp; PING</div>
+                <div class="settings-toggle-desc">Show performance pill.</div>
               </div>
               <label class="switch-toggle">
                 <input type="checkbox" id="toggle-perf-pill" checked />
@@ -623,8 +694,8 @@
           <div class="settings-group">
             <div class="settings-toggle-row">
               <div>
-                <div class="settings-toggle-title">DIAGNOSTICS OVERLAY [P]</div>
-                <div class="settings-toggle-desc">Shows frame time, packet rates, and jitter.</div>
+                <div class="settings-toggle-title">DIAGNOSTICS [P]</div>
+                <div class="settings-toggle-desc">Show frame and network stats.</div>
               </div>
               <label class="switch-toggle">
                 <input type="checkbox" id="toggle-diag-overlay" />
@@ -634,7 +705,7 @@
           </div>
           <div class="settings-group">
             <div class="settings-label-row">
-              <label class="settings-label">1ST-PERSON VISOR INTENSITY</label>
+              <label class="settings-label">VISOR OPACITY</label>
               <span id="visor-opacity-val-badge" class="settings-val-badge">100%</span>
             </div>
             <input type="range" id="visor-opacity-slider" min="0" max="100" step="5" value="100" class="settings-slider" />
@@ -642,8 +713,8 @@
           <div class="settings-group">
             <div class="settings-toggle-row">
               <div>
-                <div class="settings-toggle-title">CENTER RETICLE</div>
-                <div class="settings-toggle-desc">Shows central targeting reticle.</div>
+                <div class="settings-toggle-title">RETICLE</div>
+                <div class="settings-toggle-desc">Show center reticle.</div>
               </div>
               <label class="switch-toggle">
                 <input type="checkbox" id="toggle-crosshair" checked />
@@ -662,7 +733,7 @@
   <div id="modal-auth" class="settings-modal-overlay">
     <div class="settings-modal-card auth-modal-card">
       <div class="settings-modal-header">
-        <span class="settings-modal-title">PERILUNE // FLIGHT CREDENTIALS</span>
+        <span class="settings-modal-title">ACCOUNT</span>
         <button id="btn-close-auth" class="settings-close-btn">&times;</button>
       </div>
 
@@ -685,7 +756,7 @@
             <label class="settings-label">PASSWORD</label>
             <input type="password" id="login-password" class="input-styled" placeholder="Enter password..." required autocomplete="current-password" />
           </div>
-          <button type="submit" class="btn-primary" style="margin-top:8px;">AUTHENTICATE</button>
+          <button type="submit" class="btn-primary form-submit">AUTHENTICATE</button>
           <div class="auth-links-row">
             <span>New crew? <a href="#" id="link-goto-register">Register</a></span>
             <span>&middot;</span>
@@ -718,15 +789,15 @@
           <div class="settings-group">
             <label class="settings-label">SUIT ACCENT</label>
             <div class="color-swatches" id="reg-color-swatches">
-              <button type="button" class="lobby-color-btn active" data-color="#67e8f9" style="background:#67e8f9;"></button>
+              <button type="button" class="lobby-color-btn active" data-color="#d0a15c" style="background:#d0a15c;"></button>
               <button type="button" class="lobby-color-btn" data-color="#d0a15c" style="background:#d0a15c;"></button>
-              <button type="button" class="lobby-color-btn" data-color="#7fb8a6" style="background:#7fb8a6;"></button>
-              <button type="button" class="lobby-color-btn" data-color="#c08a8a" style="background:#c08a8a;"></button>
-              <button type="button" class="lobby-color-btn" data-color="#9a8fc4" style="background:#9a8fc4;"></button>
-              <button type="button" class="lobby-color-btn" data-color="#ece7dc" style="background:#ece7dc;"></button>
+              <button type="button" class="lobby-color-btn" data-color="#83a896" style="background:#83a896;"></button>
+              <button type="button" class="lobby-color-btn" data-color="#c67979" style="background:#c67979;"></button>
+              <button type="button" class="lobby-color-btn" data-color="#8a8194" style="background:#8a8194;"></button>
+              <button type="button" class="lobby-color-btn" data-color="#eceae3" style="background:#eceae3;"></button>
             </div>
           </div>
-          <button type="submit" class="btn-primary" style="margin-top:8px;">ISSUE CREDENTIAL</button>
+          <button type="submit" class="btn-primary form-submit">ISSUE CREDENTIAL</button>
           <div class="auth-links-row">
             <span>Already registered? <a href="#" id="link-goto-login-from-reg">Sign In</a></span>
             <span>&middot;</span>
@@ -747,7 +818,7 @@
             <label class="settings-label">NEW PASSWORD</label>
             <input type="password" id="reset-password" class="input-styled" placeholder="Minimum 8 characters..." required minlength="8" autocomplete="new-password" />
           </div>
-          <button type="submit" class="btn-primary" style="margin-top:8px;">RESET PASSWORD</button>
+          <button type="submit" class="btn-primary form-submit">RESET PASSWORD</button>
           <div class="auth-links-row">
             <a href="#" id="link-goto-login-from-reset">Back to Sign In</a>
           </div>
@@ -787,18 +858,18 @@
           <div class="settings-group">
             <label class="settings-label">SUIT ACCENT</label>
             <div class="color-swatches" id="dossier-color-swatches">
-              <button type="button" class="lobby-color-btn" data-color="#67e8f9" style="background:#67e8f9;"></button>
               <button type="button" class="lobby-color-btn" data-color="#d0a15c" style="background:#d0a15c;"></button>
-              <button type="button" class="lobby-color-btn" data-color="#7fb8a6" style="background:#7fb8a6;"></button>
-              <button type="button" class="lobby-color-btn" data-color="#c08a8a" style="background:#c08a8a;"></button>
-              <button type="button" class="lobby-color-btn" data-color="#9a8fc4" style="background:#9a8fc4;"></button>
-              <button type="button" class="lobby-color-btn" data-color="#ece7dc" style="background:#ece7dc;"></button>
+              <button type="button" class="lobby-color-btn" data-color="#d0a15c" style="background:#d0a15c;"></button>
+              <button type="button" class="lobby-color-btn" data-color="#83a896" style="background:#83a896;"></button>
+              <button type="button" class="lobby-color-btn" data-color="#c67979" style="background:#c67979;"></button>
+              <button type="button" class="lobby-color-btn" data-color="#8a8194" style="background:#8a8194;"></button>
+              <button type="button" class="lobby-color-btn" data-color="#eceae3" style="background:#eceae3;"></button>
             </div>
           </div>
 
-          <div style="display:flex;gap:10px;margin-top:10px;">
-            <button type="submit" class="btn-primary" style="flex:1;">SAVE DOSSIER</button>
-            <button type="button" id="btn-dossier-logout" class="btn-secondary btn-danger-outline" style="width:110px;">SIGN OUT</button>
+          <div class="dossier-actions">
+            <button type="submit" class="btn-primary">SAVE DOSSIER</button>
+            <button type="button" id="btn-dossier-logout" class="btn-secondary btn-danger-outline">SIGN OUT</button>
           </div>
         </form>
       </div>
@@ -808,15 +879,18 @@
   <!-- NOTIFICATION TOAST -->
   <div id="action-toast">NOTIFICATION</div>
 
-  <!-- Core Engine Systems (Perilune Shaders, Audio, GLB Assets, Network & Voice) -->
+  <!-- Shared UI theme tokens, input prompts & canvas palette -->
+  <script src="js/core/ui_theme.js?v=5.1.3"></script>
+
+  <!-- Core Engine Systems (Lunaspis Shaders, Audio, GLB Assets, Network & Voice) -->
   <script src="js/core/cinematic_pass.js?v=4.3.2"></script>
   <script src="js/core/audio_synth.js?v=4.0.0"></script>
-  <script src="js/core/glb_manager.js?v=4.2.2"></script>
-  <script src="js/core/network.js?v=4.5.1"></script>
+  <script src="js/core/glb_manager.js?v=5.1.3"></script>
+  <script src="js/core/network.js?v=5.1.3"></script>
   <script src="js/core/voice.js?v=4.3.1"></script>
 
   <!-- 3D World & Environments (Space Center LC-39A, Launch, Docking, Ship Interior, ISS Showcase & Earth) -->
-  <script src="js/world/station_modules.js?v=4.7.2"></script>
+  <script src="js/world/station_modules.js?v=5.1.3"></script>
   <script src="js/world/photorealistic_earth.js?v=4.1.0"></script>
   <script src="js/world/space_center/shared.js?v=4.9.1"></script>
   <script src="js/world/space_center/environment.js?v=4.9.1"></script>
@@ -826,17 +900,17 @@
   <script src="js/world/space_center/crawler.js?v=4.9.0"></script>
   <script src="js/world/space_center/utilities.js?v=4.9.0"></script>
   <script src="js/world/space_center/site.js?v=4.9.0"></script>
-  <script src="js/world/space_center.js?v=4.9.3"></script>
-  <script src="js/world/launch_cutscene.js?v=4.8.2"></script>
-  <script src="js/world/docking_simulator.js?v=4.7.6"></script>
-  <script src="js/world/ship_interior.js?v=4.5.3"></script>
-  <script src="js/world/mission_viz.js?v=1.0.1"></script>
-  <script src="js/world/solar_system.js?v=1.0.0"></script>
-  <script src="js/world/vr_mode.js?v=1.0.1"></script>
+  <script src="js/world/space_center.js?v=5.1.3"></script>
+  <script src="js/world/launch_cutscene.js?v=5.1.3"></script>
+  <script src="js/world/docking_simulator.js?v=5.1.3"></script>
+  <script src="js/world/ship_interior.js?v=5.1.3"></script>
+  <script src="js/world/mission_viz.js?v=5.1.3"></script>
+  <script src="js/world/solar_system.js?v=5.1.3"></script>
+  <script src="js/world/vr_mode.js?v=5.1.3"></script>
 
   <!-- Mission Simulation & Main Loop -->
-  <script src="js/game/gameplay.js?v=4.8.2"></script>
-  <script src="js/game/main.js?v=4.9.3"></script>
+  <script src="js/game/gameplay.js?v=5.1.3"></script>
+  <script src="js/game/main.js?v=5.1.3"></script>
 
 </body>
 </html>
