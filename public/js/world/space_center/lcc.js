@@ -82,7 +82,7 @@
         ctx.fillStyle = "#7dd3fc";
         ctx.font = "900 40px Arial, Helvetica, sans-serif";
         ctx.textAlign = "left";
-        ctx.fillText("MISSION CONTROL · LC-39B", 28, 52);
+        ctx.fillText("MISSION CONTROL · KSC", 28, 52);
         ctx.font = "700 22px Arial, Helvetica, sans-serif";
         ctx.fillStyle = "#4ade80";
         ctx.fillText("FLIGHT STATUS: GO FOR LAUNCH", 28, 88);

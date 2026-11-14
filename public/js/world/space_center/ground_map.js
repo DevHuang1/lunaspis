@@ -469,7 +469,6 @@
       feature("rect", -34, 0, 9, 9, { fill: "#94a3b8", stroke: "#f8fafc" });
       feature("rect", PADB.x, PADB.z, 48, 40, { fill: "#101a24", stroke: "#e2e8f0" });
       feature("rect", LCC.x, LCC.z, LCC.halfX * 2, LCC.halfZ * 2, { fill: "#1c3b58", stroke: "#67e8f9" });
-      feature("rect", -60, 240, 58, 40, { fill: "#1c3b58", stroke: "#67e8f9" });
       feature("rect", PRESS.x, PRESS.z, 74, 46, { fill: "#233447", stroke: "#94a3b8" });
       feature("circle", PAD.x, PAD.z, 65, 65, { fill: "#4d5966", stroke: "#e2e8f0" });
       feature("circle", PADB.x, PADB.z, 56, 56, { fill: "#4d5966", stroke: "#cbd5e1" });
@@ -493,7 +492,6 @@
       this._label(ctx, "VAB", VAB.x, VAB.z, 0, 0, 7, "#e2e8f0");
       this._label(ctx, "LOW BAY", -164, 762, 0, 0, 5.5, "#93c5fd");
       this._label(ctx, "LCC", LCC.x, LCC.z, -4, 0, 6, "#e2e8f0", "right");
-      this._label(ctx, "MCC", -60, 240, 0, 9, 6, "#e2e8f0");
       this._label(ctx, "PRESS", PRESS.x, PRESS.z, 0, 9, 6, "#e2e8f0");
       this._label(ctx, "PAD 39A", PAD.x, PAD.z, 0, -9, 6.5, "#f8fafc");
       this._label(ctx, "PAD 39B", PADB.x, PADB.z, 0, 8, 6, "#e2e8f0");

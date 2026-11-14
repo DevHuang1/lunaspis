@@ -500,21 +500,39 @@ input[type="range"] {
 #hud-voice-panel {
   top: calc(12px + var(--safe-top));
   right: calc(16px + var(--safe-right));
-  padding: 6px;
+  width: auto;
+  max-width: min(600px, calc(50vw - 120px));
+  padding: 6px 8px;
   border-radius: 10px;
-  gap: 6px;
+  gap: 5px;
 }
 
 #hud-voice-panel .voice-header-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
   gap: 4px;
-  flex-wrap: nowrap;
+  width: 100%;
+  max-width: 100%;
 }
 
-#hud-voice-panel .voice-mic-btn {
-  width: 36px;
-  height: 36px;
-  min-height: 36px;
+#hud-voice-panel .voice-mic-btn,
+#hud-voice-panel .voice-settings-btn {
+  width: auto;
+  height: auto;
+  min-height: 28px;
+  padding: 4px 8px;
+  gap: 5px;
   border-radius: 6px;
+  font-size: 9.5px;
+  line-height: 1.2;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+#hud-voice-panel .voice-settings-btn {
+  min-width: 30px;
 }
 
 #hud-voice-panel .voice-mic-btn .ui-icon {
@@ -1120,10 +1138,12 @@ body.deck-open .hud-race-bar-container {
     min-height: 42px;
   }
 
-  #hud-voice-panel .voice-mic-btn {
-    width: 40px;
-    height: 40px;
-    min-height: 40px;
+  #hud-voice-panel .voice-mic-btn,
+  #hud-voice-panel .voice-settings-btn {
+    width: auto;
+    height: auto;
+    min-height: 30px;
+    padding: 5px 8px;
   }
 
   /* Keep touch GPUs cool: solid tint, no blur. */
@@ -1244,8 +1264,60 @@ body.quality-fast .hangar-modal-card {
 }
 
 /* --------------------------------------------------------------------------
-   Small-screen spacing for the condensed action bar
+   Responsive spacing for the top-right action bar
    -------------------------------------------------------------------------- */
+
+@media (max-width: 1180px) and (min-width: 901px) {
+  #hud-voice-panel .voice-mic-btn,
+  #hud-voice-panel .voice-settings-btn {
+    min-height: 25px;
+    padding: 3px 6px;
+    gap: 4px;
+    font-size: 8.5px;
+  }
+
+  #lunaspis-ship-minimap,
+  #hud-active-speakers {
+    top: calc(116px + var(--safe-top));
+  }
+
+  body #space-center-ground-map {
+    top: calc(116px + var(--safe-top)) !important;
+  }
+}
+
+@media (max-width: 900px) {
+  #hud-voice-panel {
+    top: calc(36px + var(--safe-top));
+    right: calc(8px + var(--safe-right));
+    width: auto;
+    max-width: calc(100vw - 320px);
+    padding: 5px;
+    gap: 4px;
+  }
+
+  #hud-voice-panel .voice-header-row {
+    gap: 3px;
+  }
+
+  #hud-voice-panel .voice-mic-btn,
+  #hud-voice-panel .voice-settings-btn {
+    width: auto;
+    height: auto;
+    min-height: 28px;
+    padding: 4px 6px;
+    gap: 4px;
+    font-size: 8.5px;
+  }
+}
+
+@media (max-width: 659px) {
+  #hud-voice-panel {
+    top: calc(82px + var(--safe-top));
+    right: calc(8px + var(--safe-right));
+    max-width: calc(100vw - 16px);
+  }
+}
 
 @media (max-width: 540px) {
   #hud-voice-panel {
@@ -1253,14 +1325,28 @@ body.quality-fast .hangar-modal-card {
     padding: 5px;
   }
 
-  #hud-voice-panel .voice-mic-btn {
-    width: 38px;
-    height: 38px;
-    min-height: 38px;
+  #hud-voice-panel .voice-mic-btn,
+  #hud-voice-panel .voice-settings-btn {
+    width: auto;
+    height: auto;
+    min-height: 27px;
+    padding: 4px 6px;
+    gap: 3px;
+    font-size: 8px;
   }
 
   #quick-deck {
     max-height: 82dvh;
+  }
+}
+
+@media (max-height: 520px) and (max-width: 900px) {
+  #hud-voice-panel {
+    top: calc(28px + var(--safe-top));
+    right: calc(8px + var(--safe-right));
+    width: auto;
+    max-width: calc(100vw - 220px);
+    padding: 4px;
   }
 }
 

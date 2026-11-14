@@ -1,12 +1,11 @@
 /**
  * ============================================================================
- * INTERFELLAS HIGH-RELIABILITY ALWAYS-ON PROXIMITY VOICE RELAY
+ * INTERFELLAS ALWAYS-ON ALL-CREW VOICE RELAY
  * ============================================================================
  * Zero-NAT, 100% firewall-traversing WebSocket audio relay for multiplayer crew comms.
  *
  * Always-on crew communications: All crew members can hear each other at all times,
- * with real-time 3D spatial acoustic modulation (louder and crisper when near,
- * soft station intercom tone when far).
+ * across Earth Control, the launch pad, the orbiter and orbit.
  */
 
 module.exports = function setupVoiceSignaling(io) {
@@ -54,15 +53,14 @@ module.exports = function setupVoiceSignaling(io) {
       socket.to(roomId).emit("voice_peer_joined", { id: socket.id });
     });
 
-    // 3. Broadcast speaking/mute/radio status (for 3D nametag rings, S-Band radio & HUD indicators)
+    // 3. Broadcast speaking/mute status (for 3D nametag rings and HUD indicators)
     socket.on("voice_state_update", (data) => {
       const roomId = data && typeof data.roomId === "string" ? data.roomId.slice(0, 16) : null;
       if (!roomId || !socket.rooms.has(roomId)) return;
       const payload = {
         senderId: socket.id,
         isMuted: !!(data && data.isMuted),
-        isSpeaking: !!(data && data.isSpeaking),
-        isRadio: !!(data && data.isRadio)
+        isSpeaking: !!(data && data.isSpeaking)
       };
       socket.to(roomId).emit("voice_peer_state", payload);
     });
@@ -75,5 +73,5 @@ module.exports = function setupVoiceSignaling(io) {
     });
   });
 
-  console.log("🎙️  [VOICE] High-Reliability Always-On Proximity Voice Relay active.");
+  console.log("🎙️  [VOICE] Always-On All-Crew Voice Relay active.");
 };

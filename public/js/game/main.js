@@ -1064,10 +1064,12 @@
         const code = window.netManager.roomId;
         if (!code) return;
         const link = `${window.location.origin}/?room=${code}`;
-        navigator.clipboard.writeText(link).then(() => {
-          btnCopyLink.textContent = "COPIED TO CLIPBOARD";
-          setTimeout(() => { btnCopyLink.textContent = "COPY LINK"; }, 2500);
-        });
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+          navigator.clipboard.writeText(link).then(() => {
+            btnCopyLink.textContent = "COPIED TO CLIPBOARD";
+            setTimeout(() => { btnCopyLink.textContent = "COPY INVITE LINK"; }, 2500);
+          }).catch(() => {});
+        }
       });
     }
 
@@ -1255,6 +1257,7 @@
       if (window.netManager && typeof window.netManager.leaveRoom === "function") {
         window.netManager.leaveRoom();
       }
+      setCrewCommsOpen(false);
       cleanupGameWorldForLobby();
 
       if (window.location.search && window.history && typeof window.history.replaceState === "function") {
@@ -1266,6 +1269,7 @@
     }
 
     window.netManager.on("lobby_returned", (data) => {
+      setCrewCommsOpen(false);
       cleanupGameWorldForLobby();
       if (window.gameplay && typeof window.gameplay.resetTasks === "function") {
         window.gameplay.resetTasks();
@@ -1418,7 +1422,7 @@
           window.netManager.isHost,
           window.voiceManager ? window.voiceManager.isSpeaking : false,
           window.voiceManager ? window.voiceManager.isMuted : false,
-          window.voiceManager ? window.voiceManager.isRadioTransmitting : false
+          false
         );
       }
     }
@@ -1575,9 +1579,8 @@
         if (!vm.isEnabled) voiceModeLabel.textContent = "OFFLINE";
         else if (vm.isDeafened) voiceModeLabel.textContent = "DEAFENED";
         else if (vm.isMuted) voiceModeLabel.textContent = "MUTED";
-        else if (vm.isRadioTransmitting) voiceModeLabel.textContent = "RADIO TX";
         else if (vm.isSpeaking) voiceModeLabel.textContent = "TX LIVE";
-        else voiceModeLabel.textContent = "COMMS LIVE";
+        else voiceModeLabel.textContent = "ALL-CREW LIVE";
       }
 
       if (btnDeafenToggle) {
@@ -1585,31 +1588,23 @@
         btnDeafenToggle.textContent = vm.isDeafened ? "DEAFENED" : "DEAFEN";
       }
 
-      const btnSbandRadio = document.getElementById("btn-sband-radio");
-      const sbandRadioLabel = document.getElementById("sband-radio-label");
-      if (btnSbandRadio) {
-        const latched = !!vm.radioChannelLatched;
-        const txLive = !!vm.isRadioTransmitting;
-        btnSbandRadio.classList.toggle("active", latched || txLive);
-        btnSbandRadio.classList.toggle("radio-tx", txLive);
-        if (sbandRadioLabel) {
-          sbandRadioLabel.textContent = txLive
-            ? "TX [R]"
-            : (latched ? "LINKED [R]" : "OFF [R]");
-        }
+      const ccMic = document.getElementById("crew-comms-mic");
+      if (ccMic) {
+        ccMic.textContent = !vm.isEnabled ? "MIC OFF" : (vm.isMuted ? "MIC MUTED" : "MIC ON");
+        ccMic.classList.toggle("is-on", !!(vm.isEnabled && !vm.isMuted));
       }
 
       if (activeSpeakersEl) {
         const tags = [];
         if (vm.isEnabled && !vm.isMuted && vm.isSpeaking) {
           const localName = (window.netManager && window.netManager.localPlayer) ? window.netManager.localPlayer.name : "YOU";
-          tags.push(`<div class="active-speaker-tag ${vm.isRadioTransmitting ? "speaker-radio" : "speaker-local"}">${vm.isRadioTransmitting ? "[TX]" : "[MIC]"} ${escapeHtml(localName)}</div>`);
+          tags.push(`<div class="active-speaker-tag speaker-local">[MIC] ${escapeHtml(localName)}</div>`);
         }
         if (window.netManager && window.netManager.remotePlayers) {
           for (const id in window.netManager.remotePlayers) {
             const rp = window.netManager.remotePlayers[id];
             if (rp && rp.isSpeaking && !rp.isMuted) {
-              tags.push(`<div class="active-speaker-tag ${rp.isRadio ? "speaker-radio" : ""}">${rp.isRadio ? "[TX]" : "[MIC]"} ${escapeHtml(rp.name || "CREW")}</div>`);
+              tags.push(`<div class="active-speaker-tag">[MIC] ${escapeHtml(rp.name || "CREW")}</div>`);
             }
           }
         }
@@ -1720,24 +1715,6 @@
     }
     if (btnVoiceMic) {
       btnVoiceMic.addEventListener("click", () => handleToggleVoiceComms(false));
-    }
-    const btnSbandRadio = document.getElementById("btn-sband-radio");
-    if (btnSbandRadio) {
-      btnSbandRadio.addEventListener("click", async () => {
-        const vm = window.voiceManager;
-        if (!vm) return;
-        if (!vm.isEnabled) {
-          const ok = await vm.startMicrophone();
-          if (!ok && window.gameplay && typeof window.gameplay.showToast === "function") {
-            window.gameplay.showToast(vm.lastError || "Unable to enable microphone for S-Band radio.");
-            return;
-          }
-        }
-        if (typeof vm.toggleRadioChannel === "function") {
-          vm.toggleRadioChannel();
-        }
-        syncVoiceUI();
-      });
     }
     if (audioDeviceSelect) {
       audioDeviceSelect.addEventListener("change", async () => {
@@ -2041,6 +2018,7 @@
     });
 
     window.netManager.on("room_joined", (data) => {
+      if (inputCode) inputCode.value = "";
       screenMenu.style.display = "none";
       screenLobby.style.display = "flex";
       screenGame.style.display = "none";
@@ -2058,9 +2036,19 @@
       }
       const missingRoom = err && typeof err.message === "string" && err.message.includes("does not exist");
       const region = window.LunaspisRegions && window.LunaspisRegions.getCurrentRegion();
-      const regionHint = missingRoom && region
-        ? `\n\nYou are on the ${region.label} server. Room codes only exist on the region where the room was created — use the SERVER switch on the title screen and it will retry this code on the other region.`
-        : "";
+      const other = window.LunaspisRegions && window.LunaspisRegions.getOtherRegion();
+      let regionHint = "";
+      if (missingRoom && window.LunaspisRegions) {
+        if (region && other) {
+          regionHint =
+            `\n\nYou are on the ${region.label} server. Room codes only exist on the region where the room was created — ` +
+            `click ${other.label} in the SERVER toggle at the top-right and it will retry this code there.`;
+        } else {
+          regionHint =
+            `\n\nYou are on the main server. Room codes only exist on the server where they were created — ` +
+            `click ASIA or US in the SERVER toggle at the top-right to retry this code on that region.`;
+        }
+      }
       alert((err.message || "Failed to join room") + regionHint);
     });
 
@@ -2376,14 +2364,140 @@
       chatInput.addEventListener("keydown", (e) => { if (e.key === "Enter") sendLobbyChat(); });
     }
 
+    // Shared in-game crew comms: Earth Control <-> Flight Crew text channel,
+    // quick callouts, and mic access. Voice itself is one global crew channel.
+    const crewCommsPanel = document.getElementById("crew-comms-panel");
+    const crewCommsToggle = document.getElementById("crew-comms-toggle");
+    const crewCommsLog = document.getElementById("crew-comms-log");
+    const crewCommsInput = document.getElementById("crew-comms-input");
+    const crewCommsBadge = document.getElementById("crew-comms-badge");
+    const crewCommsVoiceBtn = document.getElementById("btn-crew-comms");
+    const crewCommsVoiceLabel = document.getElementById("crew-comms-voice-label");
+    let crewCommsOpen = false;
+    let crewCommsUnread = 0;
+
+    function setCrewCommsBadge(value) {
+      crewCommsUnread = Math.max(0, value);
+      if (!crewCommsBadge) return;
+      crewCommsBadge.hidden = crewCommsUnread <= 0;
+      crewCommsBadge.textContent = String(Math.min(99, crewCommsUnread));
+    }
+
+    function setCrewCommsOpen(open) {
+      if (!crewCommsPanel) return;
+      crewCommsOpen = !!open;
+      crewCommsPanel.setAttribute("aria-hidden", crewCommsOpen ? "false" : "true");
+      if (crewCommsToggle) crewCommsToggle.setAttribute("aria-expanded", String(crewCommsOpen));
+      if (crewCommsVoiceLabel) crewCommsVoiceLabel.textContent = crewCommsOpen ? "CLOSE" : "OPEN";
+      if (crewCommsOpen) {
+        setCrewCommsBadge(0);
+        if (crewCommsInput) setTimeout(() => crewCommsInput.focus(), 40);
+        if (crewCommsLog) crewCommsLog.scrollTop = crewCommsLog.scrollHeight;
+      }
+    }
+
+    function appendCrewCommsMessage(comm) {
+      if (!crewCommsLog) return;
+      const data = comm || {};
+      const empty = crewCommsLog.querySelector(".cc-empty");
+      if (empty) empty.remove();
+      const rolesApi = window.InterfellasRoles;
+      const roleId = rolesApi && typeof rolesApi.normalizeRole === "function"
+        ? rolesApi.normalizeRole(data.role, "commander")
+        : String(data.role || "commander");
+      const isGround = data.team === "ground" || (rolesApi && typeof rolesApi.isGroundRole === "function" && rolesApi.isGroundRole(roleId));
+      const roleShort = rolesApi && typeof rolesApi.getRoleMeta === "function"
+        ? rolesApi.getRoleMeta(roleId).short
+        : String(roleId).slice(0, 4).toUpperCase();
+      const localName = window.netManager && window.netManager.localPlayer ? window.netManager.localPlayer.name : "";
+      const isSelf = !!localName && data.sender === localName;
+
+      const row = document.createElement("div");
+      row.className = `cc-msg ${isGround ? "is-ground" : "is-flight"}${isSelf ? " is-self" : ""}`;
+      const head = document.createElement("div");
+      head.className = "cc-msg-head";
+      const who = document.createElement("span");
+      who.className = "cc-msg-name";
+      who.textContent = String(data.sender || "CREW");
+      const role = document.createElement("span");
+      role.className = "cc-msg-role";
+      role.textContent = `${isGround ? "EARTH" : "FLIGHT"} · ${roleShort}`;
+      const stamp = document.createElement("time");
+      const ts = Number(data.timestamp) || Date.now();
+      stamp.textContent = new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      const headLeft = document.createElement("span");
+      headLeft.appendChild(who);
+      headLeft.appendChild(document.createTextNode(" "));
+      headLeft.appendChild(role);
+      head.append(headLeft, stamp);
+      const text = document.createElement("div");
+      text.className = "cc-msg-text";
+      text.textContent = String(data.text || "");
+      row.append(head, text);
+      crewCommsLog.appendChild(row);
+      crewCommsLog.scrollTop = crewCommsLog.scrollHeight;
+
+      if (!crewCommsOpen && !isSelf) setCrewCommsBadge(crewCommsUnread + 1);
+    }
+
+    function sendCrewComms(text) {
+      const clean = String(text || "").trim();
+      if (!clean || !window.netManager) return;
+      window.netManager.sendChat(clean);
+      if (crewCommsInput) crewCommsInput.value = "";
+    }
+
+    if (crewCommsToggle) {
+      crewCommsToggle.addEventListener("click", () => setCrewCommsOpen(!crewCommsOpen));
+    }
+    if (crewCommsVoiceBtn) {
+      crewCommsVoiceBtn.addEventListener("click", () => setCrewCommsOpen(!crewCommsOpen));
+    }
+    const crewCommsClose = document.getElementById("crew-comms-close");
+    if (crewCommsClose) crewCommsClose.addEventListener("click", () => setCrewCommsOpen(false));
+    const crewCommsSend = document.getElementById("crew-comms-send");
+    if (crewCommsSend) crewCommsSend.addEventListener("click", () => sendCrewComms(crewCommsInput ? crewCommsInput.value : ""));
+    if (crewCommsInput) {
+      crewCommsInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          sendCrewComms(crewCommsInput.value);
+        }
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setCrewCommsOpen(false);
+        }
+        e.stopPropagation();
+      });
+    }
+    const crewCommsQuick = document.getElementById("crew-comms-quick");
+    if (crewCommsQuick) {
+      crewCommsQuick.addEventListener("click", (e) => {
+        const btn = e.target.closest("button[data-msg]");
+        if (btn) sendCrewComms(btn.dataset.msg);
+      });
+    }
+    const crewCommsMic = document.getElementById("crew-comms-mic");
+    if (crewCommsMic) {
+      crewCommsMic.addEventListener("click", () => handleToggleVoiceComms(false));
+    }
+    if (window.crewComms) {
+      window.crewComms.openPanel = () => setCrewCommsOpen(true);
+      window.crewComms.closePanel = () => setCrewCommsOpen(false);
+      window.crewComms.togglePanel = () => setCrewCommsOpen(!crewCommsOpen);
+      window.crewComms.send = sendCrewComms;
+    }
+
     window.netManager.on("chat_message", (comm) => {
       appendLobbyChat(comm);
+      appendCrewCommsMessage(comm);
       if (window.shuttleGame && window.shuttleGame.isActive) {
         window.shuttleGame.onChat(comm);
       }
     });
 
     window.netManager.on("disconnected", () => {
+      setCrewCommsOpen(false);
       if (window.shuttleGame && window.shuttleGame.isActive) {
         cleanupGameWorldForLobby();
         if (screenLobby) screenLobby.style.display = "none";
@@ -3059,8 +3173,6 @@
       const canSwap = !isSelf && players.length > 1 && (crossZoneOpen || pIsGround === localIsGround);
       const isPending = pendingToIds.has(p.id);
       const isActive = activeFilter === pRole;
-      const remotePeer = net && net.remotePlayers ? net.remotePlayers[p.id] : null;
-      const radioTag = (isSelf ? (window.voiceManager && window.voiceManager.isRadioTransmitting) : (remotePeer && remotePeer.isRadio)) ? " · ON AIR" : "";
       const statusHint = pIsGround
         ? "EARTH"
         : (phase === "gantry" ? (boarded.includes(p.id) ? "ABOARD" : "PAD") : (phase === "station" ? "STATION" : "ORBIT"));
@@ -3078,7 +3190,7 @@
           title="${escapeHtml(meta.label)} · ${escapeHtml(p.name || "Crew")}${dutyText ? ` · ${escapeHtml(dutyText)}` : ""} · Click to ${isActive ? "show all roles" : (pIsGround ? `view ${meta.label} support checks` : `view ${meta.label} steps`)}">
           <div class="hub-role-card-top">
             <span class="hub-role-card-badge">${escapeHtml(meta.short)}${isSelf ? " · YOU" : ""}</span>
-            <span class="hub-role-card-state">${statusHint}${radioTag}</span>
+            <span class="hub-role-card-state">${statusHint}</span>
           </div>
           <div class="hub-role-card-name">${escapeHtml(p.name || "Crew")}</div>
           <div class="hub-role-card-bottom">
@@ -3121,13 +3233,13 @@
     let callout = "";
     if (localIsGround) {
       if (phase === "gantry") {
-        callout = `<strong>GROUND CONTROL ROOM:</strong> Watch crew boarding (${boarded.length}/${flightPlayers.length}) · Open Ground Desk [C] for Launch Clearance &amp; live updates. [R] Radio.`;
+        callout = `<strong>GROUND CONTROL ROOM:</strong> Watch crew boarding (${boarded.length}/${flightPlayers.length}) · Open Ground Desk [C] for Launch Clearance &amp; live updates. All-crew voice + CREW COMMS are always open.`;
       } else if (phase === "launch") {
         callout = `<strong>LIFTOFF WATCH:</strong> Watch rocket liftoff from Ground Control · Turn on Dish Lock &amp; Solar Routing in Ground Desk [C].`;
       } else if (phase === "docking") {
         callout = `<strong>DOCKING SUPPORT:</strong> Give Safe Docking Clearance in Ground Desk [C] while Space Crew lines up with the hatch.`;
       } else {
-        callout = `<strong>MISSION SUPPORT:</strong> Track Space Crew live in Ground Desk [C], alert rooms, &amp; use [R] Earth Radio.`;
+        callout = `<strong>MISSION SUPPORT:</strong> Track Space Crew live in Ground Desk [C], alert rooms, &amp; use CREW COMMS to reach the ship.`;
       }
     } else if (phase === "gantry" || phase === "boarding") {
       const unboarded = flightPlayers.filter((p) => !boarded.includes(p.id)).map((p) => p.name);

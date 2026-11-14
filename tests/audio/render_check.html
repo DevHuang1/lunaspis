@@ -1,0 +1,62 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>sfx render check</title>
+<pre id="out">running…</pre>
+<script src="../../public/js/core/audio_synth.js"></script>
+<script>
+// Renders every registered sound into an OfflineAudioContext and reports level stats.
+(async function () {
+  const SR = 44100;
+  const Engine = window.SpaceAudioEngine;
+  const names = Object.keys(Engine.SOUNDS);
+  const results = [];
+  const LONG = new Set(["victory", "missionStart", "wormhole", "warpSpool", "defeat", "ignition", "touchdown"]);
+  for (const name of names) {
+    const secs = LONG.has(name) ? 7 : 3.5;
+    const oc = new OfflineAudioContext(2, SR * secs, SR);
+    const e = new Engine({ headless: true });
+    e.attach(oc, { gesture: true, ambience: false });
+    e.play(name, name === "uiSlider" ? { v: 0.6 } : {});
+    const buf = await oc.startRendering();
+    let peak = 0, sumsq = 0, n = 0, nan = 0, first = -1, last = -1;
+    for (let ch = 0; ch < buf.numberOfChannels; ch++) {
+      const d = buf.getChannelData(ch);
+      for (let i = 0; i < d.length; i++) {
+        const v = d[i];
+        if (!isFinite(v)) { nan++; continue; }
+        const a = Math.abs(v);
+        if (a > peak) peak = a;
+        sumsq += v * v; n++;
+        if (a > 0.0005) { if (first < 0) first = i; last = i; }
+      }
+    }
+    results.push({
+      name,
+      peakDb: +(20 * Math.log10(peak || 1e-9)).toFixed(1),
+      rmsDb: +(10 * Math.log10(sumsq / n || 1e-12)).toFixed(1),
+      startMs: first < 0 ? null : Math.round((first / SR) * 1000),
+      lenMs: first < 0 ? 0 : Math.round(((last - first) / SR) * 1000),
+      nan,
+      clipped: peak >= 0.999,
+    });
+  }
+  // ambience beds: build the real graph briefly to make sure it constructs.
+  let ambOk = true;
+  try {
+    const oc = new OfflineAudioContext(2, SR * 2, SR);
+    const e = new Engine({ headless: true });
+    e.attach(oc, { gesture: true, ambience: false });
+    e._startAmbience();
+    e.startRocketRoar(1);
+    e.stopRocketRoar(0.5);
+    const buf = await oc.startRendering();
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) if (!isFinite(d[i])) { ambOk = false; break; }
+  } catch (err) { ambOk = false; window.__err = String(err); }
+  const out = JSON.stringify({ ambOk, err: window.__err || null, results });
+  document.getElementById("out").textContent = out;
+  document.title = "done";
+  const report = new URLSearchParams(location.search).get("report");
+  if (report) fetch(report, { method: "POST", mode: "no-cors", body: out }).catch(() => {});
+})().catch((e) => { document.getElementById("out").textContent = "ERROR " + e.stack; document.title = "error"; });
+</script>

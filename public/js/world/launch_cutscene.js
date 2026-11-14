@@ -91,6 +91,7 @@
       if (this.isPlaying) return;
       this.isPlaying = true;
       this.elapsed = 0.0;
+      this.fastForward = false;
       this.srbSeparated = false;
       this.tankSeparated = false;
       this.doorsOpened = false;
@@ -159,6 +160,7 @@
     cancel() {
       if (!this.isPlaying) return;
       this.isPlaying = false;
+      this.fastForward = false;
       this._localSkipVoted = false;
       this.onCompleteCallback = null;
       window.removeEventListener("keydown", this._keyHandler);
@@ -178,6 +180,7 @@
     finish(result = {}) {
       if (!this.isPlaying) return;
       this.isPlaying = false;
+      this.fastForward = false;
       this._localSkipVoted = false;
 
       window.removeEventListener("keydown", this._keyHandler);
@@ -210,7 +213,7 @@
 
     update(delta) {
       if (!this.isPlaying) return;
-      this.elapsed += delta;
+      this.elapsed += delta * (this.fastForward ? 3 : 1);
 
       const t = this.elapsed;
 
@@ -532,6 +535,9 @@
             <div id="launch-crew-banner" style="font-size:10px;font-weight:600;color:#cbd5e1;margin-top:4px;letter-spacing:0.6px;"></div>
           </div>
 
+          <button id="btn-ff-launch" style="pointer-events:auto;background:rgba(103,232,249,0.14);border:1px solid rgba(103,232,249,0.5);color:#67e8f9;padding:8px 14px;border-radius:6px;font-size:11px;font-weight:800;letter-spacing:0.04em;cursor:pointer;">
+            FAST FORWARD 3×
+          </button>
           <button id="btn-skip-launch">
             SKIP LAUNCH [SPACE]
           </button>
@@ -554,6 +560,15 @@
       this.crewBannerEl = this.overlayEl.querySelector("#launch-crew-banner");
       this.skipBtnEl = this.overlayEl.querySelector("#btn-skip-launch");
       if (this.skipBtnEl) this.skipBtnEl.addEventListener("click", () => this.skip());
+      this.ffBtnEl = this.overlayEl.querySelector("#btn-ff-launch");
+      if (this.ffBtnEl) {
+        this.ffBtnEl.addEventListener("click", () => {
+          this.fastForward = !this.fastForward;
+          this.ffBtnEl.textContent = this.fastForward ? "NORMAL SPEED" : "FAST FORWARD 3×";
+          this.ffBtnEl.style.borderColor = this.fastForward ? "rgba(250,204,21,0.75)" : "rgba(103,232,249,0.5)";
+          this.ffBtnEl.style.color = this.fastForward ? "#facc15" : "#67e8f9";
+        });
+      }
       this.updateCrewStatus();
     }
 

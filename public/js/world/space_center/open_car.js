@@ -253,29 +253,44 @@
      */
     _computeSpawnNearGroundSpawn() {
       const spawns = (window.SpaceCenterModules && window.SpaceCenterModules.SITE_TOUR_SPAWNS) || [];
-      const padSpawn = spawns.find((s) => s && s.id === "pad") || spawns[0];
+      const groundCrew = !!(this.sc && typeof this.sc._isLocalGroundCrew === "function" && this.sc._isLocalGroundCrew());
+      const padSpawn = spawns.find((s) => s && s.id === (groundCrew ? "lcc" : "pad"))
+        || (groundCrew ? spawns.find((s) => s && s.id === "lcc") : null)
+        || spawns.find((s) => s && s.id === "pad")
+        || spawns[0];
       if (!padSpawn) return Object.assign({}, FALLBACK_CAR_SPAWN);
 
       const baseYaw = typeof padSpawn.yaw === "number" ? padSpawn.yaw : Math.PI;
-      const candidates = [
-        [8, -8], [-8, -8], [10, 1], [-10, 1], [8, 8], [-8, 8]
-      ];
+      // Park outside the LCC entrance for Earth Control, and by Pad 39A for
+      // flight crew. Each client gets a car in its own operating zone.
+      const candidates = groundCrew
+        ? [[0, 9], [8, 9], [-8, 9], [12, 4], [-12, 4], [0, 15]]
+        : [[8, -8], [-8, -8], [10, 1], [-10, 1], [8, 8], [-8, 8]];
       for (const candidate of candidates) {
         const x = padSpawn.x + candidate[0];
         const z = padSpawn.z + candidate[1];
         if (!this._blocked(x, z, 2.4, 0)) {
+          const terrain = window.SpaceCenterModules && window.SpaceCenterModules.terrain;
+          const y = terrain && typeof terrain.getSurfaceHeightAt === "function"
+            ? terrain.getSurfaceHeightAt(x, z, 0.2)
+            : 0.08;
           return {
             x,
-            y: 0.08,
+            y,
             z,
             yaw: baseYaw + Math.PI
           };
         }
       }
+      const fallbackX = padSpawn.x + 8;
+      const fallbackZ = padSpawn.z - 8;
+      const terrain = window.SpaceCenterModules && window.SpaceCenterModules.terrain;
       return {
-        x: padSpawn.x + 8,
-        y: 0.08,
-        z: padSpawn.z - 8,
+        x: fallbackX,
+        y: terrain && typeof terrain.getSurfaceHeightAt === "function"
+          ? terrain.getSurfaceHeightAt(fallbackX, fallbackZ, 0.2)
+          : 0.08,
+        z: fallbackZ,
         yaw: baseYaw + Math.PI
       };
     }
@@ -287,19 +302,19 @@
         new T.MeshStandardMaterial({ color: 0x8d969e, roughness: 0.94, metalness: 0.03 })
       );
       pad.name = "OpenCarParkingPad";
-      pad.position.set(this.spawn.x, 0.04, this.spawn.z);
+      pad.position.set(this.spawn.x, this.spawn.y - 0.04, this.spawn.z);
       pad.receiveShadow = true;
       this.sc.group.add(pad);
 
       const stripeMat = new T.MeshStandardMaterial({ color: 0xf4f4ee, roughness: 0.8 });
       [-2.3, 2.3].forEach((ox) => {
         const stripe = new T.Mesh(new T.BoxGeometry(0.16, 0.025, 4.6), stripeMat);
-        stripe.position.set(this.spawn.x + ox, 0.085, this.spawn.z);
+        stripe.position.set(this.spawn.x + ox, this.spawn.y + 0.005, this.spawn.z);
         this.sc.group.add(stripe);
       });
       const stopMat = new T.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.8 });
       const stop = new T.Mesh(new T.BoxGeometry(5.2, 0.025, 0.16), stopMat);
-      stop.position.set(this.spawn.x, 0.085, this.spawn.z - 2.55);
+      stop.position.set(this.spawn.x, this.spawn.y + 0.005, this.spawn.z - 2.55);
       this.sc.group.add(stop);
     }
 

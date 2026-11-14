@@ -5507,7 +5507,7 @@
     _resolveSiteTourCollision(currentPos, proposedPos) {
       const THREE = window.THREE;
       const radius = 0.45;
-      const bounds = (window.SpaceCenterModules && window.SpaceCenterModules.constants.SITE_BOUNDS) || {
+      const bounds = (window.SpaceCenterModules && window.SpaceCenterModules.constants && window.SpaceCenterModules.constants.SITE_BOUNDS) || {
         minX: -1050,
         maxX: 492,
         minZ: -850,
@@ -5516,6 +5516,15 @@
       const boxes = (this.site && this.site.boxColliders) || [];
       const circles = (this.site && this.site.circleColliders) || [];
       const terrain = window.SpaceCenterModules && window.SpaceCenterModules.terrain;
+
+      // The LCC has a raised interior floor at y=0.24. The outdoor terrain
+      // resolver does not know about it, which used to sink both Earth Control
+      // roles into the slab. Keep ground crew standing on the firing-room floor.
+      const onLccFloor = (x, z, y) =>
+        x > -214.4 && x < -145.6 &&
+        z > 157.4 && z < 202.6 &&
+        y < 10.0;
+      const lccFloorY = 0.24;
 
       if (terrain && typeof terrain.resolveMovement === "function") {
         const res = terrain.resolveMovement(
@@ -5529,7 +5538,8 @@
           circles,
           bounds
         );
-        return new THREE.Vector3(res.x, res.y, res.z);
+        const y = onLccFloor(res.x, res.z, currentPos.y) ? Math.max(res.y, lccFloorY) : res.y;
+        return new THREE.Vector3(res.x, y, res.z);
       }
 
       let nx = Math.max(bounds.minX, Math.min(bounds.maxX, proposedPos.x));
@@ -5575,7 +5585,8 @@
         }
       }
 
-      const targetY = this._getSiteTourElevation(nx, nz);
+      let targetY = this._getSiteTourElevation(nx, nz);
+      if (onLccFloor(nx, nz, currentPos.y)) targetY = Math.max(targetY, lccFloorY);
       return new THREE.Vector3(nx, targetY, nz);
     }
 
@@ -6409,6 +6420,9 @@
                 ${guidance.canUnboard ? (touchUI ? "STEP OUT" : "STEP OUT [E/B]") : (touchUI ? "BOARD" : "BOARD [E/B]")}
               </button>
             `}
+            <button type="button" id="btn-sc-car" class="sc-hud-btn sc-btn-car" title="${this.openCar && this.openCar.isDriving ? "Exit the NASA ground car" : "Get into the NASA ground car for your zone"}">
+              ${touchUI ? (this.openCar && this.openCar.isDriving ? "EXIT CAR" : "CAR") : (this.openCar && this.openCar.isDriving ? "EXIT CAR" : "CAR")}
+            </button>
             <button type="button" id="btn-sc-hud-toggle" class="sc-hud-btn sc-btn-collapse" title="${this.hudCollapsed ? (touring ? "Open fast travel destinations" : "Expand Launch Pad Dock") : (touring ? "Hide fast travel destinations" : "Minimize Launch Pad Dock")}">
               ${this.hudCollapsed ? (touring ? "TRAVEL" : "+") : (touring ? "CLOSE" : "-")}
             </button>
@@ -6487,6 +6501,11 @@
           this.hudCollapsed = !this.hudCollapsed;
           this._renderGroundHUD();
         });
+      }
+
+      const btnCrewCar = this.hudOverlay.querySelector("#btn-sc-car");
+      if (btnCrewCar) {
+        btnCrewCar.addEventListener("click", () => this.toggleCrewCar());
       }
 
       const btnLccConsole = this.hudOverlay.querySelector("#btn-sc-lcc-console");
@@ -6871,7 +6890,7 @@
               ${mapHtml}
             </div>
             <div style="font-size:11.5px;color:#94a3b8;line-height:1.5;">
-              Team helper: Ground approvals boost &amp; guide Space Crew numbers without blocking progress. Hold [R] or click VOICE RADIO to talk directly to space.
+              Team helper: Ground approvals boost &amp; guide Space Crew numbers without blocking progress. All-crew voice is always live; open CREW COMMS to message the ship.
             </div>
           </div>
         </div>
@@ -7439,6 +7458,32 @@
       } else if (isGround && phase === "station") {
         this.completeDockingAndEnterStation({ fromNetwork: true });
       }
+    }
+
+    /**
+     * Ground crew quick access to the drivable NASA car. Each client keeps a
+     * car parked in its own operating zone (LCC for Earth Control, Pad 39A for
+     * flight crew); this button drops the local player straight into it.
+     */
+    toggleCrewCar() {
+      if (!this.openCar) return false;
+      if (this.openCar.isDriving) {
+        this.openCar.exit();
+        this._renderGroundHUD();
+        return true;
+      }
+      if (this.crewBoarded || this.isLaunching || (window.launchCutscene && window.launchCutscene.isPlaying)) {
+        if (window.gameplay && typeof window.gameplay.showToast === "function") {
+          window.gameplay.showToast("GROUND CAR UNAVAILABLE DURING BOARDING / LAUNCH");
+        }
+        return false;
+      }
+      const entered = this.openCar.enter();
+      if (!entered && window.gameplay && typeof window.gameplay.showToast === "function") {
+        window.gameplay.showToast("GROUND CAR NOT AVAILABLE RIGHT NOW");
+      }
+      this._renderGroundHUD();
+      return entered;
     }
 
     /**

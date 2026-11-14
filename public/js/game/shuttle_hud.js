@@ -37,7 +37,7 @@
   const keyGroup = (ph) => (["insertion", "payload", "deorbit"].includes(ph) ? "orbit" : ph === "prelaunch" ? "ascent" : ph);
   const CMDS = [["START", "START COUNTDOWN", "ENTER"], ["AUTHORIZE_BURN", "START BURN", "B"], ["COAST_TO_TIG", "JUMP TO BURN", "T"], ["BAY", "CARGO DOORS", "Y"], ["PAYLOAD_POWER", "SATELLITE POWER", "P"],
     ["PAYLOAD_GO", "APPROVE RELEASE", "N"], ["DAP_HOLD", "STEADY HOLD", "H"], ["RELEASE_PAYLOAD", "RELEASE SATELLITE", "R"], ["TOGGLE_AOA_ASSIST", "AUTO NOSE ANGLE", "M"], ["DEPLOY_GEAR", "LANDING WHEELS", "G"],
-    ["WARP-", "TIME SLOWER", ","], ["WARP+", "TIME FASTER", "."], ["PAUSE", "PAUSE", "ESC"], ["TOUCH", "TOUCH CONTROLS", ""], ["COMMS", "MIC & CHAT", ""], ["LEAVE", "LEAVE FLIGHT", ""]];
+    ["FAST_FORWARD", "FAST FORWARD ⏩", ""], ["WARP-", "TIME SLOWER", ","], ["WARP+", "TIME FASTER", "."], ["PAUSE", "PAUSE", "ESC"], ["TOUCH", "TOUCH CONTROLS", ""], ["COMMS", "MIC & CHAT", ""], ["LEAVE", "LEAVE FLIGHT", ""]];
 
   // physical key positions (row, column in key units) for the pressed-key display
   const KEYPOS = (() => {
@@ -73,6 +73,9 @@
   #shuttle-hud .tag{display:flex;align-items:stretch;border:1px solid var(--line);background:var(--void)}
   #shuttle-hud .tag b{background:var(--ink);color:#000;font-weight:400;padding:3px 10px}
   #shuttle-hud .tag span{padding:3px 10px;white-space:nowrap} #shuttle-hud .tag .w{color:var(--blue)}
+  #shuttle-hud .tag .ff{display:none;align-items:center;padding:3px 8px;border:0;border-left:1px solid var(--line);background:rgba(103,232,249,0.12);color:#67e8f9;font-family:inherit;font-size:9px;font-weight:800;letter-spacing:.06em;cursor:pointer}
+  #shuttle-hud .tag .ff:hover{background:rgba(103,232,249,0.24)}
+  #shuttle-hud .tag .ff:disabled{opacity:.55;cursor:default}
   #shuttle-hud .prompt{position:absolute;left:50%;bottom:58px;transform:translateX(-50%);width:min(760px,92vw);background:var(--void);border-left:3px solid var(--ink);padding:9px 14px 9px 12px}
   #shuttle-hud .prompt .l1{font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #shuttle-hud .prompt .l1 .k{display:inline-block;border:1px solid var(--ink);padding:0 6px;margin:0 2px;line-height:1.25}
@@ -146,7 +149,6 @@
   #shuttle-hud .control-room button.control-primary{background:#a7e0dc;border-color:#a7e0dc;color:#123038}
   #shuttle-hud .control-room button:hover:not(:disabled),#shuttle-hud .control-room button:focus-visible{background:#d8f2ef;color:#10262d;outline:2px solid #8fdbd3;outline-offset:2px}
   #shuttle-hud .control-room button:disabled{opacity:.45}
-  #shuttle-hud.mcc-view .top,#shuttle-hud.mcc-view .kb,#shuttle-hud.mcc-view .hint,#shuttle-hud.mcc-view .prompt{display:none!important}
   @media (max-width:720px){#shuttle-hud .prompt{bottom:44px}#shuttle-hud .prompt .l1{font-size:14px}#shuttle-hud .log{display:none}#shuttle-hud .hint{display:none}#shuttle-hud .win{inset:4px}}
   @media (prefers-reduced-motion:reduce){#shuttle-hud .cur{animation:none}}
   `;
@@ -157,7 +159,7 @@
       if (!document.getElementById("shuttle-hud-css")) { const st = document.createElement("style"); st.id = "shuttle-hud-css"; st.textContent = CSS; document.head.appendChild(st); }
       const root = document.createElement("div"); root.id = "shuttle-hud"; this.root = root;
       root.innerHTML = `
-        <div class="top"><div class="tl" id="sh-tl"></div><div class="tag"><b id="sh-id">SHUTTLE</b><span id="sh-phase"></span><span id="sh-met"></span><span id="sh-warp" class="w"></span></div></div>
+        <div class="top"><div class="tl" id="sh-tl"></div><div class="tag"><b id="sh-id">SHUTTLE</b><span id="sh-phase"></span><span id="sh-met"></span><span id="sh-warp" class="w"></span><button type="button" id="sh-ff" class="ff" title="Set maximum time acceleration">FAST FORWARD</button></div></div>
         <div class="kb" id="sh-kb"></div>
         <div class="steer" id="sh-steer"></div>
         <div class="banner" id="sh-banner">PRACTICE MODE — QUICK START</div>
@@ -166,7 +168,6 @@
         <div class="chat" id="sh-chat"><input id="sh-chatin" maxlength="140" placeholder="> message the crew, Enter to send" /></div>
         <div class="hint" id="sh-hint">F3 stats · / chat · Right-click zoom</div>
         <button type="button" class="control-toggle" id="sh-control-toggle" aria-expanded="true">Hide data</button>
-        <button type="button" class="control-view" id="sh-control-view">Control center</button>
         <section class="control-room" id="sh-control" aria-label="Mission control telemetry">
           <div id="sh-control-live"></div>
           <button type="button" class="control-primary" data-control-action="report">Send update to crew</button>
@@ -192,8 +193,8 @@
       });
       ci.addEventListener("blur", () => { this.el("sh-chat").style.display = "none"; this.el("sh-log").style.visibility = ""; });
       this.el("sh-data").addEventListener("click", (e) => { const b = e.target.closest("button[data-cmd]"); if (b) { b.blur(); this.onCommand(b.dataset.cmd, b.dataset.arg); } });
+      this.el("sh-ff").addEventListener("click", () => { this.el("sh-ff").blur(); this.onCommand("FAST_FORWARD"); });
       this.controlOpen = true;
-      this.el("sh-control-view").addEventListener("click", () => this.onCommand("CONTROL_CENTER"));
       this.el("sh-control-toggle").addEventListener("click", () => {
         this.controlOpen = !this.controlOpen;
         this.el("sh-control").style.display = this.controlOpen ? "block" : "none";
@@ -366,7 +367,7 @@
       for (const r of roles) { const k = KEYS[r] || {}; for (const row of (k[grp] || []).concat(k.any || [])) keys.push([`${row[0]}`, `${SEAT[r]} ${row[1]}`]); }
       for (const row of KEYS.all) keys.push([row[0], row[1]]);
       const al = new Set(sn.allowedCommands), owns = (c) => { const s = this.opts.crew.commandRole[c]; return !s || roles.includes(s); };
-      const can = { BAY: (al.has("OPEN_BAY") || al.has("CLOSE_BAY")) && owns("OPEN_BAY"), "WARP-": al.has("SET_WARP") && owns("SET_WARP"), "WARP+": al.has("SET_WARP") && owns("SET_WARP"), PAUSE: owns("PAUSE") && !sn.failure && !sn.result, TOUCH: true, COMMS: true, LEAVE: true };
+      const can = { BAY: (al.has("OPEN_BAY") || al.has("CLOSE_BAY")) && owns("OPEN_BAY"), "WARP-": al.has("SET_WARP") && owns("SET_WARP"), "WARP+": al.has("SET_WARP") && owns("SET_WARP"), FAST_FORWARD: al.has("SET_WARP") && owns("SET_WARP"), PAUSE: owns("PAUSE") && !sn.failure && !sn.result, TOUCH: true, COMMS: true, LEAVE: true };
       const cmds = CMDS.filter(([c]) => (c in can ? can[c] : al.has(c) && owns(c))).map(([c, label, k]) => `<button data-cmd="${c}">${label}${k ? `<span class="k">${k}</span>` : ""}</button>`).join("");
       const pi = PHASES.indexOf(ph);
       return {
@@ -465,8 +466,7 @@
     }
     _drawLog() {
       const now = performance.now();
-      const lines = this.inControlCenter ? this.lines.filter((line) => line.kind === "chat") : this.lines;
-      const html = lines.slice(-4).map((x) => `<div style="opacity:${now - x.at > 9000 ? 0 : 1}">${x.html}</div>`).join("");
+      const html = this.lines.slice(-4).map((x) => `<div style="opacity:${now - x.at > 9000 ? 0 : 1}">${x.html}</div>`).join("");
       this._set("sh-log", html);
     }
 
@@ -474,7 +474,6 @@
     update(sn, dt, extra) {
       this.t += dt; extra = extra || {};
       this.latestSnapshot = sn;
-      this.inControlCenter = !!extra.controlCenter;
       const roles = extra.roles || [];
       const pi = PHASES.indexOf(sn.phase); this._page = `P.${String(pi).padStart(3, "0")}`; this._prog = Math.max(0, pi - 1);
       if (sn.failure) { if (this.modalKind !== "failure") this.failureCard(sn); }
@@ -490,6 +489,14 @@
       this._set("sh-phase", PHASE_TAG[sn.phase] || sn.phase);
       this._set("sh-met", sn.phase === "prelaunch" ? `T-${f0(sn.countdown)}` : sn.met === null ? "" : `T${met(sn.met)}`);
       this._set("sh-warp", sn.warp > 1 ? `${sn.warp}×` : "");
+      const ff = this.el("sh-ff");
+      if (ff) {
+        const warpMax = Number(sn.warpMax) || 1;
+        const canFastForward = ["prelaunch", "ascent", "insertion"].includes(sn.phase) && warpMax > 1;
+        ff.style.display = canFastForward ? "inline-flex" : "none";
+        ff.disabled = !canFastForward || (Number(sn.warp) || 1) >= warpMax;
+        ff.textContent = (Number(sn.warp) || 1) >= warpMax ? `FAST ${warpMax}×` : `FAST FORWARD ${warpMax}×`;
+      }
       this._timeline(sn);
       this.el("sh-banner").style.display = sn.integrity !== "normal" ? "block" : "none";
       const p = this._prompt(sn, roles);
@@ -515,10 +522,7 @@
       }
       this.el("sh-control").style.display = this.controlOpen && !this.modalKind ? "block" : "none";
       this.el("sh-control-toggle").style.display = this.modalKind ? "none" : "block";
-      this.el("sh-control-view").style.display = this.modalKind ? "none" : "block";
-      this.el("sh-control-view").textContent = extra.controlCenter ? "Shuttle view" : "Control center";
       this.el("sh-control-toggle").textContent = this.controlOpen ? "Hide data" : "Show data";
-      this.root.classList.toggle("mcc-view", !!extra.controlCenter);
       const sc = extra.scope;
       this.el("sh-scope").style.display = sc && sc.on ? "flex" : "none";
       if (sc && sc.on) this._set("sh-scopefov", `SCOPE ${f1(60 / sc.fov)}× · FOV ${f2(sc.fov)}° · wheel to zoom`);

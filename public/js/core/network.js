@@ -46,20 +46,20 @@
     },
     ground_capcom: {
       id: "ground_capcom",
-      short: "RADIO",
+      short: "COM",
       team: "ground",
       zoneLabel: "EARTH CONTROL",
-      title: "Earth Radio Helper",
-      label: "Earth Radio Helper",
+      title: "Earth Comms",
+      label: "Earth Comms",
       color: "#60a5fa",
-      padDuty: "Voice Radio [R] & Earth Dish Signal [Control]",
+      padDuty: "All-crew voice & Earth Dish Signal [Control]",
       dockDuty: "Lock Earth Dish & Watch Approach Speed [Control]",
       consolesSummary: "Earth Dish · Power Route · Science Data",
       stationDuty: "Earth Dish · Power Route · Science Data",
-      primaryDuty: "Earth Dish & Systems Helper: Voice Radio [R], Dish Lock, Power & Science Data",
+      primaryDuty: "Earth Dish & Systems Helper: all-crew voice, Dish Lock, Power & Science Data",
       duties: {
-        pad: "Check Radio Signal & Launch Pad Cables [Control]",
-        dock: "Help Space Docking & Keep Radio Clear [R]",
+        pad: "Check Crew Comms & Launch Pad Cables [Control]",
+        dock: "Help Space Docking & Keep Crew Comms Clear",
         station: "Lock Earth Dish, Route Power & Clear Science Data"
       }
     },
@@ -477,7 +477,8 @@
           window.voiceManager.connectToExistingRoomPeers();
         }
         this.emitEvent("room_created", data);
-        if (window.spaceAudio) window.spaceAudio.playRadioBeep(true);
+        this._sfxSeeded = false;
+        if (window.spaceAudio) window.spaceAudio.play("join");
       });
 
       this.socket.on("room_joined", (data) => {
@@ -489,10 +490,12 @@
           window.voiceManager.connectToExistingRoomPeers();
         }
         this.emitEvent("room_joined", data);
-        if (window.spaceAudio) window.spaceAudio.playRadioBeep(true);
+        this._sfxSeeded = false;
+        if (window.spaceAudio) window.spaceAudio.play("join");
       });
 
       this.socket.on("join_error", (data) => {
+        if (window.spaceAudio) window.spaceAudio.play("deny");
         this.emitEvent("join_error", data);
       });
 
@@ -510,6 +513,8 @@
           if (p.id !== this.socketId) {
             currentIds.add(p.id);
             if (!this.remotePlayers[p.id]) {
+              // A crewmate arrived after we were already in the room (not the initial roster).
+              if (this._sfxSeeded && window.spaceAudio) window.spaceAudio.play("join", { vol: 0.8 });
               this.remotePlayers[p.id] = {
                 id: p.id,
                 name: p.name,
@@ -565,6 +570,7 @@
           window.voiceManager.connectToExistingRoomPeers();
         }
 
+        this._sfxSeeded = true;
         this.emitEvent("room_update", data);
       });
 
@@ -576,7 +582,7 @@
         const isShuttle = !!((data && data.opsMode === "shuttle_flight") || (this.mission && this.mission.opsMode === "shuttle_flight"));
         if (!isShuttle) this.snapshot = null;
         if (this.roomState) this.roomState.status = "playing";
-        if (window.spaceAudio) window.spaceAudio.playAlarm("warning");
+        if (window.spaceAudio) window.spaceAudio.play("missionStart");
         this.emitEvent("game_started", data);
       });
 
@@ -676,6 +682,7 @@
       });
 
       this.socket.on("emote_broadcast", (data) => {
+        if (window.spaceAudio) window.spaceAudio.play("pop", { vol: 0.7 });
         const rp = this.remotePlayers[data.id];
         if (rp) {
           rp.emoteId = data.emoteId;
@@ -689,7 +696,7 @@
           this.mission = data.mission;
           if (this.roomState) this.roomState.mission = data.mission;
         }
-        if (window.spaceAudio) window.spaceAudio.playRadioBeep(false);
+        if (window.spaceAudio) window.spaceAudio.play("taskComplete");
         this.emitEvent("task_completed", data);
       });
 
@@ -698,11 +705,12 @@
           this.mission = data.mission;
           if (this.roomState) this.roomState.mission = data.mission;
         }
-        if (window.spaceAudio) window.spaceAudio.playAlarm("warning");
+        if (window.spaceAudio) window.spaceAudio.play("deny");
         this.emitEvent("objective_locked", data);
       });
 
       this.socket.on("mission_validation_failed", (data) => {
+        if (window.spaceAudio) window.spaceAudio.play("deny");
         this.emitEvent("mission_validation_failed", data);
       });
 
@@ -723,12 +731,14 @@
           if (this.roomState) this.roomState.mission = data.mission;
         }
         if (this.roomState) this.roomState.status = "victory";
-        if (window.spaceAudio) window.spaceAudio.playWormholeJump();
+        // The victory fanfare is played by gameplay.showVictory() so it only fires once.
         this.emitEvent("crew_victory", data);
       });
 
       this.socket.on("chat_broadcast", (comm) => {
-        if (window.spaceAudio) window.spaceAudio.playRadioBeep(false);
+        // Our own message already got the send sound from the chat UI.
+        const ownChat = !!(comm && this.localPlayer && comm.sender && comm.sender === this.localPlayer.name);
+        if (window.spaceAudio && !ownChat) window.spaceAudio.play("chatReceive");
         this.emitEvent("chat_message", comm);
       });
 
@@ -775,6 +785,7 @@
       });
 
       this.socket.on("player_left", (data) => {
+        if (window.spaceAudio) window.spaceAudio.play("leave");
         this.emitEvent("player_left", data);
       });
 
@@ -783,14 +794,17 @@
       });
 
       this.socket.on("role_swap_requested", (data) => {
+        if (window.spaceAudio) window.spaceAudio.play("uiNotify");
         this.emitEvent("role_swap_requested", data);
       });
 
       this.socket.on("role_swap_resolved", (data) => {
+        if (window.spaceAudio) window.spaceAudio.play("success");
         this.emitEvent("role_swap_resolved", data);
       });
 
       this.socket.on("role_swap_error", (data) => {
+        if (window.spaceAudio) window.spaceAudio.play("deny");
         this.emitEvent("role_swap_error", data);
       });
 

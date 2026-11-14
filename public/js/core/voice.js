@@ -1,16 +1,12 @@
 /**
  * ============================================================================
- * INTERFELLAS HIGH-RELIABILITY ALWAYS-ON PROXIMITY VOICE SUITE
+ * INTERFELLAS ALWAYS-ON ALL-CREW VOICE SUITE
  * ============================================================================
  * Zero-NAT, 100% firewall-traversing WebSocket audio relay for multiplayer crew comms:
- * - Always-On Comms: Crew members can hear each other at ALL times across the entire station.
- * - Dynamic Proximity Acoustics:
- *     * Near (<=2m): Full 100% volume, wideband response + vocal presence boost,
- *       and directional stereo panning (sounds like standing right next to you).
- *     * Far (>=22m): Settles to ~38% volume (never fully muted) with a strongly
- *       muffled 1.6kHz intercom response.
- *     * Closed CBM Hatch: Acoustic muffling (1kHz) through pressurized doors.
- * - Cockpit Audio Settings: Device selector, live VU meter, sensitivity, deafen & per-player volumes.
+ * - Always-On Comms: every crew member hears every other crew member at full
+ *   volume, across Earth Control, the pad, the station and orbit.
+ * - No radio channel, no zone gating, no proximity muting.
+ * - Cockpit Audio Settings: device selector, live VU meter, sensitivity, deafen.
  * - Ultra-low latency (~30ms) scheduled Web Audio playback.
  */
 
@@ -59,11 +55,8 @@
       this.isEnabled = false;
       this.isMuted = false;
       this.isSpeaking = false;
-      this.isRadioTransmitting = false;
-      this.emergencyMode = false;
       this.pttActive = false;           // Push-to-talk [V]
       this.pttWasMuted = false;
-      this.radioChannelLatched = false;
       this.isDeafened = localStorage.getItem("interfellas_deafen") === "true";
       this.lastError = null;
       this._boundSocket = null;
@@ -126,9 +119,6 @@
         isMuted: this.isMuted,
         isSpeaking: this.isSpeaking,
         isDeafened: this.isDeafened,
-        isRadio: !!(this.isRadioTransmitting || this.radioChannelLatched),
-        radioChannelLatched: !!this.radioChannelLatched,
-        emergencyMode: this.emergencyMode,
         masterVolume: this.masterVolume,
         peerCount: Object.keys(this.peers).length,
         peers: this.peers
@@ -149,7 +139,7 @@
         this._keysBound = true;
         this.bindKeyboardShortcuts();
       }
-      console.log("🎙️  [VOICE] Always-On Proximity Voice Engine online.");
+      console.log("🎙️  [VOICE] Always-On All-Crew Voice Engine online.");
     }
 
     ensureAudioContext() {
@@ -388,7 +378,7 @@
         const startThreshold = this.vadThreshold;
         const stopThreshold = Math.max(3, Math.round(this.vadThreshold * 0.55));
         const threshold = this.isSpeaking ? stopThreshold : startThreshold;
-        const nowSpeaking = level > threshold || this.isRadioTransmitting || this.pttActive;
+        const nowSpeaking = level > threshold || this.pttActive;
 
         if (nowSpeaking) {
           speakingCooldown = 30; // Hold state for ~900ms (30ms VAD tick) to preserve word endings
@@ -521,31 +511,12 @@
       return this.currentMicLevel;
     }
 
-    async toggleRadioChannel(forceState = null) {
-      this.ensureAudioContext();
-      const next = forceState === null ? !this.radioChannelLatched : !!forceState;
-      this.radioChannelLatched = next;
-      this.emergencyMode = next || !!this.isRadioTransmitting;
-
-      if (next && !this.localStream) {
-        await this.startMicrophone();
-      } else if (next && this.isMuted) {
-        this.setMuted(false);
-      }
-
-      this.broadcastVoiceState();
-      this.emitStateChange();
-      this.playQuindarBeep(next);
-      return this.radioChannelLatched;
-    }
-
     broadcastVoiceState() {
       if (!this.socket || !window.netManager) return;
       this.socket.emit("voice_state_update", {
         roomId: window.netManager.roomId,
         isMuted: this.isMuted,
-        isSpeaking: this.isSpeaking,
-        isRadio: !!(this.isRadioTransmitting || this.radioChannelLatched)
+        isSpeaking: this.isSpeaking
       });
     }
 
@@ -553,6 +524,11 @@
      * Subtle NASA Roger Tone
      */
     playQuindarBeep(isOpen) {
+      // Shared SFX engine owns the radio tones (same mix, reverb-free comms bus, honours SFX mute).
+      if (window.spaceAudio && typeof window.spaceAudio.play === "function") {
+        window.spaceAudio.play(isOpen ? "radioOpen" : "radioClose");
+        return;
+      }
       try {
         this.ensureAudioContext();
         if (!this.audioCtx || this.audioCtx.state === "suspended") return;
@@ -837,166 +813,32 @@
     updateProximity(localPos, localYaw = 0, remotePlayers = {}) {
       if (!this.audioCtx) return;
 
-      // Acoustic proximity changes slowly; 12.5 Hz is plenty and avoids
-      // scheduling dozens of AudioParam ramps every rendered frame.
+      // Crew voice is one shared, always-on channel. It never fades or drops
+      // because someone moved between the LCC, the pad, the orbiter or orbit.
       const nowMs = performance.now();
       if (nowMs - this.lastProximityUpdateAt < 80) return;
       this.lastProximityUpdateAt = nowMs;
 
       const currentTime = this.audioCtx.currentTime;
-      const isEmergency = !!this.emergencyMode;
-
-      // In the lobby or pre-launch briefing, all crew members hear each other
-      // at 100% full volume. The server uses "playing" for an active mission.
-      const roomStatus = window.netManager && window.netManager.roomState
-        ? window.netManager.roomState.status
-        : "lobby";
-      const isInLobby = !window.netManager ||
-        !window.netManager.roomState ||
-        roomStatus === "lobby" ||
-        roomStatus === "victory";
-
-      const localRole = window.netManager && window.netManager.localPlayer ? window.netManager.localPlayer.role : "commander";
-      const localTeam = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.team)
-        || (window.InterfellasRoles && typeof window.InterfellasRoles.getTeamForRole === "function"
-          ? window.InterfellasRoles.getTeamForRole(localRole)
-          : "crew");
-      const localRadioOpen = !!(this.isRadioTransmitting || this.radioChannelLatched || isEmergency);
-
       for (const peerId in this.peers) {
         const peer = this.peers[peerId];
         if (!peer || !peer.proximityGain) continue;
-
         const peerVolScale = this.playerVolumes[peerId] !== undefined ? this.playerVolumes[peerId] : 1.0;
-
-        // In lobby/victory: 100% clean full presence
-        if (isInLobby) {
-          peer.proximityGain.gain.setTargetAtTime(1.0 * peerVolScale, currentTime, 0.04);
-          if (peer.proximityFilter) {
-            peer.proximityFilter.frequency.setTargetAtTime(PROXIMITY_CONFIG.nearFilterFreq, currentTime, 0.04);
-          }
-          if (peer.presenceFilter) {
-            peer.presenceFilter.gain.setTargetAtTime(0, currentTime, 0.04);
-          }
-          if (peer.pannerNode) {
-            peer.pannerNode.pan.setTargetAtTime(0.0, currentTime, 0.04);
-          }
-          continue;
-        }
-
-        const rp = remotePlayers[peerId];
-        const remoteRole = rp && rp.role ? rp.role : "commander";
-        const remoteTeam = (rp && rp.team)
-          || (window.InterfellasRoles && typeof window.InterfellasRoles.getTeamForRole === "function"
-            ? window.InterfellasRoles.getTeamForRole(remoteRole)
-            : "crew");
-        const radioLinked = localRadioOpen || !!(peer.isRadio || (rp && rp.isRadio));
-
-        // Zone Isolation between LCC Ground Control and Orbital Flight Crew:
-        // Passive proximity stays zone-local; holding [R] or latching S-Band links Ground <-> Ship.
-        if (localTeam !== remoteTeam) {
-          if (!radioLinked) {
-            peer.proximityGain.gain.setTargetAtTime(0.0, currentTime, 0.04);
-            if (peer.pannerNode) {
-              peer.pannerNode.pan.setTargetAtTime(0.0, currentTime, 0.04);
-            }
-          } else {
-            peer.proximityGain.gain.setTargetAtTime(1.0 * peerVolScale, currentTime, 0.04);
-            if (peer.proximityFilter) {
-              peer.proximityFilter.frequency.setTargetAtTime(4200, currentTime, 0.04);
-            }
-            if (peer.presenceFilter) {
-              peer.presenceFilter.gain.setTargetAtTime(2.5, currentTime, 0.04);
-            }
-            if (peer.pannerNode) {
-              peer.pannerNode.pan.setTargetAtTime(0.0, currentTime, 0.04);
-            }
-          }
-          continue;
-        }
-
-        if (radioLinked) {
-          peer.proximityGain.gain.setTargetAtTime(1.0 * peerVolScale, currentTime, 0.04);
-          if (peer.proximityFilter) {
-            peer.proximityFilter.frequency.setTargetAtTime(PROXIMITY_CONFIG.nearFilterFreq, currentTime, 0.04);
-          }
-          if (peer.presenceFilter) {
-            peer.presenceFilter.gain.setTargetAtTime(1.5, currentTime, 0.04);
-          }
-          if (peer.pannerNode) {
-            peer.pannerNode.pan.setTargetAtTime(0.0, currentTime, 0.04);
-          }
-          continue;
-        }
-
-        // Same-Zone 3D Proximity: Calculate real distance
-        let remotePos = null;
-
-        if (rp) {
-          if (rp.mesh && rp.mesh.position) {
-            remotePos = rp.mesh.position;
-          } else if (rp.curPos) {
-            remotePos = { x: rp.curPos[0], y: rp.curPos[1], z: rp.curPos[2] };
-          }
-        }
-
-        if (!remotePos || !localPos) {
-          // Default baseline volume when position is resolving
-          peer.proximityGain.gain.setTargetAtTime(PROXIMITY_CONFIG.nearGain * peerVolScale, currentTime, 0.05);
-          continue;
-        }
-
-        const dx = remotePos.x - localPos.x;
-        const dy = remotePos.y - localPos.y;
-        const dz = remotePos.z - localPos.z;
-        const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-
-        // Same-zone mates: proximity modulates loudness and filtering smoothly
-        const t = Math.max(0, Math.min(1, (dist - PROXIMITY_CONFIG.nearDistance) / (PROXIMITY_CONFIG.farDistance - PROXIMITY_CONFIG.nearDistance)));
-        const curve = Math.pow(t, 0.8);
-
-        let targetGain = PROXIMITY_CONFIG.nearGain * Math.pow(PROXIMITY_CONFIG.farGain / PROXIMITY_CONFIG.nearGain, curve);
-        let targetFreq = PROXIMITY_CONFIG.nearFilterFreq * Math.pow(PROXIMITY_CONFIG.farFilterFreq / PROXIMITY_CONFIG.nearFilterFreq, curve);
-        let presenceBoost = (1 - t) * 4.0;
-
-        // Airlock CBM Hatch Occlusion onboard Station
-        const phase = window.netManager && window.netManager.mission ? window.netManager.mission.phase : "gantry";
-        if (localTeam !== "ground" && phase === "station") {
-          const isDoorOccluded = this.checkCbmDoorOcclusion(localPos, remotePos);
-          if (isDoorOccluded) {
-            targetGain *= PROXIMITY_CONFIG.occludedGainMult;
-            targetFreq = Math.min(targetFreq, PROXIMITY_CONFIG.occludedFreq);
-          }
-        }
-
-        targetGain *= peerVolScale;
-
-        peer.proximityGain.gain.setTargetAtTime(targetGain, currentTime, 0.04);
+        peer.proximityGain.gain.setTargetAtTime(
+          Math.max(0, Math.min(2, peerVolScale)),
+          currentTime,
+          0.04
+        );
         if (peer.proximityFilter) {
-          peer.proximityFilter.frequency.setTargetAtTime(targetFreq, currentTime, 0.04);
+          peer.proximityFilter.frequency.setTargetAtTime(PROXIMITY_CONFIG.nearFilterFreq, currentTime, 0.04);
         }
         if (peer.presenceFilter) {
-          peer.presenceFilter.gain.setTargetAtTime(presenceBoost, currentTime, 0.04);
+          peer.presenceFilter.gain.setTargetAtTime(0, currentTime, 0.04);
         }
-
-        // Directional Stereo Panning
         if (peer.pannerNode) {
-          if (dist > 0.5 && dist < 16.0) {
-            const relX = dx * Math.cos(-localYaw) - dz * Math.sin(-localYaw);
-            const relZ = dx * Math.sin(-localYaw) + dz * Math.cos(-localYaw);
-            const panStrength = Math.max(0, 1.0 - (dist / 18.0));
-            const rawPan = Math.max(-1, Math.min(1, relX / Math.max(1.5, Math.abs(relX) + Math.abs(relZ))));
-            peer.pannerNode.pan.setTargetAtTime(rawPan * panStrength, currentTime, 0.04);
-          } else {
-            peer.pannerNode.pan.setTargetAtTime(0.0, currentTime, 0.04);
-          }
+          peer.pannerNode.pan.setTargetAtTime(0.0, currentTime, 0.04);
         }
       }
-    }
-
-    setEmergencyMode(active) {
-      this.emergencyMode = !!active;
-      this.emitStateChange();
     }
 
     bindKeyboardShortcuts() {
@@ -1023,21 +865,6 @@
             this.setMuted(false);
           }
         }
-
-        // [R] - S-Band Space-to-Ground Radio PTT (Hold to bridge Ground <-> Ship)
-        if (e.code === "KeyR" && !e.repeat && !(window.dockingSim && window.dockingSim.isActive)) {
-          this.isRadioTransmitting = true;
-          this.emergencyMode = true;
-          this.pttWasMuted = this.isMuted;
-          if (!this.localStream && !this.isEnabled) {
-            this.startMicrophone().catch(() => {});
-          } else if (this.isMuted) {
-            this.setMuted(false);
-          }
-          this.broadcastVoiceState();
-          this.emitStateChange();
-          this.playQuindarBeep(true);
-        }
       });
 
       window.addEventListener("keyup", (e) => {
@@ -1046,15 +873,6 @@
           if (this.pttWasMuted) {
             this.setMuted(true);
           }
-        }
-        if (e.code === "KeyR" && this.isRadioTransmitting) {
-          this.isRadioTransmitting = false;
-          this.emergencyMode = !!this.radioChannelLatched;
-          if (this.pttWasMuted && !this.radioChannelLatched) {
-            this.setMuted(true);
-          }
-          this.broadcastVoiceState();
-          this.emitStateChange();
         }
       });
     }

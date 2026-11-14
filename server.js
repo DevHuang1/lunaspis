@@ -617,13 +617,13 @@ const ROLE_INFO = {
   },
   ground_capcom: {
     id: "ground_capcom",
-    short: "RADIO",
+    short: "COM",
     team: "ground",
-    title: "Earth Radio Helper",
-    callsign: "EARTH-RADIO",
+    title: "Earth Comms",
+    callsign: "EARTH-COM",
     color: "#60a5fa",
-    primaryDuty: "Earth Dish & Systems Helper: Connect radio [R], lock Earth dishes, route power, and clear science downloads",
-    padDuty: "Check radio signal, clear skies, and launch pad cables from Earth Control",
+    primaryDuty: "Earth Dish & Systems Helper: all-crew voice, lock Earth dishes, route power, and clear science downloads",
+    padDuty: "Check crew comms, clear skies, and launch pad cables from Earth Control",
     dockDuty: "Watch approach speed, lock Earth dish, and clear science data",
     stationRooms: ["LCC", "COMMS", "PWR"]
   },

@@ -8,12 +8,12 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="theme-color" content="#05060a" />
   <title>Lunaspis — Orbital Transit &amp; ISS Simulator</title>
-  <link rel="stylesheet" href="css/style.css?v=4.7.7" />
-  <link rel="stylesheet" href="css/premium.css?v=1.2.0" />
+  <link rel="stylesheet" href="css/style.css?v=4.7.8" />
+  <link rel="stylesheet" href="css/premium.css?v=1.2.3" />
   <link rel="stylesheet" href="css/academy.css?v=1.0.0" />
   <link rel="stylesheet" href="css/mission_log.css?v=1.0.0" />
   <link rel="stylesheet" href="css/lunar-glass.css?v=5.1.3" />
-  <link rel="stylesheet" href="css/mobile.css?v=1.0.0" />
+  <link rel="stylesheet" href="css/mobile.css?v=1.0.1" />
   <link rel="stylesheet" href="css/desk_guide.css?v=1.0.0" />
   <!-- Three.js Engine & 3D GLTF/GLB/Draco/KTX2/Meshopt Loaders -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" integrity="sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu" crossorigin="anonymous"></script>
@@ -98,10 +98,14 @@
         <button class="title-chip-btn" id="btn-open-mission-log" title="Past flights, personal bests &amp; shareable mission reports">PAST FLIGHTS</button>
         <button class="title-chip-btn" id="btn-open-nasa-csa-menu" title="Space Games &amp; Activities + 3D Path &amp; Telescope Lab">GAMES &amp; TOOLS</button>
         <button class="title-chip-btn" id="btn-open-hangar-menu">3D MODELS</button>
-        <button class="title-chip-btn title-region-btn" id="btn-region-toggle" type="button" hidden>
+        <div class="title-region-toggle" id="region-toggle" role="group" aria-label="Server region">
           <span class="region-status-dot" aria-hidden="true"></span>
-          <span data-region-label>SERVER: --</span>
-        </button>
+          <span class="region-toggle-label" data-region-label>SERVER</span>
+          <div class="region-toggle-pills">
+            <button class="region-opt-btn" id="btn-region-asia" type="button" data-region="asia" aria-pressed="false">ASIA</button>
+            <button class="region-opt-btn" id="btn-region-us" type="button" data-region="us" aria-pressed="false">US</button>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -147,7 +151,13 @@
         <span class="field-label" style="margin:0;">ROOM CODE</span>
         <span class="room-code-text" id="lobby-room-code">------</span>
         <button class="btn-copy" id="btn-copy-invite" title="Copy an invite link to share with friends (includes this server region)">COPY INVITE LINK</button>
-        <span class="lobby-region-badge" id="lobby-region-badge" hidden>SERVER: --</span>
+        <div class="lobby-region-group">
+          <span class="lobby-region-badge" id="lobby-region-badge">SERVER: --</span>
+          <div class="lobby-region-switch" id="lobby-region-switch" role="group" aria-label="Switch server region">
+            <button class="region-opt-btn" id="btn-lobby-region-asia" type="button" data-region="asia" aria-pressed="false">ASIA</button>
+            <button class="region-opt-btn" id="btn-lobby-region-us" type="button" data-region="us" aria-pressed="false">US</button>
+          </div>
+        </div>
       </div>
       <div class="lobby-top-actions">
         <button id="btn-lobby-voice" class="btn-lobby-voice">
@@ -239,7 +249,7 @@
 
     <div class="lobby-bottom-bar">
       <div class="lobby-controls-hint">
-        <strong>WASD</strong> Run &middot; <strong>Shift</strong> Sprint &middot; <strong>Drag</strong> Look Around &middot; <strong>[E]</strong> Use Station &middot; <strong>[R]</strong> Team Radio &middot; <strong>[M]</strong> Mic &middot; <strong>[C]</strong> Camera &middot; <strong>[U]</strong> 3D Orbit Map
+        <strong>WASD</strong> Run &middot; <strong>Shift</strong> Sprint &middot; <strong>Drag</strong> Look Around &middot; <strong>[E]</strong> Use Station &middot; <strong>[M]</strong> Mic &middot; <strong>[C]</strong> Camera &middot; <strong>[U]</strong> 3D Orbit Map
       </div>
       <div class="lobby-start-cluster">
         <label class="lobby-autoshuffle-toggle" id="lobby-autoshuffle-wrap" title="Mix up roles one more time when the game starts">
@@ -328,13 +338,13 @@
           <span id="cam-mode-icon">CAM</span>
           <span id="cam-mode-label">3RD PERSON</span>
         </button>
-        <button id="btn-voice-mic" class="voice-mic-btn" title="Mute or Unmute Microphone [M]">
+        <button id="btn-voice-mic" class="voice-mic-btn" data-sfx="none" title="Mute or Unmute Microphone [M]">
           <span id="voice-mic-icon">MIC</span>
           <span id="voice-mic-label">ON</span>
         </button>
-        <button id="btn-sband-radio" class="voice-mic-btn" title="Talk to teammates between Earth and Space [R]">
-          <span>TEAM RADIO</span>
-          <span id="sband-radio-label">OFF [R]</span>
+        <button id="btn-crew-comms" class="voice-mic-btn" title="Open the shared Earth ↔ Flight crew comms channel">
+          <span>CREW COMMS</span>
+          <span id="crew-comms-voice-label">OPEN</span>
         </button>
         <button id="btn-hud-more" class="voice-mic-btn" title="Show all tools" aria-expanded="false">
           <span>MORE</span>
@@ -375,7 +385,7 @@
           <span class="voice-pulse-dot" id="voice-pulse-dot"></span>
           <span id="voice-mode-label">VOICE</span>
         </div>
-        <div class="voice-key-hint"><strong>[R]</strong> Team Radio &middot; <strong>[U]</strong> 3D Orbit &middot; <strong>[O]</strong> Solar Map &middot; <strong>[J]</strong> Station &middot; <strong>[K]</strong> Moon &middot; <strong>[C]</strong> Camera</div>
+        <div class="voice-key-hint">ALL-CREW VOICE &middot; <strong>[M]</strong> Mic &middot; <strong>[U]</strong> 3D Orbit &middot; <strong>[O]</strong> Solar Map &middot; <strong>[J]</strong> Station &middot; <strong>[K]</strong> Moon &middot; <strong>[C]</strong> Camera</div>
       </div>
     </div>
 
@@ -404,12 +414,12 @@
 
     <div id="virtual-dpad">
       <div class="dpad-row">
-        <button class="dpad-btn" id="dpad-up">&#9650;</button>
+        <button class="dpad-btn" data-sfx="none" id="dpad-up">&#9650;</button>
       </div>
       <div class="dpad-row">
-        <button class="dpad-btn" id="dpad-left">&#9668;</button>
-        <button class="dpad-btn" id="dpad-down">&#9660;</button>
-        <button class="dpad-btn" id="dpad-right">&#9658;</button>
+        <button class="dpad-btn" data-sfx="none" id="dpad-left">&#9668;</button>
+        <button class="dpad-btn" data-sfx="none" id="dpad-down">&#9660;</button>
+        <button class="dpad-btn" data-sfx="none" id="dpad-right">&#9658;</button>
       </div>
     </div>
   </div>
@@ -531,6 +541,7 @@
 
       <div class="systems-tabs-bar">
         <button type="button" class="sys-tab-btn active" data-tab="tab-comms">VOICE CHAT</button>
+        <button type="button" class="sys-tab-btn" data-tab="tab-sound">SOUND</button>
         <button type="button" class="sys-tab-btn" data-tab="tab-graphics">GRAPHICS</button>
         <button type="button" class="sys-tab-btn" data-tab="tab-network">CONNECTION</button>
         <button type="button" class="sys-tab-btn" data-tab="tab-display">SCREEN</button>
@@ -578,8 +589,48 @@
           </div>
           <div class="settings-keybinds-box">
             <div class="keybind-row"><span>[M]</span><span>Mute / Unmute Microphone</span></div>
-            <div class="keybind-row"><span>[V]</span><span>Hold to Talk to Nearby Players</span></div>
-            <div class="keybind-row"><span>[R]</span><span>Toggle Earth-to-Space Team Radio</span></div>
+            <div class="keybind-row"><span>[V]</span><span>Hold to Talk</span></div>
+            <div class="keybind-row"><span>ALL</span><span>Voice chat is shared by the whole crew, Earth and flight</span></div>
+          </div>
+        </div>
+
+        <div id="tab-sound" class="sys-tab-content">
+          <div class="settings-group">
+            <div class="settings-label-row">
+              <label class="settings-label">MASTER VOLUME</label>
+              <span id="sfx-master-badge" class="settings-val-badge">80%</span>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;">
+              <input type="range" id="sfx-master-slider" min="0" max="100" value="80" class="settings-slider" style="flex:1;" />
+              <button type="button" id="btn-sfx-mute" class="btn-deafen">MUTE SFX</button>
+            </div>
+          </div>
+          <div class="settings-group">
+            <div class="settings-label-row">
+              <label class="settings-label">GAME EFFECTS</label>
+              <span id="sfx-effects-badge" class="settings-val-badge">100%</span>
+            </div>
+            <input type="range" id="sfx-effects-slider" min="0" max="100" value="100" class="settings-slider" />
+            <div class="settings-toggle-desc">Engines, hatches, docking, footsteps, mission events.</div>
+          </div>
+          <div class="settings-group">
+            <div class="settings-label-row">
+              <label class="settings-label">MENUS &amp; BUTTONS</label>
+              <span id="sfx-ui-badge" class="settings-val-badge">85%</span>
+            </div>
+            <input type="range" id="sfx-ui-slider" min="0" max="100" value="85" class="settings-slider" />
+            <div class="settings-toggle-desc">Clicks, hover ticks, typing, chat and notifications.</div>
+          </div>
+          <div class="settings-group">
+            <div class="settings-label-row">
+              <label class="settings-label">AMBIENT ATMOSPHERE</label>
+              <span id="sfx-ambience-badge" class="settings-val-badge">70%</span>
+            </div>
+            <input type="range" id="sfx-ambience-slider" min="0" max="100" value="70" class="settings-slider" />
+            <div class="settings-toggle-desc">Cabin air, wind and the soft background pad.</div>
+          </div>
+          <div class="settings-group">
+            <button type="button" id="btn-sfx-test" class="btn-preset" style="width:100%;">PLAY TEST SOUND</button>
           </div>
         </div>
 
@@ -721,17 +772,50 @@
     </div>
   </div>
 
+  <!-- SHARED CREW COMMS (Earth Control ↔ Flight Crew) -->
+  <button type="button" id="crew-comms-toggle" title="Open crew comms" aria-expanded="false">
+    <span>COMMS</span>
+    <span id="crew-comms-badge" hidden>0</span>
+  </button>
+  <section id="crew-comms-panel" aria-hidden="true">
+    <header class="cc-head">
+      <div>
+        <div class="cc-title">CREW COMMS</div>
+        <div class="cc-sub">EARTH CONTROL ↔ FLIGHT CREW</div>
+      </div>
+      <div class="cc-head-actions">
+        <button type="button" id="crew-comms-mic" title="Toggle microphone">MIC ON</button>
+        <button type="button" id="crew-comms-close" aria-label="Close crew comms">×</button>
+      </div>
+    </header>
+    <div class="cc-log" id="crew-comms-log" aria-live="polite">
+      <div class="cc-empty">Shared channel online. Messages reach every crew member on Earth and in flight.</div>
+    </div>
+    <div class="cc-quick" id="crew-comms-quick">
+      <button type="button" data-msg="STATUS REPORT?">STATUS?</button>
+      <button type="button" data-msg="GO FOR LAUNCH">GO FOR LAUNCH</button>
+      <button type="button" data-msg="HOLD — STAND BY">HOLD</button>
+      <button type="button" data-msg="COPY THAT">COPY</button>
+      <button type="button" data-msg="REQUEST SUPPORT">SUPPORT</button>
+      <button type="button" data-msg="DOCKING CLEARANCE REQUESTED">DOCKING GO</button>
+    </div>
+    <div class="cc-compose">
+      <input type="text" id="crew-comms-input" maxlength="140" placeholder="Message Earth Control / Flight Crew…" autocomplete="off" />
+      <button type="button" id="crew-comms-send">SEND</button>
+    </div>
+  </section>
+
   <!-- NOTIFICATION TOAST -->
   <div id="action-toast">NOTIFICATION</div>
 
   <!-- Core Engine Systems (Lunaspis Shaders, Audio, GLB Assets, Network, Voice & JPL CML) -->
   <script src="js/core/cinematic_pass.js?v=4.3.2"></script>
-  <script src="js/core/audio_synth.js?v=4.0.0"></script>
+  <script src="js/core/audio_synth.js?v=5.0.0"></script>
   <script src="js/core/ui_theme.js?v=5.1.3"></script>
   <script src="js/core/glb_manager.js?v=4.3.0"></script>
-  <script src="js/core/regions.js?v=1.0.0"></script>
-  <script src="js/core/network.js?v=4.9.9"></script>
-  <script src="js/core/voice.js?v=4.4.0"></script>
+  <script src="js/core/regions.js?v=1.1.0"></script>
+  <script src="js/core/network.js?v=4.10.0"></script>
+  <script src="js/core/voice.js?v=4.5.1"></script>
   <script src="js/core/cml_framework.js?v=1.0.0"></script>
 
   <!-- 3D World & Environments (Space Center LC-39A, Launch, Docking, Ship Interior, ISS Showcase & Earth) -->
@@ -741,16 +825,15 @@
   <script src="js/world/space_center/environment.js?v=4.9.6"></script>
   <script src="js/world/space_center/pad.js?v=4.9.6"></script>
   <script src="js/world/space_center/pad39b.js?v=4.9.5"></script>
-  <script src="js/world/space_center/mcc.js?v=4.9.6"></script>
   <script src="js/world/space_center/vab.js?v=4.9.6"></script>
   <script src="js/world/space_center/lcc.js?v=4.9.5"></script>
   <script src="js/world/space_center/crawler.js?v=4.9.5"></script>
   <script src="js/world/space_center/utilities.js?v=4.9.5"></script>
   <script src="js/world/space_center/site.js?v=4.9.6"></script>
-  <script src="js/world/space_center/open_car.js?v=1.0.6"></script>
-  <script src="js/world/space_center.js?v=5.0.7"></script>
+  <script src="js/world/space_center/open_car.js?v=1.0.7"></script>
+  <script src="js/world/space_center.js?v=5.0.8"></script>
   <script src="js/world/space_center/ground_map.js?v=1.0.4"></script>
-  <script src="js/world/launch_cutscene.js?v=4.9.1"></script>
+  <script src="js/world/launch_cutscene.js?v=4.9.3"></script>
   <script src="js/world/docking_simulator.js?v=4.8.0"></script>
   <script src="js/world/ship_interior.js?v=4.8.4"></script>
   <script src="js/world/mission_viz.js?v=1.1.1"></script>
@@ -759,11 +842,11 @@
 
   <!-- Shuttle Flight Ops Simulation, World View, SFX, STS_OS HUD & Controller (Nov 14) -->
   <script src="js/game/shuttle_simulation.js?v=1.0.0"></script>
-  <script src="js/game/shuttle_mission.js?v=1.0.1"></script>
+  <script src="js/game/shuttle_mission.js?v=1.0.2"></script>
   <script src="js/world/shuttle_view.js?v=1.0.0"></script>
-  <script src="js/game/shuttle_sfx.js?v=1.0.0"></script>
-  <script src="js/game/shuttle_hud.js?v=1.0.4"></script>
-  <script src="js/game/shuttle_game.js?v=1.0.2"></script>
+  <script src="js/game/shuttle_sfx.js?v=2.0.0"></script>
+  <script src="js/game/shuttle_hud.js?v=1.0.5"></script>
+  <script src="js/game/shuttle_game.js?v=1.0.3"></script>
 
   <!-- Mission Simulation & Main Loop -->
   <script src="js/game/csa_nasa_resources.js?v=1.0.1"></script>
@@ -771,7 +854,7 @@
   <script src="js/game/gameplay.js?v=5.0.1"></script>
   <script src="js/game/mission_academy.js?v=1.1.1"></script>
   <script src="js/game/mission_log.js?v=1.0.0"></script>
-  <script src="js/game/main.js?v=5.1.7"></script>
+  <script src="js/game/main.js?v=5.1.9"></script>
 
 </body>
 </html>

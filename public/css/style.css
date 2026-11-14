@@ -5206,6 +5206,8 @@ body {
 .title-top-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -9989,4 +9991,107 @@ body.vr-stereo-active #iss-showcase-ui,
 body.vr-stereo-active #mission-viz-ui,
 body.vr-stereo-active .hud-diagnostics-deck {
   display: none !important;
+}
+
+/* ============================================================================
+   REGIONAL SERVER TOGGLE (ASIA / US SUBDOMAIN SWITCHER)
+   ============================================================================ */
+.title-region-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 4px 6px 4px 10px;
+  background: rgba(6, 10, 15, 0.72);
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.14));
+  border-radius: var(--ui-radius-sm, 4px);
+  backdrop-filter: blur(10px);
+  white-space: nowrap;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.title-region-toggle[hidden],
+.lobby-region-switch[hidden] {
+  display: none;
+}
+
+.title-region-toggle .region-status-dot {
+  flex: 0 0 auto;
+  background: var(--state-ok, #83a896);
+  box-shadow: 0 0 8px var(--state-ok, #83a896);
+}
+
+.title-region-toggle[data-region-state="unselected"] {
+  border-color: var(--brand-line, rgba(208, 161, 92, 0.48));
+}
+
+.title-region-toggle[data-region-state="unselected"] .region-status-dot {
+  background: var(--brand, #d0a15c);
+  box-shadow: 0 0 8px var(--brand, #d0a15c);
+}
+
+.region-toggle-label {
+  font-family: var(--ui-font-mono, var(--font-mono, monospace));
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  color: var(--ink-2, var(--text-ivory, #e2e8f0));
+  user-select: none;
+}
+
+.region-toggle-pills,
+.lobby-region-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.region-opt-btn {
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink-3, #94a3b8);
+  font-family: var(--ui-font-mono, var(--font-mono, monospace));
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  padding: 3px 8px;
+  border-radius: 2px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+}
+
+.region-opt-btn:hover {
+  color: var(--text-ivory, #f8fafc);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.region-opt-btn.is-active {
+  background: var(--brand-soft, rgba(208, 161, 92, 0.2));
+  border-color: var(--brand-line, rgba(208, 161, 92, 0.55));
+  color: var(--brand-strong, #e7c58c);
+  cursor: default;
+}
+
+.lobby-region-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+
+.lobby-region-badge[data-region-state="unselected"] {
+  border-color: var(--brand-line, rgba(208, 161, 92, 0.48));
+  color: var(--brand-strong, #e7c58c);
+}
+
+.lobby-region-switch .region-opt-btn {
+  font-size: 9px;
+  padding: 2px 6px;
 }

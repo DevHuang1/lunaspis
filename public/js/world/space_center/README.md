@@ -28,7 +28,7 @@ Builders receive a `SpaceCenterSite` façade and must:
 
 `site.build()` runs the registered modules in this order:
 
-`environment → pad → pad39b → mcc → vab → lcc → crawler → utilities`
+`environment → pad → pad39b → vab → lcc → crawler → utilities`
 
 Static box/beam meshes are automatically instanced per material in
 `_mergeStaticBoxes()` to keep draw calls low.
@@ -69,29 +69,6 @@ both propellant spheres, the water tower, pump house, gatehouse, entrance sign,
 crawler transporter and the fixed service structure base. The crawlerway, service
 road and grass perimeter remain walkable.
 
-## Mission Control Center building (`mcc.js`)
-
-Standalone facility at `(-60, 240)` east of the LCC, registered as `mcc`:
-
-- Exterior: 58 × 40 m glazed control building, twin-height curtain wall with
-  sun hoods and mullions, entrance canopy, `MISSION CONTROL CENTER` header,
-  rooftop tracking dishes and chillers, USA/NASA flagpoles, hedged planters,
-  walkway and parking bays.
-- Arrival plaza at tour stop 9: NASA meatball walkway inlay, directional
-  directory kiosk, `T-00:04:12` mission clock, path bollard lights, entrance
-  bollards, crosswalk over the KSC avenue, bench, trash bin, hydrant, crew
-  drop-off lane with cones and a waiting van, and a `PARKING →` sign.
-- Interior: reception lobby with desk and seating, divider with central
-  doorway, main control room with a 20 m hero status wall, two ground consoles
-  (`Flight Director` at `(-68, 236)`, `Ground Systems` at `(-52, 236)`), GO/NO-GO
-  board, console monitors and ceiling light strips, plus a glazed comms/tracking
-  room with server racks.
-- Terminals: `mcc_flight_director` and `mcc_ground_systems` in
-  `space_center.js` (`[E]`), actions `mission` and `orbit`.
-- Collision: shell with a 10 m entrance gap, lobby divider with an 8 m doorway,
-  both consoles, reception desk, sofas, comms glass walls, analysis desk,
-  planters, canopy columns and flagpoles.
-
 ## Mission Control Center (LCC firing room)
 
 The LCC firing room is built as a two-station **Mission Control Center** for the
@@ -104,9 +81,8 @@ ground team:
 - Hero status screen (`MISSION CONTROL · LC-39B`), two ground-track side
   displays, a GO/NO-GO wall board, a ground-network board, tiered desks with
   monitor graphics, nameplates and operator chairs.
-- Facility terminals are defined in `space_center.js` (`mcc_flight_director`,
-  `mcc_ground_systems`); actions `mission` and `orbit` are routed in
-  `_activateFacilityTerminal`.
+- Facility terminals are defined in `space_center.js` (`lcc_fd`, `lcc_gs`);
+  actions `mission` and `orbit` are routed in `_activateFacilityTerminal`.
 - Interior furniture is collidable: both consoles, reception desk, sofas,
   coffee counter, conference table, electrical racks and the lobby planters.
 

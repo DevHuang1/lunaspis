@@ -6204,12 +6204,18 @@
         modal.style.background = "rgba(3, 7, 18, 0.88)";
         modal.style.display = "flex";
       }
-      if (window.spaceAudio) window.spaceAudio.playWormholeJump();
+      // Fanfare only on the real victory; re-opening the summary with [Y] stays quiet.
+      if (window.spaceAudio && !this._silentVictory) window.spaceAudio.play("victory");
     }
 
     reopenVictory() {
       if (!this.lastDebrief) return false;
-      this.showVictory(this.lastVictoryReason, this.lastDebrief);
+      this._silentVictory = true;
+      try {
+        this.showVictory(this.lastVictoryReason, this.lastDebrief);
+      } finally {
+        this._silentVictory = false;
+      }
       return true;
     }
 

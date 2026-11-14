@@ -28,7 +28,7 @@
     ["wheels_stop", "rollout", "Steer straight and brake to a stop"],
   ];
   // every flown phase can be accelerated (user request); hand-flown phases are capped so inputs stay controllable
-  const WARP_LIMIT = { briefing: 1, prelaunch: 4, ascent: 8, insertion: 100, payload: 20, deorbit: 100, entry: 8, approach: 4, rollout: 4, debrief: 1 };
+  const WARP_LIMIT = { briefing: 1, prelaunch: 10, ascent: 25, insertion: 100, payload: 20, deorbit: 100, entry: 8, approach: 4, rollout: 4, debrief: 1 };
   const CHECKPOINTS = ["pad", "orbit", "payload", "entry", "approach"];
 
   class ShuttleMission {

@@ -48,7 +48,6 @@
     { id: "pad", label: "Pad 39A", short: "PAD 39A", x: 30, z: 205, yaw: Math.atan2(-30, -205), pitch: 0.14 },
     { id: "vab", label: "Vehicle Assembly Building", short: "VAB", x: -30, z: 544, yaw: 0.02, pitch: 0.22 },
     { id: "lcc", label: "Launch Control Center", short: "LCC", x: -180, z: 232, yaw: Math.PI, pitch: 0.05 },
-    { id: "mcc", label: "Mission Control Center", short: "MCC", x: -60, z: 280, yaw: Math.PI, pitch: 0.05 },
     { id: "crawler", label: "Crawler Transporter", short: "CRAWLER", x: 34, z: 452, yaw: Math.atan2(-34, 48), pitch: 0.06 },
     { id: "beach", label: "Beach View", short: "BEACH", x: 474, z: 18, yaw: Math.PI / 2 - 0.14, pitch: 0.0 },
     { id: "press", label: "Press Site 39A", short: "PRESS", x: 162, z: 214, yaw: Math.atan2(-162, -214) - 0.14, pitch: 0.08 },
@@ -168,7 +167,6 @@
 
     // 5. Interior building slabs & elevated plinths
     if (Math.abs(x + 180) < 35 && Math.abs(z - 180) < 23) return 0.24; // LCC
-    if (Math.abs(x + 60) < 29 && Math.abs(z - 240) < 20) return 0.24;  // MCC
     if (Math.abs(x + 30) < 79 && Math.abs(z - 700) < 109) return 0.18; // VAB
 
     // 6. Main crawlerway, crossings, and LC-39B crawlerway spur (0.14m gravel)
