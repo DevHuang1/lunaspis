@@ -67,7 +67,16 @@
       const forwardMin = hatch.axis === "z" ? zone.zMin : zone.xMin;
       const forwardMax = hatch.axis === "z" ? zone.zMax : zone.xMax;
       if (hatch.at < forwardMin - 0.001 || hatch.at > forwardMax + 0.001) return;
-      intervals.push(hatch.axis === "z" ? [zone.xMin, zone.xMax] : [zone.zMin, zone.zMax]);
+      // The wall panels are built on 1 m cells whose centres may extend half a
+      // cell past the walk-zone edge. The pressure wall must meet those actual
+      // panels, not the (up to 1 m narrower) walk-zone numeric edge, or a slot
+      // opens between the bulkhead and the real side wall.
+      const crossMin = hatch.axis === "z" ? zone.xMin : zone.zMin;
+      const crossMax = hatch.axis === "z" ? zone.xMax : zone.zMax;
+      intervals.push([
+        Math.ceil(crossMin - 1),
+        Math.floor(crossMax) + 1
+      ]);
     });
 
     let span;
