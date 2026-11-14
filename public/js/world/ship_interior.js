@@ -1640,6 +1640,133 @@
     return group;
   }
 
+  // Dress both faces of every gate bulkhead so the wide pressure-wall wings
+  // read as finished module walls instead of blank slabs. All repeated parts
+  // are instanced across every hatch, keeping the extra detail to ~13 draw
+  // calls for the whole station.
+  function buildHatchWingDressing(specs) {
+    const THREE = window.THREE;
+    const group = new THREE.Group();
+    group.name = "ISS_Hatch_Wing_Dressing";
+    if (!specs || !specs.length) return group;
+    const kit = getInteriorKitMaterials();
+    const lockerMaterial = new THREE.MeshStandardMaterial({ color: 0x9da9a7, roughness: 0.66, metalness: 0.22 });
+    const trimMaterial = new THREE.MeshStandardMaterial({ color: 0x52656b, roughness: 0.5, metalness: 0.42 });
+    const darkMaterial = new THREE.MeshStandardMaterial({ color: 0x3f5058, roughness: 0.55, metalness: 0.35 });
+    const railMaterial = new THREE.MeshStandardMaterial({ color: 0x4b7d97, roughness: 0.46, metalness: 0.52 });
+    const labelMaterial = new THREE.MeshBasicMaterial({
+      map: createSignTexture("EQUIP", "STOWAGE"),
+      transparent: true,
+      side: THREE.DoubleSide
+    });
+    const ventMaterial = new THREE.MeshStandardMaterial({
+      map: getVentTexture(),
+      roughness: 0.7,
+      metalness: 0.16,
+      side: THREE.DoubleSide
+    });
+    const cautionMaterial = new THREE.MeshBasicMaterial({
+      map: getCautionTexture(),
+      transparent: true,
+      side: THREE.DoubleSide
+    });
+    const gaugeFaceMaterial = new THREE.MeshBasicMaterial({ color: 0xe8ece6, side: THREE.DoubleSide });
+    const gaugeNeedleMaterial = new THREE.MeshBasicMaterial({ color: 0x27373b, side: THREE.DoubleSide });
+    const gaugeRimMaterial = new THREE.MeshStandardMaterial({ color: 0x849492, metalness: 0.45, roughness: 0.46, side: THREE.DoubleSide });
+
+    const entries = {
+      ribs: [], lockers: [], handles: [], labels: [], bags: [], vents: [],
+      backCautions: [], backGauges: [], backGaugeRims: [], backNeedles: [],
+      backRails: [], backRailMounts: [], backBolts: []
+    };
+    const add = (list, spec, position, rotation, scale) => {
+      list.push({ spec, position, rotation: rotation || [0, 0, 0], scale: scale || [1, 1, 1] });
+    };
+
+    specs.forEach((spec) => {
+      spec.wings.forEach((wing) => {
+        const width = wing.end - wing.start;
+        if (width < 0.4) return;
+        const center = (wing.start + wing.end) / 2;
+        [wing.start + 0.06, wing.end - 0.06].forEach((x) => {
+          add(entries.ribs, spec, [x, 0.34, -0.025]);
+          add(entries.ribs, spec, [x, 0.34, -0.055]);
+        });
+        if (width < 0.62) {
+          add(entries.vents, spec, [center, 1.55, -0.02]);
+          add(entries.vents, spec, [center, 1.55, -0.06], [0, Math.PI, 0]);
+          return;
+        }
+        const count = Math.max(1, Math.min(3, Math.floor(width / 1.15)));
+        for (let index = 0; index < count; index++) {
+          const x = wing.start + ((index + 0.5) * width) / count;
+          // Front face: equipment locker, handle and stowage placard.
+          add(entries.lockers, spec, [x, 0.55, 0.04]);
+          add(entries.handles, spec, [x, 0.55, 0.135]);
+          add(entries.labels, spec, [x, 0.55, 0.125]);
+          // Back face: soft stowage, return-air grille and placard.
+          add(entries.bags, spec, [x, 1.18, -0.21], [0, 0, 0], [0.8, 0.8, 0.8]);
+          add(entries.vents, spec, [x, 1.55, -0.06], [0, Math.PI, 0]);
+          add(entries.labels, spec, [x, 0.55, -0.06], [0, Math.PI, 0]);
+        }
+      });
+
+      // Mirror the gate hardware onto the back face so both approaches look
+      // deliberate: caution plate, pressure gauge, handrails and frame bolts.
+      add(entries.backCautions, spec, [1.0, 1.25, -0.145], [0, Math.PI, 0]);
+      add(entries.backGauges, spec, [1.16, 0.63, -0.132], [0, Math.PI, 0]);
+      add(entries.backGaugeRims, spec, [1.16, 0.63, -0.136], [0, Math.PI, 0]);
+      add(entries.backNeedles, spec, [1.16, 0.646, -0.14], [0, Math.PI, -0.55]);
+      [-1.38, 1.38].forEach((x) => {
+        add(entries.backRails, spec, [x, 0.08, -0.13]);
+        [-0.64, 0.8].forEach((y) => add(entries.backRailMounts, spec, [x, y, -0.08], [Math.PI / 2, 0, 0]));
+      });
+      for (let index = 0; index < 10; index++) {
+        const y = -0.92 + index * 0.26;
+        add(entries.backBolts, spec, [-1.5, y, -0.095]);
+        add(entries.backBolts, spec, [1.5, y, -0.095]);
+      }
+    });
+
+    const parent = new THREE.Object3D();
+    const local = new THREE.Object3D();
+    const matrix = new THREE.Matrix4();
+    const addBatch = (list, geometry, material, name) => {
+      if (!list.length) return;
+      const mesh = new THREE.InstancedMesh(geometry, material, list.length);
+      list.forEach((entry, index) => {
+        parent.position.set(entry.spec.x, 1.08, entry.spec.z);
+        parent.rotation.set(0, entry.spec.rotation, 0);
+        parent.updateMatrix();
+        local.position.set(...entry.position);
+        local.rotation.set(...entry.rotation);
+        local.scale.set(...entry.scale);
+        local.updateMatrix();
+        matrix.multiplyMatrices(parent.matrix, local.matrix);
+        mesh.setMatrixAt(index, matrix);
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.frustumCulled = false;
+      mesh.name = name;
+      group.add(mesh);
+    };
+
+    addBatch(entries.ribs, new THREE.BoxGeometry(0.03, 2.5, 0.024), darkMaterial, "HatchWing_Ribs");
+    addBatch(entries.lockers, new THREE.BoxGeometry(0.5, 0.62, 0.16), lockerMaterial, "HatchWing_Lockers");
+    addBatch(entries.handles, new THREE.BoxGeometry(0.2, 0.03, 0.03), trimMaterial, "HatchWing_Handles");
+    addBatch(entries.labels, new THREE.PlaneGeometry(0.4, 0.095), labelMaterial, "HatchWing_Labels");
+    addBatch(entries.bags, createSoftStowageGeometry(), kit.bag, "HatchWing_Stowage");
+    addBatch(entries.vents, new THREE.PlaneGeometry(0.3, 0.24), ventMaterial, "HatchWing_Vents");
+    addBatch(entries.backCautions, new THREE.PlaneGeometry(0.4, 0.11), cautionMaterial, "HatchBack_Caution");
+    addBatch(entries.backGauges, new THREE.CircleGeometry(0.062, 18), gaugeFaceMaterial, "HatchBack_Gauges");
+    addBatch(entries.backGaugeRims, new THREE.TorusGeometry(0.066, 0.008, 6, 18), gaugeRimMaterial, "HatchBack_GaugeRims");
+    addBatch(entries.backNeedles, new THREE.BoxGeometry(0.006, 0.05, 0.004), gaugeNeedleMaterial, "HatchBack_GaugeNeedles");
+    addBatch(entries.backRails, new THREE.CylinderGeometry(0.022, 0.022, 1.45, 8), railMaterial, "HatchBack_Rails");
+    addBatch(entries.backRailMounts, new THREE.CylinderGeometry(0.028, 0.028, 0.1, 8), railMaterial, "HatchBack_RailMounts");
+    addBatch(entries.backBolts, new THREE.SphereGeometry(0.022, 6, 4), darkMaterial, "HatchBack_Bolts");
+    return group;
+  }
+
   // ============================================================================
   // 4. ROOM WALLS, CONSOLES, HOLOTABLE & ROOM PROPS (ShipInterior.tsx)
   // ============================================================================
@@ -2320,6 +2447,7 @@
       const hatchLeafMat = new THREE.MeshStandardMaterial({ color: 0x9da9a8, roughness: 0.58, metalness: 0.3 });
       const hatchHardwareMat = new THREE.MeshStandardMaterial({ color: 0x51656d, roughness: 0.46, metalness: 0.5 });
       const hatchRailMat = new THREE.MeshStandardMaterial({ color: 0x4b7d97, roughness: 0.46, metalness: 0.52 });
+      const hatchWingSpecs = [];
       const hatch = (x, z, alongX, code, label) => {
         const portal = new THREE.Group();
         portal.position.set(x, 1.08, z);
@@ -2347,6 +2475,15 @@
           shellMinX = -Math.max(minShellHalf, gateCross - crossSpan[0]);
           shellMaxX = Math.max(minShellHalf, crossSpan[1] - gateCross);
         }
+        const wingGap = 0.08;
+        const wings = [];
+        if (-1.5 - wingGap - (shellMinX + wingGap) > 0.45) {
+          wings.push({ start: shellMinX + wingGap, end: -1.5 - wingGap });
+        }
+        if (shellMaxX - wingGap - (1.5 + wingGap) > 0.45) {
+          wings.push({ start: 1.5 + wingGap, end: shellMaxX - wingGap });
+        }
+        hatchWingSpecs.push({ x, z, rotation: alongX ? Math.PI / 2 : 0, wings });
         const shell = new THREE.Shape();
         shell.moveTo(shellMinX, -1.08);
         shell.lineTo(shellMaxX, -1.08);
@@ -2569,6 +2706,7 @@
       hatch(-3.2, -3.8, true, "LAB", "COLUMBUS");
       hatch(-4.5, 8.5, true, "AIRLOCK", "QUEST");
       hatch(-7.2, 8.5, true, "QUEST", "CREW LOCK");
+      group.add(buildHatchWingDressing(hatchWingSpecs));
 
       const modulePlacard = (text, description, position, rotation) => {
         const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.28),
