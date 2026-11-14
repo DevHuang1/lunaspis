@@ -980,6 +980,12 @@
     }
 
     open() {
+      if (window.solarSystem && window.solarSystem.isActive && typeof window.solarSystem.close === "function") {
+        window.solarSystem.close();
+      }
+      if (window.missionViz && window.missionViz.isActive && typeof window.missionViz.close === "function") {
+        window.missionViz.close();
+      }
       this.isActive = true;
       document.body.classList.add("iss-showcase-active");
       // Preserve the exterior/interior context so closing the showcase does not

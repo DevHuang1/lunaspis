@@ -70,7 +70,7 @@
       </div>
     </div>
     <div class="diag-footer">
-      <span>[P] / [F3] Diagnostics &bull; [J] ISS 3D &bull; [K] Lunar &bull; [H] Hangar</span>
+      <span>[P] / [F3] Diagnostics &bull; [J] ISS 3D &bull; [K] Lunar &bull; [H] Hangar &bull; [O] Solar</span>
       <span id="diag-clock">UTC 00:00:00</span>
     </div>
   </div>
@@ -341,6 +341,9 @@
         <button id="btn-hud-orbit-viz" class="voice-mic-btn" title="3D Mission Viz &amp; Trajectory Theater [U]">
           <span>VIZ [U]</span>
         </button>
+        <button id="btn-hud-solar" class="voice-mic-btn" title="Solar System Atlas [O]">
+          <span>SOLAR [O]</span>
+        </button>
         <button id="btn-hud-vr-main" class="voice-mic-btn" title="Toggle WebXR / Stereo VR Mode">
           <span>VR</span>
         </button>
@@ -356,7 +359,7 @@
           <span class="voice-pulse-dot" id="voice-pulse-dot"></span>
           <span id="voice-mode-label">COMMS</span>
         </div>
-        <div class="voice-key-hint"><strong>[R]</strong> S-Band &middot; <strong>[U]</strong> Viz &middot; <strong>[J]</strong> ISS &middot; <strong>[K]</strong> Lunar &middot; <strong>[C]</strong> View</div>
+        <div class="voice-key-hint"><strong>[R]</strong> S-Band &middot; <strong>[U]</strong> Viz &middot; <strong>[O]</strong> Solar &middot; <strong>[J]</strong> ISS &middot; <strong>[K]</strong> Lunar &middot; <strong>[C]</strong> View</div>
       </div>
     </div>
 
@@ -829,6 +832,7 @@
   <script src="js/world/docking_simulator.js?v=4.8.0"></script>
   <script src="js/world/ship_interior.js?v=4.6.3"></script>
   <script src="js/world/mission_viz.js?v=1.1.0"></script>
+  <script src="js/world/solar_system.js?v=1.0.0"></script>
   <script src="js/world/vr_mode.js?v=1.1.0"></script>
 
   <!-- Shuttle Flight Ops Simulation, World View, SFX, STS_OS HUD & Controller (Nov 14) -->

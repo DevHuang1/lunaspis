@@ -2313,6 +2313,7 @@
         if (!window.isGameStarted) return;
         if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT") return;
         if (window.missionViz && window.missionViz.isActive) return;
+        if (window.solarSystem && window.solarSystem.isActive) return;
         if (window.issShowcase && window.issShowcase.isActive) return;
         if (window.vrManager && window.vrManager.isAnyVRActive) return;
         if (window.launchCutscene && window.launchCutscene.isPlaying) return;

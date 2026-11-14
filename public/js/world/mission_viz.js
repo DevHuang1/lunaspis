@@ -758,6 +758,9 @@
       if (window.issShowcase && window.issShowcase.isActive) {
         window.issShowcase.close();
       }
+      if (window.solarSystem && window.solarSystem.isActive) {
+        window.solarSystem.close();
+      }
       if (window.glbManager && window.glbManager.hangarActive) {
         window.glbManager.closeHangar();
       }

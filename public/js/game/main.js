@@ -533,6 +533,9 @@
     if (window.missionViz && typeof window.missionViz.init === "function") {
       window.missionViz.init(scene, camera, renderer);
     }
+    if (window.solarSystem && typeof window.solarSystem.init === "function") {
+      window.solarSystem.init(scene, camera, renderer);
+    }
     if (window.vrManager && typeof window.vrManager.init === "function") {
       window.vrManager.init(scene, camera, renderer);
     }
@@ -1359,6 +1362,7 @@
         "iss-showcase-active",
         "mission-viz-active",
         "shuttle-mode-active",
+        "solar-system-active",
         "vr-stereo-active",
         "vr-webxr-active"
       );
@@ -1370,6 +1374,9 @@
 
       if (window.vrManager && window.vrManager.isAnyVRActive && typeof window.vrManager.exitVR === "function") {
         window.vrManager.exitVR();
+      }
+      if (window.solarSystem && window.solarSystem.isActive && typeof window.solarSystem.close === "function") {
+        window.solarSystem.close();
       }
       if (window.missionViz && window.missionViz.isActive && typeof window.missionViz.close === "function") {
         window.missionViz.close();
@@ -1530,6 +1537,15 @@
       btnOrbitVizHUD.addEventListener("click", () => {
         if (window.missionViz && typeof window.missionViz.toggle === "function") {
           window.missionViz.toggle();
+        }
+      });
+    }
+
+    const btnSolarHUD = document.getElementById("btn-hud-solar");
+    if (btnSolarHUD) {
+      btnSolarHUD.addEventListener("click", () => {
+        if (window.solarSystem && typeof window.solarSystem.toggle === "function") {
+          window.solarSystem.toggle();
         }
       });
     }
@@ -3137,6 +3153,10 @@
         if (window.vrManager && window.vrManager.isAnyVRActive) {
           return;
         }
+        if (window.solarSystem && window.solarSystem.isActive) {
+          window.solarSystem.close();
+          return;
+        }
         if (window.missionViz && window.missionViz.isActive) {
           window.missionViz.close();
           return;
@@ -3188,6 +3208,23 @@
       // The site tour owns 1-6 fast travel; don't fire emote shortcuts.
       if (window.spaceCenter && window.spaceCenter.siteTourActive) {
         if (/^Digit[1-6]$/.test(e.code) || e.code === "KeyT") return;
+      }
+
+      // Solar Atlas is a full-screen takeover; close it before another view hotkey opens.
+      if (
+        window.solarSystem && window.solarSystem.isActive &&
+        ["KeyU", "KeyJ", "KeyK", "KeyH", "KeyG", "KeyI", "KeyC", "KeyV"].indexOf(e.code) !== -1
+      ) {
+        window.solarSystem.close();
+      }
+
+      // Solar System Atlas [O]
+      if (e.code === "KeyO" || e.key === "o" || e.key === "O") {
+        e.preventDefault();
+        if (window.solarSystem && typeof window.solarSystem.toggle === "function") {
+          window.solarSystem.toggle();
+        }
+        return;
       }
 
       // Crew emotes [X] to open the wheel, [1]-[6] to express
@@ -3313,13 +3350,14 @@
       if (!target || typeof target.closest !== "function") return false;
       return Boolean(
         target.closest(
-          "button, input, textarea, select, a, .hud-checklist-panel, .hud-race-bar-container, #hud-crew-roster, #hud-voice-panel, #virtual-dpad, #mobile-joystick-zone, #task-modal-overlay, #iss-showcase-ui, #mission-viz-ui, #vr-mode-overlay, #lunaspis-ship-minimap, #ship-interior-hud, #space-center-ground-hud, #docking-hud-overlay, #launch-cutscene-overlay, #lunaspis-resource-meters, #btn-telemetry-toggle, #emote-wheel, #hud-diagnostics-overlay, #modal-auth, #modal-station-systems, #victory-overlay, #mission-briefing-overlay, #action-toast, .modal-card, .menu-card"
+          "button, input, textarea, select, a, .hud-checklist-panel, .hud-race-bar-container, #hud-crew-roster, #hud-voice-panel, #virtual-dpad, #mobile-joystick-zone, #task-modal-overlay, #iss-showcase-ui, #mission-viz-ui, #solar-system-ui, #vr-mode-overlay, #ground-lcc-console, #lunaspis-ship-minimap, #ship-interior-hud, #space-center-ground-hud, #docking-hud-overlay, #launch-cutscene-overlay, #lunaspis-resource-meters, #btn-telemetry-toggle, #emote-wheel, #hud-diagnostics-overlay, #modal-auth, #modal-station-systems, #victory-overlay, #mission-briefing-overlay, #action-toast, .modal-card, .menu-card"
         )
       );
     };
 
     window.addEventListener("mousedown", (e) => {
       if (window.shuttleGame && window.shuttleGame.isActive) return;
+      if (window.solarSystem && window.solarSystem.isActive) return;
       if (isUIElement(e.target)) return;
       isMouseDown = true;
       lastMouseX = e.clientX;
@@ -3329,6 +3367,7 @@
 
     window.addEventListener("mouseup", () => {
       if (window.shuttleGame && window.shuttleGame.isActive) return;
+      if (window.solarSystem && window.solarSystem.isActive) return;
       isMouseDown = false;
       dom.style.cursor = "grab";
     });
@@ -3346,6 +3385,7 @@
       if (isMouseDown) {
         if (window.issShowcase && window.issShowcase.isActive) return;
         if (window.missionViz && window.missionViz.isActive) return;
+        if (window.solarSystem && window.solarSystem.isActive) return;
         if (window.vrManager && window.vrManager.isAnyVRActive) return;
         if (window.dockingSim && window.dockingSim.isActive) return;
         const dx = e.clientX - lastMouseX;
@@ -3363,6 +3403,7 @@
       if (!isGameStarted || isUIElement(e.target)) return;
       if (window.issShowcase && window.issShowcase.isActive) return;
       if (window.missionViz && window.missionViz.isActive) return;
+      if (window.solarSystem && window.solarSystem.isActive) return;
       if (window.vrManager && window.vrManager.isAnyVRActive) return;
       if (cameraMode === 1) {
         thirdPersonDist = Math.max(1.6, Math.min(5.5, thirdPersonDist + Math.sign(e.deltaY) * 0.25));
@@ -3481,6 +3522,7 @@
       (e) => {
         if (window.issShowcase && window.issShowcase.isActive) return;
         if (window.missionViz && window.missionViz.isActive) return;
+        if (window.solarSystem && window.solarSystem.isActive) return;
         if (window.vrManager && window.vrManager.isAnyVRActive) return;
         if (window.dockingSim && window.dockingSim.isActive) return;
         if (e.touches.length === 2) {
@@ -3508,6 +3550,7 @@
       (e) => {
         if (window.issShowcase && window.issShowcase.isActive) return;
         if (window.missionViz && window.missionViz.isActive) return;
+        if (window.solarSystem && window.solarSystem.isActive) return;
         if (window.vrManager && window.vrManager.isAnyVRActive) return;
         if (window.dockingSim && window.dockingSim.isActive) return;
         if (e.touches.length === 2 && lastPinchDist !== null) {
@@ -3588,6 +3631,7 @@
       (window.gameplay && window.gameplay.activeTask) ||
       (window.launchCutscene && window.launchCutscene.isPlaying) ||
       (window.dockingSim && window.dockingSim.isActive) ||
+      (window.solarSystem && window.solarSystem.isActive) ||
       (window.spaceCenter && window.spaceCenter.isGroundMode && window.spaceCenter.crewBoarded)
     ) {
       if (localCrew.rig && typeof localCrew.rig.updateAnimation === "function") {
@@ -3982,6 +4026,10 @@
       window.missionViz.update(delta, elapsed, camera);
     }
 
+    if (window.solarSystem && typeof window.solarSystem.update === "function") {
+      window.solarSystem.update(delta, elapsed, camera);
+    }
+
     if (window.issShowcase && typeof window.issShowcase.update === "function") {
       window.issShowcase.update(delta, elapsed, camera);
     }
@@ -3994,6 +4042,8 @@
       // Orbital Docking Simulator controls 6DOF docking camera
     } else if (window.missionViz && window.missionViz.isActive) {
       // NASA Mission Viz Trajectory Theater controls 3D orbital camera
+    } else if (window.solarSystem && window.solarSystem.isActive) {
+      // Solar System Atlas controls its own orbital camera
     } else if (window.issShowcase && window.issShowcase.isActive) {
       // ISS Showcase controls camera orbit & part focus
     } else if (window.shipInterior && window.shipInterior.isMoonLandingActive) {
@@ -4123,6 +4173,12 @@
         if (!rp) {
           scene.remove(remoteCrewMeshes[id]);
           delete remoteCrewMeshes[id];
+        } else if (
+          (window.solarSystem && window.solarSystem.isActive) ||
+          (window.missionViz && window.missionViz.isActive) ||
+          (window.issShowcase && window.issShowcase.isActive)
+        ) {
+          remoteCrewMeshes[id].visible = false;
         } else {
           const peerIsGround = rp.team === "ground" || (rolesApi && typeof rolesApi.isGroundRole === "function" && rolesApi.isGroundRole(rp.role));
           const boarded = missionPhase === "gantry" && !peerIsGround && boardedIds.indexOf(id) !== -1;

@@ -1867,6 +1867,7 @@
           if (window.gameplay && window.gameplay.activeTask) return;
           // Alternate inspection scenes own the keyboard while they are open.
           if (window.missionViz && window.missionViz.isActive) return;
+          if (window.solarSystem && window.solarSystem.isActive) return;
           if (window.issShowcase && window.issShowcase.isActive) return;
           if (window.vrManager && window.vrManager.isAnyVRActive) return;
           if (window.launchCutscene && window.launchCutscene.isPlaying) return;
@@ -2096,6 +2097,7 @@
         this.missionPhase !== "gantry" ||
         !!(window.gameplay && window.gameplay.activeTask) ||
         !!(window.missionViz && window.missionViz.isActive) ||
+        !!(window.solarSystem && window.solarSystem.isActive) ||
         !!(window.issShowcase && window.issShowcase.isActive) ||
         !!(window.vrManager && window.vrManager.isAnyVRActive) ||
         !!(briefingEl && briefingEl.style.display === "flex");
@@ -3047,6 +3049,9 @@
       if (window.shipInterior && window.shipInterior.isMoonLandingActive && typeof window.shipInterior.toggleMoonLandingScene === "function") {
         window.shipInterior.toggleMoonLandingScene(false);
       }
+      if (window.solarSystem && window.solarSystem.isActive && typeof window.solarSystem.close === "function") {
+        window.solarSystem.close();
+      }
       if (window.issShowcase && window.issShowcase.isActive && typeof window.issShowcase.toggle === "function") {
         window.issShowcase.toggle();
       }
@@ -3068,7 +3073,7 @@
       this.isLaunching = false;
       this.launchTime = 0.0;
       document.body.classList.add("ground-mode-active");
-      document.body.classList.remove("interior-active", "launch-active", "docking-active", "iss-showcase-active");
+      document.body.classList.remove("interior-active", "launch-active", "docking-active", "iss-showcase-active", "solar-system-active");
       this.autoLaunchRemaining = null;
       if (this.stackGroup) {
         this.stackGroup.visible = phase === "gantry" || phase === "launch";
