@@ -138,7 +138,7 @@
       site.label(g, idx === 0 ? "LIQUID OXYGEN" : "LIQUID HYDROGEN", x, 11.5, prop.z - 8.2, {
         width: 7,
         height: 1.5,
-        color: "#ffd633",
+        color: "#e7c58c",
         fontSize: 46
       });
       site.addCircleCollider(x, prop.z, 7.0, "Propellant sphere");
@@ -166,10 +166,10 @@
       (ctx, w, h) => {
         ctx.fillStyle = "#b91c1c";
         ctx.fillRect(0, 0, w, h);
-        ctx.strokeStyle = "#ffffff";
+        ctx.strokeStyle = "#eceae3";
         ctx.lineWidth = 6;
         ctx.strokeRect(6, 6, w - 12, h - 12);
-        ctx.fillStyle = "#ffffff";
+        ctx.fillStyle = "#eceae3";
         ctx.font = "900 42px Arial, Helvetica, sans-serif";
         ctx.textAlign = "center";
         ctx.fillText("DANGER · NO OPEN FLAME", w * 0.5, h * 0.45);

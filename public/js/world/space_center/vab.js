@@ -119,7 +119,7 @@
         ctx.beginPath();
         ctx.arc(w * 0.5, h * 0.5, r, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = "#ffffff";
+        ctx.fillStyle = "#eceae3";
         for (let i = 0; i < 24; i++) {
           const sx = (0.2 + ((i * 73) % 60) / 100) * w;
           const sy = (0.2 + ((i * 41) % 60) / 100) * h;
@@ -127,7 +127,7 @@
           ctx.arc(sx, sy, 2.2, 0, Math.PI * 2);
           ctx.fill();
         }
-        ctx.strokeStyle = "#ffffff";
+        ctx.strokeStyle = "#eceae3";
         ctx.lineWidth = 10;
         ctx.beginPath();
         ctx.ellipse(w * 0.5, h * 0.52, r * 0.88, r * 0.38, -0.38, 0, Math.PI * 2);
@@ -140,7 +140,7 @@
         ctx.lineTo(w * 0.52, h * 0.36);
         ctx.closePath();
         ctx.fill();
-        ctx.fillStyle = "#ffffff";
+        ctx.fillStyle = "#eceae3";
         ctx.font = "900 112px Arial, Helvetica, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -166,12 +166,12 @@
         // Vertical 209-ft style US Flag mural
         const stripeW = w / 13;
         for (let i = 0; i < 13; i++) {
-          ctx.fillStyle = i % 2 === 0 ? "#b22234" : "#f8fafc";
+          ctx.fillStyle = i % 2 === 0 ? "#b22234" : "#eceae3";
           ctx.fillRect(i * stripeW, 0, stripeW + 1, h);
         }
         ctx.fillStyle = "#2b305c";
         ctx.fillRect(0, 0, stripeW * 7, h * 0.42);
-        ctx.fillStyle = "#ffffff";
+        ctx.fillStyle = "#eceae3";
         for (let r = 0; r < 6; r++) {
           for (let c = 0; c < 5; c++) {
             ctx.beginPath();
@@ -199,10 +199,10 @@
       (ctx, w, h) => {
         ctx.fillStyle = "#0f172a";
         ctx.fillRect(0, 0, w, h);
-        ctx.strokeStyle = "#38bdf8";
+        ctx.strokeStyle = "#d0a15c";
         ctx.lineWidth = 6;
         ctx.strokeRect(4, 4, w - 8, h - 8);
-        ctx.fillStyle = "#f8fafc";
+        ctx.fillStyle = "#eceae3";
         ctx.font = "900 44px Arial, Helvetica, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -272,7 +272,7 @@
     // Floor markings strictly proud of VABFloor top (0.18) with polygonOffset
     site.box(g, 1.2, 0.04, 150, cx - 18, 0.21, cz, m("stripe_yellow"), "AisleStripe");
     site.box(g, 1.2, 0.04, 150, cx + 18, 0.21, cz, m("stripe_yellow"), "AisleStripe");
-    site.floorLabel(g, "HIGH BAY 1", cx, 0.22, cz - 72, 34, "rgba(250,204,21,0.82)");
+    site.floorLabel(g, "HIGH BAY 1", cx, 0.22, cz - 72, 34, "rgba(208,161,92,0.82)");
 
     // Indoor launch vehicle stack (SLS-style core + twin SRBs + Orion fairing)
     site.box(g, 28, 3.8, 28, cx, 1.9 + 0.18, cz, concreteDark, "IndoorMLP");
