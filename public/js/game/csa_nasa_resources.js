@@ -972,6 +972,10 @@
               </button>
             </div>
           </div>
+          <div style="margin-bottom:12px;padding:9px 11px;border-radius:6px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.3);font-size:11.5px;line-height:1.5;color:#fecaca;">
+            <strong>CO-OP ON THE ISS:</strong> walk to the <strong>CSA LAB</strong> console in Kibo, near the Science and Freezer desks.
+            One crew member drives Canadarm2 while a second calls the latch; another pair can run the Tomatosphere greenhouse together.
+          </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;font-size:12.5px;line-height:1.55;color:#cbd5e1;">
             <div style="padding:12px 14px;border-radius:8px;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.08);">
               <div style="font-family:monospace;font-size:11.5px;font-weight:700;color:#93c5fd;margin-bottom:6px;">CANADARM2 &amp; DEXTRE (THE SPACE STATION'S ROBOT HELPER)</div>

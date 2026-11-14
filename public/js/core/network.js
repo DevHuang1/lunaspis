@@ -711,6 +711,18 @@
         this.emitEvent("chat_message", comm);
       });
 
+      this.socket.on("sidegame_state", (data) => {
+        this.emitEvent("sidegame_state", data);
+      });
+
+      this.socket.on("sidegame_error", (data) => {
+        this.emitEvent("sidegame_error", data);
+      });
+
+      this.socket.on("sidegame_event", (data) => {
+        this.emitEvent("sidegame_event", data);
+      });
+
       this.socket.on("state_sync", (data) => {
         if (this.roomState && data) {
           if (data.systems) this.roomState.systems = data.systems;

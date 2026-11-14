@@ -26,6 +26,7 @@
     power: { position: [-5.5, 0.92, -5.5], workPosition: [-4.6, 0, -3.8] },
     "life-support": { position: [8, 0.92, -5.5], workPosition: [7, 0, -3.5] },
     hull: { position: [8, 0.92, 10.5], workPosition: [7.5, 0, 8.7] },
+    "csa-lab": { position: [4.2, 0.92, -5.5], workPosition: [4.2, 0, -3.5] },
     lander: { position: [1.6, 0.92, 25], workPosition: [0, 0, 24] }
   };
   const ISS_TASK_WORK_POSITIONS = {
@@ -197,6 +198,17 @@
       interactRadius: 2.8,
       color: "#a78bfa",
       description: "Three-axis descent alignment and touchdown authority."
+    },
+    "csa-lab": {
+      id: "csa-lab",
+      label: "CSA Space Lab",
+      shortLabel: "CSA LAB",
+      room: "life-support",
+      position: [4.2, 0.92, -5.5],
+      workPosition: [4.2, 0, -3.5],
+      interactRadius: 2.6,
+      color: "#f87171",
+      description: "Co-op Canadarm2 cargo capture and Tomatosphere greenhouse."
     }
   };
 

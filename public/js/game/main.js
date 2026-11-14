@@ -3008,7 +3008,7 @@
       const tTag = e.target && e.target.tagName ? e.target.tagName : "";
       if (tTag === "INPUT" || tTag === "TEXTAREA" || tTag === "SELECT" || (e.target && e.target.isContentEditable)) return;
 
-      const blockingOverlay = ["modal-auth", "modal-academy", "modal-mission-log", "modal-station-systems", "task-modal-overlay", "victory-overlay", "mission-briefing-overlay", "csa-nasa-lab-modal", "glb-hangar-modal"]
+      const blockingOverlay = ["modal-auth", "modal-academy", "modal-mission-log", "modal-station-systems", "task-modal-overlay", "victory-overlay", "mission-briefing-overlay", "csa-nasa-lab-modal", "iss-sidegame-overlay", "glb-hangar-modal"]
         .some((id) => {
           const el = document.getElementById(id);
           return el && el.style.display && el.style.display !== "none";
@@ -3470,6 +3470,7 @@
 
     if (
       (window.gameplay && window.gameplay.activeTask) ||
+      (window.issSideGames && window.issSideGames.isOpen) ||
       (window.launchCutscene && window.launchCutscene.isPlaying) ||
       (window.dockingSim && window.dockingSim.isActive) ||
       (window.solarSystem && window.solarSystem.isActive) ||

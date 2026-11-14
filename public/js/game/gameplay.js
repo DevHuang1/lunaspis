@@ -3658,6 +3658,8 @@
         btnUse.addEventListener("click", () => {
           if (this.nearbyTask) {
             this.openTaskModal(this.nearbyTask);
+          } else if (this.nearbySideGame && window.issSideGames) {
+            window.issSideGames.open(this.nearbySideGame === "csa-lab" ? "canadarm" : this.nearbySideGame);
           }
         });
       }
@@ -3686,10 +3688,13 @@
         if (e.code === "KeyE") {
           // Do not intercept [E] when at Space Center LC-39A (Space Center uses [E] to board the spacecraft)
           if (window.spaceCenter && window.spaceCenter.isGroundMode) return;
+          if (window.issSideGames && window.issSideGames.isOpen) return;
           if (this.activeTask) {
             this.closeTaskModal();
           } else if (this.nearbyTask) {
             this.openTaskModal(this.nearbyTask);
+          } else if (this.nearbySideGame && window.issSideGames) {
+            window.issSideGames.open(this.nearbySideGame === "csa-lab" ? "canadarm" : this.nearbySideGame);
           }
         }
       });
@@ -3704,7 +3709,7 @@
     }
 
     updateProximity(playerPos) {
-      if (this.activeTask) return;
+      if (this.activeTask || (window.issSideGames && window.issSideGames.isOpen)) return;
 
       const mission = this.getMissionState();
       const completed = new Set((mission && mission.completedObjectives) || []);
@@ -3726,14 +3731,23 @@
         }
       }
 
+      const sideGame = window.issSideGames && typeof window.issSideGames.getNearby === "function"
+        ? window.issSideGames.getNearby(playerPos)
+        : null;
+      const sideGameCloser = !!(sideGame && (!closest || sideGame.distance < minDistance));
+      if (sideGameCloser) closest = null;
       this.nearbyTask = closest;
+      this.nearbySideGame = sideGameCloser ? sideGame.id : null;
 
       const btnUse = document.getElementById("btn-proximity-use");
       const labelUse = document.getElementById("proximity-task-label");
       const crosshair = document.getElementById("hud-crosshair");
 
       if (btnUse && labelUse) {
-        if (closest) {
+        if (sideGameCloser) {
+          btnUse.style.display = "flex";
+          labelUse.textContent = "[E] OPEN CSA LAB · CANADARM2 / TOMATOSPHERE";
+        } else if (closest) {
           const assign = this._getRoleAssignment(closest.role);
           const tag = assign.isMine ? `[ASSIGNED · ${assign.badgeText}]` : `[${assign.badgeText}]`;
           btnUse.style.display = "flex";
@@ -3744,7 +3758,7 @@
       }
 
       if (crosshair) {
-        if (closest) {
+        if (closest || sideGameCloser) {
           crosshair.classList.add("target-locked");
         } else {
           crosshair.classList.remove("target-locked");

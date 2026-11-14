@@ -2834,6 +2834,146 @@ io.on("connection", (socket) => {
     });
   });
 
+  // 5b. ISS CSA LAB co-op side activities (station phase only).
+  socket.on("sidegame_join", (data = {}) => {
+    data = asObject(data);
+    if (!currentRoomId || !rooms[currentRoomId]) return;
+    const room = rooms[currentRoomId];
+    const p = room.players[socket.id];
+    if (!p) return;
+    const gameId = String(data.gameId || "");
+    if (!SIDE_GAME_IDS.has(gameId)) return;
+    if (getTeamForRole(p.role) === "ground") {
+      socket.emit("sidegame_error", { gameId, message: "Earth Control stays in the Mission Control Room during station activities." });
+      return;
+    }
+    if (!room.mission || room.mission.phase !== "station") {
+      socket.emit("sidegame_error", { gameId, message: "CSA Lab activities unlock after docking with the ISS." });
+      return;
+    }
+
+    const game = ensureSideGame(room, gameId);
+    if (!game.participants[socket.id]) {
+      const order = gameId === "canadarm" ? ["arm", "latch"] : ["water", "climate"];
+      const seat = order.find((key) => !game.seats[key]) || "observer";
+      if (seat !== "observer") game.seats[seat] = socket.id;
+      game.participants[socket.id] = { name: p.name, seat };
+    }
+    game.active = true;
+    game.updatedAt = Date.now();
+    broadcastSideGame(room, gameId);
+    socket.emit("sidegame_event", { gameId, kind: "joined", message: `Joined ${gameId === "canadarm" ? "Canadarm2 Capture" : "Tomatosphere"}.` });
+  });
+
+  socket.on("sidegame_leave", (data = {}) => {
+    data = asObject(data);
+    if (!currentRoomId || !rooms[currentRoomId]) return;
+    const room = rooms[currentRoomId];
+    const gameId = String(data.gameId || "");
+    const game = room.sideGames && room.sideGames[gameId];
+    if (!game || !game.participants || !game.participants[socket.id]) return;
+    delete game.participants[socket.id];
+    Object.keys(game.seats || {}).forEach((seat) => {
+      if (game.seats[seat] === socket.id) {
+        game.seats[seat] = null;
+        const observer = Object.keys(game.participants).find((id) => game.participants[id].seat === "observer");
+        if (observer) {
+          game.participants[observer].seat = seat;
+          game.seats[seat] = observer;
+        }
+      }
+    });
+    if (Object.keys(game.participants).length === 0) game.active = false;
+    game.updatedAt = Date.now();
+    broadcastSideGame(room, gameId);
+  });
+
+  socket.on("sidegame_action", (data = {}) => {
+    data = asObject(data);
+    if (!currentRoomId || !rooms[currentRoomId]) return;
+    const room = rooms[currentRoomId];
+    const p = room.players[socket.id];
+    if (!p) return;
+    const gameId = String(data.gameId || "");
+    const action = String(data.action || "");
+    if (!SIDE_GAME_IDS.has(gameId)) return;
+    if (!room.mission || room.mission.phase !== "station") return;
+    if (getTeamForRole(p.role) === "ground") return;
+
+    const game = ensureSideGame(room, gameId);
+    const participant = game.participants && game.participants[socket.id];
+    if (!participant) {
+      socket.emit("sidegame_error", { gameId, message: "Join the activity before operating its controls." });
+      return;
+    }
+    const now = Date.now();
+    if (socket.lastSideGameAt && now - socket.lastSideGameAt < 60) return;
+    socket.lastSideGameAt = now;
+
+    const solo = Object.keys(game.participants).length <= 1;
+    const canUse = (requiredSeat) => solo || participant.seat === requiredSeat;
+    const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+    if (gameId === "canadarm") {
+      if (action === "reset") {
+        const fresh = createCanadarmSideGame();
+        fresh.active = true;
+        fresh.participants = game.participants;
+        fresh.seats = game.seats;
+        fresh.captures = game.captures || 0;
+        room.sideGames[gameId] = fresh;
+      } else if (game.captured) {
+        game.message = "Capture already confirmed. Reset to try a new target.";
+      } else if (["arm_left", "arm_right", "arm_out", "arm_in"].includes(action) && canUse("arm")) {
+        if (action === "arm_left") game.yaw = clamp(game.yaw - 5, -65, 65);
+        if (action === "arm_right") game.yaw = clamp(game.yaw + 5, -65, 65);
+        if (action === "arm_out") game.extend = clamp(game.extend + 0.05, 0.28, 1);
+        if (action === "arm_in") game.extend = clamp(game.extend - 0.05, 0.28, 1);
+        game.message = "Arm moving. The latch operator calls the final alignment.";
+      } else if (action === "latch" && canUse("latch")) {
+        game.attempts = (game.attempts || 0) + 1;
+        const yawError = Math.abs(game.yaw - game.targetYaw);
+        const extendError = Math.abs(game.extend - game.targetExtend);
+        if (yawError <= 4 && extendError <= 0.05) {
+          game.captured = true;
+          game.captures = (game.captures || 0) + 1;
+          game.message = `CAPTURE CONFIRMED — ${yawError.toFixed(1)}° / ${extendError.toFixed(2)} m residual.`;
+          io.to(room.id).emit("sidegame_event", { gameId, kind: "success", message: "CANADARM2 CAPTURE CONFIRMED — cargo secured!" });
+        } else {
+          game.message = `MISS — ${yawError.toFixed(1)}° yaw error, ${extendError.toFixed(2)} m extension error.`;
+        }
+      }
+      game.updatedAt = now;
+      broadcastSideGame(room, gameId);
+      return;
+    }
+
+    // Tomatosphere: two crew share water and climate controls.
+    if (action === "reset") {
+      const fresh = createTomatoSideGame();
+      fresh.active = true;
+      fresh.participants = game.participants;
+      fresh.seats = game.seats;
+      room.sideGames[gameId] = fresh;
+    } else if (game.completed || game.failed) {
+      game.message = "Cycle complete. Reset to grow a new batch.";
+    } else if (action === "water_up" && canUse("water")) {
+      game.water = clamp(game.water + 5, 0, 100);
+    } else if (action === "water_down" && canUse("water")) {
+      game.water = clamp(game.water - 5, 0, 100);
+    } else if (action === "light_up" && canUse("climate")) {
+      game.light = clamp(game.light + 5, 0, 100);
+    } else if (action === "light_down" && canUse("climate")) {
+      game.light = clamp(game.light - 5, 0, 100);
+    } else if (action === "temp_up" && canUse("climate")) {
+      game.temp = clamp(game.temp + 5, 0, 100);
+    } else if (action === "temp_down" && canUse("climate")) {
+      game.temp = clamp(game.temp - 5, 0, 100);
+    }
+    game.updatedAt = now;
+    broadcastSideGame(room, gameId);
+  });
+
   // 5c. Shared crew reset back to the launch pad. This aborts any in-flight
   // ascent/docking sequence and respawns every astronaut in their zone, so a
   // player pressing [G] or the PAD button never desyncs the rest of the room.
@@ -2858,6 +2998,7 @@ io.on("connection", (socket) => {
     room.mission.updatedAt = now;
     room.tasks = { completed: 0, total: COOP_OBJECTIVE_IDS.size };
     room.completedTaskIds = {};
+    room.sideGames = {};
     room.systems.docking = { range: 18.5, velocity: 0.30, alignment: 3.5, latchesLocked: false };
     room.systems.dockingState = null;
     room.systems.dockingPilotId = resolveDockingPilotId(room);
@@ -3212,6 +3353,28 @@ io.on("connection", (socket) => {
       room.mission.updatedAt = Date.now();
     }
 
+    // Release any CSA Lab seat held by the departing crew member so the next
+    // astronaut is not left as a permanent observer.
+    if (room.sideGames) {
+      SIDE_GAME_IDS.forEach((gameId) => {
+        const game = room.sideGames[gameId];
+        if (!game || !game.participants || !game.participants[socket.id]) return;
+        delete game.participants[socket.id];
+        Object.keys(game.seats || {}).forEach((seat) => {
+          if (game.seats[seat] !== socket.id) return;
+          game.seats[seat] = null;
+          const observer = Object.keys(game.participants).find((id) => game.participants[id].seat === "observer");
+          if (observer) {
+            game.participants[observer].seat = seat;
+            game.seats[seat] = observer;
+          }
+        });
+        if (Object.keys(game.participants).length === 0) game.active = false;
+        game.updatedAt = Date.now();
+        broadcastSideGame(room, gameId);
+      });
+    }
+
     const remainingIds = Object.keys(room.players);
     if (remainingIds.length === 0) {
       if (room.launchPollTimer) {
@@ -3224,6 +3387,7 @@ io.on("connection", (socket) => {
       room.swapRequests = {};
       room.manualSwapOccurred = false;
       room.mission = createMissionState();
+      room.sideGames = {};
       room.shuttleMission = null;
       room.shuttleInputs = {};
       room.shuttleResultRecorded = false;
