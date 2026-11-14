@@ -51,6 +51,54 @@
     { x: -1.42, zMin: -2.32, zMax: -0.4 },
     { x: -1.42, zMin: 4.68, zMax: 6.6 }
   ];
+
+  // A pressure bulkhead has to meet the module side walls on both sides of the
+  // round opening. Resolve the contiguous walk-zone span across the hatch
+  // plane, around the hatch centre, so no gate is left as a floating panel
+  // with an open slot on its left and right.
+  const hatchSpanCache = new WeakMap();
+  function getHatchCrossSpan(hatch) {
+    const cached = hatchSpanCache.get(hatch);
+    if (cached) return cached;
+
+    const intervals = [];
+    ISS_WALK_ZONES.forEach((zone) => {
+      const forwardMin = hatch.axis === "z" ? zone.zMin : zone.xMin;
+      const forwardMax = hatch.axis === "z" ? zone.zMax : zone.xMax;
+      if (hatch.at < forwardMin - 0.001 || hatch.at > forwardMax + 0.001) return;
+      intervals.push(hatch.axis === "z" ? [zone.xMin, zone.xMax] : [zone.zMin, zone.zMax]);
+    });
+
+    let span;
+    if (!intervals.length) {
+      const half = Math.max(1.2, hatch.halfWidth || 1.55);
+      span = [hatch.center - half, hatch.center + half];
+    } else {
+      intervals.sort((a, b) => a[0] - b[0]);
+      let containing = intervals.find(([min, max]) => hatch.center >= min - 0.001 && hatch.center <= max + 0.001);
+      if (!containing) {
+        containing = intervals.reduce((best, current) => {
+          const currentDistance = Math.min(Math.abs(hatch.center - current[0]), Math.abs(hatch.center - current[1]));
+          const bestDistance = Math.min(Math.abs(hatch.center - best[0]), Math.abs(hatch.center - best[1]));
+          return currentDistance < bestDistance ? current : best;
+        });
+      }
+      let min = containing[0];
+      let max = containing[1];
+      intervals.forEach(([start, end]) => {
+        if (start <= max + 0.001 && end >= min - 0.001) {
+          min = Math.min(min, start);
+          max = Math.max(max, end);
+        }
+      });
+      // Slight overlap with the side panels closes hairline seams at the corners.
+      span = [min - 0.04, max + 0.04];
+    }
+
+    hatchSpanCache.set(hatch, span);
+    return span;
+  }
+
   // Simplified plan-view representation of the pressurized module sequence.
   // Harmony connects Destiny to the Columbus and Kibo laboratories.
   const ISS_MODULES = [
@@ -978,7 +1026,9 @@
       return !ISS_HATCHES.some((hatch) => {
         const forward = hatch.axis === "z" ? z : x;
         const cross = hatch.axis === "z" ? x : z;
-        return Math.abs(forward - hatch.at) < 1 && Math.abs(cross - hatch.center) < hatch.halfWidth + 0.5;
+        const span = getHatchCrossSpan(hatch);
+        return Math.abs(forward - hatch.at) < 1 &&
+          cross > span[0] - 0.5 && cross < span[1] + 0.5;
       });
     });
     const anchors = new THREE.InstancedMesh(new THREE.BoxGeometry(0.045, 0.025, 0.045),
@@ -1129,8 +1179,11 @@
     const tiePoints = [];
     for (let z = 1.4; z <= 48; z += 4.1) {
       [-0.82, 0.82].forEach((x) => {
-        const nearHatch = ISS_HATCHES.some((hatch) => hatch.axis === "z" &&
-          Math.abs(z - hatch.at) < 0.9 && Math.abs(x - hatch.center) < hatch.halfWidth + 0.25);
+        const nearHatch = ISS_HATCHES.some((hatch) => {
+          if (hatch.axis !== "z" || Math.abs(z - hatch.at) >= 0.9) return false;
+          const span = getHatchCrossSpan(hatch);
+          return x > span[0] - 0.25 && x < span[1] + 0.25;
+        });
         if (!nearHatch) tiePoints.push([x, z]);
       });
     }
@@ -2251,11 +2304,33 @@
         portal.position.set(x, 1.08, z);
         if (alongX) portal.rotation.y = Math.PI / 2;
         const halfWidth = alongX ? 2 : 1.55;
+        const gateCross = alongX ? z : x;
+        const crossSpan = getHatchCrossSpan({
+          axis: alongX ? "x" : "z",
+          at: alongX ? x : z,
+          center: gateCross,
+          halfWidth
+        });
+        // Extend the pressure wall from the central hatch bay out to the
+        // module side walls. Local +X becomes world -Z when an X-axis gate is
+        // rotated into place, so mirror the span in that orientation.
+        // Keep the wall just wide enough to contain the 3.1 m structural frame;
+        // anything wider is a wing that runs out to the module side wall.
+        const minShellHalf = 1.56;
+        let shellMinX;
+        let shellMaxX;
+        if (alongX) {
+          shellMaxX = Math.max(minShellHalf, gateCross - crossSpan[0]);
+          shellMinX = -Math.max(minShellHalf, crossSpan[1] - gateCross);
+        } else {
+          shellMinX = -Math.max(minShellHalf, gateCross - crossSpan[0]);
+          shellMaxX = Math.max(minShellHalf, crossSpan[1] - gateCross);
+        }
         const shell = new THREE.Shape();
-        shell.moveTo(-halfWidth, -1.08);
-        shell.lineTo(halfWidth, -1.08);
-        shell.lineTo(halfWidth, 1.77);
-        shell.lineTo(-halfWidth, 1.77);
+        shell.moveTo(shellMinX, -1.08);
+        shell.lineTo(shellMaxX, -1.08);
+        shell.lineTo(shellMaxX, 1.77);
+        shell.lineTo(shellMinX, 1.77);
         shell.closePath();
         const opening = new THREE.Path();
         opening.absarc(0, 0, 1.08, 0, Math.PI * 2, true);
@@ -3181,8 +3256,12 @@
         const forward = hatch.axis === "z" ? z : x;
         const cross = hatch.axis === "z" ? x : z;
         const offset = Math.abs(cross - hatch.center);
+        const span = getHatchCrossSpan(hatch);
+        const crossMin = Math.min(span[0], hatch.center - hatch.halfWidth);
+        const crossMax = Math.max(span[1], hatch.center + hatch.halfWidth);
         return Math.abs(forward - hatch.at) < 0.12 + margin &&
-          offset > 1.06 - margin && offset < hatch.halfWidth + margin;
+          cross > crossMin - margin && cross < crossMax + margin &&
+          offset > 1.06 - margin;
       });
     }
 
@@ -3353,6 +3432,9 @@
       this._suppressExteriorLights(true);
       document.body.classList.add("interior-active");
       document.body.classList.remove("ground-mode-active");
+      if (window.csaNasaLab && typeof window.csaNasaLab.syncGroundLockState === "function") {
+        window.csaNasaLab.syncGroundLockState();
+      }
       if (this.moonLanding && this.moonLanding.root) this.moonLanding.root.visible = false;
       // CRITICAL: Never show the exterior ISS outside the window when the player is INSIDE the station!
       if (window.issGroup) window.issGroup.visible = false;
