@@ -3374,6 +3374,12 @@
       }
       return;
     }
+
+    // The open-top ground car owns locomotion while the crewmember is driving.
+    if (window.spaceCenterCar && window.spaceCenterCar.isDriving) {
+      return;
+    }
+
     if (
       (window.gameplay && window.gameplay.activeTask) ||
       (window.launchCutscene && window.launchCutscene.isPlaying) ||
@@ -3494,6 +3500,10 @@
   function updateCamera() {
     if (!isGameStarted) return;
     if (!localCrew.group) return;
+    if (window.spaceCenterCar && window.spaceCenterCar.isDriving) {
+      window.spaceCenterCar.updateCamera(camera);
+      return;
+    }
     const px = localCrew.group.position.x;
     const py = localCrew.group.position.y;
     const pz = localCrew.group.position.z;
@@ -3759,6 +3769,12 @@
 
     if (window.spaceCenter && window.spaceCenter.isGroundMode && typeof window.spaceCenter.update === "function") {
       window.spaceCenter.update(delta, camera, elapsed);
+    }
+
+    // Drivable open-top ground car (kept outside the ground-only update so it
+    // can park its prompt/HUD correctly during phase changes).
+    if (window.spaceCenterCar && typeof window.spaceCenterCar.update === "function") {
+      window.spaceCenterCar.update(delta);
     }
 
     if (window.launchCutscene && typeof window.launchCutscene.update === "function") {

@@ -1374,6 +1374,14 @@ io.on("connection", (socket) => {
     const isPublic = isSolo ? false : data.isPublic !== false;
     const room = createNewRoom(roomId, socket.id, isPublic, opsMode);
     room.isSolo = isSolo;
+    if (isSolo) {
+      if (data.scenarioId && MISSION_CATALOG[data.scenarioId]) {
+        room.mission.scenarioId = data.scenarioId;
+      }
+      if (data.difficultyId && DIFFICULTY_IDS.has(data.difficultyId)) {
+        room.mission.difficultyId = data.difficultyId;
+      }
+    }
     rooms[roomId] = room;
     currentRoomId = roomId;
     socket.join(roomId);

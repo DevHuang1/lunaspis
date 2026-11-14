@@ -255,6 +255,10 @@
       els.next.style.display = currentStep === STEPS.length - 1 ? "none" : "inline-block";
       els.next.textContent = "NEXT →";
     }
+    if (els.start) {
+      const inRoom = !!(window.netManager && window.netManager.roomId);
+      els.start.style.display = inRoom ? "none" : "inline-block";
+    }
     renderProgress();
   }
 
@@ -306,6 +310,10 @@
 
   function startCadetMission() {
     if (!window.netManager || typeof window.netManager.startSolo !== "function") return;
+    if (window.netManager.roomId) {
+      close();
+      return;
+    }
     const inputName = document.getElementById("input-player-name");
     const name = (inputName && inputName.value.trim())
       || (window.netManager.localPlayer && window.netManager.localPlayer.name)

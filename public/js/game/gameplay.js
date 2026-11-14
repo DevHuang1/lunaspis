@@ -1128,6 +1128,7 @@
         requiredScienceTypes: scenario.requiredScienceTypes || [],
         minDeltaV: scenario.minDeltaV,
         minRadiationKrad: scenario.minRadiationKrad,
+        isBioPayload: !!scenario.isBioPayload,
         tradeoffTip: scenario.tradeoffTip || ""
       }));
     }

@@ -60,6 +60,7 @@
       this.steamPlumes = [];
       this.floodlights = [];
       this.whiteRoomDoor = null;
+      this.openCar = null;              // Drivable open-top NASA ground car
 
       // Elevator system
       this.elevatorCab = null;          // THREE.Group — the moving cabin
@@ -137,6 +138,13 @@
       if (window.SpaceCenterSite) {
         this.site = new window.SpaceCenterSite(this);
         this.site.build();
+      }
+
+      // Drivable open-top NASA car parked beside the Pad 39A ground spawn.
+      if (window.SpaceCenterOpenCar) {
+        this.openCar = new window.SpaceCenterOpenCar(this);
+        this.openCar.build();
+        window.spaceCenterCar = this.openCar;
       }
 
       this._setupGroundUI();
@@ -2056,6 +2064,7 @@
     }
 
     exitSiteTour() {
+      if (this.openCar) this.openCar.forceExit();
       this.siteTourActive = false;
       const isGround = this._isLocalGroundCrew();
       const spawn = isGround
@@ -2086,6 +2095,9 @@
     }
 
     teleportSiteTour(index) {
+      // Fast travel must not leave the astronaut logically driver-seated far
+      // away while the body teleports to another sector.
+      if (this.openCar) this.openCar.forceExit();
       const spawns = (window.SpaceCenterModules && window.SpaceCenterModules.SITE_TOUR_SPAWNS) || [];
       const spawn = this._siteTourSpawn(index);
       const count = spawns.length || 6;
@@ -3303,6 +3315,7 @@
       const boardedByServer = !isGround && Array.isArray(mission.boarded) && mission.boarded.indexOf(myId) !== -1;
 
       if (forceReset) {
+        if (this.openCar) this.openCar.forceExit();
         this._launchSequenceStarted = false;
         this._dockingPhaseStarted = false;
         this._stationEntered = false;
@@ -3543,6 +3556,7 @@
       const broadcast = options.broadcast !== false;
       const isGround = this._isLocalGroundCrew();
       if (this._launchSequenceStarted || (!isGround && this._stationEntered)) return;
+      if (this.openCar) this.openCar.forceExit();
 
       if (!fromNetwork) {
         if (isGround) return;

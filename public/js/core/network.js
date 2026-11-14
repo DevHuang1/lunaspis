@@ -847,7 +847,9 @@
         team: this.localPlayer.team,
         solo: true,
         isPublic: false,
-        opsMode: opts.opsMode || "iss_expedition"
+        opsMode: opts.opsMode || "iss_expedition",
+        scenarioId: opts.scenarioId || undefined,
+        difficultyId: opts.difficultyId || undefined
       });
     }
 
