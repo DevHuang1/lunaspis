@@ -60,6 +60,8 @@
       this.steamPlumes = [];
       this.floodlights = [];
       this.whiteRoomDoor = null;
+      this.rssGroup = null;
+      this.goxVentArm = null;
 
       // Elevator system
       this.elevatorCab = null;          // THREE.Group — the moving cabin
@@ -123,6 +125,7 @@
       this._buildCoastalTerrain();
       this._buildLaunchPad39A();
       this._buildLaunchTowerAndBoardingDock();
+      this._buildRotatingServiceStructure();
       this._buildWaterDelugeSystem();
       this._buildLaunchStack();
       this._buildBoardingGuidance();
@@ -1374,49 +1377,495 @@
       sign.position.set(6.32, 53.0, -1.0);
       this.towerGroup.add(sign);
 
-      // Hammerhead crane at the top of the tower.
-      const craneMast = new THREE.Mesh(new THREE.BoxGeometry(2.2, 14, 2.2), darkSteelMat);
-      craneMast.position.set(0, 95, 0);
-      this.towerGroup.add(craneMast);
+      // ════════════════════════════════════════════════════════════════════════
+      // ── GASEOUS OXYGEN (GOX) VENT ARM & BEANIE CAP (LEVEL 300) ──────────────
+      // Recreates the iconic heated vent hood covering the External Tank apex:
+      // Spans from tower face (x=6) to ET nose cone (x=34) at y=52.0 in tower space.
+      // ════════════════════════════════════════════════════════════════════════
+      this.goxVentArm = new THREE.Group();
+      this.goxVentArm.name = "GOX_VentArm_BeanieCap";
+      this.goxVentArm.position.set(6.0, 52.0, 0);
+      this.towerGroup.add(this.goxVentArm);
 
+      const armReach = 28.0; // reaches from tower face (x=6) to ET apex (x=34)
+      const goxMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.52, metalness: 0.5 });
+      const ductMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.4, metalness: 0.35 });
+      const beanieOuterMat = new THREE.MeshStandardMaterial({ color: 0x8a99a8, roughness: 0.55, metalness: 0.45 });
+      const beanieRimMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.65, metalness: 0.2 });
+
+      // Main triangular truss boom
+      // Upper chord
+      this._makeBeam(this.goxVentArm, armReach, 0.22, 0.22, armReach / 2, 1.2, 0, goxMat);
+      // Lower twin chords
+      this._makeBeam(this.goxVentArm, armReach, 0.22, 0.22, armReach / 2, -1.2, -0.9, goxMat);
+      this._makeBeam(this.goxVentArm, armReach, 0.22, 0.22, armReach / 2, -1.2, 0.9, goxMat);
+
+      // Diagonal lattice braces along the boom
+      for (let bx = 0; bx < armReach - 2; bx += 3.2) {
+        this._makeBeam(this.goxVentArm, 3.4, 0.12, 0.12, bx + 1.6, 0, -0.45, goxMat, 0.65, 0, 0);
+        this._makeBeam(this.goxVentArm, 3.4, 0.12, 0.12, bx + 1.6, 0, 0.45, goxMat, -0.65, 0, 0);
+        this._makeBeam(this.goxVentArm, 0.12, 0.12, 1.8, bx, -1.2, 0, goxMat);
+      }
+
+      // Large insulated cryogenic vent ducts (twin flex pipes running down arm)
+      for (const dz of [-0.45, 0.45]) {
+        const duct = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, armReach - 1, 14), ductMat);
+        duct.rotation.z = Math.PI / 2;
+        duct.position.set((armReach - 1) / 2, 0.3, dz);
+        this.goxVentArm.add(duct);
+      }
+
+      // ── THE BEANIE CAP (Vent Hood over ET apex) ──
+      // Conical / oval heated hood enveloping the orange nose cone of the ET
+      const beanieGroup = new THREE.Group();
+      beanieGroup.position.set(armReach, 0, 0);
+      this.goxVentArm.add(beanieGroup);
+
+      // Upper hood cone
+      const hoodTop = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.8, 2.6, 2.4, 24, 1, true),
+        beanieOuterMat
+      );
+      hoodTop.position.set(0, 0.8, 0);
+      beanieGroup.add(hoodTop);
+
+      // Lower insulated flare / seal skirt
+      const hoodSkirt = new THREE.Mesh(
+        new THREE.CylinderGeometry(2.6, 2.85, 0.9, 24),
+        beanieRimMat
+      );
+      hoodSkirt.position.set(0, -0.85, 0);
+      beanieGroup.add(hoodSkirt);
+
+      // Hood crown cap & exhaust port
+      const hoodCrown = new THREE.Mesh(
+        new THREE.SphereGeometry(0.85, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2),
+        beanieOuterMat
+      );
+      hoodCrown.position.set(0, 2.0, 0);
+      beanieGroup.add(hoodCrown);
+
+      // Duct elbow connectors into the beanie cap
+      for (const dz of [-0.65, 0.65]) {
+        const elbow = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 1.6, 12), ductMat);
+        elbow.rotation.x = dz > 0 ? 0.4 : -0.4;
+        elbow.position.set(-0.4, 1.5, dz);
+        beanieGroup.add(elbow);
+      }
+
+      // Cryogenic vapor wisps venting gently from underneath the beanie cap
+      const vaporGeo = new THREE.RingGeometry(2.6, 3.4, 20);
+      vaporGeo.rotateX(-Math.PI / 2);
+      const vaporMat = new THREE.MeshBasicMaterial({
+        color: 0xf1f5f9,
+        transparent: true,
+        opacity: 0.35,
+        depthWrite: false,
+        side: THREE.DoubleSide
+      });
+      const vaporRing = new THREE.Mesh(vaporGeo, vaporMat);
+      vaporRing.position.set(0, -1.35, 0);
+      beanieGroup.add(vaporRing);
+
+      // ════════════════════════════════════════════════════════════════════════
+      // ── 195-FT LEVEL EMERGENCY EGRESS PORCH & SLIDEWIRE SYSTEM ──────────────
+      // Egress porch on the west face with yellow escape baskets & guide cables
+      // ════════════════════════════════════════════════════════════════════════
+      const egressY = 56.0;
+      const egressPorch = new THREE.Group();
+      egressPorch.name = "EmergencyEgressPorch";
+      egressPorch.position.set(-half - 3.5, egressY, 0);
+      this.towerGroup.add(egressPorch);
+
+      // Extended platform deck (7m x 6m)
+      const epDeck = new THREE.Mesh(new THREE.BoxGeometry(7.0, 0.3, 6.0), deckMat);
+      egressPorch.add(epDeck);
+
+      // Yellow safety railing & gate
+      const epRailMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.5, metalness: 0.4 });
+      this._makeBeam(egressPorch, 7.0, 0.1, 0.1, 0, 1.15, 3.0, epRailMat);
+      this._makeBeam(egressPorch, 7.0, 0.1, 0.1, 0, 1.15, -3.0, epRailMat);
+      this._makeBeam(egressPorch, 0.1, 0.1, 6.0, -3.5, 1.15, 0, epRailMat);
+      for (let ex = -3.2; ex <= 3.2; ex += 1.6) {
+        this._makeBeam(egressPorch, 0.08, 1.2, 0.08, ex, 0.6, 3.0, epRailMat);
+        this._makeBeam(egressPorch, 0.08, 1.2, 0.08, ex, 0.6, -3.0, epRailMat);
+      }
+
+      // Overhead slidewire track beam
+      this._makeBeam(egressPorch, 6.5, 0.25, 0.25, -0.5, 3.2, 0, darkSteelMat);
+
+      // Suspended emergency escape baskets (3x yellow basket cars)
+      for (const bz of [-1.8, 0, 1.8]) {
+        const basket = new THREE.Group();
+        basket.position.set(-2.8, 1.5, bz);
+        egressPorch.add(basket);
+
+        // Basket cage (yellow steel mesh)
+        const bBody = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.4, 1.2), epRailMat);
+        basket.add(bBody);
+        const bInterior = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.2, 1.0), darkSteelMat);
+        basket.add(bInterior);
+
+        // Trolley hanger & pulleys to overhead wire
+        this._makeBeam(basket, 0.08, 1.6, 0.08, 0, 1.4, 0, darkSteelMat);
+        const pulley = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.12, 10), darkSteelMat);
+        pulley.rotation.z = Math.PI / 2;
+        pulley.position.set(0, 2.2, 0);
+        basket.add(pulley);
+
+        // Slidewire cable stretching down towards ground shelter
+        this._makeBeam(this.towerGroup, 35, 0.05, 0.05, -half - 20, egressY - 14, bz, steelMat, 0.65, 0, 0);
+      }
+
+      // ════════════════════════════════════════════════════════════════════════
+      // ── ELEVATOR MACHINERY PENTHOUSE (TOP WEST FACE) ─────────────────────────
+      // Two-story enclosed corrugated machine house with louvers & railings
+      // ════════════════════════════════════════════════════════════════════════
+      const phHouse = new THREE.Mesh(
+        new THREE.BoxGeometry(5.2, 8.0, 5.8),
+        new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.68, metalness: 0.35 })
+      );
+      phHouse.position.set(-half - 3.0, 88.0, 4.0);
+      phHouse.castShadow = true;
+      this.towerGroup.add(phHouse);
+
+      // Ventilation louver panel on penthouse exterior
+      const louver = new THREE.Mesh(
+        new THREE.PlaneGeometry(2.4, 2.0),
+        new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.7, metalness: 0.5 })
+      );
+      louver.rotation.y = -Math.PI / 2;
+      louver.position.set(-half - 5.62, 88.0, 4.0);
+      this.towerGroup.add(louver);
+
+      // Penthouse roof railing
+      this._makeBeam(this.towerGroup, 5.2, 0.08, 0.08, -half - 3.0, 92.5, 6.9, epRailMat);
+      this._makeBeam(this.towerGroup, 5.2, 0.08, 0.08, -half - 3.0, 92.5, 1.1, epRailMat);
+
+      // ════════════════════════════════════════════════════════════════════════
+      // ── PYRAMIDAL DERRICK BASE & TALL FIBERGLASS LIGHTNING SPIRE ────────────
+      // Matches the authentic peak of the NASA FSS in the reference photo:
+      // 1. Four-legged pyramidal structural lattice from y=88 to y=100
+      // 2. Slender white fiberglass mast spire from y=100 to y=128
+      // 3. Dual red aviation beacons, warning bands, and catenary grounding wires
+      // ════════════════════════════════════════════════════════════════════════
+      const pyrBaseY = 88.0, pyrTopY = 100.0;
+      const pyrBaseHalf = 5.8, pyrTopHalf = 1.8;
+      const pyrColMat = new THREE.MeshStandardMaterial({ color: 0x8b98a4, roughness: 0.5, metalness: 0.6 });
+
+      // Four corner sloping lattice legs
+      const legPairs = [
+        [-pyrBaseHalf, -pyrBaseHalf, -pyrTopHalf, -pyrTopHalf],
+        [pyrBaseHalf, -pyrBaseHalf, pyrTopHalf, -pyrTopHalf],
+        [-pyrBaseHalf, pyrBaseHalf, -pyrTopHalf, pyrTopHalf],
+        [pyrBaseHalf, pyrBaseHalf, pyrTopHalf, pyrTopHalf]
+      ];
+      legPairs.forEach(([bx, bz, tx, tz]) => {
+        this._makeBeam(this.towerGroup, 0.42, 0.42, Math.hypot(bx - tx, pyrTopY - pyrBaseY, bz - tz),
+          (bx + tx) / 2, (pyrBaseY + pyrTopY) / 2, (bz + tz) / 2, pyrColMat,
+          Math.atan2(bz - tz, pyrTopY - pyrBaseY), 0, Math.atan2(bx - tx, pyrTopY - pyrBaseY));
+      });
+
+      // Pyramidal horizontal tie frames & X-braces
+      [pyrBaseY + 4.0, pyrBaseY + 8.0, pyrTopY].forEach((fy) => {
+        const factor = (fy - pyrBaseY) / (pyrTopY - pyrBaseY);
+        const curHalf = pyrBaseHalf + (pyrTopHalf - pyrBaseHalf) * factor;
+        this._makeBeam(this.towerGroup, curHalf * 2, 0.22, 0.22, 0, fy, -curHalf, pyrColMat);
+        this._makeBeam(this.towerGroup, curHalf * 2, 0.22, 0.22, 0, fy, curHalf, pyrColMat);
+        this._makeBeam(this.towerGroup, 0.22, 0.22, curHalf * 2, -curHalf, fy, 0, pyrColMat);
+        this._makeBeam(this.towerGroup, 0.22, 0.22, curHalf * 2, curHalf, fy, 0, pyrColMat);
+      });
+
+      // Hammerhead crane on top deck
       const jibMat = new THREE.MeshStandardMaterial({ color: 0x8b98a4, roughness: 0.52, metalness: 0.55 });
-      this._makeBeam(this.towerGroup, 38, 0.9, 1.2, 8, 101.5, 0, jibMat);
-      this._makeBeam(this.towerGroup, 0.7, 5.0, 0.7, -8.0, 98.2, 0, darkSteelMat);
-      const counterweight = new THREE.Mesh(new THREE.BoxGeometry(4.5, 3.2, 3.2), deckMat);
-      counterweight.position.set(-10.5, 98.0, 0);
+      this._makeBeam(this.towerGroup, 34, 0.85, 1.1, 7, pyrBaseY + 2.5, 0, jibMat);
+      const counterweight = new THREE.Mesh(new THREE.BoxGeometry(4.2, 3.0, 3.0), deckMat);
+      counterweight.position.set(-9.5, pyrBaseY + 2.2, 0);
       this.towerGroup.add(counterweight);
 
-      const craneCab = new THREE.Mesh(new THREE.BoxGeometry(3.2, 2.8, 3.0), jibMat);
-      craneCab.position.set(1.2, 98.4, 1.8);
+      const craneCab = new THREE.Mesh(new THREE.BoxGeometry(3.0, 2.6, 2.8), jibMat);
+      craneCab.position.set(1.2, pyrBaseY + 2.4, 1.8);
       this.towerGroup.add(craneCab);
 
-      const hookCable = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 16, 6), darkSteelMat);
-      hookCable.position.set(20, 93.5, 0);
+      const hookCable = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 14, 6), darkSteelMat);
+      hookCable.position.set(18, pyrBaseY - 3.5, 0);
       this.towerGroup.add(hookCable);
-      const hookBlock = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.6, 1.0), steelMat);
-      hookBlock.position.set(20, 85.0, 0);
+      const hookBlock = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.5, 0.9), steelMat);
+      hookBlock.position.set(18, pyrBaseY - 11.0, 0);
       this.towerGroup.add(hookBlock);
 
-      // Lightning mast / beacon above the crane.
-      const mast = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.18, 0.55, 30, 10),
-        new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.85, roughness: 0.35 })
-      );
-      mast.position.set(0, 118, 0);
-      this.towerGroup.add(mast);
+      // ── TALL SLENDER WHITE FIBERGLASS LIGHTNING MAST SPIRE ──
+      // Rises from pyrTopY (y=100m) to y=128m (28m high!)
+      const spireHeight = 28.0;
+      const spireMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.35, metalness: 0.15 });
+      const warnOrangeMat = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.45, metalness: 0.2 });
 
+      const lightningSpire = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.18, 0.65, spireHeight, 16),
+        spireMat
+      );
+      lightningSpire.position.set(0, pyrTopY + spireHeight / 2, 0);
+      lightningSpire.castShadow = true;
+      this.towerGroup.add(lightningSpire);
+
+      // Aviation warning orange bands on the spire
+      [pyrTopY + 8.0, pyrTopY + 17.0].forEach((wy) => {
+        const band = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.42, 0.46, 2.2, 16),
+          warnOrangeMat
+        );
+        band.position.set(0, wy, 0);
+        this.towerGroup.add(band);
+      });
+
+      // Stainless steel lightning finial rod at the very tip (reaching y=130m)
+      const finialRod = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.04, 0.12, 3.2, 8),
+        new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.2, metalness: 0.9 })
+      );
+      finialRod.position.set(0, pyrTopY + spireHeight + 1.6, 0);
+      this.towerGroup.add(finialRod);
+
+      // Dual red aviation obstruction beacons (pulsing)
       const beaconMat = new THREE.MeshStandardMaterial({
         color: 0xef4444,
         emissive: 0xef4444,
-        emissiveIntensity: 2.0
+        emissiveIntensity: 2.4
       });
-      const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 8), beaconMat);
-      beacon.position.set(0, 133.4, 0);
-      this.towerGroup.add(beacon);
+      [-0.45, 0.45].forEach((bx) => {
+        const beaconSphere = new THREE.Mesh(new THREE.SphereGeometry(0.38, 12, 8), beaconMat);
+        beaconSphere.position.set(bx, pyrTopY + spireHeight + 0.4, 0);
+        this.towerGroup.add(beaconSphere);
+      });
 
-      this.beaconLight = new THREE.PointLight(0xef4444, 2.0, 120);
-      this.beaconLight.position.set(0, 128, 0);
+      this.beaconLight = new THREE.PointLight(0xef4444, 2.5, 140);
+      this.beaconLight.position.set(0, pyrTopY + spireHeight + 0.5, 0);
       this.towerGroup.add(this.beaconLight);
+
+      // Catenary grounding guy wires sloping down from mast to tower corners
+      [-pyrBaseHalf, pyrBaseHalf].forEach((gx) => {
+        [-pyrBaseHalf, pyrBaseHalf].forEach((gz) => {
+          this._makeBeam(this.towerGroup, Math.hypot(gx, 22, gz), 0.06, 0.06,
+            gx / 2, pyrTopY + 4, gz / 2, darkSteelMat,
+            Math.atan2(gz, 22), 0, Math.atan2(gx, 22));
+        });
+      });
+    }
+
+    // ============================================================================
+    // 3b. ROTATING SERVICE STRUCTURE (RSS) — LC-39A
+    // ============================================================================
+    // Recreates the massive movable structure adjacent to the FSS:
+    // 1. Massive cylindrical Hinge Column & pivot bearing at (x = -18, z = 16)
+    // 2. Triangular tubular space-frame bridge truss connecting hinge to PCR
+    // 3. Payload Changeout Room (PCR): 5-story cleanroom body with corrugated
+    //    industrial siding, multi-tier railed access galleries, and payload bay seals
+    // 4. Twin OMPS hypergolic propellant tanks with hemispherical dome tops on roof
+    // 5. Circular ground rail track and 8-wheel drive trucks with hydraulic jacks
+    // 6. High-intensity floodlight arrays and industrial pipe risers
+    _buildRotatingServiceStructure() {
+      const THREE = window.THREE;
+      this.rssGroup = new THREE.Group();
+      this.rssGroup.name = "RotatingServiceStructure_RSS";
+      this.padGroup.add(this.rssGroup);
+
+      const rssSteelMat = new THREE.MeshStandardMaterial({ color: 0x828f9d, roughness: 0.58, metalness: 0.42 });
+      const rssDarkMat  = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.65, metalness: 0.55 });
+      const rssTubularMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.52, metalness: 0.48 });
+      const rssYellowMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.5, metalness: 0.35 });
+      const domeMat = new THREE.MeshStandardMaterial({ color: 0xcfd8dc, roughness: 0.28, metalness: 0.72 });
+      const corrugatedMat = new THREE.MeshStandardMaterial({ color: 0x8a99a8, roughness: 0.62, metalness: 0.38 });
+
+      // ── 1. Hinge Column (Pivot Mast) at (x = -18, y = 19.8, z = 16) ──
+      const hingeX = -18, hingeZ = 16, hingeBaseY = 19.8, hingeHeight = 36;
+      const hingeCol = new THREE.Mesh(
+        new THREE.CylinderGeometry(1.6, 1.8, hingeHeight, 24),
+        rssSteelMat
+      );
+      hingeCol.position.set(hingeX, hingeBaseY + hingeHeight / 2, hingeZ);
+      hingeCol.castShadow = true;
+      hingeCol.receiveShadow = true;
+      this.rssGroup.add(hingeCol);
+
+      // Flange rings on the hinge column
+      for (let y = 4; y < hingeHeight; y += 8) {
+        const ring = new THREE.Mesh(
+          new THREE.CylinderGeometry(1.85, 1.85, 0.6, 24),
+          rssDarkMat
+        );
+        ring.position.set(hingeX, hingeBaseY + y, hingeZ);
+        this.rssGroup.add(ring);
+      }
+
+      // Diagonal anchor braces at base of hinge column
+      for (let i = 0; i < 4; i++) {
+        const ang = (i / 4) * Math.PI * 2 + Math.PI / 4;
+        const footX = hingeX + Math.cos(ang) * 6.5;
+        const footZ = hingeZ + Math.sin(ang) * 6.5;
+        this._makeBeam(this.rssGroup, 7.8, 0.5, 0.5, (hingeX + footX) / 2, hingeBaseY + 4.5, (hingeZ + footZ) / 2, rssSteelMat,
+          Math.atan2(hingeZ - footZ, 9), 0, Math.atan2(hingeX - footX, 9));
+      }
+
+      // ── 2. Triangular Tubular Bridge Truss ──
+      // Spans from hinge column to the Payload Changeout Room (PCR)
+      const pcrOriginX = 5.0, pcrOriginZ = 16.0;
+      const trussSpan = Math.hypot(pcrOriginX - hingeX, pcrOriginZ - hingeZ);
+      const trussYaw = Math.atan2(pcrOriginZ - hingeZ, pcrOriginX - hingeX);
+
+      // Upper and lower tubular chords
+      for (const yOff of [10, 20, 30]) {
+        for (const zOff of [-4, 4]) {
+          this._makeBeam(this.rssGroup, trussSpan - 2, 0.65, 0.65,
+            (hingeX + pcrOriginX) / 2, hingeBaseY + yOff, (hingeZ + pcrOriginZ) / 2 + zOff,
+            rssTubularMat, 0, -trussYaw, 0);
+        }
+        // Diagonal cross-bracing along the tubular bridge
+        for (let s = 0; s < 4; s++) {
+          const t1 = s / 4;
+          const t2 = (s + 1) / 4;
+          const bx1 = hingeX + (pcrOriginX - hingeX) * t1;
+          const bx2 = hingeX + (pcrOriginX - hingeX) * t2;
+          this._makeBeam(this.rssGroup, 6.2, 0.35, 0.35, (bx1 + bx2) / 2, hingeBaseY + yOff, hingeZ, rssTubularMat, 0.5, -trussYaw, 0);
+          this._makeBeam(this.rssGroup, 6.2, 0.35, 0.35, (bx1 + bx2) / 2, hingeBaseY + yOff, hingeZ, rssTubularMat, -0.5, -trussYaw, 0);
+        }
+      }
+
+      // ── 3. Payload Changeout Room (PCR) ──
+      // Multi-story cleanroom body: width 15m (X), height 28m (Y), depth 20m (Z)
+      const pcrW = 15.0, pcrH = 28.0, pcrD = 20.0;
+      const pcrY = hingeBaseY + 3.0 + pcrH / 2; // base at 22.8, top at 50.8
+      const pcrBody = new THREE.Mesh(
+        new THREE.BoxGeometry(pcrW, pcrH, pcrD),
+        corrugatedMat
+      );
+      pcrBody.position.set(pcrOriginX, pcrY, pcrOriginZ);
+      pcrBody.castShadow = true;
+      pcrBody.receiveShadow = true;
+      this.rssGroup.add(pcrBody);
+
+      // Vertical corrugated ribs / stiffener columns on PCR exterior
+      for (let gx = -pcrW / 2 + 1; gx <= pcrW / 2 - 1; gx += 2.2) {
+        this._makeBeam(this.rssGroup, 0.32, pcrH + 0.4, 0.45, pcrOriginX + gx, pcrY, pcrOriginZ + pcrD / 2 + 0.2, rssDarkMat);
+        this._makeBeam(this.rssGroup, 0.32, pcrH + 0.4, 0.45, pcrOriginX + gx, pcrY, pcrOriginZ - pcrD / 2 - 0.2, rssDarkMat);
+      }
+      for (let gz = -pcrD / 2 + 1; gz <= pcrD / 2 - 1; gz += 2.4) {
+        this._makeBeam(this.rssGroup, 0.45, pcrH + 0.4, 0.32, pcrOriginX + pcrW / 2 + 0.2, pcrY, pcrOriginZ + gz, rssDarkMat);
+      }
+
+      // Weather seal bellows facing the orbiter cargo bay (-X face)
+      const sealMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(0.8, pcrH * 0.75, pcrD * 0.7),
+        new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.9, metalness: 0.1 })
+      );
+      sealMesh.position.set(pcrOriginX - pcrW / 2 - 0.4, pcrY - 2.0, pcrOriginZ);
+      this.rssGroup.add(sealMesh);
+
+      // ── 4. Exterior Access Galleries & Catwalks with Yellow Railings ──
+      [hingeBaseY + 9, hingeBaseY + 18, hingeBaseY + 27].forEach((platY) => {
+        // Catwalk floors wrapping around North & East faces
+        const catN = new THREE.Mesh(new THREE.BoxGeometry(pcrW + 2.4, 0.25, 2.0), rssDarkMat);
+        catN.position.set(pcrOriginX, platY, pcrOriginZ + pcrD / 2 + 1.0);
+        this.rssGroup.add(catN);
+
+        const catE = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.25, pcrD + 2.4), rssDarkMat);
+        catE.position.set(pcrOriginX + pcrW / 2 + 1.0, platY, pcrOriginZ);
+        this.rssGroup.add(catE);
+
+        // Yellow safety handrails
+        this._makeBeam(this.rssGroup, pcrW + 2.4, 0.1, 0.1, pcrOriginX, platY + 1.15, pcrOriginZ + pcrD / 2 + 2.0, rssYellowMat);
+        this._makeBeam(this.rssGroup, 0.1, 0.1, pcrD + 2.4, pcrOriginX + pcrW / 2 + 2.0, platY + 1.15, pcrOriginZ, rssYellowMat);
+        // Rail stanchions
+        for (let rx = -pcrW / 2; rx <= pcrW / 2; rx += 2.8) {
+          this._makeBeam(this.rssGroup, 0.08, 1.2, 0.08, pcrOriginX + rx, platY + 0.6, pcrOriginZ + pcrD / 2 + 2.0, rssYellowMat);
+        }
+      });
+
+      // ── 5. OMPS Hypergolic Propellant Tanks & Domes on Roof ──
+      // Two prominent hemispherical dome-capped cylindrical tanks on PCR roof (World Y = 50.8)
+      const roofY = pcrY + pcrH / 2; // Y = 50.8
+      [
+        { x: pcrOriginX - 3.2, z: pcrOriginZ - 2.5 },
+        { x: pcrOriginX + 3.2, z: pcrOriginZ - 2.5 }
+      ].forEach((tankPos) => {
+        // Cylindrical tank body
+        const tankCyl = new THREE.Mesh(
+          new THREE.CylinderGeometry(2.1, 2.1, 4.8, 24),
+          domeMat
+        );
+        tankCyl.position.set(tankPos.x, roofY + 2.4, tankPos.z);
+        tankCyl.castShadow = true;
+        this.rssGroup.add(tankCyl);
+
+        // Smooth hemispherical dome top
+        const domeTop = new THREE.Mesh(
+          new THREE.SphereGeometry(2.1, 24, 14, 0, Math.PI * 2, 0, Math.PI / 2),
+          domeMat
+        );
+        domeTop.position.set(tankPos.x, roofY + 4.8, tankPos.z);
+        domeTop.castShadow = true;
+        this.rssGroup.add(domeTop);
+
+        // Small top vent cap
+        const ventCap = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.3, 0.35, 0.6, 12),
+          rssDarkMat
+        );
+        ventCap.position.set(tankPos.x, roofY + 7.1, tankPos.z);
+        this.rssGroup.add(ventCap);
+      });
+
+      // Roof perimeter safety railing
+      this._makeBeam(this.rssGroup, pcrW, 0.1, 0.1, pcrOriginX, roofY + 1.15, pcrOriginZ + pcrD / 2, rssYellowMat);
+      this._makeBeam(this.rssGroup, pcrW, 0.1, 0.1, pcrOriginX, roofY + 1.15, pcrOriginZ - pcrD / 2, rssYellowMat);
+      this._makeBeam(this.rssGroup, 0.1, 0.1, pcrD, pcrOriginX + pcrW / 2, roofY + 1.15, pcrOriginZ, rssYellowMat);
+      this._makeBeam(this.rssGroup, 0.1, 0.1, pcrD, pcrOriginX - pcrW / 2, roofY + 1.15, pcrOriginZ, rssYellowMat);
+
+      // ── 6. Circular Ground Track & Mechanical Drive Trucks ──
+      // Curved rail on pad hardstand following swing arc
+      const railRadius = 24.0;
+      const railGeo = new THREE.RingGeometry(railRadius - 0.4, railRadius + 0.4, 32, 1, Math.PI * 0.15, Math.PI * 0.45);
+      railGeo.rotateX(-Math.PI / 2);
+      const railMesh = new THREE.Mesh(railGeo, rssDarkMat);
+      railMesh.position.set(hingeX, hingeBaseY + 0.12, hingeZ);
+      this.rssGroup.add(railMesh);
+
+      // 4 heavy drive trucks at base of PCR
+      [
+        { x: pcrOriginX - 5.5, z: pcrOriginZ - 7.5 },
+        { x: pcrOriginX + 5.5, z: pcrOriginZ - 7.5 },
+        { x: pcrOriginX - 5.5, z: pcrOriginZ + 7.5 },
+        { x: pcrOriginX + 5.5, z: pcrOriginZ + 7.5 }
+      ].forEach((tp) => {
+        const truck = new THREE.Mesh(new THREE.BoxGeometry(3.6, 1.4, 2.2), rssDarkMat);
+        truck.position.set(tp.x, hingeBaseY + 1.1, tp.z);
+        this.rssGroup.add(truck);
+        // Steel wheels
+        [-1.1, 1.1].forEach((wx) => {
+          const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.35, 14), rssSteelMat);
+          wheel.rotation.z = Math.PI / 2;
+          wheel.position.set(tp.x + wx, hingeBaseY + 0.55, tp.z);
+          this.rssGroup.add(wheel);
+        });
+        // Hydraulic leveling jack
+        const jack = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 1.6, 12), rssTubularMat);
+        jack.position.set(tp.x, hingeBaseY + 2.2, tp.z);
+        this.rssGroup.add(jack);
+      });
+
+      // ── 7. High-Intensity Floodlight Banks Facing the Shuttle Stack ──
+      const floodMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        emissive: 0xffedd5,
+        emissiveIntensity: 2.2
+      });
+      [hingeBaseY + 16, hingeBaseY + 28, hingeBaseY + 40].forEach((ly) => {
+        const fixture = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.2, 3.2), rssDarkMat);
+        fixture.position.set(pcrOriginX - pcrW / 2 - 0.25, ly, pcrOriginZ);
+        this.rssGroup.add(fixture);
+        const bulb = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.9, 2.9), floodMat);
+        bulb.position.set(pcrOriginX - pcrW / 2 - 0.46, ly, pcrOriginZ);
+        this.rssGroup.add(bulb);
+      });
     }
 
     // ============================================================================
@@ -3366,6 +3815,14 @@
         if (Math.abs(diff) > 0.001) {
           this.dockSwingAngle += diff * Math.min(1, delta * 4.5);
           this.armPivotGroup.rotation.y = this.dockSwingAngle;
+        }
+      }
+
+      // Smoothly swing the GOX Vent Arm & Beanie Cap (retracts during launch)
+      if (this.goxVentArm) {
+        const targetGoxAngle = this.isLaunching ? -0.55 : 0.0;
+        if (Math.abs(this.goxVentArm.rotation.y - targetGoxAngle) > 0.001) {
+          this.goxVentArm.rotation.y += (targetGoxAngle - this.goxVentArm.rotation.y) * Math.min(1, delta * 2.5);
         }
       }
 
