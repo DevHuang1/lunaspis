@@ -1094,6 +1094,14 @@
 
       if (x < bounds.minX + r || x > bounds.maxX - r || z < bounds.minZ + r || z > bounds.maxZ - r) return true;
       for (const box of boxes) {
+        if (box.rotated) {
+          const dx = x - box.cx;
+          const dz = z - box.cz;
+          const lx = dx * box.cos - dz * box.sin;
+          const lz = dx * box.sin + dz * box.cos;
+          if (Math.abs(lx) < box.halfW + r && Math.abs(lz) < box.halfD + r) return true;
+          continue;
+        }
         if (x > box.minX - r && x < box.maxX + r && z > box.minZ - r && z < box.maxZ + r) return true;
       }
       for (const circle of circles) {

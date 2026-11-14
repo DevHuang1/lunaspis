@@ -819,6 +819,22 @@
       this.boxColliders.push(entry);
     }
 
+    addRotatedBoxCollider(cx, cz, width, depth, yaw = 0, name, opts) {
+      const entry = {
+        rotated: true,
+        cx,
+        cz,
+        halfW: Math.abs(width) * 0.5,
+        halfD: Math.abs(depth) * 0.5,
+        cos: Math.cos(yaw),
+        sin: Math.sin(yaw),
+        name: name || "structure"
+      };
+      if (opts && typeof opts.minY === "number") entry.minY = opts.minY;
+      if (opts && typeof opts.maxY === "number") entry.maxY = opts.maxY;
+      this.boxColliders.push(entry);
+    }
+
     addCircleCollider(x, z, radius, name, opts) {
       const entry = { x, z, r: radius, name: name || "structure" };
       if (opts && typeof opts.minY === "number") entry.minY = opts.minY;

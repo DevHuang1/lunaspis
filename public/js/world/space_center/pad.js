@@ -141,7 +141,7 @@
         color: "#ffd633",
         fontSize: 46
       });
-      site.addCircleCollider(x, prop.z, 7.5, "Propellant sphere");
+      site.addCircleCollider(x, prop.z, 7.0, "Propellant sphere");
     });
 
     // High-pressure gaseous Nitrogen bottle tube-rack & cryo transfer pipeway toward Pad
@@ -203,7 +203,7 @@
     site.cone(g, 0.5, 7.8, 3.6, wt.x, 46.6, wt.z, white, 24, "WaterTankRoof");
     site.sphere(g, 0.4, wt.x, 48.8, wt.z, m("red"), 8, "WaterTankBeacon");
     site.label(g, "WATER TANK 39A", wt.x, 3.6, wt.z - 12, { width: 9, height: 1.6, fontSize: 40 });
-    site.addCircleCollider(wt.x, wt.z, 8, "Water tower", { maxY: 8.0 });
+    site.addCircleCollider(wt.x, wt.z, 6.2, "Water tower", { maxY: 8.0 });
 
     // Berm slope, ramp side embankments, and pad summit perimeter/obstacles
     // are enforced with elevation awareness in SpaceCenterModules.terrain so
@@ -212,16 +212,21 @@
     // Cryogenic propellant farm containment deck.
     site.addBoxCollider(prop.x, prop.z, 70, 44, "Propellant farm", groundOnly);
     // Egress bunker, floodlight cart and jersey barrier row.
-    site.addBoxCollider(-108, -22, 12, 13, "Pad egress bunker", groundOnly);
-    site.addBoxCollider(36, 108, 3.2, 2.4, "Pad light cart", groundOnly);
-    site.addBoxCollider(-37, 128, 11.4, 1.2, "Pad jersey barriers", groundOnly);
-    site.addBoxCollider(37, 128, 11.4, 1.2, "Pad jersey barriers", groundOnly);
+    site.addBoxCollider(-108, -22, 11.2, 12.2, "Pad egress bunker", groundOnly);
+    site.addBoxCollider(36, 108, 2.8, 1.8, "Pad light cart", groundOnly);
+    // Match the four visible barrier blocks exactly instead of sealing the gap
+    // between each pair with one wide collider.
+    for (const bx of [-40, -34, 34, 40]) {
+      site.addBoxCollider(bx, 128, 4.8, 0.7, "Pad jersey barrier", groundOnly);
+    }
     // Lightning masts, guard kiosk, sign and pad support vehicles are solid.
     for (const p of masts) site.addCircleCollider(p.x, p.z, 2.4, "Lightning mast", groundOnly);
-    for (const a of anchors) site.addBoxCollider(a.x, a.z, 3.4, 3.4, "Mast guy anchor", groundOnly);
-    site.addBoxCollider(-52, 112, 7, 5, "Pad 39A guard kiosk", groundOnly);
-    site.addBoxCollider(48, 92, 6.2, 3.0, "Pad fire truck", groundOnly);
-    site.addBoxCollider(-44, 102, 6.0, 3.0, "Pad crew van", groundOnly);
-    site.addBoxCollider(62, 64, 6.2, 3.0, "Pad support truck", groundOnly);
+    for (const a of anchors) site.addBoxCollider(a.x, a.z, 2.6, 2.6, "Mast guy anchor", groundOnly);
+    site.addBoxCollider(-52, 112, 6.6, 4.6, "Pad 39A guard kiosk", groundOnly);
+    // Oriented footprints match each parked vehicle's yaw, avoiding invisible
+    // AABB walls around the sides of the trucks.
+    site.addRotatedBoxCollider(48, 92, 2.2, 5.4, -0.5, "Pad fire truck", groundOnly);
+    site.addRotatedBoxCollider(-44, 102, 2.35, 5.8, 0.35, "Pad crew van", groundOnly);
+    site.addRotatedBoxCollider(62, 64, 2.2, 5.4, Math.PI * 0.72, "Pad support truck", groundOnly);
   });
 })(window);

@@ -512,9 +512,8 @@
     site.addBoxCollider(cx + 16, cz - 13, 0.5, 12, "MCC comms glass wall");
     site.addBoxCollider(cx + 22, cz - 19, 12, 0.5, "MCC comms glass wall");
     site.addBoxCollider(cx + 21, cz - 12, 8, 3, "MCC analysis desk");
-    for (const rx of [cx - 22, cx + 21]) {
-      site.addBoxCollider(rx, cz + 8, 8, 6, "MCC roof chiller");
-    }
+    // NOTE: the roof chillers sit 13 m above the lobby and must not create
+    // ground-level collision inside the building.
     site.addBoxCollider(cx - 13, south + 20, 12, 14, "MCC planter");
     site.addBoxCollider(cx + 13, south + 20, 12, 14, "MCC planter");
     for (const px of [cx - 7.5, cx + 7.5]) {
@@ -528,7 +527,7 @@
     site.addBoxCollider(cx - 10.5, 269.5, 6.5, 0.8, "MCC directory kiosk");
     site.addBoxCollider(cx + 11.5, 268, 2.6, 1.0, "MCC mission clock");
     site.addBoxCollider(cx - 6.3, 283, 2.4, 1.0, "MCC bench");
-    site.addBoxCollider(cx - 13, 263, 6.2, 3.0, "MCC drop-off van");
+    site.addRotatedBoxCollider(cx - 13, 263, 2.4, 6.0, Math.PI / 2, "MCC drop-off van");
     site.addCircleCollider(cx - 8.6, 266, 0.5, "MCC trash bin");
     site.addCircleCollider(cx + 8.6, 266, 0.4, "MCC hydrant");
     site.addBoxCollider(cx + 18, 268, 0.8, 4.4, "MCC parking sign");

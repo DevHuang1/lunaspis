@@ -283,6 +283,18 @@
       for (const box of boxes) {
         if (typeof box.minY === "number" && effY < box.minY) continue;
         if (typeof box.maxY === "number" && effY > box.maxY) continue;
+        if (box.rotated) {
+          // Transform the test point into the collider's local frame so rotated
+          // vehicles/props use a tight oriented box instead of a bloated AABB.
+          const dx = x - box.cx;
+          const dz = z - box.cz;
+          const lx = dx * box.cos - dz * box.sin;
+          const lz = dx * box.sin + dz * box.cos;
+          if (Math.abs(lx) < box.halfW + radius && Math.abs(lz) < box.halfD + radius) {
+            return true;
+          }
+          continue;
+        }
         if (x > box.minX - radius && x < box.maxX + radius && z > box.minZ - radius && z < box.maxZ + radius) {
           return true;
         }
