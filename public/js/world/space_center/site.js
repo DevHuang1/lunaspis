@@ -38,7 +38,7 @@
     }
 
     build() {
-      const order = ["environment", "pad", "vab", "lcc", "crawler", "utilities"];
+      const order = ["environment", "pad", "vab", "lcc", "mcc", "crawler", "utilities"];
       for (const name of order) {
         const builder = NS.builders && NS.builders[name];
         if (typeof builder === "function") builder(this);

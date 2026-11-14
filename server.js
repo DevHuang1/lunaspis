@@ -6,6 +6,8 @@ const express = require("express");
 const { Server } = require("socket.io");
 const db = require("./server/db");
 const storage = require("./server/storage");
+const { propagateCoast } = require("./server/gmat-propagation");
+let activeGmatCalculations = 0;
 const { ShuttleMission, CREW: SHUTTLE_CREW } = require("./public/js/game/shuttle_mission.js");
 
 const SHUTTLE_SNAPSHOT_HZ = 15;
@@ -1057,10 +1059,8 @@ function createNewRoom(roomId, hostId, isPublic = true, opsMode = "iss_expeditio
   };
 }
 
-// Shuttle Flight Ops seat assignment: maps Lunaspis room roles (commander, engineer,
-// specialist, scientist, flight_director, ground_capcom) onto the 4 Shuttle seats
-// (cdr, plt, ms1, ms2). Unclaimed seats automatically fall back to the Commander/host
-// so solo pilots and 2-6 player crews can fly every Shuttle mission seamlessly.
+// Flight crew fill the four Shuttle seats. Ground crew monitor from MCC and do
+// not receive flight controls. Unclaimed seats fall back to the Commander/host.
 const SHUTTLE_SEAT_PREFS = {
   cdr: ["commander", "flight_director", "engineer", "ground_capcom", "specialist", "scientist"],
   plt: ["engineer", "ground_capcom", "specialist", "scientist", "flight_director", "commander"],
@@ -1069,7 +1069,7 @@ const SHUTTLE_SEAT_PREFS = {
 };
 
 function assignShuttleSeatMap(room) {
-  const players = Object.values((room && room.players) || {});
+  const players = Object.values((room && room.players) || {}).filter((player) => player && getTeamForRole(player.role) !== "ground");
   const assigned = {};
   if (!players.length) return assigned;
 
@@ -2044,6 +2044,31 @@ io.on("connection", (socket) => {
       io.to(room.id).emit("shuttle_events", ev.filter((e) => e.type !== "COMMAND_ACCEPTED"));
     }
     sendShuttleSnapshot(room);
+  });
+
+  socket.on("shuttle_gmat_coast", async (callback) => {
+    if (typeof callback !== "function") return;
+    const room = currentRoomId && rooms[currentRoomId];
+    if (!room || !room.shuttleMission || !room.players[socket.id]) return callback({ success: false, error: "Join a Shuttle flight first." });
+    if (room.gmatRunning || activeGmatCalculations >= 2) return callback({ success: false, error: "GMAT is busy. Try again shortly." });
+    if (socket.lastGmatRequest && Date.now() - socket.lastGmatRequest < 5000) return callback({ success: false, error: "Wait a few seconds before calculating again." });
+    socket.lastGmatRequest = Date.now();
+    room.gmatRunning = true;
+    activeGmatCalculations++;
+    const snapshot = room.shuttleMission.snapshot();
+    try {
+      const prediction = await propagateCoast(snapshot);
+      if (!room.shuttleMission || room.shuttleMission.missionId !== prediction.missionId) return callback({ success: false, error: "The flight changed while GMAT was running." });
+      callback({ success: true, prediction });
+    } catch (error) {
+      const message = error.code === "ENOENT" ? "GMAT Console is unavailable on this server." :
+        error.message.includes("GMAT coast prediction") ? error.message : "GMAT calculation failed. Check the server logs.";
+      if (message === "GMAT calculation failed. Check the server logs.") console.error("[GMAT]", error.message);
+      callback({ success: false, error: message });
+    } finally {
+      room.gmatRunning = false;
+      activeGmatCalculations--;
+    }
   });
 
   socket.on("shuttle_input", (data = {}, callback) => {
