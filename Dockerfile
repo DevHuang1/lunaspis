@@ -68,7 +68,33 @@ RUN mkdir -p /opt /tmp/gmat-runtime /tmp/gmat-runs \
     && ldconfig \
     && if ldd "${GMAT_CONSOLE_PATH}" | grep -q "not found"; then ldd "${GMAT_CONSOLE_PATH}"; exit 1; fi \
     && cd "${GMAT_ROOT}/bin" \
-    && printf "Create Spacecraft Sat;\nSat.DateFormat = UTCGregorian;\nSat.Epoch = '14 Nov 2026 00:00:00.000';\nSat.CoordinateSystem = EarthMJ2000Eq;\nSat.X = 7000; Sat.Y = 0; Sat.Z = 0;\nSat.VX = 0; Sat.VY = 7.5; Sat.VZ = 0;\nCreate CoordinateSystem MarsFrame;\nMarsFrame.Origin = Mars;\nMarsFrame.Axes = MJ2000Eq;\nCreate ForceModel FM;\nFM.CentralBody = Earth;\nFM.PointMasses = {Earth};\nCreate Propagator Prop;\nProp.Type = RungeKutta89;\nProp.FM = FM;\nCreate ReportFile RF;\nRF.Filename = '/tmp/gmat_smoke.txt';\nRF.WriteHeaders = false;\nBeginMissionSequence;\nPropagate Prop(Sat) {Sat.ElapsedSecs = 60};\nReport RF Sat.ElapsedSecs Sat.EarthMJ2000Eq.X Sat.MarsFrame.X;\n" > /tmp/gmat_smoke.script \
+    && printf "%s\n" \
+      "Create Spacecraft Sat;" \
+      "Sat.DateFormat = UTCGregorian;" \
+      "Sat.Epoch = '14 Nov 2026 00:00:00.000';" \
+      "Sat.CoordinateSystem = EarthMJ2000Eq;" \
+      "Sat.X = 7000;" \
+      "Sat.Y = 0;" \
+      "Sat.Z = 0;" \
+      "Sat.VX = 0;" \
+      "Sat.VY = 7.5;" \
+      "Sat.VZ = 0;" \
+      "Create CoordinateSystem MarsFrame;" \
+      "MarsFrame.Origin = Mars;" \
+      "MarsFrame.Axes = MJ2000Eq;" \
+      "Create ForceModel FM;" \
+      "FM.CentralBody = Earth;" \
+      "FM.PointMasses = {Earth};" \
+      "Create Propagator Prop;" \
+      "Prop.FM = FM;" \
+      "Prop.Type = RungeKutta89;" \
+      "Create ReportFile RF;" \
+      "RF.Filename = '/tmp/gmat_smoke.txt';" \
+      "RF.WriteHeaders = false;" \
+      "BeginMissionSequence;" \
+      "Propagate Prop(Sat) {Sat.ElapsedSecs = 60};" \
+      "Report RF Sat.ElapsedSecs Sat.EarthMJ2000Eq.X Sat.MarsFrame.X;" \
+      > /tmp/gmat_smoke.script \
     && "${GMAT_CONSOLE_PATH}" -r /tmp/gmat_smoke.script \
     && test -s /tmp/gmat_smoke.txt \
     && cat /tmp/gmat_smoke.txt \
