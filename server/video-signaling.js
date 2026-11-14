@@ -69,7 +69,9 @@ module.exports = function setupVideoSignaling(io) {
     });
 
     socket.on("video_leave", () => leaveVideo(socket));
-    socket.on("disconnect", () => leaveVideo(socket));
+    // "disconnecting" still has the room membership needed to reach the peers.
+    socket.on("disconnecting", () => leaveVideo(socket));
+    socket.on("disconnect", () => { socket.videoRoom = null; });
   });
 
   console.log("🎥 [VIDEO] Earth Control <-> Flight Crew WebRTC signalling active.");

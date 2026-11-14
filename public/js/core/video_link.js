@@ -818,7 +818,7 @@
         if (!groundPeers.length) {
           const wait = document.createElement("div");
           wait.className = "vl-feed";
-          wait.innerHTML = `<div class="vl-feed-frame"><div class="vl-feed-wait">EARTH CONTROL CAMERA<br />IS STARTING…</div></div>`;
+          wait.innerHTML = `<div class="vl-feed-frame"><div class="vl-feed-wait">WAITING FOR<br />EARTH CONTROL CAMERA…</div></div>`;
           this.groundFeeds.appendChild(wait);
         } else {
           for (const entry of groundPeers) {
@@ -1507,6 +1507,7 @@
           // Keep every seated avatar facing the camera; the idle clip supplies
           // the breathing/weight-shift animation while the hands rest on the
           // flight-control sticks.
+          seat.rig.root.rotation.y = 0;
           seat.rig.updateAnimation(dt, false, false, true, "idle", false, false, true, 0);
           this._applyCabinArmPose(seat);
         }
