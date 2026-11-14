@@ -64,67 +64,67 @@
     },
     "orbiter_v2": {
       id: "orbiter_v2",
-      name: "NASA Space Shuttle Orbiter (Orbiter V2)",
+      name: "NASA Space Shuttle",
       category: "spacecraft",
       file: "assets/Orbiter_V2.glb",
       scale: 1.0,
-      description: "Reusable orbital crew spacecraft with payload bay doors, SSME nozzles, and forward ODS docking ring."
+      description: "Reusable winged spaceship with opening cargo doors, main rocket engines, and front docking ring."
     },
     "external_tank": {
       id: "external_tank",
-      name: "Cryogenic External Tank (LH2 / LOX)",
+      name: "Orange Main Fuel Tank",
       category: "spacecraft",
       file: "assets/ExternalTank.glb",
       scale: 1.0,
-      description: "Cryogenic liquid hydrogen and liquid oxygen propellant backbone tank for launch ascent."
+      description: "Giant tank holding super-cold liquid fuel and oxygen for the climb into space."
     },
     "solid_rocket_booster": {
       id: "solid_rocket_booster",
-      name: "Solid Rocket Booster (SRB)",
+      name: "Side Rocket Booster",
       category: "spacecraft",
       file: "assets/SolidRocketBooster.glb",
       scale: 1.0,
-      description: "High-thrust solid propellant booster for first-stage liftoff and tower clearance."
+      description: "Twin high-power side rockets that give extra push for liftoff and clearing the launch tower."
     },
     "satellite": {
       id: "satellite",
-      name: "Deployable Science & Comms Satellite",
+      name: "Science & Radio Satellite",
       category: "spacecraft",
       file: "assets/Satellite.glb",
       scale: 1.0,
-      description: "Orbital scientific payload with unfolding solar wings and high-gain dish boom."
+      description: "Space science craft with fold-out solar wings and a big dish antenna."
     },
     "modular_spacecraft_bus_smallsat": {
       id: "modular_spacecraft_bus_smallsat",
-      name: "12U / ESPA MicroSat Bus",
+      name: "Compact Mini-Satellite Frame",
       category: "spacecraft",
       file: "assets/modular_spacecraft_bus_smallsat.glb",
       scale: 1.0,
-      description: "Compact low-mass satellite bus for focused LEO Earth observation and technology demonstration."
+      description: "Small lightweight spacecraft body built for Earth-watching and quick tech tests close to home."
     },
     "modular_spacecraft_bus_hex": {
       id: "modular_spacecraft_bus_hex",
-      name: "Modular Hex Standard Spacecraft Bus",
+      name: "Six-Sided Standard Spacecraft Frame",
       category: "spacecraft",
       file: "assets/modular_spacecraft_bus_hex.glb",
       scale: 1.0,
-      description: "Balanced 3-axis stabilized hexagonal spacecraft bus for multi-instrument SSO and lunar missions."
+      description: "Steady all-purpose six-sided spacecraft body for Earth-pole and Moon missions."
     },
     "modular_spacecraft_bus_heavy": {
       id: "modular_spacecraft_bus_heavy",
-      name: "Deep-Space Heavy Explorer Bus",
+      name: "Deep-Space Heavy Explorer Frame",
       category: "spacecraft",
       file: "assets/modular_spacecraft_bus_heavy.glb",
       scale: 1.0,
-      description: "High-capacity deep-space spacecraft bus with radiation vault, high-gain comms, and large propellant tanks."
+      description: "Large deep-space spacecraft body with extra radiation shielding, a powerful radio dish, and big fuel tanks."
     },
     "modular_spacecraft_fully_configured": {
       id: "modular_spacecraft_fully_configured",
-      name: "Integrated Multi-Instrument Observatory",
+      name: "Full Multi-Tool Science Craft",
       category: "spacecraft",
       file: "assets/modular_spacecraft_fully_configured.glb",
       scale: 1.0,
-      description: "Fully integrated spacecraft configuration with deployable solar arrays, SAR antenna, optical imager, and Ka-band dish."
+      description: "Complete ready-to-fly spacecraft with unfolding solar panels, storm radar, camera, and fast Earth dish."
     }
   };
 
@@ -827,11 +827,14 @@
       const receiveShadow = options.receiveShadow !== false;
       const enhancePBR = options.enhancePBR !== false;
 
+      const maxAnisotropy = window.isMobileDevice ? 2 : 8;
       cloned.traverse((obj) => {
         if (obj.isMesh) {
           obj.castShadow = castShadow;
           obj.receiveShadow = receiveShadow;
-          obj.frustumCulled = false;
+          // Skinned bounds are pose-dependent, but static GLB meshes (ISS,
+          // vehicles, props) cull normally. This is a large win on phones.
+          obj.frustumCulled = !obj.isSkinnedMesh;
 
           if (obj.material) {
             const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
@@ -870,6 +873,13 @@
                   }
                 }
               }
+
+              // Keep GLB texture filtering modest on mobile; anisotropy above
+              // 2 is rarely visible on a phone and costs bandwidth.
+              ["map", "normalMap", "roughnessMap", "metalnessMap", "emissiveMap", "aoMap"].forEach((key) => {
+                const tex = m[key];
+                if (tex && "anisotropy" in tex) tex.anisotropy = maxAnisotropy;
+              });
 
               return m;
             });
@@ -1541,7 +1551,7 @@
 
         this._updateHangarTelemetry(entry, loadedEntry.meta);
 
-        if (statusEl) statusEl.textContent = `TELEMETRY READY • ${entry.name}`;
+        if (statusEl) statusEl.textContent = `3D MODEL READY • ${entry.name}`;
       };
 
       if (entry.isCustom && this.cache[modelId]) {

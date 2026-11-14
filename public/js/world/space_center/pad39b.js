@@ -622,9 +622,9 @@
         ctx.fillStyle = "#ffffff";
         ctx.font = "900 40px Arial, Helvetica, sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText("DANGER · CRYOGENICS", w * 0.5, h * 0.45);
+        ctx.fillText("DANGER · SUPER-COLD FUEL", w * 0.5, h * 0.45);
         ctx.font = "700 26px Arial, Helvetica, sans-serif";
-        ctx.fillText("LC-39B PROPELLANT FARM", w * 0.5, h * 0.78);
+        ctx.fillText("PAD 39B ROCKET FUEL TANKS", w * 0.5, h * 0.78);
       },
       "Pad39BPropellantSign"
     );

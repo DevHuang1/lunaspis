@@ -135,7 +135,7 @@
         const a = (i / 6) * Math.PI * 2;
         site.cyl(g, 0.42, 11.0, x + Math.cos(a) * 6.6, 5.8, prop.z + Math.sin(a) * 6.6, steel, 8, "SphereLeg");
       }
-      site.label(g, idx === 0 ? "LOX" : "LH2 PROPELLANT", x, 11.5, prop.z - 8.2, {
+      site.label(g, idx === 0 ? "LIQUID OXYGEN" : "LIQUID HYDROGEN", x, 11.5, prop.z - 8.2, {
         width: 7,
         height: 1.5,
         color: "#ffd633",
@@ -174,7 +174,7 @@
         ctx.textAlign = "center";
         ctx.fillText("DANGER · NO OPEN FLAME", w * 0.5, h * 0.45);
         ctx.font = "700 28px Arial, Helvetica, sans-serif";
-        ctx.fillText("CRYOGENIC OXIDIZER / LH2", w * 0.5, h * 0.78);
+        ctx.fillText("SUPER-COLD ROCKET FUEL", w * 0.5, h * 0.78);
       },
       "PropellantDangerSign"
     );

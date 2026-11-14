@@ -815,18 +815,21 @@
 
       // Flush south toe transition pad meeting CrawlerLane (z=186..196, top=0.14) with zero seam step.
       const toeApron = new THREE.Mesh(
-        new THREE.BoxGeometry(41.5, 0.14, 10.0),
+        new THREE.BoxGeometry(41.5, 0.15, 10.0),
         new THREE.MeshStandardMaterial({
           color: 0xffffff,
           map: rampTex,
           roughness: 0.92,
           metalness: 0.05,
           polygonOffset: true,
-          polygonOffsetFactor: -1,
-          polygonOffsetUnits: -1
+          polygonOffsetFactor: -2,
+          polygonOffsetUnits: -2
         })
       );
-      toeApron.position.set(0, 0.07, 190.8);
+      // Sits 1 cm proud of the flush crawlerway lane tops (0.14 m). Keeping the
+      // two surfaces out of the same depth plane is what stops z-fighting along
+      // the ramp toe at distance.
+      toeApron.position.set(0, 0.075, 190.8);
       toeApron.receiveShadow = true;
       this.padGroup.add(toeApron);
 

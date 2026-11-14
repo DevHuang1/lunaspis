@@ -144,7 +144,8 @@
               "concrete_clean",
               "#cbcac2",
               ["rgba(165,164,156,0.22)", "rgba(232,231,224,0.18)", "rgba(110,114,118,0.12)"],
-              null
+              null,
+              512
             ),
             roughness: 0.92,
             metalness: 0.03
@@ -170,7 +171,8 @@
               "concrete_dark",
               "#868a84",
               ["rgba(64,68,66,0.22)", "rgba(164,166,158,0.14)"],
-              null
+              null,
+              512
             ),
             roughness: 0.95,
             metalness: 0.03
@@ -212,7 +214,8 @@
               "asphalt",
               "#292d34",
               ["rgba(62,67,76,0.28)", "rgba(20,23,28,0.28)", "rgba(92,96,104,0.15)"],
-              "asphalt"
+              "asphalt",
+              512
             ),
             roughness: 0.93,
             metalness: 0.04
@@ -225,7 +228,8 @@
               "gravel",
               "#9c9484",
               ["rgba(126,118,104,0.34)", "rgba(190,182,166,0.30)", "rgba(92,86,76,0.24)"],
-              null
+              null,
+              512
             ),
             roughness: 0.98,
             metalness: 0.02
@@ -238,7 +242,8 @@
               "grass_tile",
               "#4a6739",
               ["rgba(62,92,46,0.32)", "rgba(96,126,64,0.26)", "rgba(46,66,34,0.26)"],
-              "foliage"
+              "foliage",
+              512
             ),
             roughness: 0.96,
             metalness: 0.0
@@ -280,7 +285,8 @@
               "sand_grain",
               "#dfc99b",
               ["rgba(196,170,124,0.26)", "rgba(242,226,188,0.24)"],
-              null
+              null,
+              512
             ),
             roughness: 0.96,
             metalness: 0.01

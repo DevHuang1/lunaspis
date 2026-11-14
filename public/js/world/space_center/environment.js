@@ -66,10 +66,10 @@
             site.boxRot(
               g,
               0.16,
-              0.02,
+              0.012,
               Math.max(0.4, chunkLen - 0.1),
               cx + nx * side * (width * 0.5 - 0.55),
-              0.132,
+              0.138,
               cz + nz * side * (width * 0.5 - 0.55),
               0,
               yaw,
@@ -86,10 +86,10 @@
           site.boxRot(
             g,
             0.24,
-            0.02,
+            0.012,
             4.2,
             ax + dx * t,
-            0.132,
+            0.138,
             az + dz * t,
             0,
             yaw,
@@ -183,7 +183,10 @@
     addCrawlerwaySegment(-315, 288, spurPts[2][0], spurPts[2][1], "39B");
     addCrawlerwaySegment(spurPts[2][0], spurPts[2][1], spurPts[3][0], spurPts[3][1], "39B");
     for (const [vx, vz] of spurPts) {
-      site.cyl(g, 20.8, 0.14, vx, 0.07, vz, gravel, 20, "CrawlerTurnPad39B");
+      // The turning pad sits 2 cm proud of the gravel lane tops so the two
+      // coplanar surfaces at the bends cannot z-fight. Radius covers the full
+      // crawlerway width including the grass shoulders.
+      site.cyl(g, 26.0, 0.16, vx, 0.08, vz, gravel, 24, "CrawlerTurnPad39B");
     }
 
     // -------------------------------------------------------------------------
@@ -194,9 +197,11 @@
     addRoad(-291, 296, -24, 296, 14);
     addRoad(24, 296, 187, 296, 14);
     for (const [cx, tag] of [[0, ""], [-315, "39B"]]) {
-      site.box(g, 48, 0.14, 16, cx, 0.07, 296, concrete, `CrawlerCrossingSlab${tag}`);
+      // Crossing deck is 1 cm proud of the crawlerway so the crossing surface
+      // is not in the same depth plane as the gravel lanes it overlaps.
+      site.box(g, 48, 0.15, 16, cx, 0.075, 296, concrete, `CrawlerCrossingSlab${tag}`);
       for (const sx of [-23.5, 23.5]) {
-        site.box(g, 0.6, 0.02, 15.6, cx + sx, 0.15, 296, stripeYellow, `CrossingStripe${tag}`);
+        site.box(g, 0.6, 0.012, 15.6, cx + sx, 0.158, 296, stripeYellow, `CrossingStripe${tag}`);
       }
     }
 
@@ -216,13 +221,33 @@
     // -------------------------------------------------------------------------
     // 3. LCC PARKING LOT (Bridges LCC Plaza z=245 continuously to Avenue z=289!)
     // -------------------------------------------------------------------------
-    site.box(g, 106, 0.12, 44, -180, 0.06, 267, asphalt, "LCCParkingLot");
+    // Split the wide lot into tiles so one asphalt tile is not stretched across
+    // 106 metres. The merged static-box pass still batches every tile.
+    const lotW = 106, lotD = 44, lotX = -180, lotZ = 267;
+    const lotCols = 4, lotRows = 2;
+    for (let col = 0; col < lotCols; col++) {
+      for (let row = 0; row < lotRows; row++) {
+        const tileW = lotW / lotCols;
+        const tileD = lotD / lotRows;
+        site.box(
+          g,
+          tileW,
+          0.12,
+          tileD,
+          lotX - lotW * 0.5 + tileW * (col + 0.5),
+          0.06,
+          lotZ - lotD * 0.5 + tileD * (row + 0.5),
+          asphalt,
+          "LCCParkingLot"
+        );
+      }
+    }
     // Entry aisle markings & wheel stops for 22 stalls across two banks
     for (let i = 0; i <= 10; i++) {
       const sx = -224 + i * 8.8;
       if (Math.abs(sx - (-180)) < 5) continue; // Keep central promenade driving lane clear
-      site.box(g, 0.14, 0.02, 12, sx, 0.132, 253, stripeWhite, "ParkingStripeN");
-      site.box(g, 0.14, 0.02, 12, sx, 0.132, 281, stripeWhite, "ParkingStripeS");
+      site.box(g, 0.14, 0.012, 12, sx, 0.138, 253, stripeWhite, "ParkingStripeN");
+      site.box(g, 0.14, 0.012, 12, sx, 0.138, 281, stripeWhite, "ParkingStripeS");
       if (i < 10 && Math.abs(sx + 4.4 - (-180)) >= 5) {
         site.box(g, 2.1, 0.18, 0.24, sx + 4.4, 0.21, 248.4, curbMat, "WheelStopN");
         site.box(g, 2.1, 0.18, 0.24, sx + 4.4, 0.21, 285.6, curbMat, "WheelStopS");
@@ -285,10 +310,10 @@
         ctx.fillStyle = "#f8fafc";
         ctx.font = "900 44px Arial, Helvetica, sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText("KENNEDY SPACE CENTER · LC-39A  →", w * 0.5, h * 0.44);
+        ctx.fillText("KENNEDY SPACE CENTER · LAUNCH PAD 39A →", w * 0.5, h * 0.44);
         ctx.fillStyle = "#fde047";
         ctx.font = "700 30px Arial, Helvetica, sans-serif";
-        ctx.fillText("VAB / LCC AHEAD  ·  AUTHORIZED PERSONNEL", w * 0.5, h * 0.76);
+        ctx.fillText("ROCKET HALL / CONTROL ROOM AHEAD · CREW ONLY", w * 0.5, h * 0.76);
       },
       "KSCEntranceSign"
     );
@@ -357,7 +382,7 @@
       ctx.fillStyle = "#38bdf8";
       ctx.font = "700 32px Arial, Helvetica, sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText("KENNEDY SPACE CENTER · LC-39A", w * 0.5, 48);
+      ctx.fillText("KENNEDY SPACE CENTER · LAUNCH PAD 39A", w * 0.5, 48);
       ctx.fillStyle = "#facc15";
       ctx.font = "900 104px Courier New, monospace";
       ctx.fillText("T-00:08:42", w * 0.5, 144);

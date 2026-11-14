@@ -173,17 +173,22 @@
       this.vizGroup.add(this.earthGroup);
 
       const texLoader = new THREE.TextureLoader();
-      const dayTex = texLoader.load("textures/earth/earth_day_4096.jpg");
-      const specTex = texLoader.load("textures/earth/earth_specular_2048.jpg");
-      const cloudTex = texLoader.load("textures/earth/earth_clouds_1024.png");
+      const mobile = !!window.isMobileDevice;
+      const loadTex = (path) => {
+        const tex = texLoader.load(path);
+        tex.anisotropy = mobile ? 2 : 8;
+        return tex;
+      };
+      const dayTex = loadTex(mobile ? "textures/earth/blue-marble-2048.jpg" : "textures/earth/earth_day_4096.jpg");
+      const cloudTex = loadTex("textures/earth/earth_clouds_1024.png");
 
       const earthMat = new THREE.MeshPhongMaterial({
         map: dayTex,
-        specularMap: specTex,
         specular: new THREE.Color(0x5ea2ff),
         shininess: 18
       });
-      this.earthMesh = new THREE.Mesh(new THREE.SphereGeometry(EARTH_RADIUS, 48, 48), earthMat);
+      if (!mobile) earthMat.specularMap = loadTex("textures/earth/earth_specular_2048.jpg");
+      this.earthMesh = new THREE.Mesh(new THREE.SphereGeometry(EARTH_RADIUS, mobile ? 32 : 48, mobile ? 32 : 48), earthMat);
       this.earthGroup.add(this.earthMesh);
 
       const cloudMat = new THREE.MeshPhongMaterial({
@@ -192,7 +197,7 @@
         opacity: 0.45,
         depthWrite: false
       });
-      this.cloudMesh = new THREE.Mesh(new THREE.SphereGeometry(EARTH_RADIUS * 1.012, 40, 40), cloudMat);
+      this.cloudMesh = new THREE.Mesh(new THREE.SphereGeometry(EARTH_RADIUS * 1.012, mobile ? 28 : 40, mobile ? 28 : 40), cloudMat);
       this.earthGroup.add(this.cloudMesh);
 
       const atmoMat = new THREE.MeshBasicMaterial({
@@ -201,12 +206,13 @@
         opacity: 0.14,
         side: THREE.BackSide
       });
-      this.earthGroup.add(new THREE.Mesh(new THREE.SphereGeometry(EARTH_RADIUS * 1.045, 36, 36), atmoMat));
+      this.earthGroup.add(new THREE.Mesh(new THREE.SphereGeometry(EARTH_RADIUS * 1.045, mobile ? 24 : 36, mobile ? 24 : 36), atmoMat));
 
       // Equatorial reference ring
       const eqPts = [];
-      for (let i = 0; i <= 96; i++) {
-        const a = (i / 96) * Math.PI * 2;
+      const eqSegments = mobile ? 48 : 96;
+      for (let i = 0; i <= eqSegments; i++) {
+        const a = (i / eqSegments) * Math.PI * 2;
         eqPts.push(new THREE.Vector3(Math.cos(a) * EARTH_RADIUS * 1.02, 0, Math.sin(a) * EARTH_RADIUS * 1.02));
       }
       this.earthGroup.add(new THREE.Line(

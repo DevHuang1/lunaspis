@@ -67,7 +67,7 @@
   let toggleSystemsSettingsModal = null, toggleDiagnosticsOverlay = null;
 
   const defaultPerfSettings = {
-    renderScale: isMobile ? 90 : 100,
+    renderScale: isMobile ? 85 : 100,
     cinematicPreset: isMobile ? "off" : "balanced",
     fpsCap: 60,
     lightingQuality: isMobile ? "low" : "high",
@@ -128,8 +128,11 @@
       MIN_RENDER_SCALE,
       Math.min(MAX_RENDER_SCALE, (Number(perfSettings.renderScale) || 100) / 100)
     );
-    const drs = Math.max(0.7, Math.min(1.0, Number(dynamicResolutionMultiplier) || 1.0));
-    return Math.max(0.35, Math.min(MAX_RENDER_SCALE, userScale * drs));
+    // Mobile GPUs hit thermal/fill-rate limits sooner, so allow DRS to fall a
+    // little further before the frame rate becomes visibly unstable.
+    const drsFloor = isMobile ? 0.6 : 0.7;
+    const drs = Math.max(drsFloor, Math.min(1.0, Number(dynamicResolutionMultiplier) || 1.0));
+    return Math.max(isMobile ? 0.3 : 0.35, Math.min(MAX_RENDER_SCALE, userScale * drs));
   }
 
   function applyRenderResolution(w, h) {
@@ -168,11 +171,15 @@
     if (ambLightRef) {
       ambLightRef.intensity = perfSettings.lightingQuality === "low" ? 0.65 : 0.38;
     }
+    if (Array.isArray(window.interiorPointLights)) {
+      interiorPointLights = window.interiorPointLights;
+    }
     if (Array.isArray(interiorPointLights)) {
       interiorPointLights.forEach((pl, idx) => {
+        if (!pl.userData.originalIntensity) pl.userData.originalIntensity = pl.intensity;
         if (perfSettings.lightingQuality === "low") {
           pl.visible = (idx % 2 === 0);
-          pl.intensity = 0.8;
+          pl.intensity = isMobile ? 1.35 : 0.8;
         } else {
           pl.visible = true;
           pl.intensity = pl.userData.originalIntensity || 1.3;
@@ -529,7 +536,9 @@
     });
     window.renderer = renderer;
     renderer.setSize(w, h, false);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isMobile ? 1.25 : 1.75));
+    // 1 CSS pixel per device pixel is the sweet spot on phone GPUs; the DRS
+    // pass can still trade a little more resolution for a steady frame rate.
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isMobile ? 1.0 : 1.75));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.05;
     renderer.outputEncoding = THREE.sRGBEncoding;
@@ -2755,7 +2764,7 @@
         const canSwap = !isSelf && players.length > 1 && (crossZoneOpen || pIsGround === localIsGround);
         const isPending = pendingToIds.has(p.id);
         const remotePeer = net && net.remotePlayers ? net.remotePlayers[p.id] : null;
-        const radioTag = (isSelf ? (window.voiceManager && window.voiceManager.isRadioTransmitting) : (remotePeer && remotePeer.isRadio)) ? " [TX]" : "";
+        const radioTag = (isSelf ? (window.voiceManager && window.voiceManager.isRadioTransmitting) : (remotePeer && remotePeer.isRadio)) ? " [ON AIR]" : "";
         const statusHint = pIsGround
           ? "EARTH"
           : (phase === "gantry" ? (boarded.includes(p.id) ? "ABOARD" : "PAD") : (phase === "station" ? "STATION" : "ORBIT"));
@@ -2814,7 +2823,7 @@
 
       if (!armExtended) {
         const armActor = engHolder && engHolder.id === (net && net.socketId) ? `YOU (${engMeta.short})` : `${engHolder ? engHolder.name : "Crew"} (${engMeta.short})`;
-        callout = `<strong>1. BOARDING BRIDGE:</strong> <strong>${escapeHtml(armActor)}</strong> press [F] at the Boarding Bridge (x=-25.9, z=-6.3) to extend the walkway.`;
+        callout = `<strong>1. BOARDING BRIDGE:</strong> <strong>${escapeHtml(armActor)}</strong> press [F] at the Boarding Bridge (top of the Launch Tower) to swing the walkway out.`;
       } else if (!isMeAboard) {
         callout = `<strong>YOUR TURN:</strong> Walk across the Boarding Bridge &rarr; Press [E] or [B] at the Hatch to get inside (${boarded.length}/${flightPlayers.length} aboard).`;
       } else if (unboarded.length > 0) {

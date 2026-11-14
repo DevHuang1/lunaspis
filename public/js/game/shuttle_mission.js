@@ -123,29 +123,29 @@
       switch (type) {
         case "AUTHORIZE_BURN": return this._authorizeBurn();
         case "OPEN_BAY":
-          if (!["payload", "insertion"].includes(this.phase) || st.regime !== "orbit") return no("Bay doors may only be opened in orbit (after ET separation)");
-          if (this.phase === "insertion" && this.obj.orbit_valid !== "done") return no("Verify a stable orbit before opening the bay");
+          if (!["payload", "insertion"].includes(this.phase) || st.regime !== "orbit") return no("Cargo bay doors only open in space (after the main fuel tank drops)");
+          if (this.phase === "insertion" && this.obj.orbit_valid !== "done") return no("Wait for a steady orbit before opening the cargo bay");
           if (st.bay.doors >= 1) return no("Doors already open");
-          st.bay.cmd = 1; return ok("Payload bay doors opening (≈45 s).");
+          st.bay.cmd = 1; return ok("Cargo bay doors opening (~45 s).");
         case "CLOSE_BAY":
-          if (st.regime !== "orbit") return no("Not in orbit");
-          if (this.phase === "payload" && st.cfg.payload) return no("Satellite still in the bay — deploy it first");
-          if (this.phase === "payload" && this.obj.deploy_verified !== "done") return no("Wait for deployment verification before closing the doors");
+          if (st.regime !== "orbit") return no("Not in space orbit");
+          if (this.phase === "payload" && st.cfg.payload) return no("Satellite is still inside the bay — release it first");
+          if (this.phase === "payload" && this.obj.deploy_verified !== "done") return no("Wait to confirm the satellite drifted clear before closing the doors");
           if (st.bay.doors <= 0) return no("Doors already closed");
-          st.bay.cmd = -1; return ok("Payload bay doors closing.");
+          st.bay.cmd = -1; return ok("Cargo bay doors closing.");
         case "PAYLOAD_POWER":
-          if (this.phase !== "payload") return no("Payload operations not active");
+          if (this.phase !== "payload") return no("Satellite release isn't active right now");
           if (!st.cfg.payload) return no("Satellite already released");
-          if (st.payload.power) return no("Satellite already powered");
-          if (st.bay.doors < 0.99) return no(`Radiators not exposed — open the bay first (doors ${(st.bay.doors * 100).toFixed(0)}%)`);
-          st.payload.power = true; st.payload.checkout = 0; return ok("Satellite power ON — automated checkout running (≈25 s).");
+          if (st.payload.power) return no("Satellite already powered on");
+          if (st.bay.doors < 0.99) return no(`Cooling panels still covered — open the cargo bay first (doors ${(st.bay.doors * 100).toFixed(0)}%)`);
+          st.payload.power = true; st.payload.checkout = 0; return ok("Satellite power ON — automatic health check running (~25 s).");
         case "PAYLOAD_GO":
-          if (this.phase !== "payload") return no("Payload operations not active");
+          if (this.phase !== "payload") return no("Satellite release isn't active right now");
           if (!st.cfg.payload) return no("Satellite already released");
-          if (!st.payload.ready) return no(st.payload.power ? "Checkout still running — wait for READY" : "Satellite not powered yet");
-          if (this.flags.payloadGo) return no("GO already given");
+          if (!st.payload.ready) return no(st.payload.power ? "Health check still running — wait for READY" : "Turn on satellite power first");
+          if (this.flags.payloadGo) return no("Release approval already given");
           this.flags.payloadGo = true; this._done("payload_go");
-          return ok("MS2: satellite checkout reviewed — GO for deploy.");
+          return ok("Specialist approved: satellite passed health check — OK to release.");
         case "DAP_HOLD": {
           if (st.regime !== "orbit") return no("Angle lock only works in orbit");
           if (st.dap.mode === "AUTO") return no("Auto-pilot is currently steering the ship");
@@ -193,24 +193,24 @@
       this._emit("RESTORED", { name });
     }
 
-    // Development/test fixture: applies a preset state. Marks the run as a rehearsal so it can never
-    // award a normal-flight result (the HUD shows REHEARSAL — PRESET STATE).
+    // Development/test fixture: applies a preset state. Marks the run as a practice mode so it can never
+    // award a normal-flight result (the HUD shows PRACTICE MODE — QUICK START).
     applyFixture(label, mutate) {
       mutate(this);
       this.integrity = "rehearsal";
       this._emit("FIXTURE_APPLIED", { label });
-      this._say(`REHEARSAL — PRESET STATE (${label})`, "warn");
+      this._say(`PRACTICE MODE — QUICK START (${label})`, "warn");
     }
 
     _releaseErr() { return S.quat.qAngle(this.st.q, S.lvlh(this.st.r, this.st.v).q); }
     _relRate() { return norm(sub(this.st.w, S.orbitRateBody(this.st))); }
     _releaseChecks() {
       const st = this.st, out = [];
-      if (st.bay.doors < 0.999) out.push(`Bay doors not fully open (${(st.bay.doors * 100).toFixed(0)}%)`);
-      if (!st.payload.ready) out.push(st.payload.power ? "Satellite checkout still running" : "Satellite not powered/checked out");
-      else if (!this.flags.payloadGo) out.push("No GO for deploy yet (Mission Specialist 2 reviews the checkout)");
-      const e = this._releaseErr(); if (e > 10 * DEG) out.push(`Release attitude error ${(e / DEG).toFixed(1)}° (limit 10°): bay to zenith, nose along track`);
-      const w = this._relRate(); if (w > 0.15 * DEG) out.push(`Rotation rate ${(w / DEG).toFixed(2)}°/s (limit 0.15°/s): stabilise first`);
+      if (st.bay.doors < 0.999) out.push(`Cargo bay doors not fully open (${(st.bay.doors * 100).toFixed(0)}%)`);
+      if (!st.payload.ready) out.push(st.payload.power ? "Satellite checkup still running" : "Satellite not powered/checked yet");
+      else if (!this.flags.payloadGo) out.push("No GO to release yet (Specialist reviews the satellite checkup)");
+      const e = this._releaseErr(); if (e > 10 * DEG) out.push(`Aim error ${(e / DEG).toFixed(1)}° (limit 10°): cargo bay straight up, nose forward`);
+      const w = this._relRate(); if (w > 0.15 * DEG) out.push(`Still spinning at ${(w / DEG).toFixed(2)}°/s (limit 0.15°/s): steady it first`);
       return out;
     }
     _retroErr() { return Math.acos(clamp(dot(S.quat.qrot(this.st.q, [0, 0, 1]), scl(unit(this.st.v), -1)), -1, 1)); }
@@ -269,7 +269,7 @@
       this.prev = { r: st.r.slice(), q: st.q.slice() };
       this._done("coast_tig");
       this._emit("COAST", { dt: dtc });
-      this._say(`Coasted ${(dtc / 3600).toFixed(2)} h (two-body propagation; DAP held the LVLH attitude). TIG in 6 min. Point the nose retrograde.`, "info");
+      this._say(`Skipped ahead ${(dtc / 3600).toFixed(2)} h (auto-pilot held steady). Landing burn in 6 min — point the nose backward.`, "info");
       return { accepted: true };
     }
 
@@ -281,23 +281,23 @@
       if (!opp) { this.plan = null; return; }
       const dur = dv * m / S.V.omsF;
       this.plan = { tImp: opp.tImp, tig: opp.tImp - dur / 2, dv, dur, eiGamma: opp.plan.eiGamma, predCross: opp.plan.pred.cross, predRange: opp.plan.pred.rangeErr };
-      this._say(`Deorbit opportunity: TIG at MET ${fmtT(this.plan.tig)}, Δv ${dv.toFixed(1)} m/s retrograde, burn ≈${dur.toFixed(0)} s.`, "info");
+      this._say(`Landing burn window: fires at ${fmtT(this.plan.tig)}, slowing by ${dv.toFixed(1)} m/s backward for ~${dur.toFixed(0)} s.`, "info");
     }
 
     // ------------------------------------------------------------------ warp limits
     _warpLimit() {
       const st = this.st, base = WARP_LIMIT[this.phase] || 1;
-      let max = base, why = `${this.phase} phase`;
-      if (st.burn && st.burn.active) return { max: 4, why: "engine burn in progress" };
+      let max = base, why = `${this.phase} stage`;
+      if (st.burn && st.burn.active) return { max: 4, why: "engine burn running" };
       if (st.burn && st.burn.authorized && !st.burn.complete && st.burn.tig - st.t < 60) return { max: 4, why: "burn within 60 s" };
-      if (this.phase === "payload" && st.payload.released && this.obj.deploy_verified !== "done") return { max: 4, why: "release/separation in progress" };
+      if (this.phase === "payload" && st.payload.released && this.obj.deploy_verified !== "done") return { max: 4, why: "moving away from satellite" };
       if (this.phase === "deorbit" && this.obj.deorbit_burn === "done") {
         const alt = norm(st.r) - S.RE;
-        if (alt < 140e3) return { max: 8, why: "approaching entry interface" };
+        if (alt < 140e3) return { max: 8, why: "about to enter Earth's air" };
       }
-      if (this.phase === "deorbit" && this.plan && !(st.burn && st.burn.authorized) && this.plan.tig - st.t < 120) max = Math.min(max, 4), why = "near TIG";
-      if (this.phase === "insertion" && !(st.burn && st.burn.authorized)) max = Math.min(max, 10), why = "insertion burn not authorized";
-      if (this.phase === "insertion" && st.burn && st.burn.complete) max = 10, why = "orbit verification";
+      if (this.phase === "deorbit" && this.plan && !(st.burn && st.burn.authorized) && this.plan.tig - st.t < 120) max = Math.min(max, 4), why = "near landing burn";
+      if (this.phase === "insertion" && !(st.burn && st.burn.authorized)) max = Math.min(max, 10), why = "orbit boost #2 not approved yet";
+      if (this.phase === "insertion" && st.burn && st.burn.complete) max = 10, why = "checking stable orbit";
       return { max, why };
     }
 

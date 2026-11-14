@@ -3112,7 +3112,7 @@
         ? `
           <div style="display:flex;flex-wrap:wrap;gap:4px 7px;border-top:1px solid rgba(148,163,184,0.18);padding:4px 8px;font-size:7px;letter-spacing:0.3px;color:rgba(148,163,184,0.88);">
             ${includeLocal ? `<span style="display:inline-flex;align-items:center;gap:3px;"><span style="width:5px;height:5px;border-radius:1px;background:#f8fafc;flex:0 0 auto;"></span>YOU</span>` : ""}
-            ${friendLegend.join("") || (!includeLocal ? `<span style="color:rgba(148,163,184,0.7);">AWAITING ORBITAL TELEMETRY</span>` : "")}
+            ${friendLegend.join("") || (!includeLocal ? `<span style="color:rgba(148,163,184,0.7);">WAITING FOR LIVE LOCATION</span>` : "")}
           </div>
         `
         : "";

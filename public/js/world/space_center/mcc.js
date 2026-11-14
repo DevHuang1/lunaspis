@@ -195,7 +195,7 @@
         ctx.fillStyle = "#7dd3fc";
         ctx.font = "900 38px Arial, Helvetica, sans-serif";
         ctx.textAlign = "left";
-        ctx.fillText("MISSION CONTROL · KSC", 26, 50);
+        ctx.fillText("EARTH MISSION CONTROL", 26, 50);
         ctx.font = "700 22px Arial, Helvetica, sans-serif";
         ctx.fillStyle = "#4ade80";
         ctx.fillText("FLIGHT STATUS: GO FOR LAUNCH", 26, 86);
