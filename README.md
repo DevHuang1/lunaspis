@@ -152,7 +152,7 @@ still runs from Pad 39A. Press `T` to return to the gantry and continue boarding
 
 ## 3D Asset Attribution
 
-The constructed ISS interior uses **International Space Station** by [Stephen Mack on Sketchfab](https://sketchfab.com/3d-models/international-space-station-2256c89a089b4ec895bb658b18fa7bbb) as a structural reference. The original model is licensed under [Creative Commons Attribution 4.0](https://creativecommons.org/licenses/by/4.0/) and is retained in `design-reference/iss/`; it is not loaded in the game. The reference credit is also available from the ISS interior HUD.
+The constructed ISS interior uses **International Space Station** by [Stephen Mack on Sketchfab](https://sketchfab.com/3d-models/international-space-station-2256c89a089b4ec895bb658b18fa7bbb) as a structural reference. The original model is licensed under [Creative Commons Attribution 4.0](https://creativecommons.org/licenses/by/4.0/); it is not included in this repository or loaded in the game. The reference credit is also available from the ISS interior HUD.
 
 Module relationships and interior details were also checked against NASA's [station assembly guide](https://www.nasa.gov/international-space-station/international-space-station-assembly-elements/), [Harmony module description](https://www.nasa.gov/international-space-station/harmony-module/) and [ISS tour](https://www.nasa.gov/international-space-station/suni-iss-tour/). The walkable layout is a simplified single-level interpretation, including the Cupola observation area.
 

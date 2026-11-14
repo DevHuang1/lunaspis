@@ -580,6 +580,85 @@
     });
   }
 
+  // Seated driver pose for the open-top NASA car. The astronaut GLB is a
+  // standing humanoid, so the hips stay over the seat while the thighs are
+  // aimed forward, the knees bend over the sill and the hands reach the wheel.
+  const SEATED_SIDES = [
+    { side: 1, upper: "upperarm_L", fore: "forearm_L", hand: "hand_L", thigh: "thigh_L", calf: "calf_L", foot: "foot_L", toe: "toe_L" },
+    { side: -1, upper: "upperarm_R", fore: "forearm_R", hand: "hand_R", thigh: "thigh_R", calf: "calf_R", foot: "foot_R", toe: "toe_R" }
+  ];
+
+  function applySeatedPose(rig, weight, steer = 0) {
+    const T = window.THREE;
+    if (!T || !rig || !rig.bones || !rig.modelContainer || weight <= 0.002) return;
+    const bones = rig.bones;
+    if (!bones.hips || !bones.spine) return;
+
+    rig.root.updateWorldMatrix(true, true);
+    const rootQ = rig.root.getWorldQuaternion(new T.Quaternion());
+    const forward = new T.Vector3(0, 0, 1).applyQuaternion(rootQ);
+    const up = new T.Vector3(0, 1, 0).applyQuaternion(rootQ);
+    const left = new T.Vector3(1, 0, 0).applyQuaternion(rootQ);
+    const xAxis = new T.Vector3(1, 0, 0);
+    const leanBone = (bone, angle) => {
+      if (!bone) return;
+      bone.quaternion.multiply(new T.Quaternion().setFromAxisAngle(xAxis, angle * weight));
+    };
+
+    // Recline the torso against the seat back. The mixer rewrites the spine
+    // quaternions every frame, so this stays a stable relative lean.
+    if (rig.mixer) {
+      leanBone(bones.spine, -0.10);
+      leanBone(bones.spine1, -0.05);
+      leanBone(bones.chest, -0.03);
+    }
+
+    SEATED_SIDES.forEach((limb) => {
+      const thigh = bones[limb.thigh];
+      const calf = bones[limb.calf];
+      const foot = bones[limb.foot];
+      const toe = bones[limb.toe];
+      if (!thigh || !calf || !foot) return;
+
+      const hip = thigh.getWorldPosition(new T.Vector3());
+      const knee = hip.clone()
+        .addScaledVector(forward, 0.38)
+        .addScaledVector(up, -0.02)
+        .addScaledVector(left, limb.side * 0.02);
+      const ankle = knee.clone()
+        .addScaledVector(forward, 0.26)
+        .addScaledVector(up, -0.08);
+      const toeTarget = ankle.clone()
+        .addScaledVector(forward, 0.16)
+        .addScaledVector(up, -0.02);
+
+      aimEmoteBone(thigh, calf, knee, weight);
+      aimEmoteBone(calf, foot, ankle, weight);
+      if (toe) aimEmoteBone(foot, toe, toeTarget, weight);
+    });
+
+    SEATED_SIDES.forEach((limb) => {
+      const upper = bones[limb.upper];
+      const fore = bones[limb.fore];
+      const hand = bones[limb.hand];
+      if (!upper || !fore || !hand) return;
+
+      const shoulder = upper.getWorldPosition(new T.Vector3());
+      const wrist = rig.root.localToWorld(new T.Vector3(
+        limb.side * 0.14 + steer * 0.05,
+        1.19,
+        0.80
+      ));
+      const elbow = shoulder.clone()
+        .addScaledVector(forward, 0.22)
+        .addScaledVector(up, -0.12)
+        .addScaledVector(left, limb.side * 0.05);
+
+      aimEmoteBone(upper, fore, elbow, weight);
+      aimEmoteBone(fore, hand, wrist, weight);
+    });
+  }
+
   let sharedShadowTex = null;
   function getGroundShadowTexture() {
     if (sharedShadowTex) return sharedShadowTex;
@@ -1092,6 +1171,8 @@
         zeroGMoveBlend: 0,
         zeroGT: 0,
         wasZeroG: false,
+        seatedBlend: 0,
+        wasSeated: false,
 
         playEmote: (emoteId) => {
           const def = EMOTE_BY_ID[emoteId];
@@ -1131,13 +1212,20 @@
         /**
          * SpaceShip animation clip switcher & procedural fallback update.
          */
-        updateAnimation: (delta, isMoving = false, isEva = false, isGrounded = true, customAction = null, isZeroG = false, isSprinting = false) => {
+        updateAnimation: (delta, isMoving = false, isEva = false, isGrounded = true, customAction = null, isZeroG = false, isSprinting = false, isSeated = false, seatSteer = 0) => {
           if (rig.emote) {
             rig.emote.elapsed += delta;
             if (rig.emote.elapsed >= rig.emote.def.duration) {
               rig.cancelEmote();
             }
           }
+
+          // Blend into and out of the seated driver pose. A seated crewmate
+          // must not float, so zero-g always wins if both are requested.
+          const seatTarget = isSeated && !isZeroG ? 1 : 0;
+          rig.seatedBlend += (seatTarget - rig.seatedBlend) * Math.min(1, delta * 8);
+          if (rig.seatedBlend < 0.002) rig.seatedBlend = 0;
+          const seated = rig.seatedBlend > 0.01;
 
           // Blend into and out of the floating pose so entering the ISS does
           // not snap the astronaut between a walk cycle and a weightless drift.
@@ -1150,14 +1238,16 @@
 
           // A ground shadow and floor ring would travel through the air with a
           // floating crewmate; hide them until the astronaut is walking again.
-          if (floating) {
+          const hideGroundDecals = floating || seated;
+          if (hideGroundDecals) {
             if (rig.shadowMesh) rig.shadowMesh.visible = false;
             if (rig.accentRing) rig.accentRing.visible = false;
-          } else if (rig.wasZeroG) {
+          } else if (rig.wasZeroG || rig.wasSeated) {
             if (rig.shadowMesh) rig.shadowMesh.visible = true;
             if (rig.accentRing) rig.accentRing.visible = true;
           }
           rig.wasZeroG = floating;
+          rig.wasSeated = seated;
 
           const emoteClip = rig.emote && rig.emote.def.clip ? rig.emote.def.clip : null;
           const emoteSpeed = rig.emote && rig.emote.def.clipSpeed ? rig.emote.def.clipSpeed : 1;
@@ -1205,6 +1295,17 @@
               modelContainer.rotation.x = 0;
               modelContainer.rotation.z = Math.sin(rig.walkTime * 0.7) * 0.01;
             }
+          }
+
+          // Sit the driver in the seat and put their hands on the wheel. This
+          // runs after the mixer so the idle clip still provides subtle torso
+          // motion while the legs and arms hold the driving pose.
+          if (rig.seatedBlend > 0.002) {
+            const seatBlend = rig.seatedBlend;
+            modelContainer.position.y *= (1 - seatBlend);
+            modelContainer.rotation.x *= (1 - seatBlend);
+            modelContainer.rotation.z *= (1 - seatBlend);
+            applySeatedPose(rig, seatBlend, seatSteer);
           }
 
           // Weightless body attitude: a slow drift/roll with a gentle forward

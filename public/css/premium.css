@@ -4622,3 +4622,122 @@ body.shuttle-mode-active #crew-comms-toggle {
     overflow: visible;
   }
 }
+
+/* ============================================================================
+   EARTH CONTROL (LCC) ground-role HUD
+   ========================================================================== */
+.sc-hud-btn.sc-btn-comms {
+  border-color: rgba(56, 189, 248, 0.5);
+  background: rgba(8, 47, 73, 0.82);
+  color: #7dd3fc;
+}
+.sc-hud-btn.sc-btn-comms:hover {
+  border-color: rgba(125, 211, 252, 0.95);
+  color: #e0f2fe;
+}
+
+.sc-ground-role-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 14px;
+  flex-wrap: wrap;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--sc-role-color, #38bdf8) 45%, transparent);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--sc-role-color, #38bdf8) 14%, transparent), transparent 62%),
+    rgba(4, 11, 20, 0.72);
+}
+
+.sc-ground-role-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 260px;
+}
+
+.sc-ground-role-chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: var(--sc-role-color, #38bdf8);
+  color: #04121c;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.sc-ground-role-copy { min-width: 0; }
+
+.sc-ground-role-name {
+  font-size: 10.5px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  color: #f8fafc;
+  white-space: nowrap;
+}
+
+.sc-ground-role-duty {
+  margin-top: 1px;
+  font-size: 8.5px;
+  line-height: 1.25;
+  color: #9fb3c8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sc-ground-role-metrics {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  flex: 0 0 auto;
+}
+
+.sc-ground-role-metrics span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(255, 255, 255, 0.035);
+  color: #8fa4b8;
+  font-size: 8px;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.sc-ground-role-metrics b {
+  color: #e2e8f0;
+  font-size: 9px;
+}
+
+.sc-ground-role-loc {
+  border-color: color-mix(in srgb, var(--sc-role-color, #38bdf8) 45%, transparent) !important;
+  color: var(--sc-role-color, #38bdf8) !important;
+}
+
+@media (max-width: 640px) {
+  .sc-ground-role-duty { white-space: normal; }
+  .sc-ground-role-main { flex-basis: 100%; }
+  .sc-ground-role-metrics { width: 100%; }
+}
+
+.ground-lcc-card.is-role-focus {
+  border-color: rgba(103, 232, 249, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(103, 232, 249, 0.14) inset,
+    0 0 26px rgba(34, 211, 238, 0.08);
+}
+
+.ground-lcc-card.is-role-focus > div:first-child {
+  color: #7dd3fc !important;
+}

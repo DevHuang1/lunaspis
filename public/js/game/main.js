@@ -34,6 +34,8 @@
   window.isMobileDevice = isMobile;
   let userToggledChecklist = false;
   let userToggledTelemetry = false;
+  let lobbyMissionsExpanded = false;
+  let lastLobbyMission = null;
 
   // Dynamic Viewport Width & Height Synchronization (fixes iOS Safari / Chrome Android address bar clipping)
   function getViewportSize() {
@@ -296,6 +298,27 @@
 
   // Remote crew avatars container (socketId -> 3D Object)
   const remoteCrewMeshes = {};
+  // Visual-only open cars for crewmates who are driving (socketId -> 3D Object)
+  const remoteCarMeshes = {};
+  const remoteSeatPosition = new THREE.Vector3();
+  const remoteSeatQuaternion = new THREE.Quaternion();
+
+  /**
+   * Builds (or reuses) the visual car for a remote driver. The local open car
+   * owns physics, input and HUD; remote cars only follow interpolated network
+   * snapshots, so every client can see another player's car on the ground.
+   */
+  function ensureRemoteCarVisual(id, rp) {
+    if (remoteCarMeshes[id]) return remoteCarMeshes[id];
+    if (!rp || !rp.driving) return null;
+    const sourceCar = window.spaceCenterCar;
+    if (!sourceCar || typeof sourceCar.createRemoteVisual !== "function" || !sourceCar.group) return null;
+    const visual = sourceCar.createRemoteVisual();
+    if (!visual) return null;
+    remoteCarMeshes[id] = visual;
+    scene.add(visual);
+    return visual;
+  }
 
   // Camera & Controls state
   let cameraMode = 1;
@@ -1159,6 +1182,12 @@
           remoteCrewMeshes[id].parent.remove(remoteCrewMeshes[id]);
         }
         delete remoteCrewMeshes[id];
+      }
+      for (const id in remoteCarMeshes) {
+        if (remoteCarMeshes[id] && remoteCarMeshes[id].parent) {
+          remoteCarMeshes[id].parent.remove(remoteCarMeshes[id]);
+        }
+        delete remoteCarMeshes[id];
       }
     }
 
@@ -2541,28 +2570,25 @@
     const btnStart = document.getElementById("btn-start-mission");
     if (opsMode === "shuttle_flight") {
       if (selectedLabel) {
-        selectedLabel.textContent = "SPACE SHUTTLE · LAUNCH & RUNWAY LANDING";
+        selectedLabel.textContent = "SHUTTLE · LAUNCH TO LANDING";
       }
       if (hint) {
-        hint.textContent = canSelect
-          ? "HOST PICKS — SPACE SHUTTLE FLIGHT"
-          : "HOST PICKED SPACE SHUTTLE — CREW VIEW";
+        hint.textContent = canSelect ? "HOST PICKS" : "HOST'S PICK";
         hint.style.color = canSelect ? "#67e8f9" : "#9aa4ae";
       }
       if (difficultyContainer) difficultyContainer.style.display = "none";
       if (missionTip) missionTip.style.display = "none";
       if (difficultyHint) difficultyHint.style.display = "none";
+      cards.classList.remove("mission-pick-grid", "is-lobby");
       cards.innerHTML = `
         <div class="shuttle-mode-card">
-          <div class="shuttle-mode-card-title">SPACE SHUTTLE CO-OP FLIGHT · LAUNCH TO RUNWAY LANDING</div>
-          <div class="shuttle-mode-card-desc">
-            Fly into space, release a satellite, dive back through the sky, and steer your Space Shuttle safely onto the landing runway!
-          </div>
+          <div class="shuttle-mode-card-title">SPACE SHUTTLE · CREW FLIGHT</div>
+          <div class="shuttle-mode-card-desc">LAUNCH → ORBIT → LAND</div>
           <div class="shuttle-mode-seats">
-            <div><strong>CAPT</strong> (Commander) · Launch, Re-entry &amp; Wheels</div>
-            <div><strong>PILOT</strong> (Engineer) · Space Engines, Steering &amp; Brakes</div>
-            <div><strong>SPEC 1</strong> (Cargo) · Cargo Doors &amp; Satellite Release</div>
-            <div><strong>SPEC 2</strong> (Science) · Speed-Up Time &amp; Flight Guide</div>
+            <div><strong>CAPT</strong> · LAUNCH · RE-ENTRY · WHEELS</div>
+            <div><strong>PILOT</strong> · ENGINES · STEERING · BRAKES</div>
+            <div><strong>SPEC 1</strong> · CARGO · SATELLITE</div>
+            <div><strong>SPEC 2</strong> · TIME · GUIDE</div>
           </div>
         </div>
       `;
@@ -2576,6 +2602,8 @@
 
     if (difficultyContainer) difficultyContainer.style.display = "flex";
 
+    lastLobbyMission = mission || lastLobbyMission;
+
     const catalog = window.gameplay && typeof window.gameplay.getScenarioCatalog === "function"
       ? window.gameplay.getScenarioCatalog()
       : [];
@@ -2587,55 +2615,67 @@
     const selectedId = (mission && mission.scenarioId) || "lunar_south_pole";
     const selectedDifficultyId = (mission && mission.difficultyId) || "engineer";
     const selected = catalog.find((scenario) => scenario.id === selectedId) || catalog[0];
+    const selectedPresentation = window.gameplay && typeof window.gameplay.getMissionPresentation === "function"
+      ? window.gameplay.getMissionPresentation(selected.id)
+      : { destination: selected.badge, title: selected.code };
 
     if (selectedLabel && selected) {
-      selectedLabel.textContent = `${selected.code} · ${selected.badge}`;
+      selectedLabel.textContent = `${selectedPresentation.destination} · ${selectedPresentation.title}`;
     }
     if (hint) {
-      hint.textContent = canSelect
-        ? "HOST PICKS — CHOOSE MISSION"
-        : "HOST PICKS THE MISSION — CREW VIEW";
+      hint.textContent = canSelect ? "HOST PICKS" : "HOST'S PICK";
       hint.style.color = canSelect ? "#67e8f9" : "#9aa4ae";
     }
 
     if (missionTip) {
-      const flightPlan = "FLIGHT PLAN: board at LC-39A, launch in the Space Shuttle, reach orbit, then dock at the station.";
-      if (selected && selected.tradeoffTip) {
-        missionTip.innerHTML = `<strong>${flightPlan}</strong><br><strong>TRADE-OFF:</strong> ${escapeHtml(selected.tradeoffTip)}`;
-        missionTip.style.display = "block";
-      } else {
-        missionTip.innerHTML = `<strong>${flightPlan}</strong>`;
-        missionTip.style.display = "block";
-      }
+      missionTip.innerHTML = `
+        <span class="lobby-flight-plan">
+          <span class="lobby-flight-plan__label">FLIGHT PLAN</span>
+          <span class="lobby-flight-plan__route">
+            <span>LAUNCH</span><i>→</i><span>ORBIT</span><i>→</i><span>DOCK</span>
+          </span>
+        </span>
+      `;
+      missionTip.style.display = "block";
     }
 
-    cards.innerHTML = catalog.map((scenario) => {
-      const active = scenario.id === selected.id;
-      return `
-        <button type="button" data-scenario-id="${escapeHtml(scenario.id)}" style="
-          flex:1 1 190px;
-          min-width:190px;
-          text-align:left;
-          padding:13px 14px;
-          border-radius:8px;
-          border:1px solid ${active ? "#67e8f9" : "rgba(255,255,255,0.12)"};
-          background:${active ? "rgba(103,232,249,0.10)" : "rgba(255,255,255,0.025)"};
-          color:inherit;
-          font-family:inherit;
-          cursor:${canSelect ? "pointer" : "default"};
-          opacity:${canSelect ? "1" : "0.82"};
-          transition:all 0.15s;
-        ">
-          <div style="font-family:monospace;font-size:10.5px;font-weight:700;color:#67e8f9;letter-spacing:0.9px;">${escapeHtml(scenario.badge)}</div>
-          <div style="font-size:13px;font-weight:700;color:#ece7dc;margin:5px 0 4px;">${escapeHtml(scenario.code)} · ${escapeHtml(scenario.name)}</div>
-          <div style="font-size:11.5px;color:#9aa4ae;line-height:1.48;min-height:48px;">${escapeHtml(scenario.summary)}</div>
-          <div style="display:flex;justify-content:space-between;margin-top:8px;font-family:monospace;font-size:10.5px;color:#7fb8a6;">
-            <span>$${Number(scenario.baseBudgetM || 0)}M CAP</span>
-            <span>${Number(scenario.targetLifetimeMonths || 0)} MO</span>
-          </div>
-        </button>
-      `;
-    }).join("");
+    const starterIds = window.gameplay && typeof window.gameplay.getStarterMissionIds === "function"
+      ? window.gameplay.getStarterMissionIds()
+      : catalog.slice(0, 3).map((scenario) => scenario.id);
+    const starterCount = Math.max(starterIds.length, 1);
+    let visibleIds = lobbyMissionsExpanded
+      ? catalog.map((scenario) => scenario.id)
+      : starterIds.filter((id) => catalog.some((scenario) => scenario.id === id));
+    if (!lobbyMissionsExpanded && selected && !visibleIds.includes(selected.id)) {
+      visibleIds = [selected.id, ...visibleIds.filter((id) => id !== selected.id)].slice(0, starterCount);
+    }
+
+    cards.classList.add("mission-pick-grid", "is-lobby");
+    const cardHtml = visibleIds
+      .map((id) => catalog.find((scenario) => scenario.id === id))
+      .filter(Boolean)
+      .map((scenario) => window.gameplay.renderMissionPickCard(scenario, {
+        active: scenario.id === selected.id,
+        canSelect
+      }))
+      .join("");
+    const moreMissions = catalog.length > starterCount
+      ? `<button type="button" class="mission-pick-more" data-more-missions aria-expanded="${lobbyMissionsExpanded}" aria-controls="lobby-mission-cards">
+          ${lobbyMissionsExpanded
+            ? `SHOW ${starterCount} STARTERS`
+            : `<b>ALL ${catalog.length}</b> MISSIONS`}
+        </button>`
+      : "";
+    cards.innerHTML = `${cardHtml}${moreMissions}`;
+
+    const moreMissionsBtn = cards.querySelector("[data-more-missions]");
+    if (moreMissionsBtn) {
+      moreMissionsBtn.addEventListener("click", () => {
+        lobbyMissionsExpanded = !lobbyMissionsExpanded;
+        if (window.spaceAudio) window.spaceAudio.playClick();
+        renderLobbyMission(lastLobbyMission);
+      });
+    }
 
     if (difficultyRow) {
       difficultyRow.innerHTML = difficulties.map((difficulty) => {
@@ -2660,8 +2700,13 @@
     if (difficultyHint) {
       const chosen = difficulties.find((entry) => entry.id === selectedDifficultyId);
       if (chosen) {
-        const isCadet = chosen.id === "cadet";
-        difficultyHint.innerHTML = `${isCadet ? "<strong>CADET TIP:</strong> " : ""}${escapeHtml(chosen.desc)}`;
+        const compactTips = {
+          cadet: "MORE BUDGET · GENTLE HINTS",
+          engineer: "REAL LIMITS · BALANCED",
+          director: "TIGHT BUDGET · STRICT"
+        };
+        difficultyHint.textContent = compactTips[chosen.id] || chosen.desc;
+        difficultyHint.title = chosen.desc;
         difficultyHint.style.display = "block";
       } else {
         difficultyHint.style.display = "none";
@@ -2698,6 +2743,7 @@
     const title = document.getElementById("briefing-title");
     const meta = document.getElementById("briefing-meta");
     const summary = document.getElementById("briefing-summary");
+    const art = document.getElementById("briefing-art");
     const list = document.getElementById("briefing-objectives");
     const btnBegin = document.getElementById("btn-briefing-begin");
 
@@ -2715,6 +2761,21 @@
     if (summary) {
       summary.textContent = mission.scenarioSummary ||
         "Finish the shared mission steps across the Space Station before launch day.";
+    }
+    if (art) {
+      const showBioStory = mission.scenarioId === "bionutrients_2"
+        && window.gameplay
+        && typeof window.gameplay.renderBioMissionStoryboard === "function";
+      if (showBioStory) {
+        art.innerHTML = `
+          <div class="briefing-bio-art__label">WHAT YOU'LL DO ON THE STATION</div>
+          ${window.gameplay.renderBioMissionStoryboard("briefing")}
+        `;
+        art.style.display = "block";
+      } else {
+        art.innerHTML = "";
+        art.style.display = "none";
+      }
     }
     if (list) {
       const objectives = Array.isArray(mission.objectives) ? mission.objectives : [];
@@ -4137,8 +4198,8 @@
         }
       }
 
-      const desiredX = headX + fullOffsetX * safeFrac;
-      const desiredZ = headZ + fullOffsetZ * safeFrac;
+      let desiredX = headX + fullOffsetX * safeFrac;
+      let desiredZ = headZ + fullOffsetZ * safeFrac;
       const maxCameraHeight = window.shipInterior && window.shipInterior.issInteriorModel && window.shipInterior.group && window.shipInterior.group.visible ? 1.85 : 3.2;
       let camFloorY = py;
       if (window.spaceCenter && window.spaceCenter.isGroundMode && (window.spaceCenter.siteTourActive || (typeof window.spaceCenter._isLocalGroundCrew === "function" && window.spaceCenter._isLocalGroundCrew()))) {
@@ -4147,7 +4208,26 @@
           camFloorY = Math.max(py, terrain.getSurfaceHeightAt(desiredX, desiredZ, py));
         }
       }
-      const desiredY = Math.max(camFloorY + 0.5, Math.min(py + maxCameraHeight, headY + 0.25 + vertOffset * safeFrac));
+      let desiredY = Math.max(camFloorY + 0.5, Math.min(py + maxCameraHeight, headY + 0.25 + vertOffset * safeFrac));
+
+      // Keep the Earth Control third-person camera inside the walkable interior.
+      // Without this it clips through the LCC partitions and the drop ceiling
+      // whenever a ground operator backs up to a wall or turns around at a desk.
+      if (
+        window.spaceCenter &&
+        window.spaceCenter.isGroundMode &&
+        typeof window.spaceCenter.cameraSafePosition === "function"
+      ) {
+        const safe = window.spaceCenter.cameraSafePosition(
+          new THREE.Vector3(headX, headY, headZ),
+          new THREE.Vector3(desiredX, desiredY, desiredZ)
+        );
+        if (safe) {
+          desiredX = safe.x;
+          desiredY = safe.y;
+          desiredZ = safe.z;
+        }
+      }
 
       if (!localCrew.isEva && window.shipInterior && window.shipInterior.issInteriorModel && window.shipInterior.group && window.shipInterior.group.visible && typeof window.shipInterior.cameraClearFraction === "function") {
         const origin = new THREE.Vector3(headX, headY, headZ);
@@ -4161,7 +4241,16 @@
         return;
       }
 
-      camera.position.lerp(new THREE.Vector3(desiredX, desiredY, desiredZ), 0.25);
+      const groundCamera = !!(window.spaceCenter && window.spaceCenter.isGroundMode);
+      const targetCamera = new THREE.Vector3(desiredX, desiredY, desiredZ);
+      if (groundCamera && camera.position.distanceToSquared(targetCamera) > 36) {
+        // Teleports (entering the LCC, site-tour jumps, role swaps) must snap.
+        // Lerping from the pad leaves Earth Control looking at a distant launch
+        // tower for seconds, especially on low-frame-rate machines.
+        camera.position.copy(targetCamera);
+      } else {
+        camera.position.lerp(targetCamera, 0.25);
+      }
       camera.lookAt(headX + sinY * 2.5, headY, headZ + cosY * 2.5);
     }
   }
@@ -4401,9 +4490,16 @@
       // ISS Showcase controls camera orbit & part focus
     } else if (window.shipInterior && window.shipInterior.isMoonLandingActive) {
       // Lunar Touchdown Scene controls camera orbit around Apollo Lunar Module
-    } else if (window.spaceCenter && window.spaceCenter.isGroundMode && window.spaceCenter.crewBoarded) {
+    } else if (
+      window.spaceCenter &&
+      window.spaceCenter.isGroundMode &&
+      window.spaceCenter.crewBoarded &&
+      !(typeof window.spaceCenter._isLocalGroundCrew === "function" && window.spaceCenter._isLocalGroundCrew())
+    ) {
       // Cockpit / pad camera while boarded awaiting launch. Keep the whole
       // stack in frame with an unobstructed view from 90° right (North-East perspective).
+      // Earth Control never boards, so ground operators must always keep their
+      // own LCC first/third-person camera instead of this distant pad shot.
       const t = performance.now() * 0.001;
       camera.position.lerp(
         new THREE.Vector3(96 + Math.cos(t * 0.12) * 5, 46, -72 - Math.sin(t * 0.12) * 5),
@@ -4475,7 +4571,7 @@
               rp.lastColor = rp.color;
               if (typeof rp.rig.setColor === "function") rp.rig.setColor(rp.color);
             }
-            if (typeof rp.rig.updateAnimation === "function") {
+            if (typeof rp.rig.updateAnimation === "function" && !rp.driving) {
               // Network packets — not the interpolated render position — decide
               // whether the crewmate is actually walking. Comparing curPos to
               // targetPos would keep the walk cycle looping while an idle avatar
@@ -4527,16 +4623,17 @@
       const crewInFlight = missionPhase === "launch" || missionPhase === "docking";
 
       const rolesApi = window.InterfellasRoles;
+      const orbitalView = !!(
+        (window.solarSystem && window.solarSystem.isActive) ||
+        (window.missionViz && window.missionViz.isActive) ||
+        (window.issShowcase && window.issShowcase.isActive)
+      );
       for (const id in remoteCrewMeshes) {
         const rp = window.netManager.remotePlayers[id];
         if (!rp) {
           scene.remove(remoteCrewMeshes[id]);
           delete remoteCrewMeshes[id];
-        } else if (
-          (window.solarSystem && window.solarSystem.isActive) ||
-          (window.missionViz && window.missionViz.isActive) ||
-          (window.issShowcase && window.issShowcase.isActive)
-        ) {
+        } else if (orbitalView) {
           remoteCrewMeshes[id].visible = false;
         } else {
           const peerIsGround = rp.team === "ground" || (rolesApi && typeof rolesApi.isGroundRole === "function" && rolesApi.isGroundRole(rp.role));
@@ -4546,6 +4643,47 @@
           } else {
             remoteCrewMeshes[id].visible = !crewInFlight && !boarded && !peerIsGround;
           }
+        }
+      }
+
+      // Each client owns one local car, so remote drivers need a visual-only
+      // clone positioned from their interpolated network pose. The driver's
+      // actual crew rig is seated on the car's seat anchor, so both players see
+      // real human models instead of the placeholder mannequin.
+      const groundView = !!(window.spaceCenter && window.spaceCenter.isGroundMode);
+      for (const id in window.netManager.remotePlayers) {
+        const rp = window.netManager.remotePlayers[id];
+        if (!rp) continue;
+        const car = ensureRemoteCarVisual(id, rp);
+        if (!car) continue;
+        const shouldShow = !!(groundView && !crewInFlight && !orbitalView);
+        car.visible = shouldShow;
+        if (rp.driving && rp.mesh) {
+          if (!shouldShow) {
+            rp.mesh.visible = false;
+          } else if (rp.curPos) {
+            car.position.set(rp.curPos[0], rp.curPos[1], rp.curPos[2]);
+            car.rotation.y = rp.curYaw || 0;
+            car.updateMatrixWorld(true);
+
+            if (rp.rig) {
+              const seat = car.userData.driverSeat || car;
+              seat.getWorldPosition(remoteSeatPosition);
+              seat.getWorldQuaternion(remoteSeatQuaternion);
+              rp.mesh.position.copy(remoteSeatPosition);
+              rp.mesh.quaternion.copy(remoteSeatQuaternion);
+              rp.mesh.visible = true;
+              if (typeof rp.rig.updateAnimation === "function") {
+                rp.rig.updateAnimation(delta, false, false, true, null, false, false, true, 0);
+              }
+            }
+          }
+        }
+      }
+      for (const id in remoteCarMeshes) {
+        if (!window.netManager.remotePlayers[id]) {
+          scene.remove(remoteCarMeshes[id]);
+          delete remoteCarMeshes[id];
         }
       }
     }

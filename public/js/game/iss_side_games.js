@@ -221,17 +221,20 @@
       });
     }
 
+    _seatLabel(seat) {
+      return seat === "arm" ? "ARM" : seat === "latch" ? "LATCH" :
+        seat === "water" ? "WATER" : seat === "climate" ? "CLIMATE" : "OBSERVER";
+    }
+
     _roleSummary(gameId, participants) {
       const nm = window.netManager;
       const myId = nm ? nm.socketId : null;
       const entries = Object.keys(participants || {}).map((id) => participants[id]);
       const mySeat = myId && participants && participants[myId] ? participants[myId].seat : null;
-      const seatLabel = (seat) => seat === "arm" ? "ARM" : seat === "latch" ? "LATCH" :
-        seat === "water" ? "WATER" : seat === "climate" ? "CLIMATE" : "OBSERVER";
       const people = entries.length
-        ? entries.map((p) => `${escapeHtml(p.name || "Crew")} · ${seatLabel(p.seat)}`).join("  |  ")
+        ? entries.map((p) => `${escapeHtml(p.name || "Crew")} · ${this._seatLabel(p.seat)}`).join("  |  ")
         : "WAITING FOR CREW";
-      return { mySeat, people, solo: entries.length <= 1, count: entries.length };
+      return { mySeat, people, solo: entries.length === 1, count: entries.length, entries };
     }
 
     _render() {
@@ -249,11 +252,6 @@
       });
 
       const meta = GAME_META[gameId];
-      const status = state && state.message ? escapeHtml(state.message) : "ESTABLISHING STATION LINK…";
-      const roleLine = role.mySeat
-        ? `<span style="color:#fde68a;font-weight:800;">YOU · ${role.mySeat.toUpperCase()}</span>`
-        : `<span style="color:#94a3b8;">You are observing. Controls unlock when you take a seat.</span>`;
-
       if (!state) {
         this.bodyEl.innerHTML = `
           <div style="padding:26px;text-align:center;color:#94a3b8;font-size:12px;">
@@ -263,83 +261,289 @@
       }
 
       if (gameId === "canadarm") {
-        const solo = role.solo;
-        const canArm = solo || role.mySeat === "arm";
-        const canLatch = solo || role.mySeat === "latch";
-        const captured = !!state.captured;
-        this.bodyEl.innerHTML = `
-          <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:9px;">
-            <div style="font-size:10px;color:#cbd5e1;">${roleLine}</div>
-            <div style="font-size:10px;color:#67e8f9;">TEAM: ${escapeHtml(role.people)}</div>
-          </div>
-          <canvas id="iss-canadarm-canvas" width="680" height="270" style="width:100%;height:270px;border-radius:8px;border:1px solid rgba(103,232,249,0.25);background:#040a14;display:block;"></canvas>
-          <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:9px;font-size:10.5px;color:#cbd5e1;">
-            <span>ARM YAW <b style="color:#67e8f9;">${Number(state.yaw).toFixed(1)}°</b> · EXTEND <b style="color:#67e8f9;">${(Number(state.extend) * 100).toFixed(0)}%</b></span>
-            <span>TARGET <b style="color:#fde047;">${Number(state.targetYaw).toFixed(1)}° / ${(Number(state.targetExtend) * 100).toFixed(0)}%</b> · CAPTURES <b style="color:#86efac;">${state.captures || 0}</b></span>
-          </div>
-          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:7px;margin-top:11px;">
-            <button type="button" data-side-action="arm_left" ${canArm && !captured ? "" : "disabled"} style="${this._btnStyle(canArm && !captured, "#67e8f9")}">◀ ROTATE [A]</button>
-            <button type="button" data-side-action="arm_right" ${canArm && !captured ? "" : "disabled"} style="${this._btnStyle(canArm && !captured, "#67e8f9")}">ROTATE ▶ [D]</button>
-            <button type="button" data-side-action="arm_out" ${canArm && !captured ? "" : "disabled"} style="${this._btnStyle(canArm && !captured, "#67e8f9")}">EXTEND [W]</button>
-            <button type="button" data-side-action="arm_in" ${canArm && !captured ? "" : "disabled"} style="${this._btnStyle(canArm && !captured, "#67e8f9")}">RETRACT [S]</button>
-          </div>
-          <div style="display:grid;grid-template-columns:2fr 1fr;gap:7px;margin-top:7px;">
-            <button type="button" data-side-action="latch" ${canLatch && !captured ? "" : "disabled"} style="${this._btnStyle(canLatch && !captured, "#fde047")}">LATCH [SPACE]</button>
-            <button type="button" data-side-action="reset" style="${this._btnStyle(true, "#94a3b8")}">RESET [R]</button>
-          </div>
-          <div style="margin-top:10px;padding:9px 11px;border-radius:6px;background:rgba(15,23,42,0.8);border:1px solid rgba(148,163,184,0.16);font-size:10.5px;color:${captured ? "#86efac" : "#fde68a"};">${status}</div>
-          <div style="margin-top:8px;font-size:9.5px;color:#64748b;">Two-person crew: one arm operator, one latch operator. Solo crew can use every control.</div>
-        `;
-        this._drawCanadarm(state);
+        this._renderCanadarm(state, role);
       } else {
-        const solo = role.solo;
-        const canWater = solo || role.mySeat === "water";
-        const canClimate = solo || role.mySeat === "climate";
-        const busy = state.completed || state.failed;
-        this.bodyEl.innerHTML = `
-          <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:9px;">
-            <div style="font-size:10px;color:#cbd5e1;">${roleLine}</div>
-            <div style="font-size:10px;color:#86efac;">TEAM: ${escapeHtml(role.people)}</div>
-          </div>
-          <canvas id="iss-tomato-canvas" width="680" height="220" style="width:100%;height:220px;border-radius:8px;border:1px solid rgba(74,222,128,0.25);background:#040a14;display:block;"></canvas>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px;font-size:10px;">
-            ${this._bar("WATER", state.water, "#38bdf8", 55)}
-            ${this._bar("LIGHT", state.light, "#fde047", 65)}
-            ${this._bar("TEMP", state.temp, "#fb7185", 45)}
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;font-size:10px;">
-            ${this._bar("GROWTH", state.growth, "#4ade80", 100)}
-            ${this._bar("HEALTH", state.health, "#a7f3d0", 100)}
-          </div>
-          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:11px;">
-            <button type="button" data-side-action="water_down" ${canWater && !busy ? "" : "disabled"} style="${this._btnStyle(canWater && !busy, "#38bdf8")}">WATER − [A]</button>
-            <button type="button" data-side-action="water_up" ${canWater && !busy ? "" : "disabled"} style="${this._btnStyle(canWater && !busy, "#38bdf8")}">WATER + [D]</button>
-            <button type="button" data-side-action="light_down" ${canClimate && !busy ? "" : "disabled"} style="${this._btnStyle(canClimate && !busy, "#fde047")}">LIGHT − [S]</button>
-            <button type="button" data-side-action="light_up" ${canClimate && !busy ? "" : "disabled"} style="${this._btnStyle(canClimate && !busy, "#fde047")}">LIGHT + [W]</button>
-          </div>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:7px;">
-            <button type="button" data-side-action="temp_down" ${canClimate && !busy ? "" : "disabled"} style="${this._btnStyle(canClimate && !busy, "#fb7185")}">TEMP − [Q]</button>
-            <button type="button" data-side-action="temp_up" ${canClimate && !busy ? "" : "disabled"} style="${this._btnStyle(canClimate && !busy, "#fb7185")}">TEMP + [E]</button>
-            <button type="button" data-side-action="reset" style="${this._btnStyle(true, "#94a3b8")}">RESET [R]</button>
-          </div>
-          <div style="margin-top:10px;padding:9px 11px;border-radius:6px;background:rgba(15,23,42,0.8);border:1px solid rgba(148,163,184,0.16);font-size:10.5px;color:${state.completed ? "#86efac" : state.failed ? "#fca5a5" : "#fde68a"};">${status}</div>
-          <div style="margin-top:8px;font-size:9.5px;color:#64748b;">Two-person crew: one water operator, one climate operator. Keep each bar in its green band.</div>
-        `;
-        this._drawTomato(state);
+        this._renderTomato(state, role);
       }
     }
 
-    _btnStyle(enabled, color) {
-      return `padding:9px 8px;border-radius:5px;border:1px solid ${enabled ? color : "rgba(148,163,184,0.15)"};background:${enabled ? "rgba(15,23,42,0.85)" : "rgba(15,23,42,0.4)"};color:${enabled ? color : "#475569"};font-family:inherit;font-size:10px;font-weight:800;cursor:${enabled ? "pointer" : "not-allowed"};`;
+    _renderCanadarm(state, role) {
+      const yaw = Number(state.yaw) || 0;
+      const extend = Number(state.extend) || 0;
+      const targetYaw = Number(state.targetYaw) || 0;
+      const targetExtend = Number(state.targetExtend) || 0;
+      const yawError = Math.abs(yaw - targetYaw);
+      const extendError = Math.abs(extend - targetExtend);
+      const yawOk = yawError <= 4;
+      const extendOk = extendError <= 0.05;
+      const captured = !!state.captured;
+      const hasSeat = role.solo || (role.mySeat && role.mySeat !== "observer");
+      const canArm = role.solo || role.mySeat === "arm";
+      const canLatch = role.solo || role.mySeat === "latch";
+
+      let prompt = "CARGO SECURED";
+      let sub = "<b>RESET</b> FOR A NEW TARGET";
+      if (!captured && !hasSeat) {
+        prompt = "OBSERVER";
+        sub = role.count ? "BOTH SEATS FILLED" : "WAITING FOR CREW";
+      } else if (!captured && !yawOk) {
+        prompt = `ROTATE ${targetYaw >= yaw ? "RIGHT" : "LEFT"}`;
+        sub = `<b>${role.solo ? "SOLO" : "ARM SEAT"}</b> · A / D`;
+      } else if (!captured && !extendOk) {
+        prompt = targetExtend >= extend ? "EXTEND INTO RING" : "RETRACT INTO RING";
+        sub = `<b>${role.solo ? "SOLO" : "ARM SEAT"}</b> · W / S`;
+      } else if (!captured) {
+        prompt = "LATCH NOW";
+        sub = `<b>${role.solo ? "SOLO" : "LATCH SEAT"}</b> · SPACE`;
+      }
+
+      const stepAlign = captured || yawOk ? "is-done" : "is-active";
+      const stepExtend = captured || (yawOk && extendOk) ? "is-done" : yawOk ? "is-active" : "";
+      const stepLatch = captured ? "is-done" : yawOk && extendOk ? "is-active" : "";
+      const armSuggestion = !captured && canArm
+        ? (!yawOk ? (targetYaw >= yaw ? "arm_right" : "arm_left") : !extendOk ? (targetExtend >= extend ? "arm_out" : "arm_in") : "")
+        : "";
+      const latchSuggestion = !captured && canLatch && yawOk && extendOk ? "latch" : "";
+
+      const rawStatus = this.lastError || state.message || "";
+      const statusText = this.lastError
+        ? escapeHtml(this.lastError)
+        : captured
+          ? "CAPTURE CONFIRMED"
+          : /MISS/i.test(rawStatus)
+            ? "MISS · TRY AGAIN"
+            : "";
+      const statusClass = captured ? "is-good" : /MISS|FAIL|LOST/i.test(rawStatus) ? "is-bad" : "";
+
+      this.bodyEl.innerHTML = `
+        ${this._crewHeader(role)}
+        <div class="sg-goal" style="--sg-accent:#67e8f9;">
+          <div class="sg-goal-copy" aria-live="polite">
+            <span class="sg-kicker">YOUR NEXT MOVE</span>
+            <strong class="sg-prompt">${prompt}</strong>
+            <span class="sg-sub">${sub}</span>
+          </div>
+          <div class="sg-steps">
+            ${this._stepCard("1", "ALIGN", "align", stepAlign)}
+            ${this._stepCard("2", "EXTEND", "extend", stepExtend)}
+            ${this._stepCard("3", "LATCH", "latch", stepLatch)}
+          </div>
+        </div>
+        <canvas id="iss-canadarm-canvas" class="sg-canvas" width="680" height="270"></canvas>
+        <div class="sg-readout">
+          <span>YAW <b>${yaw.toFixed(1)}°</b> · EXT <b>${(extend * 100).toFixed(0)}%</b></span>
+          <span class="is-target">TARGET ${targetYaw.toFixed(1)}° / ${(targetExtend * 100).toFixed(0)}% · CAPTURES <b>${state.captures || 0}</b></span>
+        </div>
+        <div class="sg-controls sg-controls--arm">
+          <div class="sg-control-group${canArm ? " is-yours" : ""}">
+            <div class="sg-control-group__label"><span>ARM</span><b>${role.solo ? "SOLO" : canArm ? "YOURS" : "CREW"}</b></div>
+            <div class="sg-control-row">
+              <button type="button" class="sg-btn${armSuggestion === "arm_left" ? " is-suggested" : ""}" data-side-action="arm_left" ${canArm && !captured ? "" : "disabled"}>ROTATE ◀ [A]</button>
+              <button type="button" class="sg-btn${armSuggestion === "arm_right" ? " is-suggested" : ""}" data-side-action="arm_right" ${canArm && !captured ? "" : "disabled"}>ROTATE ▶ [D]</button>
+              <button type="button" class="sg-btn${armSuggestion === "arm_out" ? " is-suggested" : ""}" data-side-action="arm_out" ${canArm && !captured ? "" : "disabled"}>EXTEND [W]</button>
+              <button type="button" class="sg-btn${armSuggestion === "arm_in" ? " is-suggested" : ""}" data-side-action="arm_in" ${canArm && !captured ? "" : "disabled"}>RETRACT [S]</button>
+            </div>
+          </div>
+          <div class="sg-control-group${canLatch ? " is-yours" : ""}">
+            <div class="sg-control-group__label"><span>LATCH</span><b>${role.solo ? "SOLO" : canLatch ? "YOURS" : "CREW"}</b></div>
+            <div class="sg-control-row">
+              <button type="button" class="sg-btn sg-btn--wide${latchSuggestion === "latch" ? " is-suggested" : ""}" data-side-action="latch" ${canLatch && !captured ? "" : "disabled"}>LATCH [SPACE]</button>
+              <button type="button" class="sg-btn sg-btn--wide" data-side-action="reset">RESET [R]</button>
+            </div>
+          </div>
+        </div>
+        ${statusText ? `<div class="sg-status ${statusClass}" title="${escapeHtml(rawStatus)}">${statusText}</div>` : ""}
+      `;
+      this._drawCanadarm(state);
     }
 
-    _bar(label, value, color, ideal) {
+    _renderTomato(state, role) {
+      const water = Math.max(0, Math.min(100, Number(state.water) || 0));
+      const light = Math.max(0, Math.min(100, Number(state.light) || 0));
+      const temp = Math.max(0, Math.min(100, Number(state.temp) || 0));
+      const growth = Math.max(0, Math.min(100, Number(state.growth) || 0));
+      const health = Math.max(0, Math.min(100, Number(state.health) || 0));
+      const waterOk = Math.abs(water - 55) <= 14;
+      const lightOk = Math.abs(light - 65) <= 14;
+      const tempOk = Math.abs(temp - 45) <= 12;
+      const allOk = waterOk && lightOk && tempOk;
+      const completed = !!state.completed;
+      const failed = !!state.failed;
+      const busy = completed || failed;
+      const canWater = role.solo || role.mySeat === "water";
+      const canClimate = role.solo || role.mySeat === "climate";
+
+      const waterIssue = waterOk ? "" : water < 55 ? "WATER UP" : "WATER DOWN";
+      const lightIssue = lightOk ? "" : light < 65 ? "LIGHT UP" : "LIGHT DOWN";
+      const tempIssue = tempOk ? "" : temp < 45 ? "TEMP UP" : "TEMP DOWN";
+      let myIssue = "";
+      let myIssueKey = "";
+      if (!role.solo && role.mySeat === "water" && waterIssue) {
+        myIssue = waterIssue;
+        myIssueKey = "A / D";
+      } else if (!role.solo && role.mySeat === "climate") {
+        if (lightIssue) {
+          myIssue = lightIssue;
+          myIssueKey = "W / S";
+        } else if (tempIssue) {
+          myIssue = tempIssue;
+          myIssueKey = "Q / E";
+        }
+      }
+      const teamIssue = waterIssue || lightIssue || tempIssue;
+      const activeIssue = myIssue || teamIssue;
+      const activeKey = myIssue ? myIssueKey : waterIssue ? "A / D" : lightIssue ? "W / S" : "Q / E";
+      const activeSeat = myIssue ? this._seatLabel(role.mySeat) : waterIssue ? "WATER" : "CLIMATE";
+
+      let prompt = "HOLD STEADY";
+      let sub = `<b>GROWING</b> · ${growth.toFixed(0)}%`;
+      if (completed) {
+        prompt = "HARVEST READY";
+        sub = "<b>RESET</b> FOR A NEW BATCH";
+      } else if (failed) {
+        prompt = "BATCH LOST";
+        sub = "<b>RESET</b> TO RETRY";
+      } else if (activeIssue) {
+        prompt = activeIssue;
+        sub = `<b>${role.solo ? "SOLO" : `${activeSeat} SEAT`}</b> · ${activeKey}`;
+      }
+
+      const waterDone = waterOk || completed;
+      const climateDone = (lightOk && tempOk) || completed;
+      const stepWater = waterDone ? "is-done" : !busy ? "is-active" : "";
+      const stepClimate = climateDone ? "is-done" : waterDone && !busy ? "is-active" : "";
+      const stepGrow = completed ? "is-done" : waterDone && climateDone && !failed ? "is-active" : "";
+      const suggestWater = !busy && canWater ? (water < 41 ? "water_up" : water > 69 ? "water_down" : "") : "";
+      const suggestLight = !busy && canClimate ? (light < 51 ? "light_up" : light > 79 ? "light_down" : "") : "";
+      const suggestTemp = !busy && canClimate ? (temp < 33 ? "temp_up" : temp > 57 ? "temp_down" : "") : "";
+
+      const rawStatus = this.lastError || state.message || "";
+      const statusText = this.lastError
+        ? escapeHtml(this.lastError)
+        : completed
+          ? "HARVEST COMPLETE"
+          : failed
+            ? "BATCH LOST"
+            : "";
+
+      this.bodyEl.innerHTML = `
+        ${this._crewHeader(role)}
+        <div class="sg-goal" style="--sg-accent:#4ade80;">
+          <div class="sg-goal-copy" aria-live="polite">
+            <span class="sg-kicker">YOUR NEXT MOVE</span>
+            <strong class="sg-prompt">${prompt}</strong>
+            <span class="sg-sub">${sub}</span>
+          </div>
+          <div class="sg-steps">
+            ${this._stepCard("1", "WATER", "water", stepWater)}
+            ${this._stepCard("2", "CLIMATE", "climate", stepClimate)}
+            ${this._stepCard("3", "GROW", "grow", stepGrow)}
+          </div>
+        </div>
+        <canvas id="iss-tomato-canvas" class="sg-canvas sg-canvas--tomato" width="680" height="220"></canvas>
+        <div class="sg-gauges">
+          ${this._gauge("WATER", water, 55, 14, "#38bdf8", "A / D")}
+          ${this._gauge("LIGHT", light, 65, 14, "#fde047", "W / S")}
+          ${this._gauge("TEMP", temp, 45, 12, "#fb7185", "Q / E")}
+        </div>
+        <div class="sg-meters">
+          ${this._meter("GROWTH", growth, "#4ade80")}
+          ${this._meter("HEALTH", health, "#a7f3d0")}
+        </div>
+        <div class="sg-controls">
+          <div class="sg-control-group${canWater ? " is-yours" : ""}">
+            <div class="sg-control-group__label"><span>WATER</span><b>${role.solo ? "SOLO" : canWater ? "YOURS" : "CREW"}</b></div>
+            <div class="sg-control-row">
+              <button type="button" class="sg-btn${suggestWater === "water_down" ? " is-suggested" : ""}" data-side-action="water_down" ${canWater && !busy ? "" : "disabled"}>WATER − [A]</button>
+              <button type="button" class="sg-btn${suggestWater === "water_up" ? " is-suggested" : ""}" data-side-action="water_up" ${canWater && !busy ? "" : "disabled"}>WATER + [D]</button>
+            </div>
+          </div>
+          <div class="sg-control-group${canClimate ? " is-yours" : ""}">
+            <div class="sg-control-group__label"><span>CLIMATE</span><b>${role.solo ? "SOLO" : canClimate ? "YOURS" : "CREW"}</b></div>
+            <div class="sg-control-row">
+              <button type="button" class="sg-btn${suggestLight === "light_down" ? " is-suggested" : ""}" data-side-action="light_down" ${canClimate && !busy ? "" : "disabled"}>LIGHT − [S]</button>
+              <button type="button" class="sg-btn${suggestLight === "light_up" ? " is-suggested" : ""}" data-side-action="light_up" ${canClimate && !busy ? "" : "disabled"}>LIGHT + [W]</button>
+              <button type="button" class="sg-btn${suggestTemp === "temp_down" ? " is-suggested" : ""}" data-side-action="temp_down" ${canClimate && !busy ? "" : "disabled"}>TEMP − [Q]</button>
+              <button type="button" class="sg-btn${suggestTemp === "temp_up" ? " is-suggested" : ""}" data-side-action="temp_up" ${canClimate && !busy ? "" : "disabled"}>TEMP + [E]</button>
+              <button type="button" class="sg-btn sg-btn--wide" data-side-action="reset">RESET [R]</button>
+            </div>
+          </div>
+        </div>
+        ${statusText ? `<div class="sg-status ${completed ? "is-good" : "is-bad"}" title="${escapeHtml(rawStatus)}">${statusText}</div>` : ""}
+      `;
+      this._drawTomato(state);
+    }
+
+    _crewHeader(role) {
+      const seated = role.mySeat && role.mySeat !== "observer";
+      const myLabel = role.solo ? "SOLO · BOTH CONTROLS" : seated ? `YOU · ${this._seatLabel(role.mySeat)}` : "OBSERVER";
+      const chips = (role.entries || []).map((p) => `
+        <span class="sg-crew-chip"><b>${this._seatLabel(p.seat)}</b>${escapeHtml(p.name || "CREW")}</span>
+      `).join("");
+      return `
+        <div class="sg-head">
+          <span class="sg-you${role.solo || seated ? "" : " is-dim"}">${myLabel}</span>
+          <span class="sg-team">${chips || "WAITING FOR CREW"}</span>
+        </div>
+      `;
+    }
+
+    _stepCard(num, label, icon, stateClass) {
+      return `
+        <span class="sg-step ${stateClass}">
+          <span class="sg-step__num">${num}</span>
+          ${this._stepIcon(icon)}
+          <span class="sg-step__label">${label}</span>
+        </span>
+      `;
+    }
+
+    _stepIcon(kind) {
+      if (kind === "align") {
+        return `<svg class="sg-step__icon" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M4 10a6 6 0 1 1 2.2 4.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M3 6v5h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+      }
+      if (kind === "extend") {
+        return `<svg class="sg-step__icon" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M2 9h12M10 5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+      }
+      if (kind === "latch") {
+        return `<svg class="sg-step__icon" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M5 3v6a2 2 0 0 0 4 0V3M5 8h4M11 5l3 4-3 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+      }
+      if (kind === "water") {
+        return `<svg class="sg-step__icon" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M9 2c3 4 5 6.2 5 9a5 5 0 0 1-10 0c0-2.8 2-5 5-9Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>`;
+      }
+      if (kind === "climate") {
+        return `<svg class="sg-step__icon" viewBox="0 0 18 18" fill="none" aria-hidden="true"><circle cx="9" cy="9" r="3" stroke="currentColor" stroke-width="1.4"/><path d="M9 1.5v2M9 14.5v2M1.5 9h2M14.5 9h2M3.7 3.7l1.4 1.4M12.9 12.9l1.4 1.4M14.3 3.7l-1.4 1.4M5.1 12.9l-1.4 1.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>`;
+      }
+      return `<svg class="sg-step__icon" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M9 16V8M9 11c-2.8 0-4.5-1.8-4.5-4.2C7.3 6.8 9 8.2 9 11ZM9 10c2.8 0 4.5-1.8 4.5-4.2C10.7 5.8 9 7.2 9 10Z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    }
+
+    _gauge(label, value, center, half, color, keys) {
       const pct = Math.max(0, Math.min(100, Number(value) || 0));
-      const inBand = Math.abs(pct - ideal) <= (ideal === 100 ? 100 : 14);
-      return `<div style="padding:7px 8px;border-radius:5px;background:rgba(15,23,42,0.7);border:1px solid ${inBand ? "rgba(74,222,128,0.35)" : "rgba(251,191,36,0.3)"};">
-        <div style="display:flex;justify-content:space-between;color:${inBand ? "#bbf7d0" : "#fde68a"};font-weight:800;"><span>${label}</span><span>${pct.toFixed(0)}%</span></div>
-        <div style="height:5px;border-radius:3px;background:rgba(148,163,184,0.16);margin-top:4px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:${color};"></div></div>
-      </div>`;
+      const inBand = Math.abs(pct - center) <= half;
+      const start = Math.max(0, center - half);
+      const end = Math.min(100, center + half);
+      return `
+        <div class="sg-gauge ${inBand ? "is-in" : "is-out"}" style="--band-start:${start}%;--band-end:${end}%;--value:${pct}%;--gauge-color:${color};">
+          <div class="sg-gauge__head"><span>${label}</span><b>${pct.toFixed(0)}%</b></div>
+          <span class="sg-gauge__keys">${keys}</span>
+          <div class="sg-gauge__track">
+            <span class="sg-gauge__band"></span>
+            <span class="sg-gauge__fill"></span>
+            <span class="sg-gauge__needle"></span>
+          </div>
+          <span class="sg-gauge__state">${inBand ? "IN BAND" : "ADJUST"}</span>
+        </div>
+      `;
+    }
+
+    _meter(label, value, color) {
+      const pct = Math.max(0, Math.min(100, Number(value) || 0));
+      return `
+        <div class="sg-meter">
+          <div class="sg-meter__head"><span>${label}</span><b>${pct.toFixed(0)}%</b></div>
+          <div class="sg-meter__track"><div class="sg-meter__fill" style="--value:${pct}%;--meter-color:${color};"></div></div>
+        </div>
+      `;
     }
 
     _drawCanadarm(state) {
@@ -392,6 +596,35 @@
       ctx.font = "11px monospace";
       ctx.fillText("CARGO", target.x - 18, target.y + 33);
 
+      // Dashed guide shows the arm tip the way into the capture ring.
+      if (!state.captured) {
+        const dx = target.x - arm.x;
+        const dy = target.y - arm.y;
+        const gap = Math.hypot(dx, dy);
+        if (gap > 34) {
+          ctx.save();
+          ctx.strokeStyle = "rgba(253,224,71,0.38)";
+          ctx.fillStyle = "rgba(253,224,71,0.75)";
+          ctx.lineWidth = 1.2;
+          ctx.setLineDash([3, 4]);
+          ctx.beginPath();
+          ctx.moveTo(arm.x, arm.y);
+          ctx.lineTo(target.x - (dx / gap) * 22, target.y - (dy / gap) * 22);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          const arrowAngle = Math.atan2(dy, dx);
+          const tipX = target.x - (dx / gap) * 22;
+          const tipY = target.y - (dy / gap) * 22;
+          ctx.beginPath();
+          ctx.moveTo(tipX, tipY);
+          ctx.lineTo(tipX - Math.cos(arrowAngle - 0.5) * 7, tipY - Math.sin(arrowAngle - 0.5) * 7);
+          ctx.lineTo(tipX - Math.cos(arrowAngle + 0.5) * 7, tipY - Math.sin(arrowAngle + 0.5) * 7);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
       // Arm
       ctx.strokeStyle = "#d7e3eb";
       ctx.lineWidth = 9;
@@ -430,7 +663,7 @@
       ctx.font = "11px monospace";
       ctx.fillText("CANADARM2", 14, 20);
       ctx.fillStyle = "#94a3b8";
-      ctx.fillText("MOVE INTO THE YELLOW ENVELOPE", 14, 36);
+      ctx.fillText("ENTER YELLOW RING", 14, 36);
       if (state.captured) {
         ctx.fillStyle = "#4ade80";
         ctx.font = "bold 15px monospace";

@@ -824,12 +824,13 @@ function groundSpawnFor(index = 0) {
 }
 
 function groundSpawnLccFor(index = 0) {
-  // Open aisle inside LCC Firing Room facing North Launch Wall Screen & LC-39A.
+  // Open aisle inside LCC Firing Room, one slot behind each operator station,
+  // facing the North Launch Wall Screen, console monitors, and LC-39A.
   const slots = [
+    [-208.3, 0.25, 185.5],
+    [-197.7, 0.25, 185.5],
     [-204.5, 0.25, 185.5],
-    [-201.0, 0.25, 185.5],
-    [-206.0, 0.25, 185.5],
-    [-199.5, 0.25, 185.5]
+    [-201.0, 0.25, 185.5]
   ];
   return slots[index % slots.length].slice();
 }
@@ -849,7 +850,8 @@ function stationSpawnFor(index = 0) {
 
 function spawnForRoomPhase(room, index = 0, role = "commander") {
   if (getTeamForRole(role) === "ground") {
-    return groundSpawnLccFor(index);
+    const roleSlot = normalizeRoleId(role, "commander") === "ground_capcom" ? 1 : 0;
+    return groundSpawnLccFor(roleSlot);
   }
   const phase = room && room.mission ? room.mission.phase : "gantry";
   if (phase === "station" || phase === "docking") {
@@ -1450,13 +1452,13 @@ function serializeSwapRequests(room) {
 function repositionPlayersForGantry(room) {
   if (!room || !room.players) return;
   let flightIdx = 0;
-  let groundIdx = 0;
   Object.values(room.players).forEach((p) => {
     const team = getTeamForRole(p.role);
     p.team = team;
     if (team === "ground") {
-      p.pos = groundSpawnLccFor(groundIdx++);
-      p.yaw = 0;
+      const roleSlot = normalizeRoleId(p.role, "commander") === "ground_capcom" ? 1 : 0;
+      p.pos = groundSpawnLccFor(roleSlot);
+      p.yaw = Math.PI;
       if (room.mission && room.mission.boarded) {
         delete room.mission.boarded[p.id];
       }
@@ -1467,6 +1469,7 @@ function repositionPlayersForGantry(room) {
     p.pitch = 0;
     p.isEva = false;
     p.sprinting = false;
+    p.driving = false;
   });
 }
 
@@ -1637,6 +1640,7 @@ io.on("connection", (socket) => {
       pitch: 0,
       isEva: false,
       suitLights: true,
+      driving: false,
       tasksDone: 0
     };
 
@@ -1746,12 +1750,13 @@ io.on("connection", (socket) => {
       isHost: room.hostId === socket.id,
       ready: false,
       pos: spawnForRoomPhase(room, Object.keys(room.players).length, role),
-      yaw: (team === "ground" || !room.mission || room.mission.phase === "gantry" || room.mission.phase === "launch")
-        ? 0
-        : Math.PI,
+      yaw: (team === "ground")
+        ? Math.PI
+        : ((!room.mission || room.mission.phase === "gantry" || room.mission.phase === "launch") ? 0 : Math.PI),
       pitch: 0,
       isEva: false,
       suitLights: true,
+      driving: false,
       tasksDone: 0
     };
 
@@ -2379,6 +2384,7 @@ io.on("connection", (socket) => {
     if (typeof data.suitLights === "boolean") p.suitLights = data.suitLights;
     if (typeof data.sprinting === "boolean") p.sprinting = data.sprinting;
     if (typeof data.moving === "boolean") p.moving = data.moving;
+    if (typeof data.driving === "boolean") p.driving = data.driving;
 
     socket.to(currentRoomId).volatile.emit("player_moved", {
       id: socket.id,
@@ -2389,7 +2395,8 @@ io.on("connection", (socket) => {
       isEva: p.isEva,
       suitLights: p.suitLights,
       sprinting: !!p.sprinting,
-      moving: p.moving
+      moving: p.moving,
+      driving: !!p.driving
     });
   });
 
