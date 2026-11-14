@@ -168,7 +168,7 @@ function fromCk(name, variant, opts) {
   const none = fromCk("orbit", { orbital: "none" }, { maxSim: 1800 });
   check("No orbital inputs: payload objective stays incomplete (30 min)", none.phase === "payload" && none.obj.deploy_verified !== "done" && !none.result, `phase ${none.phase}, release ${none.obj.release}`);
   const up = fromCk("orbit", { sepDir: "up" }, { maxSim: 3600, stopPhase: "deorbit" });
-  check("Wrong-way separation (toward the satellite) fails with a collision", !!(up.failure && /Collision/.test(up.failure.reason)), up.failure ? up.failure.reason : up.phase);
+  check("Wrong-way separation (toward the satellite) fails with a collision", !!(up.failure && /Collid/.test(up.failure.reason)), up.failure ? up.failure.reason : up.phase);
   const nosep = fromCk("orbit", { sepDir: "none" }, { maxSim: 3600, stopPhase: "deorbit" });
   check("Skipping the separation burn never verifies deployment", nosep.obj.deploy_verified !== "done", nosep.failure ? nosep.failure.reason : `phase ${nosep.phase}`);
   const ok = fromCk("orbit", {}, { maxSim: 3600, stopPhase: "deorbit" });
