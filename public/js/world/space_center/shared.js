@@ -141,8 +141,15 @@
       return PAD_39A.rampStartY + t * (PAD_39A.deckTopY - PAD_39A.rampStartY);
     }
 
-    // 2. Pad 39A octagonal summit hardstand (12.50m)
+    // 2. Pad 39A octagonal summit hardstand (12.50m), South MLP Stairway, and MLP Deck (19.80m)
     if ((refY === null || refY >= 4.5) && inRotatedOctagon(x, z, 60.2)) {
+      if (refY !== null && refY >= 16.0 && x >= -24.5 && x <= 24.5 && z >= -20.5 && z <= 20.5) {
+        return 19.8;
+      }
+      if (x >= -14.2 && x <= -9.8 && z >= 20.5 && z <= 32.0) {
+        const t = clamp((32.0 - z) / (32.0 - 20.5), 0, 1);
+        return PAD_39A.deckTopY + t * (19.8 - PAD_39A.deckTopY);
+      }
       return PAD_39A.deckTopY;
     }
 
@@ -225,11 +232,82 @@
     if (onHighPad && z < 61.0) {
       // Must stay inside top perimeter railing except when heading onto south ramp mouth
       if (!inRotatedOctagon(x, z, 57.6 - r)) return true;
-      // Mobile Launcher Platform, trench walls, open flame trench, and FSS Launch Tower
-      if (inBox(x, z, -25.2, 25.2, -21.5, 21.5, r)) return true;
-      if (inBox(x, z, -16.2, 16.2, 21.5, 46.8, r)) return true;
-      if (inBox(x, z, -16.2, 16.2, -46.8, -21.5, r)) return true;
-      if (inBox(x, z, -43.0, -25.0, -11.5, 11.5, r)) return true;
+
+      // Pedestrian access corridor on the South MLP Stairway (x in [-13.85, -10.15], z in [20.2, 32.2])
+      const inStairChannel = r < 0.8 && x >= -13.85 + r && x <= -10.15 - r && z >= 20.2 && z <= 32.2;
+      if (inStairChannel) return false;
+
+      // Elevated MLP Deck surface (y = 19.8m) when player has climbed the stairs
+      if (effY >= 18.2 && x >= -24.5 && x <= 24.5 && z >= -20.5 && z <= 20.5) {
+        // MLP outer safety railings (with open gap at South stairway top x in [-13.85, -10.15], z = 20.5)
+        if (x < -24.2 + r || x > 24.2 - r || z < -20.2 + r) return true;
+        if (z > 20.2 - r && !(x >= -13.85 + r && x <= -10.15 - r)) return true;
+        // Central Launch Vehicle Stack, SRB exhaust wells & mount base
+        if (inBox(x, z, -10.4, 10.4, -10.4, 10.4, r)) return true;
+        // Tail Service Masts (TSMs) at (-11.5, -9.5) and (11.5, -9.5)
+        if (inBox(x, z, -13.4, -9.6, -11.2, -7.8, r)) return true;
+        if (inBox(x, z, 9.6, 13.4, -11.2, -7.8, r)) return true;
+        // Four SRB Hold-Down Posts at (±18, ±16)
+        if (inBox(x, z, -19.3, -16.7, -17.3, -14.7, r)) return true;
+        if (inBox(x, z, 16.7, 19.3, -17.3, -14.7, r)) return true;
+        if (inBox(x, z, -19.3, -16.7, 14.7, 17.3, r)) return true;
+        if (inBox(x, z, 16.7, 19.3, 14.7, 17.3, r)) return true;
+        // RSS Hinge Column & Payload Changeout Room (PCR) overhanging north-east MLP
+        if (Math.hypot(x + 18.0, z - 16.0) < 2.2 + r) return true;
+        if (inBox(x, z, -2.9, 13.2, 5.8, 20.5, r)) return true;
+        return false;
+      }
+
+      // Pad 39A Hardstand Level (y = 12.5m):
+      // 1. Mobile Launcher Platform (MLP) body & Deluge Water Headers
+      if (inBox(x, z, -24.6, 24.6, -20.6, 20.6, r)) return true;
+      if (inBox(x, z, -23.1, -21.9, -18.0, 18.0, r)) return true;
+      if (inBox(x, z, 21.9, 23.1, -18.0, 18.0, r)) return true;
+
+      // 2. MLP South Stairway side structure (blocks walking through the sides of the stairs)
+      if (inBox(x, z, -14.1, -9.9, 20.5, 31.5, r) && !inStairChannel) return true;
+
+      // 3. Flame Trench & Deflector Channel (North section and South section east of stairway)
+      if (inBox(x, z, -16.2, 16.2, -46.8, -20.5, r)) return true;
+      if (inBox(x, z, -9.8, 16.2, 20.5, 46.8, r)) return true;
+
+      // 4. Rotating Service Structure (RSS) Hinge Column & PCR support trucks on north-east pad
+      if (Math.hypot(x + 18.0, z - 16.0) < 2.2 + r) return true;
+      if (inBox(x, z, -2.8, 13.0, 6.0, 26.0, r)) return true;
+
+      // 5. FSS Launch Tower Main Structural Core (x in [-40.3, -27.7], z in [-6.3, 6.3])
+      // Leaves the West Ground Elevator Lobby (x = -42.2, z = -4.0) AND East Ground Portal Alcove (x in [-40.3, -36.0], z in [-5.35, -2.65]) open!
+      if (inBox(x, z, -40.3, -27.7, -1.75, 6.3, r)) return true;
+      if (inBox(x, z, -36.0, -27.7, -6.3, -1.75, r)) return true;
+      if (inBox(x, z, -40.6, -27.4, -6.35, -5.8, r)) return true;
+
+      // 6. FSS North & South Concrete Blast Protection Walls (z = ±12.0, x in [-40.6, -27.4])
+      if (inBox(x, z, -40.6, -27.4, -12.75, -11.25, r)) return true;
+      if (inBox(x, z, -40.6, -27.4, 11.25, 12.75, r)) return true;
+
+      // 7. FSS Ground Elevator Lobby & Shaft Perimeter (cab centered at x = -42.2, z = -4.0)
+      // For large vehicles (r >= 0.8), keep a single smooth outer bound around the elevator shaft
+      if (r >= 0.8) {
+        if (inBox(x, z, -43.0, -25.0, -11.5, 11.5, r)) return true;
+      } else {
+        // Pedestrian-scale careful collision around the Ground Elevator Lobby:
+        // North lobby safety railing (z = -7.0, x in [-44.0, -40.0])
+        if (inBox(x, z, -44.0, -40.0, -7.12, -6.88, r)) return true;
+        // West lobby & cab back wall / shaft guide rails (x = -43.75, z in [-7.0, -2.5])
+        if (inBox(x, z, -43.95, -43.55, -7.0, -2.5, r)) return true;
+        // Elevator cab North glass wall & rail (z = -5.4, x in [-43.75, -40.7])
+        if (inBox(x, z, -43.75, -40.7, -5.52, -5.28, r)) return true;
+        // Elevator cab South-West and South-East door jambs (leaving 2.1m South doorway x in [-43.25, -41.15] open!)
+        if (inBox(x, z, -43.75, -43.28, -2.75, -2.48, r)) return true;
+        if (inBox(x, z, -41.12, -40.65, -2.75, -2.48, r)) return true;
+        // South entrance canopy support columns at (-43.9, -0.9) and (-40.3, -0.9)
+        if (Math.hypot(x + 43.9, z + 0.9) < 0.16 + r) return true;
+        if (Math.hypot(x + 40.3, z + 0.9) < 0.16 + r) return true;
+      }
+
+      // 8. Four Pad Perimeter Floodlight Towers at (±48, ±48)
+      if (Math.hypot(Math.abs(x) - 48.0, Math.abs(z) - 48.0) < 0.65 + r) return true;
+
       return false;
     }
 

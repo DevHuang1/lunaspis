@@ -109,7 +109,7 @@
       root.traverse((obj) => {
         if (!obj.isMesh || obj.isInstancedMesh || obj.isSkinnedMesh) return;
         if (!obj.material || Array.isArray(obj.material) || obj.material.transparent) return;
-        if (!isVisibleWithin(obj)) return;
+        if (!isVisibleWithin(obj) || this._isMergeExcluded(obj)) return;
         const key = obj.material.uuid;
         if (!buckets.has(key)) buckets.set(key, { material: obj.material, items: [] });
         buckets.get(key).items.push(obj);
@@ -203,7 +203,7 @@
       this.group.traverse((obj) => {
         if (!obj.isMesh || obj.isInstancedMesh || obj.isSkinnedMesh) return;
         if (!BATCHABLE.has(obj.name)) return;
-        if (!isVisibleWithin(obj)) return;
+        if (!isVisibleWithin(obj) || this._isMergeExcluded(obj)) return;
         if (!obj.material || Array.isArray(obj.material) || obj.material.transparent) return;
         if (obj.geometry === this.sc.unitBoxGeo) return;
         const params = obj.geometry && obj.geometry.parameters ? JSON.stringify(obj.geometry.parameters) : `${obj.geometry ? obj.geometry.id : "none"}`;
@@ -229,6 +229,15 @@
       }
     }
 
+    _isMergeExcluded(object) {
+      let node = object;
+      while (node) {
+        if (node.userData && node.userData.noMerge) return true;
+        node = node.parent;
+      }
+      return false;
+    }
+
     _mergeStaticBoxes() {
       const THREE = window.THREE;
       if (!THREE.InstancedMesh) return;
@@ -244,7 +253,7 @@
       this.group.traverse((obj) => {
         if (!obj.isMesh || obj.geometry !== this.sc.unitBoxGeo) return;
         if (!obj.material || obj.material.transparent) return;
-        if (!isVisibleWithin(obj)) return;
+        if (!isVisibleWithin(obj) || this._isMergeExcluded(obj)) return;
         const key = obj.material.uuid || obj.material.id || "shared";
         if (!buckets.has(key)) {
           buckets.set(key, { material: obj.material, matrices: [] });

@@ -221,5 +221,139 @@ check("pad39b.js colliders do not block driving up Pad 39B ramp onto 6.42m deck"
   real39B.blockedSteps === 0 && Math.abs(real39B.y - 6.42) < 1e-3,
   `blockedSteps=${real39B.blockedSteps}, endY=${real39B.y.toFixed(2)}`);
 
+console.log("\n=== 6. FSS ELEVATOR ACCESS & MULTI-LEVEL PER-OBSTACLE COLLISIONS ===");
+// 6a. Ground Level Elevator Walk-In from South & East on Pad 39A Hardstand (y = 12.5m)
+const elevWalkGround = simulateDrive([
+  [-42.2, 8.0],
+  [-42.2, -0.8],
+  [-42.2, -4.0], // inside Elevator Cab via South entrance
+  [-40.5, -4.0]  // out East doorway toward FSS Ground Lobby
+], 0.42, 12.5, mockSite.boxColliders, mockSite.circleColliders);
+
+check("Crew walks freely into FSS Ground Elevator Cab from South entrance and out East doorway",
+  elevWalkGround.blockedSteps === 0 && Math.abs(elevWalkGround.y - 12.5) < 1e-3,
+  `blockedSteps=${elevWalkGround.blockedSteps}, endPos=(${elevWalkGround.x.toFixed(2)}, ${elevWalkGround.z.toFixed(2)})`);
+
+check("FSS Ground Elevator back wall, north glass wall, North/South blast walls, and RSS block properly",
+  T.isBlocked(-43.75, -4.0, 0.42, 12.5, [], []) && // Cab west back wall
+  T.isBlocked(-42.2, -5.4, 0.42, 12.5, [], []) &&  // Cab north glass wall
+  T.isBlocked(-42.2, -7.0, 0.42, 12.5, [], []) &&  // North lobby railing
+  T.isBlocked(-34.0, -12.0, 0.42, 12.5, [], []) && // FSS North blast wall
+  T.isBlocked(-34.0, 12.0, 0.42, 12.5, [], []) &&  // FSS South blast wall
+  T.isBlocked(-18.0, 16.0, 0.42, 12.5, [], []) &&  // RSS Hinge Column
+  T.isBlocked(5.0, 16.0, 0.42, 12.5, [], []));     // RSS Payload Changeout Room (PCR)
+
+// 6b. MLP South Access Stairway climb onto MLP Deck (y = 12.5m -> 19.8m) & MLP Deck obstacles
+const mlpStairClimb = simulateDrive([
+  [-12.0, 33.0],
+  [-12.0, 26.0],
+  [-12.0, 20.0],
+  [-15.5, 12.0],
+  [-15.5, -10.0]
+], 0.42, 12.5, mockSite.boxColliders, mockSite.circleColliders);
+
+check("Crew climbs MLP South Access Stairway to 19.8m MLP deck and walks west deck corridor",
+  mlpStairClimb.blockedSteps === 0 && Math.abs(mlpStairClimb.y - 19.8) < 1e-3,
+  `blockedSteps=${mlpStairClimb.blockedSteps}, endY=${mlpStairClimb.y.toFixed(2)}`);
+
+check("MLP Deck obstacles (Vehicle Stack, TSMs, Hold-Down Posts, Deck Railings) block properly at y=19.8m",
+  T.isBlocked(0, 0, 0.42, 19.8, [], []) &&          // Launch Stack
+  T.isBlocked(-11.5, -9.5, 0.42, 19.8, [], []) &&   // West TSM
+  T.isBlocked(11.5, -9.5, 0.42, 19.8, [], []) &&    // East TSM
+  T.isBlocked(-18.0, -16.0, 0.42, 19.8, [], []) &&  // Hold-down post
+  T.isBlocked(-24.4, 0, 0.42, 19.8, [], []));       // West MLP perimeter railing
+
+// 6c. SpaceCenterManager.resolveGroundCollision on Level 2 (Gantry 64.1m) & Level 3 (Top Deck 108.1m)
+function RealVector3(x = 0, y = 0, z = 0) {
+  this.x = x; this.y = y; this.z = z;
+}
+global.THREE = new Proxy({}, {
+  get: (_, k) => k === "DoubleSide" ? 2 : k === "Vector3" ? RealVector3 : makeTestProxyFn()
+});
+require("../../public/js/world/space_center.js");
+const scProto = window.SpaceCenterManager && window.SpaceCenterManager.prototype;
+const mockSC = {
+  siteTourActive: false,
+  _isLocalGroundCrew: () => false,
+  elevatorMoving: false,
+  elevatorRidingPlayer: false,
+  dockLocked: true,
+  site: mockSite,
+  _getSiteTourElevation: scProto._getSiteTourElevation,
+  _resolveSiteTourCollision: scProto._resolveSiteTourCollision,
+  resolveGroundCollision: scProto.resolveGroundCollision
+};
+
+function simulateFlightCrewWalk(waypoints, levelY) {
+  let pos = new global.THREE.Vector3(waypoints[0][0], levelY, waypoints[0][1]);
+  let blockedSteps = 0;
+  for (let i = 1; i < waypoints.length; i++) {
+    const [tx, tz] = waypoints[i];
+    const dist = Math.hypot(tx - pos.x, tz - pos.z);
+    const steps = Math.max(1, Math.ceil(dist / 0.4));
+    for (let s = 1; s <= steps; s++) {
+      const nx = pos.x + (tx - pos.x) * (1 / (steps - s + 1));
+      const nz = pos.z + (tz - pos.z) * (1 / (steps - s + 1));
+      const nextPos = mockSC.resolveGroundCollision(pos, new global.THREE.Vector3(nx, levelY, nz));
+      if (Math.hypot(nextPos.x - pos.x, nextPos.z - pos.z) < 1e-4 && dist > 0.1) {
+        blockedSteps++;
+      }
+      pos = nextPos;
+    }
+  }
+  return { pos, blockedSteps };
+}
+
+const gantryToElev = simulateFlightCrewWalk([
+  [-30.0, -9.0],  // Crew spawn bay on Gantry Staging Deck
+  [-34.0, -4.0],  // Center of FSS Gantry Deck
+  [-40.0, -4.0],  // West FSS Elevator Portal Doorway
+  [-42.2, -4.0],  // Inside Gantry Elevator Cab
+  [-34.0, -7.2],  // Back onto Gantry Deck aligned with OAA
+  [-24.0, -7.2],  // Through OAA Portal onto Boarding Bridge
+  [-5.0, -7.2]    // Inside White Room at Orbiter Hatch
+], 64.1);
+
+check("Level 2 Gantry Deck: Crew walks from spawn bay into Elevator Cab and across OAA into White Room with zero blocks",
+  gantryToElev.blockedSteps === 0 && Math.abs(gantryToElev.pos.x - (-5.0)) < 1e-2,
+  `blockedSteps=${gantryToElev.blockedSteps}, endX=${gantryToElev.pos.x.toFixed(2)}`);
+
+// Verify Gantry Deck obstacles block walking through them
+const hitConsole = mockSC.resolveGroundCollision(
+  new global.THREE.Vector3(-27.2, 64.1, -5.4),
+  new global.THREE.Vector3(-25.9, 64.1, -5.4)
+);
+const hitLockers = mockSC.resolveGroundCollision(
+  new global.THREE.Vector3(-29.5, 64.1, -11.4),
+  new global.THREE.Vector3(-29.5, 64.1, -12.3)
+);
+const hitWestCladding = mockSC.resolveGroundCollision(
+  new global.THREE.Vector3(-39.2, 64.1, 2.0),
+  new global.THREE.Vector3(-40.1, 64.1, 2.0)
+);
+check("Level 2 Gantry Deck obstacles (Control Console, Crew Lockers/Bench, SW Cladding Wall) block properly",
+  Math.abs(hitConsole.x - (-27.2)) < 1e-3 &&
+  Math.abs(hitLockers.z - (-11.4)) < 1e-3 &&
+  Math.abs(hitWestCladding.x - (-39.2)) < 1e-3);
+
+const topDeckToElev = simulateFlightCrewWalk([
+  [-34.0, -3.5],  // Top Observation Deck clear walkway
+  [-40.0, -4.0],  // Top Deck Elevator Portal Doorway
+  [-42.2, -4.0],  // Inside Top Deck Elevator Cab
+  [-36.0, -4.0],  // Back onto Top Deck
+  [-36.0, 2.0]    // West of Hammerhead Crane Cab
+], 108.1);
+
+check("Level 3 Top Observation Deck: Crew walks freely between Top Deck and Elevator Cab with zero blocks",
+  topDeckToElev.blockedSteps === 0 && Math.abs(topDeckToElev.pos.z - 2.0) < 1e-2,
+  `blockedSteps=${topDeckToElev.blockedSteps}, endPos=(${topDeckToElev.pos.x.toFixed(2)}, ${topDeckToElev.pos.z.toFixed(2)})`);
+
+const hitCraneCab = mockSC.resolveGroundCollision(
+  new global.THREE.Vector3(-34.8, 108.1, 1.8),
+  new global.THREE.Vector3(-32.8, 108.1, 1.8)
+);
+check("Level 3 Top Observation Deck Hammerhead Crane Cab blocks walking through it",
+  Math.abs(hitCraneCab.x - (-34.8)) < 1e-3);
+
 console.log(`\nResults: ${passed} passed, ${failed} failed\n`);
 if (failed > 0) process.exit(1);
