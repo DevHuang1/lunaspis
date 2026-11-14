@@ -340,7 +340,8 @@
     window.netManager.startSolo(name, color, null, {
       opsMode: "iss_expedition",
       scenarioId: "lunar_south_pole",
-      difficultyId: "cadet"
+      difficultyId: "cadet",
+      autoStart: true
     });
     close();
     setTimeout(() => {
@@ -491,7 +492,8 @@
     if (!els.modal) return;
     bindEvents();
     renderStep();
-    maybeAutoOpen();
+    // Do not auto-open the guide. New pilots can launch it from the title,
+    // staging deck, or HUD whenever they choose.
   }
 
   window.missionAcademy = {

@@ -465,7 +465,7 @@
 
     const lobbyHint = document.querySelector(".lobby-controls-hint");
     if (lobbyHint) {
-      lobbyHint.innerHTML = "<strong>Thumbstick</strong> Move &bull; <strong>Push Far</strong> Sprint &bull; <strong>Drag</strong> Look &bull; <strong>Tap</strong> Console &bull; <strong>EMOTE</strong> &bull; <strong>CAM</strong>";
+      lobbyHint.innerHTML = "<strong>Thumbstick</strong> Run &bull; <strong>Push Far</strong> Sprint &bull; <strong>Drag</strong> Look &bull; <strong>Tap</strong> Console &bull; <strong>EMOTE</strong> &bull; <strong>CAM</strong>";
     }
 
     const voiceKeyHint = document.querySelector(".voice-key-hint");
@@ -1852,15 +1852,35 @@
       if (typeof window.renderHudCrewRoster === "function") window.renderHudCrewRoster();
     }
 
+    function applySoloLobbyChrome(isSolo) {
+      const shell = document.querySelector(".lobby-staging-shell");
+      if (shell) shell.style.gridTemplateColumns = isSolo ? "minmax(0, 1fr)" : "";
+      const manifest = document.querySelector(".lobby-manifest-stage");
+      if (manifest) manifest.style.display = isSolo ? "none" : "";
+      const copyButton = document.getElementById("btn-copy-invite");
+      if (copyButton) copyButton.style.display = isSolo ? "none" : "";
+      const voiceButton = document.getElementById("btn-lobby-voice");
+      if (voiceButton) voiceButton.style.display = isSolo ? "none" : "";
+      const chatBox = document.querySelector(".lobby-chat-box");
+      if (chatBox) chatBox.style.display = isSolo ? "none" : "";
+      const roomLabel = document.querySelector(".room-code-badge .field-label");
+      if (roomLabel) roomLabel.textContent = isSolo ? "MODE" : "ROOM CODE";
+      const roomCode = document.getElementById("lobby-room-code");
+      if (roomCode && isSolo) roomCode.textContent = "SOLO";
+    }
+
     // Network Callbacks
     window.netManager.on("room_created", (data) => {
       const isSolo = !!(data.solo || (data.room && data.room.isSolo));
+      const autoStart = isSolo && !!window.netManager.soloAutoStart;
+      window.netManager.soloAutoStart = false;
       screenMenu.style.display = "none";
       syncLocalRigWithServer();
       updateLocalBadge();
 
-      // Single-player missions skip the staging deck and launch immediately.
-      if (isSolo) {
+      // Only the guided Cadet flow auto-launches. Normal solo play opens the
+      // staging deck so the pilot chooses a mission and difficulty first.
+      if (autoStart) {
         screenLobby.style.display = "none";
         screenGame.style.display = "none";
         window.netManager.startGame();
@@ -1869,7 +1889,8 @@
 
       screenLobby.style.display = "flex";
       screenGame.style.display = "none";
-      if (lobbyRoomCode) lobbyRoomCode.textContent = data.roomId;
+      applySoloLobbyChrome(isSolo);
+      if (lobbyRoomCode) lobbyRoomCode.textContent = isSolo ? "SOLO" : data.roomId;
       updateLobbySlots(data.room.players, data.hostId, data.room.status);
       renderLobbyMission(data.room.mission);
     });
@@ -1878,6 +1899,7 @@
       screenMenu.style.display = "none";
       screenLobby.style.display = "flex";
       screenGame.style.display = "none";
+      applySoloLobbyChrome(false);
       if (lobbyRoomCode) lobbyRoomCode.textContent = data.roomId;
       syncLocalRigWithServer();
       updateLobbySlots(data.room.players, data.hostId, data.room.status);
@@ -2568,15 +2590,16 @@
     const rs = window.netManager && window.netManager.roomState;
     const status = roomStatus || (rs && rs.status) || "lobby";
     const isHost = window.netManager.socketId === hostId;
+    const isSolo = !!(rs && rs.isSolo);
 
-    if (countBadge) countBadge.textContent = `${players.length} / 6 CREW ASSIGNED`;
+    if (countBadge) countBadge.textContent = isSolo ? "SOLO MISSION · COMMANDER" : `${players.length} / 6 CREW ASSIGNED`;
     if (btnRand) {
-      btnRand.style.display = (isHost && status === "lobby") ? "inline-flex" : "none";
+      btnRand.style.display = (isHost && status === "lobby" && !isSolo) ? "inline-flex" : "none";
       btnRand.disabled = players.length < 2;
       btnRand.style.opacity = players.length < 2 ? "0.5" : "1";
     }
     if (chkShuffle && chkShuffle.parentElement) {
-      chkShuffle.parentElement.style.display = (isHost && status === "lobby") ? "inline-flex" : "none";
+      chkShuffle.parentElement.style.display = (isHost && status === "lobby" && !isSolo) ? "inline-flex" : "none";
     }
     if (btnStart) {
       if (status === "victory") {
@@ -2593,7 +2616,7 @@
         btnStart.style.display = "block";
         btnStart.disabled = false;
         btnStart.style.opacity = "1";
-        btnStart.textContent = "LAUNCH MISSION";
+        btnStart.textContent = isSolo ? "LAUNCH SOLO MISSION →" : "LAUNCH MISSION";
       } else {
         btnStart.style.display = "block";
         btnStart.disabled = true;
@@ -3253,7 +3276,7 @@
           window.virtualJoyActive = true;
         }
         if (joyHint) {
-          joyHint.textContent = mag > 0.82 ? "SPRINT" : "MOVE";
+          joyHint.textContent = mag > 0.82 ? "SPRINT" : "RUN";
           joyHint.style.color = mag > 0.82 ? "#67e8f9" : "rgba(154, 164, 174, 0.78)";
         }
       };
@@ -3265,7 +3288,7 @@
         window.virtualJoyActive = false;
         joyStick.style.transform = "translate3d(0px, 0px, 0px)";
         if (joyHint) {
-          joyHint.textContent = "MOVE";
+          joyHint.textContent = "RUN";
           joyHint.style.color = "rgba(148, 163, 184, 0.75)";
         }
       };

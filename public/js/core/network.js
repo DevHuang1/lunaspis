@@ -217,6 +217,7 @@
       this.roomId = null;
       this.isHost = false;
       this.isSoloRoom = false;
+      this.soloAutoStart = false;
       this.userId = null;
       this.authToken = this.readStoredToken();
       this.userProfile = null;
@@ -844,6 +845,9 @@
       const normalized = normalizeRole(role || this.localPlayer.role, "commander");
       this.localPlayer.role = normalized;
       this.localPlayer.team = getTeamForRole(normalized);
+      // Normal solo play opens the staging deck so the pilot can choose a
+      // mission and difficulty; the guided Cadet flow opts into auto-start.
+      this.soloAutoStart = opts.autoStart === true;
       this.socket.emit("create_room", {
         playerName: this.localPlayer.name,
         suitColor: suitColor || this.localPlayer.color,
@@ -1151,6 +1155,21 @@
       if (!this.socket || !designPatch) return;
       this.packetsSentThisSec++;
       this.socket.emit("mission_design_sync", { designPatch });
+    }
+
+    joinSideGame(gameId) {
+      if (!this.connected || !this.roomId || !gameId) return;
+      this.socket.emit("sidegame_join", { gameId });
+    }
+
+    leaveSideGame(gameId) {
+      if (!this.connected || !this.roomId || !gameId) return;
+      this.socket.emit("sidegame_leave", { gameId });
+    }
+
+    sendSideGameAction(gameId, action) {
+      if (!this.connected || !this.roomId || !gameId || !action) return;
+      this.socket.emit("sidegame_action", { gameId, action });
     }
 
     selectMission(scenarioId, difficultyId, opsMode) {
