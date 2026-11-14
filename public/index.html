@@ -8,11 +8,13 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="theme-color" content="#05060a" />
   <title>Lunaspis — Orbital Transit &amp; ISS Simulator</title>
-  <link rel="stylesheet" href="css/style.css?v=4.7.5" />
-  <link rel="stylesheet" href="css/premium.css?v=1.1.0" />
+  <link rel="stylesheet" href="css/style.css?v=4.7.7" />
+  <link rel="stylesheet" href="css/premium.css?v=1.2.0" />
   <link rel="stylesheet" href="css/academy.css?v=1.0.0" />
   <link rel="stylesheet" href="css/mission_log.css?v=1.0.0" />
   <link rel="stylesheet" href="css/lunar-glass.css?v=5.1.3" />
+  <link rel="stylesheet" href="css/mobile.css?v=1.0.0" />
+  <link rel="stylesheet" href="css/desk_guide.css?v=1.0.0" />
   <!-- Three.js Engine & 3D GLTF/GLB/Draco/KTX2/Meshopt Loaders -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" integrity="sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu" crossorigin="anonymous"></script>
   <script src="js/loaders/DRACOLoader.js?v=4.0.0"></script>
@@ -96,6 +98,10 @@
         <button class="title-chip-btn" id="btn-open-mission-log" title="Past flights, personal bests &amp; shareable mission reports">PAST FLIGHTS</button>
         <button class="title-chip-btn" id="btn-open-nasa-csa-menu" title="Space Games &amp; Activities + 3D Path &amp; Telescope Lab">GAMES &amp; TOOLS</button>
         <button class="title-chip-btn" id="btn-open-hangar-menu">3D MODELS</button>
+        <button class="title-chip-btn title-region-btn" id="btn-region-toggle" type="button" hidden>
+          <span class="region-status-dot" aria-hidden="true"></span>
+          <span data-region-label>SERVER: --</span>
+        </button>
       </div>
     </header>
 
@@ -113,9 +119,8 @@
       </div>
 
       <div class="title-cta-row">
-        <button class="btn-title-primary" id="btn-quick-play" title="Start a solo mission — no team code needed">PLAY SOLO</button>
+        <button class="btn-title-primary" id="btn-quick-play" title="Start a solo mission — Shuttle launch, ISS docking and station ops">PLAY SOLO</button>
         <button class="btn-title-secondary" id="btn-host-game" title="Create a multiplayer team room and get a code to share">CREATE TEAM</button>
-        <button class="btn-title-secondary btn-title-shuttle" id="btn-shuttle-ops" title="Launch, fly in orbit &amp; land the Space Shuttle">FLY SHUTTLE</button>
       </div>
 
       <div class="title-join-row">
@@ -141,7 +146,8 @@
       <div class="room-code-badge">
         <span class="field-label" style="margin:0;">ROOM CODE</span>
         <span class="room-code-text" id="lobby-room-code">------</span>
-        <button class="btn-copy" id="btn-copy-invite" title="Copy an invite link to share with friends">COPY INVITE LINK</button>
+        <button class="btn-copy" id="btn-copy-invite" title="Copy an invite link to share with friends (includes this server region)">COPY INVITE LINK</button>
+        <span class="lobby-region-badge" id="lobby-region-badge" hidden>SERVER: --</span>
       </div>
       <div class="lobby-top-actions">
         <button id="btn-lobby-voice" class="btn-lobby-voice">
@@ -168,10 +174,6 @@
               <div id="lobby-mission-selected" class="lobby-mission-selected">MOON WATER HUNTER &middot; MOON MISSION</div>
             </div>
             <div id="lobby-mission-hint" class="lobby-mission-hint">HOST PICKS</div>
-          </div>
-          <div class="lobby-ops-mode-bar" id="lobby-ops-mode-bar">
-            <button type="button" class="ops-mode-btn active" data-ops-mode="iss_expedition">SPACE MISSION BUILDER</button>
-            <button type="button" class="ops-mode-btn" data-ops-mode="shuttle_flight">FLY SPACE SHUTTLE</button>
           </div>
           <div class="lobby-mission-cards" id="lobby-mission-cards">
             <!-- Rendered dynamically by main.js -->
@@ -286,12 +288,12 @@
       </div>
     </div>
 
-    <!-- Left Fault Queue & Flight Plan Checklist -->
+    <!-- Mission Hub: role-filtered objectives, crew assignments and next action -->
     <div class="hud-checklist-panel" id="hud-checklist-panel">
       <div class="hud-checklist-header" id="hud-checklist-toggle" title="Click to hide or show checklist">
         <div class="hud-checklist-title-wrap">
           <span id="hud-checklist-team-icon" style="width:6px;height:6px;border-radius:50%;background:#67e8f9;display:inline-block;flex-shrink:0;"></span>
-          <span style="font-weight:700;letter-spacing:1.1px;" id="hud-checklist-title">MISSION TO-DO LIST</span>
+          <span id="hud-checklist-title">MISSION HUB</span>
           <span id="hud-checklist-count" class="checklist-count-pill">0/7</span>
         </div>
         <div class="hud-checklist-meta-wrap">
@@ -300,10 +302,10 @@
         </div>
       </div>
       <div id="hud-crew-roster" class="hud-crew-roster">
-        <!-- Rendered dynamically by main.js: WHO MUST DO WHAT & CREW ROLES -->
+        <!-- Rendered by main.js: role filters, roster cards and next action -->
       </div>
       <div id="hud-task-list" class="hud-task-list-body">
-        <!-- Rendered dynamically by gameplay.js -->
+        <!-- Rendered by gameplay.js: per-role step groups and Earth support checks -->
       </div>
     </div>
 
@@ -333,6 +335,9 @@
         <button id="btn-sband-radio" class="voice-mic-btn" title="Talk to teammates between Earth and Space [R]">
           <span>TEAM RADIO</span>
           <span id="sband-radio-label">OFF [R]</span>
+        </button>
+        <button id="btn-hud-more" class="voice-mic-btn" title="Show all tools" aria-expanded="false">
+          <span>MORE</span>
         </button>
         <button id="btn-emote-menu" class="voice-mic-btn" title="Wave &amp; Signals [X]">
           <span>WAVE</span>
@@ -723,8 +728,9 @@
   <script src="js/core/cinematic_pass.js?v=4.3.2"></script>
   <script src="js/core/audio_synth.js?v=4.0.0"></script>
   <script src="js/core/ui_theme.js?v=5.1.3"></script>
-  <script src="js/core/glb_manager.js?v=4.2.5"></script>
-  <script src="js/core/network.js?v=4.9.7"></script>
+  <script src="js/core/glb_manager.js?v=4.3.0"></script>
+  <script src="js/core/regions.js?v=1.0.0"></script>
+  <script src="js/core/network.js?v=4.9.9"></script>
   <script src="js/core/voice.js?v=4.4.0"></script>
   <script src="js/core/cml_framework.js?v=1.0.0"></script>
 
@@ -741,9 +747,9 @@
   <script src="js/world/space_center/crawler.js?v=4.9.5"></script>
   <script src="js/world/space_center/utilities.js?v=4.9.5"></script>
   <script src="js/world/space_center/site.js?v=4.9.6"></script>
-  <script src="js/world/space_center/open_car.js?v=1.0.4"></script>
-  <script src="js/world/space_center.js?v=5.0.4"></script>
-  <script src="js/world/space_center/ground_map.js?v=1.0.3"></script>
+  <script src="js/world/space_center/open_car.js?v=1.0.6"></script>
+  <script src="js/world/space_center.js?v=5.0.7"></script>
+  <script src="js/world/space_center/ground_map.js?v=1.0.4"></script>
   <script src="js/world/launch_cutscene.js?v=4.9.1"></script>
   <script src="js/world/docking_simulator.js?v=4.8.0"></script>
   <script src="js/world/ship_interior.js?v=4.8.4"></script>
@@ -753,7 +759,7 @@
 
   <!-- Shuttle Flight Ops Simulation, World View, SFX, STS_OS HUD & Controller (Nov 14) -->
   <script src="js/game/shuttle_simulation.js?v=1.0.0"></script>
-  <script src="js/game/shuttle_mission.js?v=1.0.0"></script>
+  <script src="js/game/shuttle_mission.js?v=1.0.1"></script>
   <script src="js/world/shuttle_view.js?v=1.0.0"></script>
   <script src="js/game/shuttle_sfx.js?v=1.0.0"></script>
   <script src="js/game/shuttle_hud.js?v=1.0.4"></script>
@@ -762,10 +768,10 @@
   <!-- Mission Simulation & Main Loop -->
   <script src="js/game/csa_nasa_resources.js?v=1.0.1"></script>
   <script src="js/game/iss_side_games.js?v=1.0.0"></script>
-  <script src="js/game/gameplay.js?v=4.9.7"></script>
-  <script src="js/game/mission_academy.js?v=1.0.0"></script>
+  <script src="js/game/gameplay.js?v=5.0.1"></script>
+  <script src="js/game/mission_academy.js?v=1.1.1"></script>
   <script src="js/game/mission_log.js?v=1.0.0"></script>
-  <script src="js/game/main.js?v=5.0.9"></script>
+  <script src="js/game/main.js?v=5.1.7"></script>
 
 </body>
 </html>

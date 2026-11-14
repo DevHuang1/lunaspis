@@ -204,10 +204,33 @@
     }
 
     toggle() {
-      this.collapsed = !this.collapsed;
+      this._setCollapsed(!this.collapsed);
+    }
+
+    _setCollapsed(collapsed) {
+      this.collapsed = !!collapsed;
       if (!this.el) return;
       this.el.classList.toggle("is-collapsed", this.collapsed);
       if (this.toggleEl) this.toggleEl.textContent = this.collapsed ? "+" : "–";
+    }
+
+    /**
+     * The map is useful on foot but a large map window eats the road view while
+     * driving. Fold it to the header for the drive and restore the player's
+     * previous choice when they step out. A manual expand while driving sticks
+     * until the car is exited.
+     */
+    _syncCarCollapse() {
+      if (!this.el) return;
+      const driving = document.body.classList.contains("ground-car-driving");
+      if (driving && !this._carAutoCollapsed) {
+        this._carAutoCollapsed = true;
+        this._carWasCollapsed = this.collapsed;
+        if (!this.collapsed) this._setCollapsed(true);
+      } else if (!driving && this._carAutoCollapsed) {
+        this._carAutoCollapsed = false;
+        if (!this._carWasCollapsed) this._setCollapsed(false);
+      }
     }
 
     _uiBlocked() {
@@ -273,6 +296,7 @@
         if (this.toggleEl.textContent !== symbol) this.toggleEl.textContent = symbol;
       }
       this._avoidGroundHudOverlap();
+      this._syncCarCollapse();
       if (!active || !this.ctx) return;
       if (this.collapsed) return;
 

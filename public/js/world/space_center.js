@@ -35,8 +35,11 @@
       // Boarding Dock & Pre-Launch State Machine
       // Phases: "gantry" -> "dock_locked" -> "boarded" -> "launching" -> "orbit"
       this.boardingState = "gantry";
-      this.dockSwingAngle = 0.38; // radians retracted away from ship hatch
-      this.targetDockSwingAngle = 0.38;
+      // The real OAA swings through a 70-degree arc to its latchback position.
+      // It folds north, clear of the crew-staging side of the gantry.
+      this.dockRetractAngle = -Math.PI * (70 / 180);
+      this.dockSwingAngle = this.dockRetractAngle;
+      this.targetDockSwingAngle = this.dockRetractAngle;
       this.dockLocked = false;
       this.crewBoarded = false;
       this.missionPhase = "gantry";
@@ -146,6 +149,7 @@
       this._buildWaterDelugeSystem();
       this._buildLaunchStack();
       this._buildBoardingGuidance();
+      this._buildGantryCrewAccessDetails();
       this._buildPerimeterLighting();
       if (window.SpaceCenterSite) {
         this.site = new window.SpaceCenterSite(this);
@@ -280,6 +284,30 @@
       return texture;
     }
 
+    _makeBumpTexture(size = 256, draw, repeatX = 1, repeatY = 1) {
+      const THREE = window.THREE;
+      const actualSize = window.isMobileDevice ? Math.min(size, 256) : size;
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = actualSize;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#808080";
+      ctx.fillRect(0, 0, actualSize, actualSize);
+      draw(ctx, actualSize);
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(repeatX, repeatY);
+      texture.generateMipmaps = true;
+      texture.minFilter = THREE.LinearMipmapLinearFilter;
+      texture.magFilter = THREE.LinearFilter;
+      const maxAniso = window.isMobileDevice ? 2 : 8;
+      texture.anisotropy = this.renderer && this.renderer.capabilities
+        ? Math.min(maxAniso, this.renderer.capabilities.getMaxAnisotropy())
+        : 1;
+      texture.needsUpdate = true;
+      return texture;
+    }
+
     _makeConcreteTexture(size = 512, base = "#7c8794") {
       return this._makeCanvasTexture(size, (ctx, s) => {
         ctx.fillStyle = base;
@@ -312,6 +340,361 @@
           ctx.stroke();
         }
       });
+    }
+
+    _makeConcreteBumpTexture(size = 512, repeatX = 6, repeatY = 6) {
+      return this._makeBumpTexture(size, (ctx, s) => {
+        ctx.fillStyle = "#808080";
+        ctx.fillRect(0, 0, s, s);
+        for (let i = 0; i < 3600; i++) {
+          const v = 96 + Math.floor(Math.random() * 64);
+          ctx.fillStyle = `rgba(${v},${v},${v},${0.10 + Math.random() * 0.16})`;
+          const r = 1 + Math.random() * 3;
+          ctx.fillRect(Math.random() * s, Math.random() * s, r, r);
+        }
+        ctx.strokeStyle = "#585858";
+        ctx.lineWidth = 3;
+        for (let i = 0; i <= 4; i++) {
+          const p = (i / 4) * s;
+          ctx.beginPath();
+          ctx.moveTo(p, 0);
+          ctx.lineTo(p, s);
+          ctx.moveTo(0, p);
+          ctx.lineTo(s, p);
+          ctx.stroke();
+        }
+        for (let i = 0; i < 16; i++) {
+          const x = Math.random() * s;
+          const y = Math.random() * s;
+          ctx.strokeStyle = "#646464";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + (Math.random() - 0.5) * s * 0.12, y + (Math.random() - 0.5) * s * 0.12);
+          ctx.stroke();
+        }
+      }, repeatX, repeatY);
+    }
+
+    _makePadApronOverlayTexture(size = 1024) {
+      const THREE = window.THREE;
+      const texture = this._makeCanvasTexture(size, (ctx, s) => {
+        ctx.clearRect(0, 0, s, s);
+
+        // Clip the wear layer to the octagonal hardstand so the square decal
+        // plane never paints over the grass berm or perimeter railings.
+        ctx.save();
+        const cx = s * 0.5;
+        const cy = s * 0.5;
+        const radius = s * 0.485;
+        ctx.beginPath();
+        for (let i = 0; i < 8; i++) {
+          const angle = (i / 8) * Math.PI * 2 + Math.PI / 8;
+          const x = cx + Math.cos(angle) * radius;
+          const y = cy + Math.sin(angle) * radius;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.clip();
+
+        // Expansion joints, cracks and patch repairs in the concrete.
+        ctx.strokeStyle = "rgba(28,34,40,0.30)";
+        ctx.lineWidth = Math.max(1, s * 0.0018);
+        for (let i = 1; i < 6; i++) {
+          const p = (i / 6) * s;
+          ctx.beginPath();
+          ctx.moveTo(p, 0);
+          ctx.lineTo(p, s);
+          ctx.moveTo(0, p);
+          ctx.lineTo(s, p);
+          ctx.stroke();
+        }
+        for (let i = 0; i < 34; i++) {
+          let x = Math.random() * s;
+          let y = Math.random() * s;
+          ctx.strokeStyle = `rgba(24,30,36,${0.10 + Math.random() * 0.15})`;
+          ctx.lineWidth = 0.8 + Math.random() * 1.6;
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          for (let j = 0; j < 5; j++) {
+            x += (Math.random() - 0.5) * s * 0.06;
+            y += (Math.random() - 0.5) * s * 0.06;
+            ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+        }
+
+        // Water, oil and hydraulic-fluid stains.
+        for (let i = 0; i < 24; i++) {
+          const sx = Math.random() * s;
+          const sy = Math.random() * s;
+          const rr = 10 + Math.random() * 44;
+          const stain = ctx.createRadialGradient(sx, sy, 1, sx, sy, rr);
+          const blue = Math.random() > 0.55;
+          stain.addColorStop(0, blue ? "rgba(38,52,62,0.16)" : "rgba(22,24,24,0.18)");
+          stain.addColorStop(1, "rgba(20,22,24,0)");
+          ctx.fillStyle = stain;
+          ctx.beginPath();
+          ctx.ellipse(sx, sy, rr, rr * (0.45 + Math.random() * 0.5), Math.random() * Math.PI, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Crawler and service-vehicle tyre tracks running up the ramp.
+        ctx.save();
+        ctx.translate(cx, cy);
+        [-0.29, -0.21, 0.21, 0.29].forEach((offset) => {
+          const x = offset * s;
+          ctx.strokeStyle = "rgba(18,22,26,0.13)";
+          ctx.lineWidth = s * 0.012;
+          ctx.setLineDash([s * 0.012, s * 0.007]);
+          ctx.beginPath();
+          ctx.moveTo(x, -radius);
+          ctx.lineTo(x + (Math.random() - 0.5) * s * 0.03, radius);
+          ctx.stroke();
+        });
+        ctx.restore();
+
+        // Central blast scorch stretching along the flame trench.
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.scale(1, 1.85);
+        const scorch = ctx.createRadialGradient(0, 0, s * 0.008, 0, 0, s * 0.29);
+        scorch.addColorStop(0, "rgba(8,10,12,0.52)");
+        scorch.addColorStop(0.4, "rgba(18,22,24,0.28)");
+        scorch.addColorStop(1, "rgba(20,24,26,0)");
+        ctx.fillStyle = scorch;
+        ctx.beginPath();
+        ctx.arc(0, 0, s * 0.29, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // Long exhaust streaks toward the trench exits.
+        ctx.strokeStyle = "rgba(8,10,12,0.20)";
+        ctx.lineCap = "round";
+        for (let i = 0; i < 26; i++) {
+          const x = cx + (Math.random() - 0.5) * s * 0.24;
+          const y0 = cy + (Math.random() - 0.5) * s * 0.05;
+          const y1 = cy + (Math.random() > 0.5 ? 1 : -1) * (s * 0.30 + Math.random() * s * 0.14);
+          ctx.lineWidth = 2 + Math.random() * 26;
+          ctx.beginPath();
+          ctx.moveTo(x, y0);
+          ctx.lineTo(x + (Math.random() - 0.5) * s * 0.05, y1);
+          ctx.stroke();
+        }
+
+        // Faded perimeter blast-ring paint.
+        ctx.strokeStyle = "rgba(250,204,21,0.11)";
+        ctx.lineWidth = s * 0.008;
+        ctx.setLineDash([s * 0.028, s * 0.012]);
+        ctx.beginPath();
+        ctx.arc(cx, cy, s * 0.40, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.restore();
+      }, 1, 1);
+      texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+      return texture;
+    }
+
+    _makeMlpDeckOverlayTexture(size = 1024) {
+      const THREE = window.THREE;
+      const texture = this._makeCanvasTexture(size, (ctx, s) => {
+        ctx.clearRect(0, 0, s, s);
+
+        // Steel plate layout and rivet rows.
+        ctx.strokeStyle = "rgba(20,26,30,0.35)";
+        ctx.lineWidth = Math.max(1, s * 0.002);
+        for (let i = 1; i < 8; i++) {
+          const p = (i / 8) * s;
+          ctx.beginPath();
+          ctx.moveTo(p, 0);
+          ctx.lineTo(p, s);
+          ctx.moveTo(0, p);
+          ctx.lineTo(s, p);
+          ctx.stroke();
+        }
+        ctx.fillStyle = "rgba(20,24,28,0.32)";
+        for (let ix = 1; ix < 8; ix++) {
+          for (let iy = 1; iy < 8; iy++) {
+            const x = (ix / 8) * s;
+            const y = (iy / 8) * s;
+            for (let k = -2; k <= 2; k++) {
+              ctx.beginPath();
+              ctx.arc(x + k * s * 0.008, y, s * 0.0035, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+        }
+
+        // Rust bloom and water streaks down the plate seams.
+        for (let i = 0; i < 22; i++) {
+          const x = Math.random() * s;
+          const y = Math.random() * s;
+          const rust = ctx.createRadialGradient(x, y, 1, x, y, s * 0.05);
+          rust.addColorStop(0, "rgba(120,62,28,0.28)");
+          rust.addColorStop(1, "rgba(90,50,26,0)");
+          ctx.fillStyle = rust;
+          ctx.beginPath();
+          ctx.ellipse(x, y, s * 0.05, s * 0.025, Math.random() * Math.PI, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.strokeStyle = "rgba(90,50,26,0.20)";
+        for (let i = 0; i < 16; i++) {
+          const x = Math.random() * s;
+          ctx.lineWidth = 1 + Math.random() * 4;
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x + (Math.random() - 0.5) * s * 0.02, s * (0.2 + Math.random() * 0.5));
+          ctx.stroke();
+        }
+
+        // Engine blast soot in the middle of the deck.
+        const soot = ctx.createRadialGradient(s / 2, s / 2, s * 0.01, s / 2, s / 2, s * 0.34);
+        soot.addColorStop(0, "rgba(8,10,12,0.42)");
+        soot.addColorStop(0.5, "rgba(16,20,22,0.18)");
+        soot.addColorStop(1, "rgba(18,22,24,0)");
+        ctx.fillStyle = soot;
+        ctx.fillRect(0, 0, s, s);
+
+        // Faded yellow walkway border and deck stencil.
+        ctx.strokeStyle = "rgba(250,204,21,0.28)";
+        ctx.lineWidth = s * 0.012;
+        ctx.setLineDash([s * 0.035, s * 0.018]);
+        ctx.strokeRect(s * 0.06, s * 0.06, s * 0.88, s * 0.88);
+        ctx.setLineDash([]);
+        ctx.fillStyle = "rgba(248,250,252,0.30)";
+        ctx.font = `900 ${Math.floor(s * 0.1)}px Arial`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("MLP-3", s * 0.5, s * 0.17);
+        ctx.font = `800 ${Math.floor(s * 0.035)}px Arial`;
+        ctx.fillStyle = "rgba(250,204,21,0.32)";
+        ctx.fillText("BLAST DANGER · CLEAR DECK", s * 0.5, s * 0.88);
+      }, 1, 1);
+      texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+      return texture;
+    }
+
+    _makeTrenchWallTexture(size = 512) {
+      return this._makeCanvasTexture(size, (ctx, s) => {
+        ctx.fillStyle = "#4b5560";
+        ctx.fillRect(0, 0, s, s);
+        for (let i = 0; i < 2200; i++) {
+          const g = 52 + Math.floor(Math.random() * 46);
+          ctx.fillStyle = `rgba(${g},${g + 4},${g + 8},${0.08 + Math.random() * 0.14})`;
+          ctx.fillRect(Math.random() * s, Math.random() * s, 1 + Math.random() * 4, 1 + Math.random() * 4);
+        }
+        // Heat discoloration and soot washes from repeated launches.
+        for (let i = 0; i < 14; i++) {
+          const x = Math.random() * s;
+          const y = Math.random() * s;
+          const heat = ctx.createRadialGradient(x, y, 1, x, y, s * (0.06 + Math.random() * 0.12));
+          const warm = Math.random() > 0.45;
+          heat.addColorStop(0, warm ? "rgba(120,72,38,0.22)" : "rgba(36,48,62,0.20)");
+          heat.addColorStop(1, "rgba(20,24,28,0)");
+          ctx.fillStyle = heat;
+          ctx.beginPath();
+          ctx.ellipse(x, y, s * 0.16, s * 0.08, Math.random() * Math.PI, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.strokeStyle = "rgba(10,12,14,0.32)";
+        ctx.lineCap = "round";
+        for (let i = 0; i < 28; i++) {
+          const x = Math.random() * s;
+          ctx.lineWidth = 2 + Math.random() * 12;
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x + (Math.random() - 0.5) * s * 0.08, s * (0.35 + Math.random() * 0.65));
+          ctx.stroke();
+        }
+        // Vertical construction joints.
+        ctx.strokeStyle = "rgba(30,36,42,0.35)";
+        ctx.lineWidth = 2;
+        for (let i = 1; i < 5; i++) {
+          const p = (i / 5) * s;
+          ctx.beginPath();
+          ctx.moveTo(p, 0);
+          ctx.lineTo(p, s);
+          ctx.stroke();
+        }
+      }, 12, 1);
+    }
+
+    _makeRampSurfaceTexture(size = 512) {
+      return this._makeCanvasTexture(size, (ctx, s) => {
+        ctx.fillStyle = "#808991";
+        ctx.fillRect(0, 0, s, s);
+        for (let i = 0; i < 2400; i++) {
+          const shade = 92 + Math.floor(Math.random() * 48);
+          ctx.fillStyle = `rgba(${shade},${shade + 3},${shade + 8},${0.10 + Math.random() * 0.18})`;
+          const r = 1 + Math.random() * 3.2;
+          ctx.fillRect(Math.random() * s, Math.random() * s, r, r);
+        }
+        // Transverse expansion joints down the long ramp.
+        ctx.strokeStyle = "rgba(38,46,54,0.34)";
+        ctx.lineWidth = 3;
+        for (let i = 1; i < 6; i++) {
+          const y = (i / 6) * s;
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(s, y);
+          ctx.stroke();
+        }
+        // Crawler tyre tracks and wet streaks.
+        [-0.30, -0.22, 0.22, 0.30].forEach((offset) => {
+          const x = s * (0.5 + offset);
+          ctx.strokeStyle = "rgba(24,30,36,0.16)";
+          ctx.lineWidth = s * 0.022;
+          ctx.setLineDash([s * 0.018, s * 0.012]);
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, s);
+          ctx.stroke();
+        });
+        ctx.setLineDash([]);
+        // Edge grime and patch repairs.
+        ctx.fillStyle = "rgba(42,48,54,0.20)";
+        ctx.fillRect(0, 0, s, s * 0.035);
+        ctx.fillRect(0, s * 0.965, s, s * 0.035);
+        for (let i = 0; i < 18; i++) {
+          const x = Math.random() * s;
+          const y = Math.random() * s;
+          ctx.strokeStyle = `rgba(28,34,40,${0.08 + Math.random() * 0.12})`;
+          ctx.lineWidth = 1 + Math.random() * 2;
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + (Math.random() - 0.5) * s * 0.16, y + (Math.random() - 0.5) * s * 0.16);
+          ctx.stroke();
+        }
+      }, 2, 5);
+    }
+
+    _makePadSignTexture(width = 768, height = 240) {
+      const THREE = window.THREE;
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#b91c1c";
+      ctx.fillRect(0, 0, width, height);
+      ctx.strokeStyle = "#f8fafc";
+      ctx.lineWidth = 12;
+      ctx.strokeRect(8, 8, width - 16, height - 16);
+      ctx.fillStyle = "#f8fafc";
+      ctx.font = `900 ${Math.floor(height * 0.38)}px Arial`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("BLAST DANGER", width / 2, height * 0.38);
+      ctx.fillStyle = "#fde68a";
+      ctx.font = `800 ${Math.floor(height * 0.18)}px Arial`;
+      ctx.fillText("RESTRICTED HARDSTAND · PAD 39A", width / 2, height * 0.73);
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+      if (THREE.sRGBEncoding !== undefined) texture.encoding = THREE.sRGBEncoding;
+      texture.anisotropy = window.isMobileDevice ? 2 : 8;
+      texture.needsUpdate = true;
+      return texture;
     }
 
     _makeGrassTexture(size = 512) {
@@ -761,22 +1144,41 @@
       this.skySunSprite.scale.set(240, 240, 1);
       terrainGroup.add(this.skySunSprite);
 
-      // Light, low-poly cloud banks near the horizon.
-      const cloudMat = new THREE.MeshBasicMaterial({
-        color: 0xffffff,
+      // Soft billboard cloud banks instead of intersecting low-poly spheres.
+      const cloudCanvas = document.createElement("canvas");
+      cloudCanvas.width = 256;
+      cloudCanvas.height = 128;
+      const cloudCtx = cloudCanvas.getContext("2d");
+      for (let i = 0; i < 18; i++) {
+        const x = 30 + Math.random() * 196;
+        const y = 48 + Math.random() * 44;
+        const r = 24 + Math.random() * 46;
+        const grad = cloudCtx.createRadialGradient(x, y, 0, x, y, r);
+        grad.addColorStop(0, "rgba(255,255,255,0.32)");
+        grad.addColorStop(0.55, "rgba(255,255,255,0.15)");
+        grad.addColorStop(1, "rgba(255,255,255,0)");
+        cloudCtx.fillStyle = grad;
+        cloudCtx.beginPath();
+        cloudCtx.ellipse(x, y, r, r * 0.55, 0, 0, Math.PI * 2);
+        cloudCtx.fill();
+      }
+      const cloudTex = new THREE.CanvasTexture(cloudCanvas);
+      if (THREE.sRGBEncoding !== undefined) cloudTex.encoding = THREE.sRGBEncoding;
+      const cloudMat = new THREE.SpriteMaterial({
+        map: cloudTex,
         transparent: true,
-        opacity: 0.18,
+        opacity: 0.5,
         depthWrite: false,
         fog: true
       });
-      const cloudCount = window.isMobileDevice ? 4 : 10;
+      const cloudCount = window.isMobileDevice ? 5 : 12;
       for (let i = 0; i < cloudCount; i++) {
         const cloud = new THREE.Group();
-        const puffs = (window.isMobileDevice ? 2 : 3) + Math.floor(Math.random() * (window.isMobileDevice ? 2 : 4));
+        const puffs = (window.isMobileDevice ? 2 : 3) + Math.floor(Math.random() * 3);
         for (let p = 0; p < puffs; p++) {
-          const puff = new THREE.Mesh(new THREE.SphereGeometry(18 + Math.random() * 22, 8, 6), cloudMat);
-          puff.scale.y = 0.42;
-          puff.position.set((p - puffs / 2) * 26, Math.random() * 8, (Math.random() - 0.5) * 24);
+          const puff = new THREE.Sprite(cloudMat);
+          puff.position.set((p - puffs / 2) * 150, (Math.random() - 0.3) * 30, (Math.random() - 0.5) * 100);
+          puff.scale.set(230 + Math.random() * 90, 95 + Math.random() * 45, 1);
           cloud.add(puff);
         }
         cloud.position.set(-500 + Math.random() * 1500, 210 + Math.random() * 150, -600 + Math.random() * 1200);
@@ -975,17 +1377,48 @@
 
       const topApronTex = this._makeConcreteTexture(512, "#97a0a8");
       topApronTex.repeat.set(6, 6);
+      const topApronBumpTex = this._makeConcreteBumpTexture(512, 6, 6);
       const topApron = new THREE.Mesh(
         new THREE.CylinderGeometry(64.6, 65.2, 0.62, 8),
-        new THREE.MeshStandardMaterial({ color: 0xffffff, map: topApronTex, roughness: 0.88, metalness: 0.1 })
+        new THREE.MeshStandardMaterial({
+          color: 0xffffff,
+          map: topApronTex,
+          bumpMap: topApronBumpTex,
+          bumpScale: 0.018,
+          roughness: 0.88,
+          metalness: 0.1
+        })
       );
       topApron.position.set(0, 12.19, 0);
       topApron.rotation.y = Math.PI / 8;
       topApron.receiveShadow = true;
       this.padGroup.add(topApron);
 
+      // Wear layer over the concrete hardstand: expansion joints, cracks,
+      // scorch, tyre tracks and faded safety paint. Kept as a clipped decal so
+      // the octagonal pad shape and the underlying collider geometry stay intact.
+      const padApronOverlay = new THREE.Mesh(
+        new THREE.PlaneGeometry(128, 128),
+        new THREE.MeshStandardMaterial({
+          color: 0xffffff,
+          map: this._makePadApronOverlayTexture(),
+          transparent: true,
+          roughness: 0.96,
+          metalness: 0.02,
+          depthWrite: false,
+          polygonOffset: true,
+          polygonOffsetFactor: -3,
+          polygonOffsetUnits: -3
+        })
+      );
+      padApronOverlay.rotation.x = -Math.PI / 2;
+      padApronOverlay.position.set(0, 12.512, 0);
+      padApronOverlay.renderOrder = 2;
+      this.padGroup.add(padApronOverlay);
+
       // Recessed flame trench channel & angled blast deflector wedge under MLP.
-      const trenchWallMat = new THREE.MeshStandardMaterial({ color: 0x6f7982, roughness: 0.92, metalness: 0.08 });
+      const trenchWallTex = this._makeTrenchWallTexture(512);
+      const trenchWallMat = new THREE.MeshStandardMaterial({ color: 0xffffff, map: trenchWallTex, roughness: 0.92, metalness: 0.08 });
       [-14.6, 14.6].forEach((wx) => {
         const wall = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.2, 92), trenchWallMat);
         wall.position.set(wx, 13.6, 0);
@@ -1019,9 +1452,15 @@
       });
 
       // Crawlerway approach ramp from south crawlerway (z=186, y=0.14) to Pad top (z=60, y=12.50).
-      const rampTex = this._makeConcreteTexture(512, "#808991");
-      rampTex.repeat.set(2, 5);
-      const rampMat = new THREE.MeshStandardMaterial({ color: 0xffffff, map: rampTex, roughness: 0.92, metalness: 0.05 });
+      const rampTex = this._makeRampSurfaceTexture(512);
+      const rampMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        map: rampTex,
+        bumpMap: this._makeConcreteBumpTexture(512, 2, 5),
+        bumpScale: 0.02,
+        roughness: 0.92,
+        metalness: 0.05
+      });
       const rampSpanZ = 126.0;
       const rampRiseY = 12.36;
       const rampLen = Math.hypot(rampSpanZ, rampRiseY);
@@ -1114,6 +1553,27 @@
       mlp.castShadow = true;
       mlp.receiveShadow = true;
       this.padGroup.add(mlp);
+
+      // Bolted steel deck wear layer on the MLP: plate seams, rivets, rust,
+      // engine soot and faded walkway paint.
+      const mlpDeckOverlay = new THREE.Mesh(
+        new THREE.PlaneGeometry(48.8, 40.8),
+        new THREE.MeshStandardMaterial({
+          color: 0xffffff,
+          map: this._makeMlpDeckOverlayTexture(),
+          transparent: true,
+          roughness: 0.8,
+          metalness: 0.24,
+          depthWrite: false,
+          polygonOffset: true,
+          polygonOffsetFactor: -3,
+          polygonOffsetUnits: -3
+        })
+      );
+      mlpDeckOverlay.rotation.x = -Math.PI / 2;
+      mlpDeckOverlay.position.set(0, 19.815, 0);
+      mlpDeckOverlay.renderOrder = 2;
+      this.padGroup.add(mlpDeckOverlay);
 
       // MLP deck perimeter yellow safety rails & umbilical riser cabinets.
       // Front railing is split to leave a 5m open doorway at x in [-14.5, -9.5] for the access stairs!
@@ -1299,6 +1759,7 @@
       );
       padMark.rotation.x = -Math.PI / 2;
       padMark.position.set(38, 12.54, 38);
+      padMark.renderOrder = 5;
       this.padGroup.add(padMark);
 
       // Hold-down posts & deluge nozzle manifolds around the launch mount.
@@ -1311,6 +1772,46 @@
         post.position.set(x, y, z);
         post.castShadow = true;
         this.padGroup.add(post);
+      });
+
+      // Pad-edge blast signage.
+      const padSignTex = this._makePadSignTexture();
+      const padSignMat = new THREE.MeshBasicMaterial({ map: padSignTex, side: THREE.DoubleSide });
+      const addPadSign = (x, y, z, rotY) => {
+        const panel = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 1.2), padSignMat);
+        panel.position.set(x, y, z);
+        panel.rotation.y = rotY;
+        this.padGroup.add(panel);
+        const across = Math.abs(Math.cos(rotY)) > 0.5;
+        [-1, 1].forEach((side) => {
+          const px = across ? x + side * 1.35 : x;
+          const pz = across ? z : z + side * 1.35;
+          this._makeBeam(this.padGroup, 0.08, 1.85, 0.08, px, y - 0.72, pz, postMat);
+        });
+      };
+      addPadSign(-24, 14.4, 54.5, 0.12);
+      addPadSign(46, 14.4, 20, -Math.PI / 2);
+      addPadSign(-46, 14.4, -18, Math.PI / 2);
+
+      // Deluge standpipes and valve wheels along both trench lips.
+      const delugeNozzleMat = new THREE.MeshStandardMaterial({ color: 0x9aa6b0, roughness: 0.4, metalness: 0.7 });
+      const valveWheelMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.48, metalness: 0.42 });
+      [-1, 1].forEach((side) => {
+        for (let i = 0; i < 5; i++) {
+          const z = -36 + i * 18;
+          const x = side * 16.4;
+          const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, 0.66, 8), delugeNozzleMat);
+          stand.position.set(x, 12.82, z);
+          this.padGroup.add(stand);
+          const head = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.25, 0.28, 10), delugeNozzleMat);
+          head.position.set(x, 13.17, z);
+          head.rotation.z = side * 0.55;
+          this.padGroup.add(head);
+          const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.026, 6, 14), valveWheelMat);
+          wheel.rotation.x = Math.PI / 2;
+          wheel.position.set(x, 12.7, z + 0.28);
+          this.padGroup.add(wheel);
+        }
       });
     }
 
@@ -1360,7 +1861,43 @@
       const half = 6; // half-width of main structural columns
 
       // ── Main corner columns (4×) ──
-      const colMat = new THREE.MeshStandardMaterial({ color: 0xb0bec5, roughness: 0.5, metalness: 0.65 });
+      const colTex = this._makeCanvasTexture(128, (ctx, s) => {
+        ctx.fillStyle = "#a8b0b3";
+        ctx.fillRect(0, 0, s, s);
+        // Vertical rain streaks and chalking paint.
+        for (let i = 0; i < 26; i++) {
+          const x = Math.random() * s;
+          ctx.strokeStyle = Math.random() > 0.5 ? "rgba(60,69,73,0.12)" : "rgba(235,238,238,0.14)";
+          ctx.lineWidth = 1 + Math.random() * 4;
+          ctx.beginPath();
+          ctx.moveTo(x, Math.random() * s * 0.35);
+          ctx.lineTo(x + (Math.random() - 0.5) * 8, s);
+          ctx.stroke();
+        }
+        // Weld/bolt rows and touch-up patches.
+        ctx.strokeStyle = "rgba(56,64,68,0.32)";
+        ctx.lineWidth = 2;
+        for (let y = 12; y < s; y += 34) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(s, y);
+          ctx.stroke();
+        }
+        for (let i = 0; i < 8; i++) {
+          ctx.fillStyle = "rgba(106,84,62,0.12)";
+          ctx.beginPath();
+          ctx.ellipse(Math.random() * s, Math.random() * s, 4 + Math.random() * 14, 2 + Math.random() * 5, Math.random() * Math.PI, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }, 2, 10);
+      const colMat = new THREE.MeshStandardMaterial({
+        color: 0xdfe4e5,
+        map: colTex,
+        bumpMap: colTex,
+        bumpScale: 0.008,
+        roughness: 0.64,
+        metalness: 0.26
+      });
       [[-half, -half], [half, -half], [-half, half], [half, half]].forEach(([cx, cz]) => {
         this._makeBeam(this.towerGroup, 1.2, towerHeight, 1.2, cx, towerHeight / 2, cz, colMat);
       });
@@ -1740,10 +2277,26 @@
 
       // Walkable Crew Staging Gantry Deck at y = 44m above MLP (world Y = 63.8m)
       const deckTex = this._makeCanvasTexture(256, (ctx, s) => {
-        ctx.fillStyle = "#3f4a54";
+        // Weathered steel gantry deck: diamond tread, panel seams, oil stains
+        // and oxide streaks. The real FSS deck is an outdoor steel surface,
+        // not the clean painted grid it used to be.
+        ctx.fillStyle = "#525c63";
         ctx.fillRect(0, 0, s, s);
-        ctx.strokeStyle = "rgba(18,24,30,0.4)";
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = "rgba(28,35,40,0.42)";
+        ctx.lineWidth = 1.4;
+        for (let y = 0; y < s; y += 12) {
+          for (let x = (y / 12) % 2 === 0 ? 0 : 6; x < s; x += 12) {
+            ctx.beginPath();
+            ctx.moveTo(x, y + 2);
+            ctx.lineTo(x + 7, y + 7);
+            ctx.moveTo(x + 7, y + 2);
+            ctx.lineTo(x, y + 7);
+            ctx.stroke();
+          }
+        }
+        // Panel breaks every 2 m at the chosen repeat.
+        ctx.strokeStyle = "rgba(24,31,36,0.58)";
+        ctx.lineWidth = 2.5;
         for (let i = 0; i <= 8; i++) {
           const p = (i / 8) * s;
           ctx.beginPath();
@@ -1753,15 +2306,43 @@
           ctx.lineTo(s, p);
           ctx.stroke();
         }
-        ctx.strokeStyle = "rgba(250,204,21,0.55)";
-        ctx.lineWidth = 6;
-        ctx.strokeRect(4, 4, s - 8, s - 8);
-      }, 4, 4);
+        // Rust and oil blooms.
+        for (let i = 0; i < 8; i++) {
+          const x = Math.random() * s;
+          const y = Math.random() * s;
+          const r = 8 + Math.random() * 26;
+          const grain = ctx.createRadialGradient(x, y, 0, x, y, r);
+          const dark = Math.random() > 0.5;
+          grain.addColorStop(0, dark ? "rgba(20,22,22,0.22)" : "rgba(118,71,34,0.16)");
+          grain.addColorStop(1, "rgba(0,0,0,0)");
+          ctx.fillStyle = grain;
+          ctx.beginPath();
+          ctx.arc(x, y, r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        // Scuffs and paint chips.
+        for (let i = 0; i < 45; i++) {
+          ctx.fillStyle = Math.random() > 0.5 ? "rgba(224,230,232,0.12)" : "rgba(28,34,38,0.16)";
+          ctx.fillRect(Math.random() * s, Math.random() * s, 1 + Math.random() * 8, 1 + Math.random() * 2);
+        }
+        // Faint weld beads along the panel breaks.
+        ctx.strokeStyle = "rgba(210,216,218,0.09)";
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 8; i++) {
+          const p = (i / 8) * s;
+          ctx.beginPath();
+          ctx.moveTo(p + 2, 0);
+          ctx.lineTo(p + 2, s);
+          ctx.stroke();
+        }
+      }, 8, 8);
       const stagingDeckMat = new THREE.MeshStandardMaterial({
         color: 0xffffff,
         map: deckTex,
-        roughness: 0.72,
-        metalness: 0.35
+        bumpMap: deckTex,
+        bumpScale: 0.02,
+        roughness: 0.82,
+        metalness: 0.26
       });
       const stagingDeck = new THREE.Mesh(new THREE.BoxGeometry(16, 0.6, 18), stagingDeckMat);
       stagingDeck.position.set(1.5, 44.0, -4.0);
@@ -1785,6 +2366,11 @@
         { x: -6.42, z: 1.35, sx: 0.12, sz: 7.1, rotY: 0 },
         { x: -6.42, z: -9.35, sx: 0.12, sz: 7.1, rotY: 0 },
         { x: 9.42, z: -10.8, sx: 0.12, sz: 4.12, rotY: 0 },
+        // Close the unguarded north half of the east deck edge and trim the
+        // gap to the real 5 ft access-arm width (the door is 2.34 m wide).
+        { x: 9.42, z: -8.555, sx: 0.12, sz: 0.37, rotY: 0 },
+        { x: 9.42, z: -5.695, sx: 0.12, sz: 0.67, rotY: 0 },
+        { x: 9.42, z: -2.36, sx: 0.12, sz: 6.0, rotY: 0 },
         { x: 9.42, z: 2.8, sx: 0.12, sz: 4.32, rotY: 0 }
       ];
       railSegments.forEach((seg) => {
@@ -1802,26 +2388,142 @@
           this._makeBeam(this.towerGroup, 0.08, 1.35, 0.08, -6.4, 44.7, z, railPostMat);
         }
       }
+      for (let i = 0; i <= 6; i++) {
+        this._makeBeam(this.towerGroup, 0.08, 1.35, 0.08, 9.42, 44.7, -5.3 + i * 1.0, railPostMat);
+      }
+      [-8.555, -5.695].forEach((z) => {
+        this._makeBeam(this.towerGroup, 0.08, 1.35, 0.08, 9.42, 44.7, z, railPostMat);
+      });
 
-      // Boarding Dock Control Console on Gantry Deck.
+      // Boarding Dock Control Console on Gantry Deck. It faces the crew staging
+      // bays (south) so arriving players see an operating workstation with a
+      // live arm-status screen instead of the blank back of a cabinet.
       const dockConsole = new THREE.Group();
+      dockConsole.name = "BoardingBridgeControlConsole";
       dockConsole.position.set(8.1, 44.3, -5.4);
-      const cBase = new THREE.Mesh(
-        new THREE.BoxGeometry(1.6, 1.15, 0.8),
-        new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.45, metalness: 0.6 })
-      );
+      const consoleCaseMat = new THREE.MeshStandardMaterial({ color: 0x1e2b36, roughness: 0.42, metalness: 0.62 });
+      const consoleTrimMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.5, metalness: 0.55 });
+      const cBase = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.15, 0.8), consoleCaseMat);
       cBase.position.set(0, 0.58, 0);
       dockConsole.add(cBase);
+
+      // Angled operator panel, keypad and physical controls.
+      const cPanel = new THREE.Mesh(new THREE.BoxGeometry(1.48, 0.52, 0.06), consoleTrimMat);
+      cPanel.position.set(0, 0.76, -0.415);
+      cPanel.rotation.x = 0.16;
+      dockConsole.add(cPanel);
+      const cKeypad = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.06, 0.3), consoleCaseMat);
+      cKeypad.position.set(0, 0.7, -0.2);
+      cKeypad.rotation.x = 0.16;
+      dockConsole.add(cKeypad);
+      for (let i = 0; i < 8; i++) {
+        const key = new THREE.Mesh(
+          new THREE.BoxGeometry(0.08, 0.025, 0.06),
+          new THREE.MeshStandardMaterial({ color: i === 7 ? 0xf59e0b : 0x94a3b8, roughness: 0.6, metalness: 0.25 })
+        );
+        key.position.set(-0.235 + (i % 4) * 0.157, 0.735, -0.245 + Math.floor(i / 4) * 0.095);
+        key.rotation.x = 0.16;
+        dockConsole.add(key);
+      }
+
+      // Arm-status display. The emissive status strip underneath is recoloured
+      // by the boarding state transitions.
+      const consoleScreenTex = this._makeCanvasTexture(256, (ctx, s) => {
+        ctx.fillStyle = "#071318";
+        ctx.fillRect(0, 0, s, s);
+        ctx.fillStyle = "rgba(56,189,248,0.1)";
+        for (let y = 0; y < s; y += 8) ctx.fillRect(0, y, s, 2);
+        ctx.strokeStyle = "rgba(103,232,249,0.55)";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(6, 6, s - 12, s - 12);
+        ctx.fillStyle = "#67e8f9";
+        ctx.font = "bold 30px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("ORBITER ACCESS ARM", s / 2, 52);
+        ctx.fillStyle = "#facc15";
+        ctx.font = "bold 58px Arial";
+        ctx.fillText("ARM 1", s / 2, 118);
+        ctx.fillStyle = "#34d399";
+        ctx.font = "bold 23px Arial";
+        ctx.fillText("WHITE ROOM LINK", s / 2, 154);
+        ctx.fillStyle = "rgba(148,163,184,0.9)";
+        ctx.font = "19px monospace";
+        ctx.fillText("CREW STAGING · 147 FT", s / 2, 188);
+        ctx.fillStyle = "#38bdf8";
+        ctx.beginPath();
+        ctx.arc(s - 34, 30, 9, 0, Math.PI * 2);
+        ctx.fill();
+      }, 1, 1);
+      const consoleScreenMat = new THREE.MeshBasicMaterial({ map: consoleScreenTex });
+      const cScreenBezel = new THREE.Mesh(new THREE.BoxGeometry(1.34, 0.56, 0.08), consoleCaseMat);
+      cScreenBezel.position.set(0, 1.24, -0.43);
+      cScreenBezel.rotation.x = -0.08;
+      dockConsole.add(cScreenBezel);
+      const cScreen = new THREE.Mesh(new THREE.PlaneGeometry(1.22, 0.46), consoleScreenMat);
+      cScreen.position.set(0, 1.24, -0.476);
+      cScreen.rotation.y = Math.PI;
+      cScreen.rotation.x = 0.08;
+      dockConsole.add(cScreen);
 
       this.dockStatusLightMat = new THREE.MeshStandardMaterial({
         color: 0xf59e0b,
         emissive: 0xf59e0b,
         emissiveIntensity: 1.4
       });
-      const cScreen = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.45, 0.06), this.dockStatusLightMat);
-      cScreen.position.set(0, 1.25, 0.25);
-      cScreen.rotation.x = -0.25;
-      dockConsole.add(cScreen);
+      const cStatusStrip = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.07, 0.045), this.dockStatusLightMat);
+      cStatusStrip.position.set(0, 1.47, -0.44);
+      dockConsole.add(cStatusStrip);
+
+      const cEStop = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.09, 0.09, 0.055, 14),
+        new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.5, metalness: 0.2, emissive: 0x450a0a, emissiveIntensity: 0.5 })
+      );
+      cEStop.position.set(0.61, 1.19, -0.3);
+      dockConsole.add(cEStop);
+      const cBeacon = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.07, 0.09, 0.13, 12),
+        new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xf59e0b, emissiveIntensity: 1.6 })
+      );
+      cBeacon.position.set(-0.62, 1.23, -0.3);
+      dockConsole.add(cBeacon);
+
+      const consoleLabelCanvas = document.createElement("canvas");
+      consoleLabelCanvas.width = 512;
+      consoleLabelCanvas.height = 160;
+      const consoleLabelCtx = consoleLabelCanvas.getContext("2d");
+      consoleLabelCtx.fillStyle = "#111820";
+      consoleLabelCtx.fillRect(0, 0, 512, 160);
+      consoleLabelCtx.strokeStyle = "#facc15";
+      consoleLabelCtx.lineWidth = 6;
+      consoleLabelCtx.strokeRect(5, 5, 502, 150);
+      consoleLabelCtx.fillStyle = "#f8fafc";
+      consoleLabelCtx.font = "bold 30px Arial";
+      consoleLabelCtx.textAlign = "center";
+      consoleLabelCtx.fillText("BOARDING BRIDGE", 256, 38);
+      consoleLabelCtx.fillStyle = "#facc15";
+      consoleLabelCtx.font = "bold 44px Arial";
+      consoleLabelCtx.fillText("ARM CONTROL 1", 256, 88);
+      consoleLabelCtx.fillStyle = "#94a3b8";
+      consoleLabelCtx.font = "bold 19px Arial";
+      consoleLabelCtx.fillText("PRESS [F] TO SWING & LOCK", 256, 126);
+      const consoleLabelTex = new THREE.CanvasTexture(consoleLabelCanvas);
+      if (THREE.sRGBEncoding !== undefined) consoleLabelTex.encoding = THREE.sRGBEncoding;
+      const consoleLabel = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.82, 0.22),
+        new THREE.MeshBasicMaterial({ map: consoleLabelTex, side: THREE.DoubleSide })
+      );
+      consoleLabel.position.set(0, 0.32, -0.408);
+      consoleLabel.rotation.y = Math.PI;
+      dockConsole.add(consoleLabel);
+
+      // Cable coil and a task lamp anchor the console to the deck.
+      const coilMat = new THREE.MeshStandardMaterial({ color: 0x1f2933, roughness: 0.7, metalness: 0.15 });
+      for (let i = 0; i < 3; i++) {
+        const coil = new THREE.Mesh(new THREE.TorusGeometry(0.28 + i * 0.055, 0.025, 6, 18), coilMat);
+        coil.rotation.x = Math.PI / 2;
+        coil.position.set(0.68, 0.045, 0.1);
+        dockConsole.add(coil);
+      }
       this.towerGroup.add(dockConsole);
 
       // Pivoting Orbiter Access Arm (OAA) + White Room Boarding Bridge.
@@ -1831,49 +2533,1002 @@
       this.armPivotGroup.rotation.y = this.dockSwingAngle; // Starts retracted!
       this.towerGroup.add(this.armPivotGroup);
 
+      // Reference proportions (NASA LC-39 facts sheet): the real Orbiter
+      // Access Arm is 147 ft above the pad, 65 ft long, 5 ft wide, 8 ft high,
+      // weighs 52,000 lb and swings through a 70° arc on four hydraulic
+      // cylinders. Its White Room is an environmental chamber for six people.
       // Walkable bridge floor inside the access arm. The arm runs from the
       // tower face to the orbiter's port-side hatch; its length matches the
       // 19 m reach needed to close the gap to the fuselage at x ~= -2.2.
       // The floor starts at the staging-deck edge instead of overlapping it.
       // Both decks share the same walking height, and a coplanar overlap makes
       // the bridge flicker with depth-buffer z-fighting as the crew crosses.
+      // The walking surface is a panelled, grip-tread deck rather than one
+      // uniform block so the crew transfer reads as part of the launch tower.
+      const bridgeFloorTex = this._makeCanvasTexture(256, (ctx, s) => {
+        // The real OAA walkway is a narrow diamond-plate deck with a wide
+        // yellow anti-slip strip down its centre and dark chevron mats.
+        ctx.fillStyle = "#8d979d";
+        ctx.fillRect(0, 0, s, s);
+        // Diamond-plate crosshatch on the bare steel edges.
+        ctx.strokeStyle = "rgba(40,48,54,0.38)";
+        ctx.lineWidth = 2;
+        for (let i = -s; i < s * 2; i += 14) {
+          ctx.beginPath();
+          ctx.moveTo(i, 0);
+          ctx.lineTo(i + s, s);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(i + s, 0);
+          ctx.lineTo(i, s);
+          ctx.stroke();
+        }
+        // Non-slip yellow centre aisle (the real strip is roughly 2 ft wide).
+        const y0 = s * 0.34;
+        const y1 = s * 0.66;
+        ctx.fillStyle = "#d6a514";
+        ctx.fillRect(0, y0, s, y1 - y0);
+        ctx.fillStyle = "rgba(250,204,21,0.9)";
+        ctx.fillRect(0, y0 + 3, s, y1 - y0 - 6);
+        ctx.strokeStyle = "rgba(55,45,12,0.35)";
+        ctx.lineWidth = 2;
+        for (let x = 0; x < s; x += 8) {
+          ctx.beginPath();
+          ctx.moveTo(x, y0 + 3);
+          ctx.lineTo(x, y1 - 3);
+          ctx.stroke();
+        }
+        // Black rubber chevron mats laid along the aisle.
+        ctx.strokeStyle = "#1a2024";
+        ctx.lineWidth = 13;
+        ctx.lineCap = "square";
+        [0.25, 0.75].forEach((f) => {
+          const cx = s * f;
+          ctx.beginPath();
+          ctx.moveTo(cx - 38, y0 + 4);
+          ctx.lineTo(cx, y1 - 4);
+          ctx.lineTo(cx + 38, y0 + 4);
+          ctx.stroke();
+        });
+        // Steel edge strips and seam lines.
+        ctx.fillStyle = "rgba(50,60,66,0.28)";
+        ctx.fillRect(0, 0, s, s * 0.055);
+        ctx.fillRect(0, s * 0.945, s, s * 0.055);
+        ctx.strokeStyle = "rgba(240,246,250,0.24)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(2, 0);
+        ctx.lineTo(2, s);
+        ctx.moveTo(s - 2, 0);
+        ctx.lineTo(s - 2, s);
+        ctx.stroke();
+        ctx.fillStyle = "rgba(92,104,110,0.16)";
+        for (let i = 0; i < 22; i++) {
+          ctx.fillRect(Math.random() * s, Math.random() * s, 2 + Math.random() * 8, 1 + Math.random() * 2);
+        }
+      }, 5, 1);
+      const bridgeFloorBumpTex = this._makeBumpTexture(256, (ctx, s) => {
+        // Height map matching the diamond plate, raised yellow aisle and
+        // recessed rubber chevron mats on the painted floor texture.
+        ctx.fillStyle = "#808080";
+        ctx.fillRect(0, 0, s, s);
+        ctx.strokeStyle = "#b8b8b8";
+        ctx.lineWidth = 3;
+        for (let i = -s; i < s * 2; i += 14) {
+          ctx.beginPath();
+          ctx.moveTo(i, 0);
+          ctx.lineTo(i + s, s);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(i + s, 0);
+          ctx.lineTo(i, s);
+          ctx.stroke();
+        }
+        const y0 = s * 0.34;
+        const y1 = s * 0.66;
+        ctx.fillStyle = "#a2a2a2";
+        ctx.fillRect(0, y0, s, y1 - y0);
+        ctx.strokeStyle = "#5d5d5d";
+        ctx.lineWidth = 13;
+        ctx.lineCap = "square";
+        [0.25, 0.75].forEach((f) => {
+          const cx = s * f;
+          ctx.beginPath();
+          ctx.moveTo(cx - 38, y0 + 4);
+          ctx.lineTo(cx, y1 - 4);
+          ctx.lineTo(cx + 38, y0 + 4);
+          ctx.stroke();
+        });
+        ctx.fillStyle = "#666666";
+        ctx.fillRect(0, 0, s, s * 0.055);
+        ctx.fillRect(0, s * 0.945, s, s * 0.055);
+        ctx.strokeStyle = "#c8c8c8";
+        ctx.lineWidth = 2;
+        for (let x = 0; x < s; x += 32) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, s);
+          ctx.stroke();
+        }
+      }, 5, 1);
+      const bridgeFloorMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        map: bridgeFloorTex,
+        bumpMap: bridgeFloorBumpTex,
+        bumpScale: 0.018,
+        roughness: 0.76,
+        metalness: 0.32
+      });
+      const bridgeFloorEdgeMat = new THREE.MeshStandardMaterial({ color: 0x6f7c84, roughness: 0.7, metalness: 0.38 });
       const bridgeFloor = new THREE.Mesh(
-        new THREE.BoxGeometry(18.0, 0.3, 2.8),
-        new THREE.MeshStandardMaterial({ color: 0x8493a0, roughness: 0.65, metalness: 0.4 })
+        new THREE.BoxGeometry(18.0, 0.3, 2.0),
+        [bridgeFloorEdgeMat, bridgeFloorEdgeMat, bridgeFloorMat, bridgeFloorEdgeMat, bridgeFloorEdgeMat, bridgeFloorEdgeMat]
       );
       bridgeFloor.position.set(10.0, 0.15, 0);
+      bridgeFloor.receiveShadow = true;
       this.armPivotGroup.add(bridgeFloor);
 
+      // Real OAA proportions: 65 ft long, 5 ft wide, 8 ft high. The game
+      // walkway is slightly wider for playability but keeps the narrow,
+      // enclosed feel and the yellow centre aisle.
+      const kickPlateMat = new THREE.MeshStandardMaterial({ color: 0x53616b, roughness: 0.56, metalness: 0.46 });
+      [-1.005, 1.005].forEach((z) => {
+        const kick = new THREE.Mesh(new THREE.BoxGeometry(18.0, 0.2, 0.05), kickPlateMat);
+        kick.position.set(10.0, 0.42, z);
+        this.armPivotGroup.add(kick);
+      });
+
+      const bridgeFitMat = new THREE.MeshStandardMaterial({ color: 0x33424c, roughness: 0.5, metalness: 0.6 });
+      const bridgeLensMat = new THREE.MeshBasicMaterial({ color: 0xffefc4 });
+      const armTrussTex = this._makeCanvasTexture(128, (ctx, s) => {
+        ctx.fillStyle = "#78838a";
+        ctx.fillRect(0, 0, s, s);
+        for (let i = 0; i < 20; i++) {
+          ctx.strokeStyle = Math.random() > 0.5 ? "rgba(230,235,236,0.12)" : "rgba(42,50,55,0.13)";
+          ctx.lineWidth = 1 + Math.random() * 3;
+          const x = Math.random() * s;
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x + (Math.random() - 0.5) * 10, s);
+          ctx.stroke();
+        }
+        for (let i = 0; i < 10; i++) {
+          ctx.fillStyle = "rgba(93,65,39,0.12)";
+          ctx.fillRect(Math.random() * s, Math.random() * s, 1 + Math.random() * 5, 1 + Math.random() * 18);
+        }
+      }, 1, 1);
+      const armBehindMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        map: armTrussTex,
+        bumpMap: armTrussTex,
+        bumpScale: 0.006,
+        roughness: 0.66,
+        metalness: 0.38
+      });
+      const corrugatedTex = this._makeCanvasTexture(256, (ctx, s) => {
+        ctx.fillStyle = "#98a1a6";
+        ctx.fillRect(0, 0, s, s);
+        for (let y = 0; y < s; y += 10) {
+          ctx.fillStyle = y % 20 === 0 ? "rgba(230,235,237,0.28)" : "rgba(43,52,57,0.22)";
+          ctx.fillRect(0, y, s, 4);
+        }
+        for (let x = 0; x < s; x += 64) {
+          ctx.fillStyle = "rgba(40,50,56,0.32)";
+          ctx.fillRect(x, 0, 2, s);
+          ctx.fillStyle = "rgba(240,244,246,0.22)";
+          ctx.fillRect(x + 2, 0, 1, s);
+        }
+        // Dirt collected along the bottom edge and behind the handrail.
+        const dirt = ctx.createLinearGradient(0, s * 0.55, 0, s);
+        dirt.addColorStop(0, "rgba(45,51,52,0)");
+        dirt.addColorStop(1, "rgba(45,51,52,0.22)");
+        ctx.fillStyle = dirt;
+        ctx.fillRect(0, s * 0.55, s, s * 0.45);
+        for (let i = 0; i < 16; i++) {
+          ctx.strokeStyle = "rgba(87,63,38,0.12)";
+          ctx.lineWidth = 1 + Math.random() * 3;
+          const x = Math.random() * s;
+          ctx.beginPath();
+          ctx.moveTo(x, Math.random() * s * 0.5);
+          ctx.lineTo(x + (Math.random() - 0.5) * 7, s);
+          ctx.stroke();
+        }
+        ctx.fillStyle = "rgba(55,65,72,0.35)";
+        for (let x = 20; x < s; x += 64) {
+          for (let y = 18; y < s; y += 42) {
+            ctx.beginPath();
+            ctx.arc(x, y, 2.2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }, 7, 1);
+      const corrugatedBumpTex = this._makeBumpTexture(256, (ctx, s) => {
+        ctx.fillStyle = "#808080";
+        ctx.fillRect(0, 0, s, s);
+        for (let y = 0; y < s; y += 10) {
+          ctx.fillStyle = y % 20 === 0 ? "#b2b2b2" : "#606060";
+          ctx.fillRect(0, y, s, 4);
+        }
+        for (let x = 0; x < s; x += 64) {
+          ctx.fillStyle = "#4e4e4e";
+          ctx.fillRect(x, 0, 2, s);
+          ctx.fillStyle = "#c0c0c0";
+          ctx.fillRect(x + 2, 0, 1, s);
+        }
+        ctx.fillStyle = "#d0d0d0";
+        for (let x = 20; x < s; x += 64) {
+          for (let y = 18; y < s; y += 42) {
+            ctx.beginPath();
+            ctx.arc(x, y, 2.4, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }, 7, 1);
+      const interiorWallMat = new THREE.MeshStandardMaterial({
+        color: 0xb9c1c4,
+        map: corrugatedTex,
+        bumpMap: corrugatedBumpTex,
+        bumpScale: 0.01,
+        roughness: 0.8,
+        metalness: 0.22
+      });
+      const ceilingMat = new THREE.MeshStandardMaterial({ color: 0x9ea7ab, roughness: 0.76, metalness: 0.22 });
+      const interiorPipeMat = new THREE.MeshStandardMaterial({ color: 0x87949b, roughness: 0.62, metalness: 0.42 });
+      const interiorHoseMat = new THREE.MeshStandardMaterial({ color: 0x8f6b00, roughness: 0.72, metalness: 0.12 });
+      const railTubeMat = new THREE.MeshStandardMaterial({ color: 0x9aa6ad, roughness: 0.46, metalness: 0.58 });
+
+      // Corrugated waist-high walls, as in the real access-arm corridor.
+      [-0.94, 0.94].forEach((z) => {
+        const wall = new THREE.Mesh(new THREE.BoxGeometry(18.0, 1.05, 0.06), interiorWallMat);
+        wall.position.set(10.0, 0.825, z);
+        wall.castShadow = false;
+        this.armPivotGroup.add(wall);
+        const cap = new THREE.Mesh(new THREE.BoxGeometry(18.0, 0.06, 0.1), bridgeFitMat);
+        cap.position.set(10.0, 1.38, z);
+        this.armPivotGroup.add(cap);
+        // Tubular handrail above the corrugated wall.
+        const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 18.0, 8), railTubeMat);
+        rail.rotation.z = Math.PI / 2;
+        rail.position.set(10.0, 1.46, z);
+        this.armPivotGroup.add(rail);
+        for (let x = 1.2; x <= 19; x += 2.0) {
+          const bracket = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.18, 0.14), bridgeFitMat);
+          bracket.position.set(x, 1.3, z);
+          this.armPivotGroup.add(bracket);
+        }
+      });
+
+      // Ambient-occlusion strips along the floor and ceiling corners.
+      const aoStripMat = new THREE.MeshBasicMaterial({
+        color: 0x000000,
+        transparent: true,
+        opacity: 0.16,
+        depthWrite: false,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+        polygonOffsetUnits: -2
+      });
+      [-1, 1].forEach((side) => {
+        const floorAO = new THREE.Mesh(new THREE.BoxGeometry(18.0, 0.004, 0.16), aoStripMat);
+        floorAO.position.set(10.0, 0.306, side * 0.86);
+        this.armPivotGroup.add(floorAO);
+        const ceilingAO = new THREE.Mesh(new THREE.BoxGeometry(18.0, 0.004, 0.1), aoStripMat);
+        ceilingAO.position.set(10.0, 2.525, side * 1.0);
+        this.armPivotGroup.add(ceilingAO);
+      });
+
+      // Ceiling deck and the service runs that make the arm feel maintained.
+      const bridgeCeiling = new THREE.Mesh(new THREE.BoxGeometry(18.0, 0.06, 2.15), ceilingMat);
+      bridgeCeiling.position.set(10.0, 2.56, 0);
+      this.armPivotGroup.add(bridgeCeiling);
+      for (let x = 1.0; x <= 19; x += 1.8) {
+        const rib = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.08, 2.15), bridgeFitMat);
+        rib.position.set(x, 2.51, 0);
+        this.armPivotGroup.add(rib);
+      }
+      const runGrey = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 17.6, 8), interiorPipeMat);
+      runGrey.rotation.z = Math.PI / 2;
+      runGrey.position.set(10.0, 2.35, -0.58);
+      this.armPivotGroup.add(runGrey);
+      const runBlack = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.038, 17.6, 8), bridgeFitMat);
+      runBlack.rotation.z = Math.PI / 2;
+      runBlack.position.set(10.0, 2.33, 0.05);
+      this.armPivotGroup.add(runBlack);
+      const runAmber = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 17.2, 8), interiorHoseMat);
+      runAmber.rotation.z = Math.PI / 2;
+      runAmber.position.set(10.0, 2.31, 0.55);
+      this.armPivotGroup.add(runAmber);
+      const cableBundle = new THREE.Mesh(new THREE.BoxGeometry(17.5, 0.1, 0.26), bridgeFitMat);
+      cableBundle.position.set(10.0, 2.28, 0.82);
+      this.armPivotGroup.add(cableBundle);
+
+      // Caged circular work lamps at the same spacing as the real arm.
+      [3.5, 10.0, 16.5].forEach((x) => {
+        const crossBar = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 2.0), bridgeFitMat);
+        crossBar.position.set(x, 2.51, 0);
+        this.armPivotGroup.add(crossBar);
+        const housing = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 0.14, 14), bridgeFitMat);
+        housing.position.set(x, 2.39, 0);
+        this.armPivotGroup.add(housing);
+        const lens = new THREE.Mesh(new THREE.CircleGeometry(0.15, 16), bridgeLensMat);
+        lens.rotation.x = Math.PI / 2;
+        lens.position.set(x, 2.315, 0);
+        this.armPivotGroup.add(lens);
+        const cage = new THREE.Mesh(new THREE.TorusGeometry(0.19, 0.014, 6, 16), bridgeFitMat);
+        cage.rotation.x = Math.PI / 2;
+        cage.position.set(x, 2.31, 0);
+        this.armPivotGroup.add(cage);
+      });
+
+      if (!window.isMobileDevice) {
+        const armWorkLight = new THREE.PointLight(0xffe7bd, 0.32, 8.5, 2);
+        armWorkLight.position.set(10.0, 2.18, 0);
+        this.armPivotGroup.add(armWorkLight);
+      }
+      const cableTray = new THREE.Mesh(new THREE.BoxGeometry(17.4, 0.07, 0.22), bridgeFitMat);
+      cableTray.position.set(10.0, 0.86, 0.87);
+      this.armPivotGroup.add(cableTray);
+      [2.4, 6.1, 9.8, 13.5, 17.2].forEach((x) => {
+        const bracket = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.3, 0.28), bridgeFitMat);
+        bracket.position.set(x, 0.7, 0.87);
+        this.armPivotGroup.add(bracket);
+      });
+      const conduitMat = new THREE.MeshStandardMaterial({ color: 0x1f2933, roughness: 0.58, metalness: 0.25 });
+      const sideConduit = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 17.2, 8), conduitMat);
+      sideConduit.rotation.z = Math.PI / 2;
+      sideConduit.position.set(10.0, 0.72, 0.86);
+      this.armPivotGroup.add(sideConduit);
+
       // Access-arm side trusses and handrails.
-      const armBehindMat = new THREE.MeshStandardMaterial({ color: 0x5b6772, roughness: 0.6, metalness: 0.5 });
-      [-1.3, 1.3].forEach((z) => {
-        this._makeBeam(this.armPivotGroup, 19.0, 0.2, 0.2, 9.5, 2.55, z, armBehindMat);
-        this._makeBeam(this.armPivotGroup, 19.0, 0.16, 0.16, 9.5, 1.45, z, armBehindMat);
+      [-1.04, 1.04].forEach((z) => {
+        this._makeBeam(this.armPivotGroup, 19.0, 0.14, 0.14, 9.5, 2.55, z, armBehindMat);
+        this._makeBeam(this.armPivotGroup, 19.0, 0.12, 0.12, 9.5, 1.52, z, armBehindMat);
         for (let i = 0; i <= 9; i++) {
-          this._makeBeam(this.armPivotGroup, 0.1, 1.15, 0.1, i * 2.0, 1.95, z, armBehindMat);
+          this._makeBeam(this.armPivotGroup, 0.08, 1.05, 0.08, i * 2.0, 2.02, z, armBehindMat);
         }
       });
       // Diagonal lattice on the outer faces.
       for (let i = 0; i < 9; i++) {
-        this._makeBeam(this.armPivotGroup, 2.55, 0.16, 0.16, 1 + i * 2.0, 1.35, 1.3, armBehindMat, 0.55, 0, 0);
-        this._makeBeam(this.armPivotGroup, 2.55, 0.16, 0.16, 1 + i * 2.0, 1.35, -1.3, armBehindMat, -0.55, 0, 0);
+        this._makeBeam(this.armPivotGroup, 2.2, 0.12, 0.12, 1 + i * 2.0, 1.35, 1.04, armBehindMat, 0.55, 0, 0);
+        this._makeBeam(this.armPivotGroup, 2.2, 0.12, 0.12, 1 + i * 2.0, 1.35, -1.04, armBehindMat, -0.55, 0, 0);
       }
 
-      // White Room environmental docking chamber at the end of the arm.
-      const whiteRoom = new THREE.Mesh(
-        new THREE.BoxGeometry(3.4, 3.2, 3.8),
-        new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.38, metalness: 0.14 })
+      // Exterior roof cap and fascia: the real arm is skinned in painted
+      // sheet metal above the open walkway structure.
+      const armSkinTex = this._makeCanvasTexture(256, (ctx, s) => {
+        ctx.fillStyle = "#dde2df";
+        ctx.fillRect(0, 0, s, s);
+        ctx.strokeStyle = "rgba(112,124,121,0.42)";
+        ctx.lineWidth = 2;
+        for (let i = 1; i < 5; i++) {
+          const p = (i / 5) * s;
+          ctx.beginPath();
+          ctx.moveTo(p, 0);
+          ctx.lineTo(p, s);
+          ctx.stroke();
+        }
+        ctx.strokeStyle = "rgba(80,92,90,0.2)";
+        for (let i = 0; i < 12; i++) {
+          const x = Math.random() * s;
+          ctx.lineWidth = 1 + Math.random() * 3;
+          ctx.beginPath();
+          ctx.moveTo(x, Math.random() * s * 0.3);
+          ctx.lineTo(x + (Math.random() - 0.5) * 5, s);
+          ctx.stroke();
+        }
+        // Rivet rows along the panel seams.
+        ctx.fillStyle = "rgba(104,116,113,0.45)";
+        for (let i = 1; i < 5; i++) {
+          const p = (i / 5) * s;
+          for (let y = 10; y < s; y += 24) {
+            ctx.beginPath();
+            ctx.arc(p, y, 1.8, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }, 3, 1);
+      const armSkinMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        map: armSkinTex,
+        bumpMap: armSkinTex,
+        bumpScale: 0.008,
+        roughness: 0.74,
+        metalness: 0.1
+      });
+      const roofCap = new THREE.Mesh(new THREE.BoxGeometry(18.2, 0.1, 2.5), armSkinMat);
+      roofCap.position.set(10.0, 2.64, 0);
+      roofCap.castShadow = true;
+      this.armPivotGroup.add(roofCap);
+      [-1.22, 1.22].forEach((z) => {
+        const gutter = new THREE.Mesh(new THREE.BoxGeometry(18.2, 0.12, 0.12), bridgeFitMat);
+        gutter.position.set(10.0, 2.58, z);
+        this.armPivotGroup.add(gutter);
+        const fascia = new THREE.Mesh(new THREE.BoxGeometry(18.2, 0.2, 0.05), armSkinMat);
+        fascia.position.set(10.0, 2.76, z);
+        this.armPivotGroup.add(fascia);
+        // External rain/vent hoses that run the length of the arm.
+        [-0.04, 0.05].forEach((off, hi) => {
+          const hose = new THREE.Mesh(new THREE.CylinderGeometry(0.025 + hi * 0.007, 0.025 + hi * 0.007, 17.7, 8), hi === 0 ? conduitMat : bridgeFitMat);
+          hose.rotation.z = Math.PI / 2;
+          hose.position.set(10.0, 2.42, z + off);
+          this.armPivotGroup.add(hose);
+        });
+      });
+      for (let x = 1.4; x < 19; x += 1.8) {
+        const rib = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.06, 2.55), armSkinMat);
+        rib.position.set(x, 2.71, 0);
+        this.armPivotGroup.add(rib);
+      }
+      // Drooping exterior umbilical bundle below the walkway.
+      const cableCurve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(1.2, 0.02, -1.13),
+        new THREE.Vector3(5.8, -0.34, -1.18),
+        new THREE.Vector3(10.5, -0.2, -1.15),
+        new THREE.Vector3(15.2, -0.38, -1.18),
+        new THREE.Vector3(18.6, -0.02, -1.1)
+      ]);
+      const cableBundleMesh = new THREE.Mesh(
+        new THREE.TubeGeometry(cableCurve, 28, 0.035, 6, false),
+        new THREE.MeshStandardMaterial({ color: 0x161c20, roughness: 0.76, metalness: 0.12 })
       );
-      whiteRoom.position.set(20.2, 1.6, 0);
-      this.armPivotGroup.add(whiteRoom);
+      this.armPivotGroup.add(cableBundleMesh);
+      const cableCurve2 = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(1.2, -0.04, -1.26),
+        new THREE.Vector3(6.0, -0.46, -1.24),
+        new THREE.Vector3(11.0, -0.3, -1.28),
+        new THREE.Vector3(16.4, -0.44, -1.22),
+        new THREE.Vector3(18.6, -0.06, -1.18)
+      ]);
+      const cableBundleMesh2 = new THREE.Mesh(
+        new THREE.TubeGeometry(cableCurve2, 26, 0.024, 6, false),
+        new THREE.MeshStandardMaterial({ color: 0x4b3b2d, roughness: 0.82, metalness: 0.08 })
+      );
+      this.armPivotGroup.add(cableBundleMesh2);
 
-      // White Room hatch plate and status strip.
+      // Four hydraulic cylinders at the pivot, as on the real 52,000 lb arm.
+      const hydraulicBodyMat = new THREE.MeshStandardMaterial({ color: 0x2b343a, roughness: 0.5, metalness: 0.55 });
+      const hydraulicRodMat = new THREE.MeshStandardMaterial({ color: 0xb9c2c8, roughness: 0.22, metalness: 0.85 });
+      [-0.62, 0.62].forEach((z) => {
+        [0, 1].forEach((side) => {
+          const body = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 2.1, 12), hydraulicBodyMat);
+          body.rotation.z = Math.PI / 2;
+          body.position.set(1.9 + side * 0.35, 0.12, z);
+          this.armPivotGroup.add(body);
+          const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 1.2, 10), hydraulicRodMat);
+          rod.rotation.z = Math.PI / 2;
+          rod.position.set(3.55 + side * 0.35, 0.12, z);
+          this.armPivotGroup.add(rod);
+          const clevis = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.28, 0.22), hydraulicBodyMat);
+          clevis.position.set(4.2 + side * 0.35, 0.12, z);
+          this.armPivotGroup.add(clevis);
+        });
+      });
+      const pivotPin = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 2.7, 14), hydraulicRodMat);
+      pivotPin.rotation.x = Math.PI / 2;
+      pivotPin.position.set(0.3, 0.12, 0);
+      this.armPivotGroup.add(pivotPin);
+
+      // White Room environmental docking chamber at the end of the arm.
+      // The real chamber is a larger white box with a padded, clean interior
+      // around the orbiter hatch; it is wide enough for the closeout crew and
+      // the six-person flight crew.
+      const whiteRoomPaintTex = this._makeCanvasTexture(512, (ctx, s) => {
+        ctx.fillStyle = "#dfe4e1";
+        ctx.fillRect(0, 0, s, s);
+        // Large riveted skin panels.
+        const cols = 3;
+        const rows = 3;
+        for (let ix = 0; ix < cols; ix++) {
+          for (let iy = 0; iy < rows; iy++) {
+            const x0 = (ix * s) / cols;
+            const y0 = (iy * s) / rows;
+            const w = s / cols;
+            const h = s / rows;
+            ctx.fillStyle = (ix + iy) % 2 === 0 ? "rgba(255,255,255,0.04)" : "rgba(80,92,90,0.035)";
+            ctx.fillRect(x0 + 2, y0 + 2, w - 4, h - 4);
+            ctx.strokeStyle = "rgba(116,128,126,0.5)";
+            ctx.lineWidth = 2.5;
+            ctx.strokeRect(x0 + 1, y0 + 1, w - 2, h - 2);
+            // Rivet rows along the panel edges.
+            ctx.fillStyle = "rgba(102,113,111,0.5)";
+            for (let rx = x0 + 18; rx < x0 + w - 10; rx += 32) {
+              [y0 + 12, y0 + h - 12].forEach((ry) => {
+                ctx.beginPath();
+                ctx.arc(rx, ry, 2.4, 0, Math.PI * 2);
+                ctx.fill();
+              });
+            }
+            for (let ry = y0 + 18; ry < y0 + h - 10; ry += 32) {
+              [x0 + 12, x0 + w - 12].forEach((rx) => {
+                ctx.beginPath();
+                ctx.arc(rx, ry, 2.4, 0, Math.PI * 2);
+                ctx.fill();
+              });
+            }
+          }
+        }
+        // Rain streaks, grime at the bottom and chipped paint.
+        for (let i = 0; i < 36; i++) {
+          const x = Math.random() * s;
+          const w = 1 + Math.random() * 6;
+          ctx.fillStyle = Math.random() > 0.7 ? "rgba(123,116,100,0.08)" : "rgba(78,88,87,0.055)";
+          ctx.fillRect(x, Math.random() * s * 0.65, w, 30 + Math.random() * 140);
+        }
+        const bottomGrime = ctx.createLinearGradient(0, s * 0.72, 0, s);
+        bottomGrime.addColorStop(0, "rgba(66,73,71,0)");
+        bottomGrime.addColorStop(1, "rgba(66,73,71,0.16)");
+        ctx.fillStyle = bottomGrime;
+        ctx.fillRect(0, s * 0.72, s, s * 0.28);
+        for (let i = 0; i < 18; i++) {
+          ctx.strokeStyle = "rgba(92,101,98,0.22)";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          const x = Math.random() * s;
+          const y = Math.random() * s;
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + 4 + Math.random() * 14, y + 2 + Math.random() * 10);
+          ctx.stroke();
+        }
+      }, 1, 1);
+      const whiteRoomOuterMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        map: whiteRoomPaintTex,
+        bumpMap: whiteRoomPaintTex,
+        bumpScale: 0.012,
+        roughness: 0.68,
+        metalness: 0.12
+      });
+      const whiteRoomTrimMat = new THREE.MeshStandardMaterial({ color: 0xc8d1d2, roughness: 0.52, metalness: 0.3 });
+      const whiteRoomInnerTex = this._makeCanvasTexture(256, (ctx, s) => {
+        ctx.fillStyle = "#ecefed";
+        ctx.fillRect(0, 0, s, s);
+        const cell = s / 4;
+        for (let ix = 0; ix < 4; ix++) {
+          for (let iy = 0; iy < 4; iy++) {
+            const x = ix * cell;
+            const y = iy * cell;
+            ctx.fillStyle = (ix + iy) % 2 === 0 ? "#e7ebe9" : "#eff2f0";
+            ctx.fillRect(x + 2, y + 2, cell - 4, cell - 4);
+            ctx.strokeStyle = "rgba(150,160,158,0.35)";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x + 1, y + 1, cell - 2, cell - 2);
+            ctx.fillStyle = "rgba(120,132,130,0.45)";
+            [[0.16, 0.16], [0.84, 0.16], [0.16, 0.84], [0.84, 0.84]].forEach(([fx, fy]) => {
+              ctx.beginPath();
+              ctx.arc(x + cell * fx, y + cell * fy, 2.1, 0, Math.PI * 2);
+              ctx.fill();
+            });
+          }
+        }
+        ctx.fillStyle = "rgba(145,155,153,0.18)";
+        for (let i = 0; i < 24; i++) {
+          ctx.fillRect(Math.random() * s, Math.random() * s, 1 + Math.random() * 4, 1);
+        }
+        // Faint hand/foot scuffs and grime around the panel edges.
+        for (let i = 0; i < 12; i++) {
+          ctx.fillStyle = "rgba(112,122,120,0.055)";
+          ctx.beginPath();
+          ctx.ellipse(Math.random() * s, Math.random() * s, 6 + Math.random() * 18, 3 + Math.random() * 8, Math.random() * Math.PI, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        const floorDirt = ctx.createLinearGradient(0, s * 0.8, 0, s);
+        floorDirt.addColorStop(0, "rgba(90,100,98,0)");
+        floorDirt.addColorStop(1, "rgba(90,100,98,0.1)");
+        ctx.fillStyle = floorDirt;
+        ctx.fillRect(0, s * 0.8, s, s * 0.2);
+      }, 2, 2);
+      const whiteRoomInnerMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        map: whiteRoomInnerTex,
+        roughness: 0.88,
+        metalness: 0.04,
+        side: THREE.DoubleSide
+      });
+      const whiteRoomFloorMat = new THREE.MeshStandardMaterial({ color: 0x7d8588, roughness: 0.86, metalness: 0.12 });
+      const whiteRoomHazardMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.6, metalness: 0.18 });
+
+      const whiteRoomGroup = new THREE.Group();
+      whiteRoomGroup.name = "WhiteRoom";
+      this.armPivotGroup.add(whiteRoomGroup);
+      const ROOM_X = 20.2, ROOM_Y = 1.6, ROOM_Z = 0;
+      const ROOM_W = 3.4, ROOM_H = 3.2, ROOM_D = 3.8;
+      const ROOM_DOOR_HALF = 1.02;
+      const addRoomWall = (sx, sy, sz, x, y, z, mat) => {
+        const wall = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), mat || whiteRoomOuterMat);
+        wall.position.set(x, y, z);
+        wall.castShadow = true;
+        wall.receiveShadow = true;
+        whiteRoomGroup.add(wall);
+        return wall;
+      };
+      // Ceiling and floor.
+      addRoomWall(ROOM_W, 0.1, ROOM_D, ROOM_X, ROOM_Y + ROOM_H / 2 + 0.04, ROOM_Z);
+      addRoomWall(ROOM_W, 0.04, ROOM_D, ROOM_X, 0.28, ROOM_Z, whiteRoomFloorMat);
+      const roomAOMat = new THREE.MeshBasicMaterial({
+        color: 0x000000,
+        transparent: true,
+        opacity: 0.12,
+        depthWrite: false,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+        polygonOffsetUnits: -2
+      });
+      [-1, 1].forEach((side) => {
+        const sideStrip = new THREE.Mesh(new THREE.BoxGeometry(ROOM_W - 0.3, 0.004, 0.13), roomAOMat);
+        sideStrip.position.set(ROOM_X, 0.306, side * (ROOM_D / 2 - 0.14));
+        whiteRoomGroup.add(sideStrip);
+        const endStrip = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.004, ROOM_D - 0.3), roomAOMat);
+        endStrip.position.set(ROOM_X + side * (ROOM_W / 2 - 0.14), 0.306, ROOM_Z);
+        whiteRoomGroup.add(endStrip);
+      });
+      // Side and end walls.
+      addRoomWall(ROOM_W, ROOM_H, 0.08, ROOM_X, ROOM_Y, ROOM_D / 2 - 0.04);
+      addRoomWall(ROOM_W, ROOM_H, 0.08, ROOM_X, ROOM_Y, -ROOM_D / 2 + 0.04);
+      addRoomWall(0.08, ROOM_H, ROOM_D, ROOM_X + ROOM_W / 2 - 0.04, ROOM_Y, ROOM_Z);
+      // West wall: two side panels and a header around the arm doorway.
+      const westX = ROOM_X - ROOM_W / 2 + 0.04;
+      const sidePanelW = (ROOM_D / 2 - ROOM_DOOR_HALF) / 2;
+      [-1, 1].forEach((side) => {
+        const z = side * (ROOM_DOOR_HALF + sidePanelW / 2 + 0.02);
+        addRoomWall(0.08, ROOM_H, sidePanelW, westX, ROOM_Y, z);
+      });
+      addRoomWall(0.08, 0.78, ROOM_DOOR_HALF * 2 + 0.1, westX, ROOM_Y + ROOM_H / 2 - 0.39, ROOM_Z);
+      // Interior padded lining.
+      const addLining = (w, h, x, y, z, ry) => {
+        const panel = new THREE.Mesh(new THREE.PlaneGeometry(w, h), whiteRoomInnerMat);
+        panel.position.set(x, y, z);
+        panel.rotation.y = ry;
+        whiteRoomGroup.add(panel);
+      };
+      addLining(ROOM_W - 0.16, ROOM_H - 0.16, ROOM_X, ROOM_Y, -ROOM_D / 2 + 0.09, 0);
+      addLining(ROOM_W - 0.16, ROOM_H - 0.16, ROOM_X, ROOM_Y, ROOM_D / 2 - 0.09, Math.PI);
+      // East wall lining is split around the hatch opening instead of covering it.
+      const hatchHalfZ = 0.9;
+      const hatchTopY = 2.49;
+      [-1, 1].forEach((side) => {
+        const w = ROOM_D / 2 - hatchHalfZ;
+        addLining(w, ROOM_H - 0.16, ROOM_X + ROOM_W / 2 - 0.1, ROOM_Y,
+          side * (hatchHalfZ + w / 2), -Math.PI / 2);
+      });
+      addLining(hatchHalfZ * 2, ROOM_H / 2 + ROOM_H / 2 - hatchTopY - 0.08,
+        ROOM_X + ROOM_W / 2 - 0.1, (ROOM_H - 0.08 + hatchTopY) / 2, 0, -Math.PI / 2);
+      const ceilingPanel = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W - 0.2, ROOM_D - 0.2), whiteRoomInnerMat);
+      ceilingPanel.rotation.x = Math.PI / 2;
+      ceilingPanel.position.set(ROOM_X, ROOM_Y + ROOM_H / 2 - 0.04, ROOM_Z);
+      whiteRoomGroup.add(ceilingPanel);
+      // Interior wall padding beside the doorway.
+      [-1, 1].forEach((side) => {
+        const w = ROOM_D / 2 - ROOM_DOOR_HALF - 0.06;
+        addLining(w, ROOM_H - 0.2, westX + 0.07, ROOM_Y,
+          side * (ROOM_DOOR_HALF + w / 2 + 0.04), Math.PI / 2);
+      });
+      addLining(ROOM_DOOR_HALF * 2 + 0.1, 0.64, westX + 0.07, ROOM_Y + ROOM_H / 2 - 0.42, ROOM_Z, Math.PI / 2);
+      // External panel seams and rubbing strips.
+      [-1, 1].forEach((side) => {
+        [18.95, 20.2, 21.45].forEach((x) => {
+          const rib = new THREE.Mesh(new THREE.BoxGeometry(0.035, ROOM_H - 0.2, 0.04), whiteRoomTrimMat);
+          rib.position.set(x, ROOM_Y, side * (ROOM_D / 2 + 0.03));
+          whiteRoomGroup.add(rib);
+        });
+        const waistStrip = new THREE.Mesh(new THREE.BoxGeometry(ROOM_W - 0.12, 0.05, 0.035), whiteRoomTrimMat);
+        waistStrip.position.set(ROOM_X, 1.0, side * (ROOM_D / 2 + 0.035));
+        whiteRoomGroup.add(waistStrip);
+      });
+
+      // Structural corner trim and a top/bottom rub rail around the shell.
+      [-1, 1].forEach((sideZ) => {
+        [-1, 1].forEach((sideX) => {
+          const corner = new THREE.Mesh(new THREE.BoxGeometry(0.075, ROOM_H - 0.06, 0.075), whiteRoomTrimMat);
+          corner.position.set(ROOM_X + sideX * (ROOM_W / 2 - 0.02), ROOM_Y, ROOM_Z + sideZ * (ROOM_D / 2 - 0.02));
+          whiteRoomGroup.add(corner);
+        });
+      });
+      const roomTopRail = new THREE.Mesh(new THREE.BoxGeometry(ROOM_W + 0.16, 0.08, ROOM_D + 0.16), whiteRoomTrimMat);
+      roomTopRail.position.set(ROOM_X, ROOM_Y + ROOM_H / 2 + 0.1, ROOM_Z);
+      whiteRoomGroup.add(roomTopRail);
+      const roomBottomRail = new THREE.Mesh(new THREE.BoxGeometry(ROOM_W + 0.08, 0.06, ROOM_D + 0.08), whiteRoomTrimMat);
+      roomBottomRail.position.set(ROOM_X, 0.38, ROOM_Z);
+      whiteRoomGroup.add(roomBottomRail);
+
+      // External downspouts and a small service box on the White Room shell.
+      [-1, 1].forEach((side) => {
+        const z = side * (ROOM_D / 2 + 0.05);
+        const spout = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 2.82, 8), whiteRoomTrimMat);
+        spout.position.set(ROOM_X + 1.18, 1.6, z);
+        whiteRoomGroup.add(spout);
+        [0.55, 2.45].forEach((y) => {
+          const clamp = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.04, 0.04), bridgeFitMat);
+          clamp.position.set(ROOM_X + 1.18, y, z);
+          whiteRoomGroup.add(clamp);
+        });
+      });
+      const serviceBox = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.42, 0.14), whiteRoomTrimMat);
+      serviceBox.position.set(19.28, 1.9, -ROOM_D / 2 - 0.08);
+      whiteRoomGroup.add(serviceBox);
+      const serviceBoxDoor = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.34, 0.02), bridgeFitMat);
+      serviceBoxDoor.position.set(19.28, 1.9, -ROOM_D / 2 - 0.16);
+      whiteRoomGroup.add(serviceBoxDoor);
+      const serviceConduit = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.35, 8), whiteRoomTrimMat);
+      serviceConduit.position.set(19.28, 1.0, -ROOM_D / 2 - 0.12);
+      whiteRoomGroup.add(serviceConduit);
+
+      // The iconic sloping white canopy over the arm-side entrance.
+      const whiteRoomCanopy = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.09, 3.1), whiteRoomOuterMat);
+      whiteRoomCanopy.position.set(17.88, 2.63, 0);
+      whiteRoomCanopy.rotation.z = 0.2;
+      whiteRoomCanopy.castShadow = true;
+      this.armPivotGroup.add(whiteRoomCanopy);
+      const canopyLip = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.07, 0.08), whiteRoomTrimMat);
+      canopyLip.position.set(17.34, 2.5, 0);
+      canopyLip.rotation.z = 0.2;
+      this.armPivotGroup.add(canopyLip);
+      [-1.4, 1.4].forEach((z) => {
+        const strut = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.78), whiteRoomTrimMat);
+        strut.position.set(18.05, 2.76, z);
+        strut.rotation.x = z > 0 ? -0.58 : 0.58;
+        this.armPivotGroup.add(strut);
+        const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.07, 0.16), bridgeLensMat);
+        lamp.position.set(17.75, 2.48, z);
+        this.armPivotGroup.add(lamp);
+      });
+
+      // Open white double doors folded back into the room, with wire-glass
+      // panes like the access-arm door in the archive photographs.
+      [-1, 1].forEach((side) => {
+        const door = new THREE.Mesh(new THREE.BoxGeometry(0.8, 2.25, 0.055), whiteRoomOuterMat);
+        door.position.set(westX + 0.44, 1.45, side * (ROOM_DOOR_HALF + 0.05));
+        whiteRoomGroup.add(door);
+        const glass = new THREE.Mesh(
+          new THREE.PlaneGeometry(0.28, 0.36),
+          new THREE.MeshStandardMaterial({ color: 0x4a5a62, roughness: 0.15, metalness: 0.4 })
+        );
+        glass.position.set(westX + 0.44, 1.9, side * (ROOM_DOOR_HALF + 0.05) + side * 0.031);
+        glass.rotation.y = side > 0 ? 0 : Math.PI;
+        whiteRoomGroup.add(glass);
+      });
+      const doorHeader = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.15, 2.14), whiteRoomTrimMat);
+      doorHeader.position.set(westX, 2.62, 0);
+      whiteRoomGroup.add(doorHeader);
+
+      // Interior ceiling light panel.
+      const roomLightFrame = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.08, 0.52), whiteRoomTrimMat);
+      roomLightFrame.position.set(ROOM_X, ROOM_H - 0.02, 0.1);
+      whiteRoomGroup.add(roomLightFrame);
+      const roomLight = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.4), new THREE.MeshBasicMaterial({ color: 0xfff7df }));
+      roomLight.rotation.x = Math.PI / 2;
+      roomLight.position.set(ROOM_X, ROOM_H - 0.065, 0.1);
+      whiteRoomGroup.add(roomLight);
+      const roomLightGlow = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.6, 0.56),
+        new THREE.MeshBasicMaterial({
+          color: 0xfff2cf,
+          transparent: true,
+          opacity: 0.12,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        })
+      );
+      roomLightGlow.rotation.x = Math.PI / 2;
+      roomLightGlow.position.set(ROOM_X, ROOM_H - 0.08, 0.1);
+      whiteRoomGroup.add(roomLightGlow);
+      if (!window.isMobileDevice) {
+        const chamberLight = new THREE.PointLight(0xffe9c4, 0.55, 5.2, 2);
+        chamberLight.position.set(ROOM_X, ROOM_Y + 1.05, 0.1);
+        whiteRoomGroup.add(chamberLight);
+      }
+
+      // Yellow conditioned-air hose with its black spiral ribs.
+      const airHoseMat = new THREE.MeshStandardMaterial({ color: 0xd6a514, roughness: 0.78, metalness: 0.04 });
+      const airHose = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.14, 2.4, 12), airHoseMat);
+      airHose.position.set(20.55, 1.55, 1.28);
+      whiteRoomGroup.add(airHose);
+      for (let y = 0.5; y < 2.7; y += 0.24) {
+        const rib = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.018, 6, 14), bridgeFitMat);
+        rib.rotation.x = Math.PI / 2;
+        rib.position.set(20.55, y, 1.28);
+        whiteRoomGroup.add(rib);
+      }
+      const airElbow = new THREE.Mesh(new THREE.SphereGeometry(0.17, 10, 8), airHoseMat);
+      airElbow.position.set(20.75, 2.72, 1.12);
+      whiteRoomGroup.add(airElbow);
+      const airRun = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.9, 10), airHoseMat);
+      airRun.rotation.z = Math.PI / 2;
+      airRun.position.set(21.15, 2.72, 1.12);
+      whiteRoomGroup.add(airRun);
+
+      // RED DECK and fire equipment placards from the real chamber.
+      const roomSignTexture = (w, h, draw) => {
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        draw(ctx, w, h);
+        const texture = new THREE.CanvasTexture(canvas);
+        if (THREE.sRGBEncoding !== undefined) texture.encoding = THREE.sRGBEncoding;
+        texture.anisotropy = window.isMobileDevice ? 2 : 8;
+        texture.needsUpdate = true;
+        return texture;
+      };
+      const redDeckTex = roomSignTexture(256, 256, (ctx, w, h) => {
+        ctx.fillStyle = "#ecefed";
+        ctx.fillRect(0, 0, w, h);
+        ctx.fillStyle = "#dc2626";
+        ctx.beginPath();
+        ctx.moveTo(w / 2, 38);
+        ctx.lineTo(w - 42, h - 52);
+        ctx.lineTo(42, h - 52);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#f8fafc";
+        ctx.font = "bold 34px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("RED", w / 2, h - 108);
+        ctx.fillText("DECK", w / 2, h - 70);
+      });
+      const redDeck = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.34, 0.34),
+        new THREE.MeshBasicMaterial({ map: redDeckTex })
+      );
+      redDeck.position.set(20.55, 2.15, -1.795);
+      whiteRoomGroup.add(redDeck);
+
+      const extinguisher = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.1, 0.1, 0.55, 12),
+        new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.55, metalness: 0.25 })
+      );
+      extinguisher.position.set(21.55, 0.6, -1.62);
+      whiteRoomGroup.add(extinguisher);
+      const extinguisherNozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.045, 0.18, 8), bridgeFitMat);
+      extinguisherNozzle.position.set(21.55, 0.93, -1.62);
+      whiteRoomGroup.add(extinguisherNozzle);
+      const fireSignTex = roomSignTexture(256, 96, (ctx, w, h) => {
+        ctx.fillStyle = "#b91c1c";
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = "#f8fafc";
+        ctx.lineWidth = 6;
+        ctx.strokeRect(4, 4, w - 8, h - 8);
+        ctx.fillStyle = "#f8fafc";
+        ctx.font = "bold 44px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("FIRE", w / 2, 62);
+      });
+      const fireSign = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.34, 0.13),
+        new THREE.MeshBasicMaterial({ map: fireSignTex })
+      );
+      fireSign.position.set(21.55, 1.12, -1.795);
+      whiteRoomGroup.add(fireSign);
+
+      // Dark anti-fatigue mat on the White Room floor.
+      const roomMat = new THREE.Mesh(
+        new THREE.BoxGeometry(1.25, 0.01, 2.15),
+        new THREE.MeshStandardMaterial({ color: 0x30373a, roughness: 0.9, metalness: 0.04 })
+      );
+      roomMat.position.set(19.55, 0.306, 0);
+      whiteRoomGroup.add(roomMat);
+
+      // Blue closeout-equipment cart tucked against the wall.
+      const cart = new THREE.Mesh(
+        new THREE.BoxGeometry(0.62, 0.72, 0.4),
+        new THREE.MeshStandardMaterial({ color: 0x1f4f7a, roughness: 0.55, metalness: 0.3 })
+      );
+      cart.position.set(19.45, 0.68, -1.35);
+      whiteRoomGroup.add(cart);
+      const cartHandle = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.55, 8), railTubeMat);
+      cartHandle.rotation.z = Math.PI / 2;
+      cartHandle.position.set(19.45, 1.07, -1.14);
+      whiteRoomGroup.add(cartHandle);
+
+      // Hatch-side handrails and the padded dark opening into the orbiter.
+      [-1, 1].forEach((z) => {
+        const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 2.1, 8), railTubeMat);
+        rail.position.set(21.68, 1.45, z * 1.12);
+        whiteRoomGroup.add(rail);
+        [0.55, 2.35].forEach((y) => {
+          const bracket = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.04, 0.04), bridgeFitMat);
+          bracket.position.set(21.6, y, z * 1.12);
+          whiteRoomGroup.add(bracket);
+        });
+      });
+      const hatchOpeningTex = roomSignTexture(512, 640, (ctx, w, h) => {
+        ctx.fillStyle = "#e1e6e4";
+        ctx.fillRect(0, 0, w, h);
+        // White padded surround.
+        ctx.strokeStyle = "#f6f8f6";
+        ctx.lineWidth = 70;
+        ctx.strokeRect(38, 38, w - 76, h - 76);
+        ctx.strokeStyle = "rgba(150,162,160,0.5)";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(84, 84, w - 168, h - 168);
+        // Bolted metal hatch ring.
+        ctx.strokeStyle = "#9ba7a7";
+        ctx.lineWidth = 18;
+        const ringX = 102, ringY = 102, ringW = w - 204, ringH = h - 204;
+        const r = 30;
+        ctx.beginPath();
+        ctx.moveTo(ringX + r, ringY);
+        ctx.lineTo(ringX + ringW - r, ringY);
+        ctx.quadraticCurveTo(ringX + ringW, ringY, ringX + ringW, ringY + r);
+        ctx.lineTo(ringX + ringW, ringY + ringH - r);
+        ctx.quadraticCurveTo(ringX + ringW, ringY + ringH, ringX + ringW - r, ringY + ringH);
+        ctx.lineTo(ringX + r, ringY + ringH);
+        ctx.quadraticCurveTo(ringX, ringY + ringH, ringX, ringY + ringH - r);
+        ctx.lineTo(ringX, ringY + r);
+        ctx.quadraticCurveTo(ringX, ringY, ringX + r, ringY);
+        ctx.closePath();
+        ctx.stroke();
+        // Deep orbiter cabin beyond the hatch ring.
+        ctx.fillStyle = "#141b1e";
+        ctx.beginPath();
+        ctx.moveTo(ringX + 14 + r, ringY + 14);
+        ctx.lineTo(ringX + 14 + ringW - 28 - r, ringY + 14);
+        ctx.quadraticCurveTo(ringX + 14 + ringW - 28, ringY + 14, ringX + 14 + ringW - 28, ringY + 14 + r);
+        ctx.lineTo(ringX + 14 + ringW - 28, ringY + 14 + ringH - 28 - r);
+        ctx.quadraticCurveTo(ringX + 14 + ringW - 28, ringY + 14 + ringH - 28, ringX + 14 + ringW - 28 - r, ringY + 14 + ringH - 28);
+        ctx.lineTo(ringX + 14 + r, ringY + 14 + ringH - 28);
+        ctx.quadraticCurveTo(ringX + 14, ringY + 14 + ringH - 28, ringX + 14, ringY + 14 + ringH - 28 - r);
+        ctx.lineTo(ringX + 14, ringY + 14 + r);
+        ctx.quadraticCurveTo(ringX + 14, ringY + 14, ringX + 14 + r, ringY + 14);
+        ctx.closePath();
+        ctx.fill();
+        // Faint warm cabin reflections so the hatch reads as a lit interior,
+        // not a flat black cut-out.
+        const hatchGlowGrad = ctx.createRadialGradient(w / 2, h * 0.56, 10, w / 2, h * 0.56, w * 0.42);
+        hatchGlowGrad.addColorStop(0, "rgba(213,156,92,0.12)");
+        hatchGlowGrad.addColorStop(0.55, "rgba(125,96,70,0.06)");
+        hatchGlowGrad.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = hatchGlowGrad;
+        ctx.fillRect(ringX + 14, ringY + 14, ringW - 28, ringH - 28);
+        // Faint interior panel edges inside the dark cabin.
+        ctx.strokeStyle = "rgba(120,138,146,0.16)";
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 4; i++) {
+          ctx.beginPath();
+          ctx.moveTo(134, 160 + i * 82);
+          ctx.lineTo(w - 134, 160 + i * 82);
+          ctx.stroke();
+        }
+        // Ring bolts.
+        ctx.fillStyle = "#d7dedd";
+        for (let i = 0; i < 16; i++) {
+          const angle = (i / 16) * Math.PI * 2;
+          const bx = w / 2 + Math.cos(angle) * (ringW / 2 + 2);
+          const by = h / 2 + Math.sin(angle) * (ringH / 2 + 2);
+          ctx.beginPath();
+          ctx.arc(bx, by, 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        // Warning threshold.
+        ctx.fillStyle = "#f59e0b";
+        ctx.fillRect(ringX + 14, ringY + ringH - 42, ringW - 28, 16);
+      });
+      const hatchOpening = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.72, 2.14),
+        new THREE.MeshBasicMaterial({ map: hatchOpeningTex })
+      );
+      hatchOpening.position.set(21.79, 1.42, 0);
+      hatchOpening.rotation.y = -Math.PI / 2;
+      whiteRoomGroup.add(hatchOpening);
+      const hatchRingMat = new THREE.MeshStandardMaterial({ color: 0xdde4e4, roughness: 0.52, metalness: 0.22 });
+      [[2.55, 1.9, 0.1, 0.1], [0.29, 1.9, 0.1, 0.1]].forEach(([y, w, sx, sy]) => {
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(0.09, sy, w), hatchRingMat);
+        bar.position.set(21.75, y, 0);
+        whiteRoomGroup.add(bar);
+      });
+      [-1, 1].forEach((z) => {
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(0.09, 2.26, 0.1), hatchRingMat);
+        bar.position.set(21.75, 1.42, z * 0.9);
+        whiteRoomGroup.add(bar);
+      });
+
+      // Existing exterior hatch plate and status strip stay on the pad side of
+      // the room face for the boarding prompt.
       const hatchPlate = new THREE.Mesh(
         new THREE.PlaneGeometry(2.2, 2.6),
         new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.4, metalness: 0.3 })
       );
       hatchPlate.rotation.y = Math.PI / 2;
-      hatchPlate.position.set(21.92, 1.55, 0);
+      hatchPlate.position.set(22.0, 1.55, 0);
       this.armPivotGroup.add(hatchPlate);
 
       const hatchGlowMat = new THREE.MeshStandardMaterial({
@@ -1882,22 +3537,123 @@
         emissiveIntensity: 1.2
       });
       const hatchGlow = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.18, 2.0), hatchGlowMat);
-      hatchGlow.position.set(21.97, 2.85, 0);
+      hatchGlow.position.set(22.05, 2.85, 0);
       this.armPivotGroup.add(hatchGlow);
 
       // Extendable docking collar seal connecting the White Room to the hatch.
       this.dockCollarMesh = new THREE.Mesh(
-        new THREE.CylinderGeometry(1.15, 1.15, 1.6, 24),
+        new THREE.CylinderGeometry(1.15, 1.15, 1.6, 24, 1, true),
         new THREE.MeshStandardMaterial({
-          color: 0x38bdf8,
-          emissive: 0x0284c7,
-          emissiveIntensity: 0.6,
-          roughness: 0.4
+          color: 0xd7dddd,
+          roughness: 0.55,
+          metalness: 0.2,
+          side: THREE.DoubleSide
         })
       );
       this.dockCollarMesh.rotation.z = Math.PI / 2;
       this.dockCollarMesh.position.set(22.3, 1.45, 0);
       this.armPivotGroup.add(this.dockCollarMesh);
+      const collarSeal = new THREE.Mesh(
+        new THREE.TorusGeometry(1.14, 0.075, 8, 28),
+        new THREE.MeshStandardMaterial({ color: 0x232a2e, roughness: 0.78, metalness: 0.08 })
+      );
+      collarSeal.rotation.y = Math.PI / 2;
+      collarSeal.position.set(21.56, 1.45, 0);
+      this.armPivotGroup.add(collarSeal);
+      this.whiteRoomDoor = whiteRoomGroup;
+
+      // ── Access-arm identity placards, floor stencils and service lighting ──
+      // These sit on the outside of the waist-high walls so the arm reads as a
+      // real moving bridge from the gantry deck, not just from inside.
+      const bridgePlacardTex = roomSignTexture(512, 256, (ctx, w, h) => {
+        ctx.fillStyle = "#facc15";
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = "#101820";
+        ctx.lineWidth = 18;
+        ctx.strokeRect(9, 9, w - 18, h - 18);
+        ctx.fillStyle = "#101820";
+        for (let x = -h; x < w + h; x += 64) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(x, 0, 26, h);
+          ctx.clip();
+          ctx.fillRect(x, 0, 26, h);
+          ctx.restore();
+        }
+        ctx.fillStyle = "#facc15";
+        ctx.fillRect(26, 46, w - 52, 164);
+        ctx.fillStyle = "#101820";
+        ctx.font = "900 58px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("DANGER", w / 2, 112);
+        ctx.font = "800 31px Arial";
+        ctx.fillText("MOVING BRIDGE · STAND CLEAR", w / 2, 172);
+      });
+      const bridgePlacardMat = new THREE.MeshBasicMaterial({ map: bridgePlacardTex });
+      [3.4, 9.8, 16.2].forEach((x) => {
+        [-1, 1].forEach((side) => {
+          const placard = new THREE.Mesh(new THREE.PlaneGeometry(1.16, 0.58), bridgePlacardMat);
+          placard.position.set(x, 1.04, side * 1.015);
+          placard.rotation.y = side > 0 ? 0 : Math.PI;
+          this.armPivotGroup.add(placard);
+        });
+      });
+
+      // Painted edge stencils: no-step zones and the hatch threshold.
+      const noStepTex = roomSignTexture(256, 128, (ctx, w, h) => {
+        ctx.clearRect(0, 0, w, h);
+        ctx.fillStyle = "rgba(250,204,21,0.9)";
+        ctx.font = "900 40px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("NO STEP", w / 2, 74);
+        ctx.strokeStyle = "rgba(250,204,21,0.75)";
+        ctx.lineWidth = 5;
+        ctx.strokeRect(10, 22, w - 20, 70);
+      });
+      const noStepMat = new THREE.MeshBasicMaterial({
+        map: noStepTex,
+        transparent: true,
+        depthWrite: false
+      });
+      [2.8, 7.2, 11.6, 16.0].forEach((x) => {
+        [-1, 1].forEach((side) => {
+          const stencil = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.34), noStepMat);
+          stencil.rotation.set(-Math.PI / 2, 0, Math.PI / 2);
+          stencil.position.set(x, 0.312, side * 0.71);
+          stencil.renderOrder = 6;
+          this.armPivotGroup.add(stencil);
+        });
+      });
+
+      // Continuous low-glare ceiling service strips between the caged lamps.
+      const bridgeStripMat = new THREE.MeshBasicMaterial({ color: 0xfff2cf });
+      [3.4, 10.0, 16.6].forEach((x) => {
+        [-1, 1].forEach((side) => {
+          const strip = new THREE.Mesh(new THREE.BoxGeometry(4.3, 0.03, 0.16), bridgeStripMat);
+          strip.position.set(x, 2.525, side * 0.6);
+          this.armPivotGroup.add(strip);
+        });
+      });
+
+      // Wall-mounted junction boxes with status lamps and drop conduits.
+      const bridgeBoxMat = new THREE.MeshStandardMaterial({ color: 0x27343c, roughness: 0.6, metalness: 0.35 });
+      [6.0, 13.4].forEach((x, i) => {
+        [-1, 1].forEach((side) => {
+          const box = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.44, 0.13), bridgeBoxMat);
+          box.position.set(x, 0.98, side * 0.985);
+          this.armPivotGroup.add(box);
+          const lamp = new THREE.Mesh(
+            new THREE.CircleGeometry(0.026, 8),
+            new THREE.MeshBasicMaterial({ color: i === 0 ? 0x34d399 : 0xf59e0b })
+          );
+          lamp.position.set(x, 1.08, side * 1.052);
+          lamp.rotation.y = side > 0 ? 0 : Math.PI;
+          this.armPivotGroup.add(lamp);
+          const conduit = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.92, 6), bridgeBoxMat);
+          conduit.position.set(x + 0.22, 0.46, side * 0.985);
+          this.armPivotGroup.add(conduit);
+        });
+      });
 
       // LC-39A identification plate on the tower face.
       const signCanvas = document.createElement("canvas");
@@ -2720,8 +4476,25 @@
       this.guidanceMarkers.arm = armMarker;
 
       const hatchMarker = this._createGuidanceMarker("2 · BOARD SPACESHIP", 0x67e8f9);
-      hatchMarker.position.set(17.0, 0.48, 0);
-      hatchMarker.userData.baseY = 0.48;
+      // Place the ring inside the White Room, where the boarding action is
+      // available; the old 17 m position now sits in the narrower arm.
+      hatchMarker.position.set(20.4, 0.34, 0);
+      hatchMarker.userData.baseY = 0.34;
+      // The White Room is small; the usual translucent beam fills the whole
+      // chamber with cyan. Keep the ring and floating diamond, drop the beam.
+      if (hatchMarker.userData.beam) hatchMarker.userData.beam.visible = false;
+      const hatchRing = hatchMarker.userData.ring;
+      const hatchDisc = hatchMarker.userData.disc;
+      if (hatchRing) {
+        hatchRing.geometry.dispose();
+        hatchRing.geometry = new THREE.TorusGeometry(0.46, 0.035, 8, 28);
+      }
+      if (hatchDisc) {
+        hatchDisc.geometry.dispose();
+        hatchDisc.geometry = new THREE.CircleGeometry(0.42, 24);
+        if (hatchDisc.material) hatchDisc.material.opacity = 0.035;
+      }
+      if (hatchMarker.userData.diamond) hatchMarker.userData.diamond.scale.setScalar(0.55);
       this.armPivotGroup.add(hatchMarker);
       this.guidanceMarkers.hatch = hatchMarker;
 
@@ -2817,6 +4590,590 @@
           this.facilityTerminals.push(Object.assign({}, spec, { marker }));
         });
       }
+    }
+
+    // ============================================================================
+    // 5c. GANTRY SPAWN & BOARDING-BRIDGE JUNCTION DRESSING
+    // ============================================================================
+    _buildGantryCrewAccessDetails() {
+      const THREE = window.THREE;
+      if (!THREE || !this.towerGroup || !this.armPivotGroup) return;
+
+      const group = new THREE.Group();
+      group.name = "Gantry_Crew_Access_Details";
+      this.towerGroup.add(group);
+
+      const deckY = 44.3;
+      const portalX = 9.34;
+      const portalZ = -7.2;
+      const portalHalf = 1.17;
+      const portalHeadY = 47.05;
+
+      const signTexture = (width, height, draw) => {
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        draw(ctx, width, height);
+        const texture = new THREE.CanvasTexture(canvas);
+        if (THREE.sRGBEncoding !== undefined) texture.encoding = THREE.sRGBEncoding;
+        if (THREE.SRGBColorSpace !== undefined) texture.colorSpace = THREE.SRGBColorSpace;
+        texture.anisotropy = window.isMobileDevice ? 2 : 8;
+        texture.needsUpdate = true;
+        return texture;
+      };
+
+      const hazardTex = this._makeCanvasTexture(128, (ctx, s) => {
+        ctx.fillStyle = "#facc15";
+        ctx.fillRect(0, 0, s, s);
+        ctx.strokeStyle = "#101820";
+        ctx.lineWidth = 26;
+        for (let i = -s; i < s * 2; i += 62) {
+          ctx.beginPath();
+          ctx.moveTo(i, 0);
+          ctx.lineTo(i + s, s);
+          ctx.stroke();
+        }
+      }, 1.5, 1);
+      const hazardMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        map: hazardTex,
+        roughness: 0.56,
+        metalness: 0.22
+      });
+      const portalMat = new THREE.MeshStandardMaterial({ color: 0x3f4d57, roughness: 0.48, metalness: 0.62 });
+      const portalTrimMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.5, metalness: 0.3 });
+      const plateMat = new THREE.MeshStandardMaterial({ color: 0x84929b, roughness: 0.58, metalness: 0.46 });
+      const darkMat = new THREE.MeshStandardMaterial({ color: 0x1f2a33, roughness: 0.55, metalness: 0.45 });
+      const lampMat = new THREE.MeshBasicMaterial({ color: 0xfff0c2 });
+      const beaconMat = new THREE.MeshBasicMaterial({ color: 0xff8a1f });
+      const beaconHaloMat = new THREE.MeshBasicMaterial({
+        color: 0xff8a1f,
+        transparent: true,
+        opacity: 0.18,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+
+      // ── Fixed portal where the staging deck hands over to the moving arm ──
+      [-portalHalf, portalHalf].forEach((dz) => {
+        const z = portalZ + dz;
+        this._makeBeam(group, 0.24, 3.35, 0.24, portalX, deckY + 1.675, z, portalMat);
+        this._makeBeam(group, 0.5, 0.08, 0.5, portalX, deckY + 0.04, z, plateMat);
+        this._makeBeam(group, 0.34, 0.07, 0.34, portalX, portalHeadY + 0.11, z, portalMat);
+        // High-visibility bumper sleeve at shoulder height.
+        this._makeBeam(group, 0.3, 0.42, 0.3, portalX, deckY + 1.32, z, hazardMat);
+        // Four foundation bolts per post.
+        [[-0.18, -0.18], [-0.18, 0.18], [0.18, -0.18], [0.18, 0.18]].forEach(([dx, dz2]) => {
+          const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.05, 8), plateMat);
+          bolt.position.set(portalX + dx, deckY + 0.075, z + dz2);
+          group.add(bolt);
+        });
+        // Amber warning beacon on each post head.
+        const beaconBase = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.09, 0.1, 10), portalMat);
+        beaconBase.position.set(portalX, portalHeadY + 0.2, z);
+        group.add(beaconBase);
+        const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.095, 10, 8), beaconMat);
+        beacon.position.set(portalX, portalHeadY + 0.3, z);
+        group.add(beacon);
+        const halo = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 8), beaconHaloMat);
+        halo.position.copy(beacon.position);
+        group.add(halo);
+      });
+      this._makeBeam(group, 0.26, 0.26, portalHalf * 2 + 0.46, portalX, portalHeadY, portalZ, portalMat);
+      this._makeBeam(group, 0.14, 0.12, portalHalf * 2, portalX - 0.1, portalHeadY - 0.24, portalZ, portalTrimMat);
+      // Corner gussets tie the frame into the deck structure.
+      [-portalHalf, portalHalf].forEach((dz) => {
+        this._makeBeam(group, 0.72, 0.12, 0.12, portalX - 0.3, portalHeadY - 0.36, portalZ + dz, portalMat, 0, 0, Math.PI / 4);
+      });
+
+      // Main gate sign, readable from both the staging bay and the arm.
+      const gateSignTex = signTexture(768, 160, (ctx, w, h) => {
+        ctx.fillStyle = "rgba(8,14,20,0.96)";
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = "#f59e0b";
+        ctx.lineWidth = 8;
+        ctx.strokeRect(5, 5, w - 10, h - 10);
+        ctx.fillStyle = "#c7cdc9";
+        ctx.font = "bold 24px Arial";
+        ctx.textAlign = "left";
+        ctx.fillText("CREW TRANSFER · FSS 147 FT (44 M)", 34, 44);
+        ctx.fillStyle = "#f8fafc";
+        ctx.font = "bold 54px Arial";
+        ctx.fillText("ORBITER ACCESS ARM", 32, 112);
+        ctx.fillStyle = "#f59e0b";
+        ctx.font = "bold 54px Arial";
+        ctx.textAlign = "right";
+        ctx.fillText("→", w - 32, 112);
+      });
+      const gateSign = new THREE.Mesh(
+        new THREE.PlaneGeometry(2.62, 0.62),
+        new THREE.MeshBasicMaterial({ map: gateSignTex })
+      );
+      gateSign.position.set(portalX - 0.16, portalHeadY - 0.62, portalZ);
+      gateSign.rotation.y = -Math.PI / 2;
+      group.add(gateSign);
+      const gateSignBack = new THREE.Mesh(
+        new THREE.PlaneGeometry(2.62, 0.62),
+        new THREE.MeshBasicMaterial({ map: gateSignTex })
+      );
+      gateSignBack.position.set(portalX + 0.16, portalHeadY - 0.62, portalZ);
+      gateSignBack.rotation.y = Math.PI / 2;
+      group.add(gateSignBack);
+
+      const cautionTex = signTexture(256, 320, (ctx, w, h) => {
+        ctx.fillStyle = "#101820";
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = "#f59e0b";
+        ctx.lineWidth = 8;
+        ctx.strokeRect(5, 5, w - 10, h - 10);
+        ctx.fillStyle = "#facc15";
+        ctx.font = "bold 94px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("!", w / 2, 92);
+        ctx.fillStyle = "#f8fafc";
+        ctx.font = "bold 35px Arial";
+        ctx.fillText("MOVING", w / 2, 158);
+        ctx.fillText("BRIDGE", w / 2, 200);
+        ctx.fillStyle = "#fca5a5";
+        ctx.font = "bold 22px Arial";
+        ctx.fillText("STAND CLEAR", w / 2, 250);
+        ctx.fillStyle = "#94a3b8";
+        ctx.font = "16px Arial";
+        ctx.fillText("ARM 1 · LEVEL 7 · 147 FT", w / 2, 286);
+      });
+      const caution = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.62, 0.78),
+        new THREE.MeshBasicMaterial({ map: cautionTex })
+      );
+      caution.position.set(portalX - 0.14, deckY + 2.25, portalZ + portalHalf);
+      caution.rotation.y = -Math.PI / 2;
+      group.add(caution);
+
+      // Threshold plate: steel bed with hazard edging. It stays below foot
+      // height so walking the bridge needs no extra step.
+      const threshold = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.025, 2.4), plateMat);
+      threshold.position.set(portalX - 0.05, deckY + 0.017, portalZ);
+      threshold.receiveShadow = true;
+      group.add(threshold);
+      [-1.1, 1.1].forEach((dz) => {
+        const strip = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.012, 0.1), hazardMat);
+        strip.position.set(portalX - 0.05, deckY + 0.036, portalZ + dz);
+        group.add(strip);
+      });
+
+      // ── Painted approach lane and floor arrows ──
+      const matMat = new THREE.MeshStandardMaterial({ color: 0x2e3a44, roughness: 0.86, metalness: 0.16 });
+      const approachMat = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.012, 3.5), matMat);
+      approachMat.position.set(7.9, deckY + 0.016, -7.9);
+      approachMat.receiveShadow = true;
+      group.add(approachMat);
+      [-1.07, 1.07].forEach((dz) => {
+        const edge = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.012, 0.09), portalTrimMat);
+        edge.position.set(7.9, deckY + 0.024, -7.9 + dz);
+        group.add(edge);
+      });
+      const arrowTex = signTexture(512, 256, (ctx, w, h) => {
+        ctx.clearRect(0, 0, w, h);
+        ctx.fillStyle = "rgba(250,204,21,0.9)";
+        ctx.font = "bold 54px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("CREW ACCESS", w / 2, 66);
+        ctx.strokeStyle = "rgba(250,204,21,0.9)";
+        ctx.lineWidth = 18;
+        ctx.lineCap = "square";
+        // Drawn left-pointing: the floor mesh is rotated 180 degrees so the
+        // stencil reads upright from the spawn bays and points east.
+        for (let i = 0; i < 3; i++) {
+          const x = 130 + i * 110;
+          ctx.beginPath();
+          ctx.moveTo(x + 62, 112);
+          ctx.lineTo(x, 170);
+          ctx.lineTo(x + 62, 228);
+          ctx.stroke();
+        }
+      });
+      const arrowDecal = new THREE.Mesh(
+        new THREE.PlaneGeometry(2.4, 1.2),
+        new THREE.MeshBasicMaterial({ map: arrowTex, transparent: true, depthWrite: false })
+      );
+      arrowDecal.rotation.set(-Math.PI / 2, 0, Math.PI);
+      arrowDecal.position.set(6.3, deckY + 0.03, -9.35);
+      arrowDecal.renderOrder = 4;
+      group.add(arrowDecal);
+
+      // Painted hazard lines along the open deck edges.
+      const deckLineMat = new THREE.MeshStandardMaterial({ color: 0xc9a227, roughness: 0.78, metalness: 0.06 });
+      const eastEdgeLine = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.006, 17.2), deckLineMat);
+      eastEdgeLine.position.set(9.14, deckY + 0.006, -4.0);
+      group.add(eastEdgeLine);
+      const southEdgeLine = new THREE.Mesh(new THREE.BoxGeometry(15.5, 0.006, 0.09), deckLineMat);
+      southEdgeLine.position.set(1.5, deckY + 0.006, -12.68);
+      group.add(southEdgeLine);
+
+      // ── Crew staging furniture along the south rail ──
+      const lockerMat = new THREE.MeshStandardMaterial({ color: 0x384854, roughness: 0.52, metalness: 0.5 });
+      const lockerDoorMat = new THREE.MeshStandardMaterial({ color: 0x556773, roughness: 0.55, metalness: 0.42 });
+      const lockerTrimMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.55, metalness: 0.3 });
+      [2.9, 3.7, 4.5].forEach((x, i) => {
+        const body = new THREE.Mesh(new THREE.BoxGeometry(0.72, 1.82, 0.46), lockerMat);
+        body.position.set(x, deckY + 0.91, -12.38);
+        body.castShadow = true;
+        body.receiveShadow = true;
+        group.add(body);
+        const door = new THREE.Mesh(new THREE.BoxGeometry(0.64, 1.52, 0.035), lockerDoorMat);
+        door.position.set(x, deckY + 0.99, -12.14);
+        group.add(door);
+        this._makeBeam(group, 0.18, 0.03, 0.03, x + 0.18, deckY + 1.05, -12.11, lockerTrimMat);
+        const vent = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.04, 0.02), darkMat);
+        vent.position.set(x, deckY + 1.58, -12.11);
+        group.add(vent);
+        const tag = new THREE.Mesh(
+          new THREE.PlaneGeometry(0.38, 0.1),
+          new THREE.MeshBasicMaterial({
+            map: signTexture(256, 64, (ctx, w, h) => {
+              ctx.fillStyle = "#0f172a";
+              ctx.fillRect(0, 0, w, h);
+              ctx.fillStyle = "#c7cdc9";
+              ctx.font = "bold 26px Arial";
+              ctx.textAlign = "center";
+              ctx.fillText(`CREW ${String.fromCharCode(65 + i)}`, w / 2, 42);
+            })
+          })
+        );
+        tag.position.set(x, deckY + 1.85, -12.115);
+        group.add(tag);
+      });
+      // Bench for suiting up / final checks.
+      const benchMat = new THREE.MeshStandardMaterial({ color: 0x4b5c68, roughness: 0.6, metalness: 0.32 });
+      const bench = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.16, 0.52), benchMat);
+      bench.position.set(6.3, deckY + 0.48, -12.2);
+      bench.castShadow = true;
+      group.add(bench);
+      [-0.75, 0.75].forEach((dx) => {
+        this._makeBeam(group, 0.1, 0.46, 0.46, 6.3 + dx, deckY + 0.23, -12.2, darkMat);
+      });
+      this._makeBeam(group, 1.9, 0.5, 0.08, 6.3, deckY + 0.72, -12.46, benchMat);
+
+      // Staging header over the lockers.
+      [2.75, 4.65].forEach((x) => {
+        this._makeBeam(group, 0.07, 2.3, 0.07, x, deckY + 1.15, -12.42, darkMat);
+      });
+      const stagingSignTex = signTexture(640, 128, (ctx, w, h) => {
+        ctx.fillStyle = "#0b141c";
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = "#facc15";
+        ctx.lineWidth = 6;
+        ctx.strokeRect(4, 4, w - 8, h - 8);
+        ctx.fillStyle = "#f8fafc";
+        ctx.font = "bold 44px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("CREW STAGING · SUIT CHECK", w / 2, 60);
+        ctx.fillStyle = "#c7cdc9";
+        ctx.font = "bold 22px Arial";
+        ctx.fillText("FSS GANTRY DECK · 147 FT", w / 2, 98);
+      });
+      const stagingSign = new THREE.Mesh(
+        new THREE.PlaneGeometry(2.4, 0.48),
+        new THREE.MeshBasicMaterial({ map: stagingSignTex })
+      );
+      stagingSign.position.set(3.7, deckY + 2.35, -12.4);
+      group.add(stagingSign);
+
+      // ── Hydraulic power unit for the four access-arm cylinders ──
+      const hpuMat = new THREE.MeshStandardMaterial({ color: 0x4d5b65, roughness: 0.55, metalness: 0.45 });
+      const hpuDarkMat = new THREE.MeshStandardMaterial({ color: 0x1c252c, roughness: 0.62, metalness: 0.3 });
+      const hpuBase = new THREE.Mesh(new THREE.BoxGeometry(0.86, 1.08, 0.58), hpuMat);
+      hpuBase.position.set(8.25, deckY + 0.54, -11.25);
+      hpuBase.castShadow = true;
+      hpuBase.receiveShadow = true;
+      group.add(hpuBase);
+      const hpuTop = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.08, 0.62), hpuDarkMat);
+      hpuTop.position.set(8.25, deckY + 1.12, -11.25);
+      group.add(hpuTop);
+      [0.2, 0.42, 0.64].forEach((y) => {
+        const vent = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.035, 0.02), hpuDarkMat);
+        vent.position.set(8.25, deckY + 0.45 + y, -10.955);
+        group.add(vent);
+      });
+      const hpuGauge = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.075, 0.075, 0.035, 12),
+        new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.4, metalness: 0.2 })
+      );
+      hpuGauge.rotation.x = Math.PI / 2;
+      hpuGauge.position.set(8.08, deckY + 1.02, -10.95);
+      group.add(hpuGauge);
+      const hpuGaugeNeedle = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.065, 0.012), new THREE.MeshBasicMaterial({ color: 0xdc2626 }));
+      hpuGaugeNeedle.position.set(8.08, deckY + 1.03, -10.93);
+      hpuGaugeNeedle.rotation.z = -0.5;
+      group.add(hpuGaugeNeedle);
+      const hpuLabelTex = signTexture(512, 128, (ctx, w, h) => {
+        ctx.fillStyle = "#0f1720";
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = "#f59e0b";
+        ctx.lineWidth = 5;
+        ctx.strokeRect(4, 4, w - 8, h - 8);
+        ctx.fillStyle = "#f8fafc";
+        ctx.font = "bold 31px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("ACCESS ARM HPU", w / 2, 45);
+        ctx.fillStyle = "#facc15";
+        ctx.font = "bold 20px Arial";
+        ctx.fillText("4 HYDRAULIC CYLINDERS · 70° SWING", w / 2, 82);
+        ctx.fillStyle = "#94a3b8";
+        ctx.font = "17px Arial";
+        ctx.fillText("PRESSURIZED · STAND CLEAR", w / 2, 108);
+      });
+      const hpuLabel = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.7, 0.175),
+        new THREE.MeshBasicMaterial({ map: hpuLabelTex })
+      );
+      hpuLabel.position.set(8.25, deckY + 0.78, -10.955);
+      group.add(hpuLabel);
+      const hpuHoseMat = new THREE.MeshStandardMaterial({ color: 0x171d21, roughness: 0.7, metalness: 0.12 });
+      [[-0.22, 0.02], [0.08, 0.06], [0.32, -0.01]].forEach(([dx, dz]) => {
+        const hose = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 1.25, 8), hpuHoseMat);
+        hose.rotation.z = Math.PI / 2.5;
+        hose.rotation.y = 0.2;
+        hose.position.set(8.25 + dx + 0.45, deckY + 0.42, -11.25 + dz + 0.45);
+        group.add(hose);
+      });
+
+      // Soft contact shadows ground the deck furniture against the steel.
+      const contactShadowTex = this._makeCanvasTexture(128, (ctx, s) => {
+        const grad = ctx.createRadialGradient(s / 2, s / 2, s * 0.06, s / 2, s / 2, s * 0.5);
+        grad.addColorStop(0, "rgba(0,0,0,0.62)");
+        grad.addColorStop(0.55, "rgba(0,0,0,0.26)");
+        grad.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, s, s);
+      }, 1, 1);
+      const contactShadowMat = new THREE.MeshBasicMaterial({
+        map: contactShadowTex,
+        transparent: true,
+        opacity: 0.72,
+        depthWrite: false,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+        polygonOffsetUnits: -2
+      });
+      const addContactShadow = (x, z, w, d, opacity) => {
+        const shadow = new THREE.Mesh(new THREE.PlaneGeometry(w, d), contactShadowMat.clone());
+        shadow.material.opacity = opacity == null ? 0.72 : opacity;
+        shadow.rotation.x = -Math.PI / 2;
+        shadow.position.set(x, deckY + 0.038, z);
+        shadow.renderOrder = 3;
+        group.add(shadow);
+      };
+      addContactShadow(8.1, -5.45, 2.6, 1.8, 0.68);   // arm control console
+      addContactShadow(8.25, -11.25, 1.7, 1.3, 0.62); // HPU
+      addContactShadow(4.0, -12.15, 4.2, 1.6, 0.55);  // staging lockers/bench
+      addContactShadow(6.0, -6.0, 2.6, 2.6, 0.6);     // tower column base
+      addContactShadow(9.34, -8.86, 1.0, 1.0, 0.55);
+      addContactShadow(9.34, -5.54, 1.0, 1.0, 0.55);
+
+      // ── Column dressing beside the spawn bays ──
+      // The south-east corner column was a large blank white face right in the
+      // player's first view. Add level signage, hazard banding, conduits and a
+      // work light so it reads as a maintained service structure.
+      const columnZ = [-6.62, -5.38];
+      columnZ.forEach((z) => {
+        const band = new THREE.Mesh(new THREE.BoxGeometry(1.26, 0.52, 0.035), hazardMat);
+        band.position.set(6.0, deckY + 0.38, z);
+        group.add(band);
+      });
+      [5.37, 6.63].forEach((x) => {
+        const band = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.52, 1.28), hazardMat);
+        band.position.set(x, deckY + 0.38, -6.0);
+        group.add(band);
+      });
+      // Dark corner trim gives the painted box column readable edges instead
+      // of a flat white slab.
+      [[5.42, -6.58], [6.58, -6.58], [6.58, -5.42]].forEach(([x, z]) => {
+        const trim = new THREE.Mesh(new THREE.BoxGeometry(0.045, 3.45, 0.045), portalMat);
+        trim.position.set(x, deckY + 1.72, z);
+        group.add(trim);
+      });
+      const columnSignTex = signTexture(512, 256, (ctx, w, h) => {
+        ctx.fillStyle = "#101820";
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = "#94a3b8";
+        ctx.lineWidth = 5;
+        ctx.strokeRect(5, 5, w - 10, h - 10);
+        ctx.fillStyle = "#f8fafc";
+        ctx.font = "bold 76px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("FSS · 147 FT", w / 2, 102);
+        ctx.fillStyle = "#facc15";
+        ctx.font = "bold 36px Arial";
+        ctx.fillText("GANTRY DECK", w / 2, 152);
+        ctx.fillStyle = "#d9a441";
+        ctx.font = "bold 25px Arial";
+        ctx.fillText("CREW ACCESS →", w / 2, 198);
+      });
+      const columnSign = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.86, 0.43),
+        new THREE.MeshBasicMaterial({ map: columnSignTex, side: THREE.DoubleSide })
+      );
+      columnSign.position.set(6.0, deckY + 2.68, -6.645);
+      columnSign.rotation.y = Math.PI;
+      group.add(columnSign);
+
+      // Stencilled FSS level number below the sign, as on the real tower.
+      const levelStencilTex = signTexture(256, 384, (ctx, w, h) => {
+        ctx.clearRect(0, 0, w, h);
+        ctx.fillStyle = "rgba(244,244,239,0.9)";
+        ctx.font = "bold 250px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("7", w / 2, h / 2);
+      });
+      const levelStencil = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.48, 0.72),
+        new THREE.MeshBasicMaterial({ map: levelStencilTex, transparent: true })
+      );
+      levelStencil.position.set(6.0, deckY + 1.6, -6.652);
+      levelStencil.rotation.y = Math.PI;
+      group.add(levelStencil);
+
+      const conduitMat = new THREE.MeshStandardMaterial({ color: 0x26333d, roughness: 0.52, metalness: 0.4 });
+      const pipeMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.52, metalness: 0.36 });
+      [-6.24, -5.86].forEach((z, i) => {
+        const pipe = new THREE.Mesh(
+          new THREE.CylinderGeometry(i === 0 ? 0.045 : 0.035, i === 0 ? 0.045 : 0.035, 3.5, 8),
+          i === 0 ? pipeMat : conduitMat
+        );
+        pipe.position.set(6.68, deckY + 1.75, z);
+        group.add(pipe);
+      });
+      [1.1, 2.25, 3.25].forEach((y) => {
+        this._makeBeam(group, 0.05, 0.05, 0.62, 6.68, deckY + y, -6.05, conduitMat);
+      });
+      const junction = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.42, 0.32), darkMat);
+      junction.position.set(6.69, deckY + 2.72, -6.05);
+      group.add(junction);
+      const workLampHousing = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.2, 0.7), darkMat);
+      workLampHousing.position.set(6.72, deckY + 3.35, -6.0);
+      workLampHousing.rotation.z = -0.35;
+      group.add(workLampHousing);
+      const workLampLens = new THREE.Mesh(new THREE.PlaneGeometry(0.58, 0.14), lampMat);
+      workLampLens.rotation.x = Math.PI / 2;
+      workLampLens.rotation.z = Math.PI / 2;
+      workLampLens.position.set(6.79, deckY + 3.26, -6.0);
+      group.add(workLampLens);
+
+      // Pad CCTV camera and fire cabinet on the column facing the crew bays.
+      const cctvArm = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.38), darkMat);
+      cctvArm.position.set(6.54, deckY + 2.86, -6.92);
+      group.add(cctvArm);
+      const cctvBody = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.18, 0.34), hpuDarkMat);
+      cctvBody.position.set(6.54, deckY + 2.78, -7.12);
+      cctvBody.rotation.x = 0.24;
+      group.add(cctvBody);
+      const cctvHood = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.05, 0.4), hpuMat);
+      cctvHood.position.set(6.54, deckY + 2.89, -7.12);
+      cctvHood.rotation.x = 0.18;
+      group.add(cctvHood);
+      const cctvLens = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.065, 0.06, 12), darkMat);
+      cctvLens.rotation.x = Math.PI / 2 + 0.24;
+      cctvLens.position.set(6.54, deckY + 2.77, -7.31);
+      group.add(cctvLens);
+      const cctvLed = new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 6), new THREE.MeshBasicMaterial({ color: 0xdc2626 }));
+      cctvLed.position.set(6.64, deckY + 2.84, -7.23);
+      group.add(cctvLed);
+
+      const fireCabinet = new THREE.Mesh(
+        new THREE.BoxGeometry(0.38, 0.62, 0.18),
+        new THREE.MeshStandardMaterial({ color: 0x7c1d19, roughness: 0.72, metalness: 0.12 })
+      );
+      fireCabinet.position.set(5.12, deckY + 0.34, -6.83);
+      group.add(fireCabinet);
+      const fireCabinetFace = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.28, 0.46),
+        new THREE.MeshBasicMaterial({
+          map: signTexture(256, 384, (ctx, w, h) => {
+            ctx.fillStyle = "#b91c1c";
+            ctx.fillRect(0, 0, w, h);
+            ctx.strokeStyle = "#f8fafc";
+            ctx.lineWidth = 8;
+            ctx.strokeRect(5, 5, w - 10, h - 10);
+            ctx.fillStyle = "#f8fafc";
+            ctx.font = "bold 40px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText("FIRE", w / 2, 72);
+            ctx.font = "bold 28px Arial";
+            ctx.fillText("EXTINGUISHER", w / 2, 116);
+            ctx.fillStyle = "#fecaca";
+            ctx.font = "18px Arial";
+            ctx.fillText("BREAK GLASS", w / 2, 250);
+            ctx.fillText("PULL PIN", w / 2, 278);
+          })
+        })
+      );
+      fireCabinetFace.position.set(5.12, deckY + 0.34, -6.925);
+      fireCabinetFace.rotation.y = Math.PI;
+      group.add(fireCabinetFace);
+      const fireCabinetGlass = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.26, 0.1),
+        new THREE.MeshStandardMaterial({ color: 0x2b3c44, roughness: 0.15, metalness: 0.3 })
+      );
+      fireCabinetGlass.position.set(5.12, deckY + 0.48, -6.926);
+      fireCabinetGlass.rotation.y = Math.PI;
+      group.add(fireCabinetGlass);
+
+      // ── White Room destination dressing at the far end of the arm ──
+      const whiteRoomSignTex = signTexture(768, 192, (ctx, w, h) => {
+        ctx.fillStyle = "#0b141c";
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = "#c7cdc9";
+        ctx.lineWidth = 8;
+        ctx.strokeRect(5, 5, w - 10, h - 10);
+        ctx.fillStyle = "#f8fafc";
+        ctx.font = "bold 66px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("WHITE ROOM", w / 2, 92);
+        ctx.fillStyle = "#c7cdc9";
+        ctx.font = "bold 28px Arial";
+        ctx.fillText("ORBITER HATCH · CHECK SEAL", w / 2, 142);
+      });
+      const whiteRoomSign = new THREE.Mesh(
+        new THREE.PlaneGeometry(2.4, 0.5),
+        new THREE.MeshBasicMaterial({ map: whiteRoomSignTex })
+      );
+      whiteRoomSign.position.set(18.43, 2.93, 0);
+      whiteRoomSign.rotation.y = -Math.PI / 2;
+      this.armPivotGroup.add(whiteRoomSign);
+      // Door-height sign visible from inside the low access-arm corridor.
+      const whiteRoomSignLower = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.55, 0.33),
+        new THREE.MeshBasicMaterial({ map: whiteRoomSignTex })
+      );
+      whiteRoomSignLower.position.set(18.42, 2.25, 0);
+      whiteRoomSignLower.rotation.y = -Math.PI / 2;
+      this.armPivotGroup.add(whiteRoomSignLower);
+      // Entry frame around the arm's mouth into the White Room.
+      [-1.05, 1.05].forEach((z) => {
+        const jamb = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.5, 0.1), darkMat);
+        jamb.position.set(18.43, 1.45, z);
+        this.armPivotGroup.add(jamb);
+        const jambTrim = new THREE.Mesh(new THREE.BoxGeometry(0.045, 2.28, 0.045), hazardMat);
+        jambTrim.position.set(18.38, 1.45, z);
+        this.armPivotGroup.add(jambTrim);
+      });
+      const doorHeader = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.14, 2.2), darkMat);
+      doorHeader.position.set(18.43, 2.72, 0);
+      this.armPivotGroup.add(doorHeader);
+      // Caution edging around the white-room hatch plate.
+      [2.9, 0.2].forEach((y) => {
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.08, 2.4), hazardMat);
+        bar.position.set(22.04, y, 0);
+        this.armPivotGroup.add(bar);
+      });
+      [-1.16, 1.16].forEach((z) => {
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.78, 0.08), hazardMat);
+        bar.position.set(22.04, 1.55, z);
+        this.armPivotGroup.add(bar);
+      });
     }
 
     _isLocalGroundCrew() {
@@ -3107,6 +5464,12 @@
         return false;
       }
       if (!this.site) return false;
+      if (!this.siteTourActive) {
+        // The walking tour is about the view; start with the slim travel bar
+        // and let the player open the destination grid on demand.
+        this._hudCollapsedBeforeTour = !!this.hudCollapsed;
+        this.hudCollapsed = true;
+      }
       this.siteTourActive = true;
       this._syncSpaceGamesLock();
       this.teleportSiteTour(index);
@@ -3118,6 +5481,8 @@
     exitSiteTour() {
       if (this.openCar) this.openCar.forceExit();
       this.siteTourActive = false;
+      this.hudCollapsed = this._hudCollapsedBeforeTour === true;
+      this._hudCollapsedBeforeTour = null;
       this._syncSpaceGamesLock();
       const isGround = this._isLocalGroundCrew();
       const spawn = isGround
@@ -3332,19 +5697,38 @@
       const inGantry = nx >= -40.2 && nx <= -24.8 && nz >= -12.7 && nz <= 4.7;
       // Walkable Zone 2: Elevator bridge & cabin west of gantry deck
       const inElevBridge = nx >= -43.6 && nx <= -40.0 && nz >= -5.8 && nz <= -2.2;
-      // Walkable Zone 3: Boarding Bridge / White Room when Dock is Extended
-      const inBridge = this.dockLocked && nx >= -25.5 && nx <= -3.6 && nz >= -8.8 && nz <= -5.6;
+      // Walkable Zone 3: Boarding Bridge when Dock is Extended. The real OAA
+      // is only 5 ft wide, so the arm uses a narrow corridor while the White
+      // Room at the outboard end opens to its wider 3.8 m chamber.
+      const bridgeXMin = -25.5;
+      const roomXMin = -7.0;
+      const roomXMax = -3.6;
+      const armZMin = -8.05;
+      const armZMax = -6.35;
+      const roomZMin = -9.0;
+      const roomZMax = -5.4;
+      const inArm = this.dockLocked &&
+        nx >= bridgeXMin && nx <= roomXMin && nz >= armZMin && nz <= armZMax;
+      const inWhiteRoom = this.dockLocked &&
+        nx >= roomXMin && nx <= roomXMax && nz >= roomZMin && nz <= roomZMax;
 
-      // Already standing on the access arm: clamp both axes to the bridge corridor
-      const wasOnBridge = this.dockLocked &&
-        px >= -25.5 && px <= -3.6 && pz >= -8.8 && pz <= -5.6;
-      if (wasOnBridge) {
-        const armX = Math.max(-25.5, Math.min(-3.6, nx));
-        const armZ = Math.max(-8.8, Math.min(-5.6, nz));
+      // Already standing on the access arm: clamp both axes to the bridge corridor.
+      const wasOnArm = this.dockLocked &&
+        px >= bridgeXMin && px <= roomXMin && pz >= armZMin && pz <= armZMax;
+      const wasInWhiteRoom = this.dockLocked &&
+        px >= roomXMin && px <= roomXMax && pz >= roomZMin && pz <= roomZMax;
+      if (wasInWhiteRoom && nx < roomXMin && (nz < armZMin || nz > armZMax)) {
+        // Walking back out of the room while off-centre hits the door jamb.
+        return new THREE.Vector3(roomXMin, y, Math.max(roomZMin, Math.min(roomZMax, nz)));
+      }
+      if (wasOnArm || wasInWhiteRoom) {
+        const armX = Math.max(bridgeXMin, Math.min(roomXMax, nx));
+        const inRoomNow = armX >= roomXMin;
+        const armZ = Math.max(inRoomNow ? roomZMin : armZMin, Math.min(inRoomNow ? roomZMax : armZMax, nz));
         return new THREE.Vector3(armX, y, armZ);
       }
 
-      if (inGantry || inElevBridge || inBridge) {
+      if (inGantry || inElevBridge || inArm || inWhiteRoom) {
         // Boarding is a deliberate [E]/[B] action at the hatch. Walking the
         // bridge must stay reversible so the crew can inspect the ship or walk
         // back to the tower without being trapped or force-boarded.
@@ -3558,7 +5942,7 @@
 
           if (e.code === "KeyE") {
             if (this.dockLocked && !this.crewBoarded && this.missionPhase === "gantry") {
-              const distHatch = this._distanceToGuidancePoint(-7.8, -7.2);
+              const distHatch = this._distanceToGuidancePoint(-5.2, -7.2);
               if (distHatch !== null && distHatch <= 2.6) {
                 e.preventDefault();
                 this.boardSpacecraft();
@@ -3576,7 +5960,7 @@
           }
 
           if (e.code === "KeyB" && this.dockLocked && !this.crewBoarded && this.missionPhase === "gantry") {
-            const distHatch = this._distanceToGuidancePoint(-7.8, -7.2);
+            const distHatch = this._distanceToGuidancePoint(-5.2, -7.2);
             if (distHatch !== null && distHatch <= 2.6) {
               e.preventDefault();
               this.boardSpacecraft();
@@ -3816,7 +6200,7 @@
         : "CMD";
       const unboardedNames = crewState.flightRoster.filter((p) => !p.isAboard).map((p) => p.name);
       const stepOutHint = this.crewBoarded && !this.isLaunching ? " · [E/B] STEP OUT" : "";
-      const hatchDistance = this._distanceToGuidancePoint(-7.8, -7.2);
+      const hatchDistance = this._distanceToGuidancePoint(-5.2, -7.2);
       const canBoard = !isGround && !this.crewBoarded && this.dockLocked &&
         this.missionPhase === "gantry" && !this.isLaunching &&
         hatchDistance !== null && hatchDistance <= 2.6;
@@ -3829,7 +6213,20 @@
       let target = null;
 
       const nearTerm = (this.siteTourActive || isGround) ? this._getNearbyFacilityTerminal() : null;
-      if (isGround) {
+      if (this.siteTourActive) {
+        const current = tourSpawns[this.siteTourIndex] || tourSpawns[0];
+        if (nearTerm) {
+          statusText = `${nearTerm.label} · [E] OPEN TERMINAL`;
+          statusColor = "#60a5fa";
+        } else {
+          const loc = (current && (current.short || current.label) ? (current.short || current.label) : "LAUNCH PAD").toUpperCase();
+          const jumpRange = tourSpawns.length || 6;
+          statusText = touchUI
+            ? `SITE TOUR · ${loc}`
+            : `SITE TOUR · ${loc} · [1-${jumpRange}] JUMP · [T] ${isGround ? "CONTROL ROOM" : "TOWER"}`;
+          statusColor = "#d0a15c";
+        }
+      } else if (isGround) {
         if (nearTerm) {
           statusText = `${nearTerm.label} · [E] OPEN`;
           statusColor = "#60a5fa";
@@ -3853,19 +6250,6 @@
           statusText = "IN SPACE · HELP STATION CREW & RADIO DATA · CONSOLE [C]";
           statusColor = "#86efac";
         }
-      } else if (this.siteTourActive) {
-        const current = tourSpawns[this.siteTourIndex] || tourSpawns[0];
-        if (nearTerm) {
-          statusText = `${nearTerm.label} · [E] OPEN TERMINAL`;
-          statusColor = "#60a5fa";
-        } else {
-          const loc = (current && (current.short || current.label) ? (current.short || current.label) : "LAUNCH PAD").toUpperCase();
-          const jumpRange = tourSpawns.length || 6;
-          statusText = touchUI
-            ? `SITE TOUR · ${loc}`
-            : `SITE TOUR · ${loc} · [1-${jumpRange}] JUMP · [T] TOWER`;
-          statusColor = "#d0a15c";
-        }
       } else if (this.isLaunching) {
         statusText = "ENGINES FIRED · LIFTOFF!";
         statusColor = "#f87171";
@@ -3886,7 +6270,7 @@
         statusText = `LAUNCH PAD · STEP 1 (${armOwnerLabel}): BRIDGE [F]${distance !== null ? ` · ${Math.max(1, Math.round(distance))}m` : ""}`;
         statusColor = "#fbbf24";
       } else if (!step2Done) {
-        distance = this._distanceToGuidancePoint(-7.8, -7.2);
+        distance = this._distanceToGuidancePoint(-5.2, -7.2);
         target = "hatch";
         statusText = `LAUNCH PAD · STEP 2: BOARD DOOR [E/B] (${crewState.aboardCount}/${crewState.crewTotal})${distance !== null ? ` · ${Math.max(1, Math.round(distance))}m` : ""}`;
         statusColor = "#93c5fd";
@@ -3947,19 +6331,81 @@
       return "";
     }
 
+    _groundActionAllowed(type) {
+      const roles = window.InterfellasRoles;
+      if (!roles || typeof roles.canRoleDoGroundAction !== "function") return true;
+      const allowed = roles.GROUND_ACTION_ROLES && roles.GROUND_ACTION_ROLES[type];
+      if (!allowed) return true;
+      const nm = window.netManager;
+      const role = nm && nm.localPlayer ? nm.localPlayer.role : null;
+      return roles.canRoleDoGroundAction(role, type);
+    }
+
+    _groundActionOwnerLabel(type) {
+      const roles = window.InterfellasRoles;
+      const allowed = roles && roles.GROUND_ACTION_ROLES ? roles.GROUND_ACTION_ROLES[type] : null;
+      if (!allowed || !allowed.length) return "Earth Control";
+      return roles.getRoleMeta(allowed[0]).label;
+    }
+
+    _groundActionLockAttrs(type) {
+      if (this._groundActionAllowed(type)) return "";
+      return `disabled title="${this._groundActionOwnerLabel(type)} only"`;
+    }
+
     _triggerGroundAction(type, extra = {}) {
+      if (!this._groundActionAllowed(type)) {
+        const owner = this._groundActionOwnerLabel(type);
+        if (window.gameplay && typeof window.gameplay.showToast === "function") {
+          window.gameplay.showToast(`[ROLE LOCK] ${owner.toUpperCase()} ONLY · THIS EARTH CONTROL ACTION IS NOT YOURS`);
+        }
+        if (window.spaceAudio) window.spaceAudio.playAlarm("warning");
+        return;
+      }
       if (window.spaceAudio) window.spaceAudio.playClick();
       if (window.netManager && typeof window.netManager.sendGroundAction === "function") {
         window.netManager.sendGroundAction(type, extra);
       }
     }
 
+    _syncGroundPresentationMode() {
+      if (!document.body) return;
+      const driving = !!(this.openCar && this.openCar.isDriving);
+      const exploring = !!(this.isGroundMode && (this.siteTourActive || driving));
+      const wasExploring = document.body.classList.contains("ground-explore-active");
+      const wasDriving = document.body.classList.contains("ground-car-driving");
+      document.body.classList.toggle("ground-site-tour", !!(this.isGroundMode && this.siteTourActive));
+      document.body.classList.toggle("ground-car-driving", !!(this.isGroundMode && driving));
+      document.body.classList.toggle("ground-explore-active", exploring);
+      if ((exploring && !wasExploring) || (driving && !wasDriving)) {
+        document.body.classList.remove("hud-tools-expanded");
+        const more = document.getElementById("btn-hud-more");
+        if (more) {
+          more.setAttribute("aria-expanded", "false");
+          const label = more.querySelector("span");
+          if (label) label.textContent = "MORE";
+        }
+      }
+    }
+
     _renderGroundHUD() {
       if (!this.hudOverlay) return;
+      this._syncGroundPresentationMode();
       const guidance = this._groundGuidanceState();
       const touchUI = guidance.touchUI;
       const tourSpawns = (window.SpaceCenterModules && window.SpaceCenterModules.SITE_TOUR_SPAWNS) || [];
       const gs = guidance.gs || {};
+      const touring = !!this.siteTourActive;
+      const tourExitLabel = guidance.isGround ? "CONTROL ROOM" : "LAUNCH TOWER";
+      const tourGrid = `
+        <div class="sc-tour-grid">
+          ${tourSpawns.map((spawn, index) => `
+            <button type="button" data-site-tour-index="${index}" class="sc-tour-btn${index === this.siteTourIndex ? " is-active" : ""}">
+              ${index + 1}. ${spawn.short || spawn.label}
+            </button>
+          `).join("")}
+        </div>
+      `;
 
       this.hudOverlay.classList.toggle("is-collapsed", !!this.hudCollapsed);
       this.hudOverlay.innerHTML = `
@@ -3973,7 +6419,11 @@
             <button type="button" id="btn-sc-term-act" class="sc-hud-btn sc-btn-term" style="display:${guidance.nearTerm ? "inline-flex" : "none"};">
               ${guidance.nearTerm ? guidance.nearTerm.shortAction : "TERMINAL [E]"}
             </button>
-            ${guidance.isGround ? `
+            ${touring ? `
+              <button type="button" id="btn-sc-site-tour" class="sc-hud-btn sc-btn-tour is-active">
+                ${touchUI ? tourExitLabel : `${tourExitLabel} [T]`}
+              </button>
+            ` : guidance.isGround ? `
               <button type="button" id="btn-sc-lcc-console" class="sc-hud-btn ${this.lccConsoleOpen ? "sc-btn-launch" : "sc-btn-term"}">
                 ${this.lccConsoleOpen ? "CLOSE OPS [C]" : (guidance.pollActive ? "GIVE OK [C]" : "CONTROL ROOM [C]")}
               </button>
@@ -3981,8 +6431,8 @@
                 ${guidance.isAtGround ? (touchUI ? "🗼 TO TOP DECK" : "🗼 TO TOP DECK [3/T]") : (guidance.isAtTop ? (touchUI ? "🛗 TO GROUND" : "🛗 TO GROUND [1]") : "🛗 ELEVATOR [G/E]")}
               </button>
             ` : `
-              <button type="button" id="btn-sc-elv-act" class="sc-hud-btn sc-btn-elv" style="display:${guidance.nearElevator || this.siteTourActive || guidance.isAtGround ? "inline-flex" : "none"};">
-                ${guidance.isAtGround ? (touchUI ? "🗼 TO TOP DECK" : "🗼 TO TOP DECK [3/T]") : (guidance.isAtTop ? (touchUI ? "🛗 TO GROUND" : "🛗 TO GROUND [1]") : (this.siteTourActive ? "🛗 TO ELEVATOR [G]" : "🛗 ELEVATOR [G/E]"))}
+              <button type="button" id="btn-sc-elv-act" class="sc-hud-btn sc-btn-elv" style="display:${guidance.nearElevator || guidance.isAtGround ? "inline-flex" : "none"};">
+                ${guidance.isAtGround ? (touchUI ? "🗼 TO TOP DECK" : "🗼 TO TOP DECK [3/T]") : (guidance.isAtTop ? (touchUI ? "🛗 TO GROUND" : "🛗 TO GROUND [1]") : "🛗 ELEVATOR [G/E]")}
               </button>
               <button type="button" id="btn-sc-launch" class="sc-hud-btn sc-btn-launch" style="display:${guidance.canLaunchNow ? "inline-flex" : "none"};">
                 ${guidance.pollActive ? (touchUI ? "OVERRIDE LAUNCH" : "OVERRIDE [L]") : (touchUI ? "LAUNCH" : "LAUNCH [L]")}
@@ -3991,81 +6441,75 @@
                 ${guidance.canUnboard ? (touchUI ? "STEP OUT" : "STEP OUT [E/B]") : (touchUI ? "BOARD" : "BOARD [E/B]")}
               </button>
             `}
-            <button type="button" id="btn-sc-hud-toggle" class="sc-hud-btn sc-btn-collapse" title="${this.hudCollapsed ? "Expand Launch Pad Dock" : "Minimize Launch Pad Dock"}">
-              ${this.hudCollapsed ? "+" : "-"}
+            <button type="button" id="btn-sc-hud-toggle" class="sc-hud-btn sc-btn-collapse" title="${this.hudCollapsed ? (touring ? "Open fast travel destinations" : "Expand Launch Pad Dock") : (touring ? "Hide fast travel destinations" : "Minimize Launch Pad Dock")}">
+              ${this.hudCollapsed ? (touring ? "TRAVEL" : "+") : (touring ? "CLOSE" : "-")}
             </button>
           </div>
         </div>
 
         <div class="sc-hud-body" style="display:${this.hudCollapsed ? "none" : "flex"};">
-          <div class="sc-hud-tools">
-            <button type="button" id="btn-sc-ground" class="sc-hud-btn sc-btn-elv" title="Ride Elevator to Pad Ground Level [1]">
-              ${touchUI ? "🛗 GROUND" : "🛗 GROUND [1]"}
-            </button>
-            <button type="button" id="btn-sc-gantry" class="sc-hud-btn sc-btn-gantry" title="Ride Elevator to Spacecraft Gantry [2]">
-              ${touchUI ? "🚀 GANTRY" : "🚀 GANTRY [2]"}
-            </button>
-            <button type="button" id="btn-sc-top-deck" class="sc-hud-btn sc-btn-top" title="Ride Elevator to Tower Top Observation Deck [3/T]">
-              ${touchUI ? "🗼 TOP DECK" : "🗼 TOP DECK [3/T]"}
-            </button>
-            <button type="button" id="btn-sc-mission-plan" class="sc-hud-btn sc-btn-plan">
-              ${touchUI ? "DESIGN" : "DESIGN [M]"}
-            </button>
-            <button type="button" id="btn-sc-mdl-desk" class="sc-hud-btn sc-btn-mdl">
-              SUMMARY DESK
-            </button>
-            <button type="button" id="btn-sc-cml-workbench" class="sc-hud-btn sc-btn-plan">
-              READINESS
-            </button>
-            <button type="button" id="btn-sc-orbit-viz" class="sc-hud-btn sc-btn-viz">
-              ${touchUI ? "3D VIEW" : "3D VIEW [U]"}
-            </button>
-            ${guidance.isGround ? `
-              <button type="button" id="btn-sc-return-lcc" class="sc-hud-btn sc-btn-tour">
-                ${touchUI ? "CONTROL ROOM" : "CONTROL ROOM [T]"}
+          ${touring ? tourGrid : `
+            <div class="sc-hud-tools">
+              <button type="button" id="btn-sc-ground" class="sc-hud-btn sc-btn-elv" title="Ride Elevator to Pad Ground Level [1]">
+                ${touchUI ? "🛗 GROUND" : "🛗 GROUND [1]"}
               </button>
-            ` : `
-              <button type="button" id="btn-sc-site-tour" class="sc-hud-btn sc-btn-tour">
-                ${this.siteTourActive ? (touchUI ? "LAUNCH TOWER" : "LAUNCH TOWER [T]") : "SITE TOUR"}
+              <button type="button" id="btn-sc-gantry" class="sc-hud-btn sc-btn-gantry" title="Ride Elevator to Spacecraft Gantry [2]">
+                ${touchUI ? "🚀 GANTRY" : "🚀 GANTRY [2]"}
               </button>
-            `}
-          </div>
-
-          ${guidance.isGround ? `
-            <div class="sc-ground-ops-strip">
-              <button type="button" id="btn-gop-gonogo" class="ground-action-btn ${this._groundOpButtonAttrs(gs.goNoGoLaunch, guidance.pollActive)}" data-ground-op="go_nogo_launch">
-                ${gs.goNoGoLaunch ? "LIFTOFF OK'D" : (guidance.pollActive ? "APPROVE LIFTOFF" : "PRE-APPROVE LIFTOFF")}
+              <button type="button" id="btn-sc-top-deck" class="sc-hud-btn sc-btn-top" title="Ride Elevator to Tower Top Observation Deck [3/T]">
+                ${touchUI ? "🗼 TOP DECK" : "🗼 TOP DECK [3/T]"}
               </button>
-              <button type="button" id="btn-gop-dock" class="ground-action-btn ${this._groundOpButtonAttrs(gs.dockingClearance, this.missionPhase === "docking" && !gs.dockingClearance)}" data-ground-op="docking_clearance">
-                ${gs.dockingClearance ? "DOCKING OK'D" : "APPROVE DOCKING"}
+              <button type="button" id="btn-sc-mission-plan" class="sc-hud-btn sc-btn-plan">
+                ${touchUI ? "DESIGN" : "DESIGN [M]"}
               </button>
-              <button type="button" id="btn-gop-dsn" class="ground-action-btn ${this._groundOpButtonAttrs(gs.dsnLocked)}" data-ground-op="dsn_lock">
-                ${gs.dsnLocked ? "DISH LOCKED" : "LOCK EARTH DISH"}
+              <button type="button" id="btn-sc-mdl-desk" class="sc-hud-btn sc-btn-mdl">
+                SUMMARY DESK
               </button>
-              <button type="button" id="btn-gop-eps" class="ground-action-btn ${this._groundOpButtonAttrs(gs.powerRouted)}" data-ground-op="power_route">
-                ${gs.powerRouted ? "POWER SENT" : "BOOST SOLAR POWER"}
+              <button type="button" id="btn-sc-cml-workbench" class="sc-hud-btn sc-btn-plan">
+                READINESS
               </button>
-              <button type="button" id="btn-gop-sci" class="ground-action-btn ${this._groundOpButtonAttrs(gs.scienceCleared)}" data-ground-op="science_downlink">
-                ${gs.scienceCleared ? "LAB DATA ON" : "CLEAR SCIENCE DATA"}
+              <button type="button" id="btn-sc-orbit-viz" class="sc-hud-btn sc-btn-viz">
+                ${touchUI ? "3D VIEW" : "3D VIEW [U]"}
               </button>
-            </div>
-          ` : `
-            <div id="sc-guidance-steps" class="sc-hud-steps" style="display:${this.siteTourActive ? "none" : "flex"};">
-              <span id="sc-step-1" class="sc-step-chip"></span>
-              <span id="sc-step-2" class="sc-step-chip"></span>
-              <span id="sc-step-3" class="sc-step-chip"></span>
-            </div>
-          `}
-
-          ${(this.siteTourActive || guidance.isGround) ? `
-            <div class="sc-tour-grid">
-              ${tourSpawns.map((spawn, index) => `
-                <button type="button" data-site-tour-index="${index}" class="sc-tour-btn${index === this.siteTourIndex ? " is-active" : ""}">
-                  ${index + 1}. ${spawn.short || spawn.label}
+              ${guidance.isGround ? `
+                <button type="button" id="btn-sc-return-lcc" class="sc-hud-btn sc-btn-tour">
+                  ${touchUI ? "CONTROL ROOM" : "CONTROL ROOM [T]"}
                 </button>
-              `).join("")}
+              ` : `
+                <button type="button" id="btn-sc-site-tour" class="sc-hud-btn sc-btn-tour">
+                  SITE TOUR
+                </button>
+              `}
             </div>
-          ` : ""}
+
+            ${guidance.isGround ? `
+              <div class="sc-ground-ops-strip">
+                <button type="button" id="btn-gop-gonogo" class="ground-action-btn ${this._groundOpButtonAttrs(gs.goNoGoLaunch, guidance.pollActive)}" ${this._groundActionLockAttrs("go_nogo_launch")} data-ground-op="go_nogo_launch">
+                  ${gs.goNoGoLaunch ? "LIFTOFF OK'D" : (guidance.pollActive ? "APPROVE LIFTOFF" : "PRE-APPROVE LIFTOFF")}
+                </button>
+                <button type="button" id="btn-gop-dock" class="ground-action-btn ${this._groundOpButtonAttrs(gs.dockingClearance, this.missionPhase === "docking" && !gs.dockingClearance)}" ${this._groundActionLockAttrs("docking_clearance")} data-ground-op="docking_clearance">
+                  ${gs.dockingClearance ? "DOCKING OK'D" : "APPROVE DOCKING"}
+                </button>
+                <button type="button" id="btn-gop-dsn" class="ground-action-btn ${this._groundOpButtonAttrs(gs.dsnLocked)}" ${this._groundActionLockAttrs("dsn_lock")} data-ground-op="dsn_lock">
+                  ${gs.dsnLocked ? "DISH LOCKED" : "LOCK EARTH DISH"}
+                </button>
+                <button type="button" id="btn-gop-eps" class="ground-action-btn ${this._groundOpButtonAttrs(gs.powerRouted)}" ${this._groundActionLockAttrs("power_route")} data-ground-op="power_route">
+                  ${gs.powerRouted ? "POWER SENT" : "BOOST SOLAR POWER"}
+                </button>
+                <button type="button" id="btn-gop-sci" class="ground-action-btn ${this._groundOpButtonAttrs(gs.scienceCleared)}" ${this._groundActionLockAttrs("science_downlink")} data-ground-op="science_downlink">
+                  ${gs.scienceCleared ? "LAB DATA ON" : "CLEAR SCIENCE DATA"}
+                </button>
+              </div>
+            ` : `
+              <div id="sc-guidance-steps" class="sc-hud-steps" style="display:flex;">
+                <span id="sc-step-1" class="sc-step-chip"></span>
+                <span id="sc-step-2" class="sc-step-chip"></span>
+                <span id="sc-step-3" class="sc-step-chip"></span>
+              </div>
+            `}
+
+            ${guidance.isGround ? tourGrid : ""}
+          `}
         </div>
       `;
 
@@ -4191,7 +6635,7 @@
             this.unboardSpacecraft();
             return;
           }
-          const distHatch = this._distanceToGuidancePoint(-7.8, -7.2);
+          const distHatch = this._distanceToGuidancePoint(-5.2, -7.2);
           if (this.dockLocked && distHatch !== null && distHatch <= 2.6) {
             this.boardSpacecraft();
           }
@@ -4390,19 +6834,27 @@
         ${pingValid ? `
           <div class="ground-ping-banner">
             <span>TEAM ALERT: <strong>${String(activePing.roomLabel || activePing.roomId || "HUB").toUpperCase()}</strong>${activePing.message ? ` · ${activePing.message}` : ""} (${activePing.byName || "Ground"})</span>
-            <button type="button" class="ground-action-btn" id="btn-lcc-clear-ping">CLEAR ALERT</button>
+            <button type="button" class="ground-action-btn" id="btn-lcc-clear-ping" ${this._groundActionLockAttrs("clear_ping")}>CLEAR ALERT</button>
           </div>
         ` : ""}
 
         <div class="ground-lcc-grid">
           <div class="ground-lcc-card">
-            <div style="font-family:var(--font-mono);font-size:11.5px;letter-spacing:1px;color:#94a3b8;">LAUNCH & DOCKING OK</div>
-            <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.goNoGoLaunch, pollActive)}" data-lcc-op="go_nogo_launch" style="text-align:left;padding:9px 12px;font-size:11.5px;">
+            <div style="font-family:var(--font-mono);font-size:11.5px;letter-spacing:1px;color:#94a3b8;">LAUNCH & DOCKING OK · FLIGHT DIRECTOR</div>
+            <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.goNoGoLaunch, pollActive)}" ${this._groundActionLockAttrs("go_nogo_launch")} data-lcc-op="go_nogo_launch" style="text-align:left;padding:9px 12px;font-size:11.5px;">
               ${gs.goNoGoLaunch ? `LIFTOFF APPROVED (${gs.goNoGoBy || "GROUND"})` : (pollActive ? "CHECK ACTIVE: GIVE LIFTOFF OK" : "PRE-APPROVE LIFTOFF")}
             </button>
-            <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.dockingClearance, this.missionPhase === "docking" && !gs.dockingClearance)}" data-lcc-op="docking_clearance" style="text-align:left;padding:9px 12px;font-size:11.5px;">
+            <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.dockingClearance, this.missionPhase === "docking" && !gs.dockingClearance)}" ${this._groundActionLockAttrs("docking_clearance")} data-lcc-op="docking_clearance" style="text-align:left;padding:9px 12px;font-size:11.5px;">
               ${gs.dockingClearance ? `DOCKING PATH CLEARED (${gs.dockingClearanceBy || "GROUND"})` : "APPROVE SAFE DOCKING PATH"}
             </button>
+            <div style="font-family:var(--font-mono);font-size:11px;color:#94a3b8;margin-top:6px;">ALERT A STATION ROOM · FLIGHT DIRECTOR</div>
+            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;">
+              ${roomButtons.map((rm) => `
+                <button type="button" class="ground-action-btn ${pingValid && activePing.roomId === rm.id ? "is-approved" : ""}" ${this._groundActionLockAttrs("ping_room")} data-lcc-ping="${rm.id}" style="padding:7px 9px;font-size:11px;">
+                  ALERT ${rm.label}
+                </button>
+              `).join("")}
+            </div>
             <div style="font-family:var(--font-mono);font-size:11px;color:#94a3b8;margin-top:6px;">FLIGHT TEAM (${crewState.aboardCount}/${crewState.crewTotal} ABOARD)</div>
             <div style="display:flex;flex-direction:column;gap:6px;">
               ${crewState.flightRoster.map((p) => `
@@ -4417,24 +6869,16 @@
           </div>
 
           <div class="ground-lcc-card">
-            <div style="font-family:var(--font-mono);font-size:11.5px;letter-spacing:1px;color:#94a3b8;">GROUND TEAM HELP & BOOSTS</div>
-            <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.dsnLocked)}" data-lcc-op="dsn_lock" style="text-align:left;padding:9px 12px;font-size:11.5px;">
+            <div style="font-family:var(--font-mono);font-size:11.5px;letter-spacing:1px;color:#94a3b8;">GROUND TEAM HELP & BOOSTS · GROUND SYSTEMS</div>
+            <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.dsnLocked)}" ${this._groundActionLockAttrs("dsn_lock")} data-lcc-op="dsn_lock" style="text-align:left;padding:9px 12px;font-size:11.5px;">
               ${gs.dsnLocked ? `EARTH RADIO LOCKED (${gs.dsnLockedBy || "GROUND"})` : "TURN ON BIG EARTH RADIO DISH (+SIGNAL)"}
             </button>
-            <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.powerRouted)}" data-lcc-op="power_route" style="text-align:left;padding:9px 12px;font-size:11.5px;">
+            <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.powerRouted)}" ${this._groundActionLockAttrs("power_route")} data-lcc-op="power_route" style="text-align:left;padding:9px 12px;font-size:11.5px;">
               ${gs.powerRouted ? `SOLAR POWER BOOST ON (${gs.powerRoutedBy || "GROUND"})` : "SEND EXTRA SOLAR POWER TRACKING (+POWER)"}
             </button>
-            <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.scienceCleared)}" data-lcc-op="science_downlink" style="text-align:left;padding:9px 12px;font-size:11.5px;">
+            <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.scienceCleared)}" ${this._groundActionLockAttrs("science_downlink")} data-lcc-op="science_downlink" style="text-align:left;padding:9px 12px;font-size:11.5px;">
               ${gs.scienceCleared ? `LAB DATA LINK CLEARED (${gs.scienceClearedBy || "GROUND"})` : "APPROVE LIVE SCIENCE DATA FEED (+SCIENCE)"}
             </button>
-            <div style="font-family:var(--font-mono);font-size:11px;color:#94a3b8;margin-top:6px;">ALERT A STATION ROOM</div>
-            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;">
-              ${roomButtons.map((rm) => `
-                <button type="button" class="ground-action-btn ${pingValid && activePing.roomId === rm.id ? "is-approved" : ""}" data-lcc-ping="${rm.id}" style="padding:7px 9px;font-size:11px;">
-                  ALERT ${rm.label}
-                </button>
-              `).join("")}
-            </div>
           </div>
 
           <div class="ground-lcc-card">
@@ -4524,7 +6968,7 @@
       const broadcast = options.broadcast !== false;
       const nextState = typeof forceLock === "boolean" ? forceLock : !this.dockLocked;
       this.dockLocked = nextState;
-      this.targetDockSwingAngle = nextState ? 0.0 : 0.38;
+      this.targetDockSwingAngle = nextState ? 0.0 : this.dockRetractAngle;
 
       if (this.dockStatusLightMat) {
         this.dockStatusLightMat.color.setHex(nextState ? 0x34d399 : 0xf59e0b);
@@ -4650,23 +7094,26 @@
     }
 
     _groundSpawnForIndex(index = 0) {
-      // Safe gantry spawn queue synced with server.js groundSpawnFor().
-      // Places crew clear of the tower lattice and >2.7m from Arm Control (-25.9, -6.3)
-      // so joining players do not immediately auto-trip the access arm.
+      // Crew staging bays on the gantry deck, synced with server.js
+      // groundSpawnFor(). They sit clear of the tower lattice and >2.7 m from
+      // Arm Control (-25.9, -6.3) so joining players never auto-trip the arm.
+      // Each bay faces the boarding-bridge threshold so the first view shows
+      // both the access-arm control and the way onto the orbiter.
       const spots = [
-        { x: -25.8, z: -9.0 },
-        { x: -26.8, z: -9.0 },
-        { x: -25.8, z: -10.3 },
-        { x: -26.8, z: -10.3 },
-        { x: -25.8, z: -11.6 },
-        { x: -26.8, z: -11.6 }
+        { x: -29.8, z: -10.6 },
+        { x: -30.9, z: -10.6 },
+        { x: -29.8, z: -9.2 },
+        { x: -30.9, z: -9.2 },
+        { x: -29.8, z: -7.8 },
+        { x: -30.9, z: -7.8 }
       ];
+      const focus = { x: -24.3, z: -6.8 };
       const spot = spots[index % spots.length];
       return {
         x: spot.x,
         y: 64.1,
         z: spot.z,
-        yaw: 0
+        yaw: Math.atan2(focus.x - spot.x, focus.z - spot.z)
       };
     }
 
@@ -4772,7 +7219,7 @@
             this._unboardedAt = 0;
           }
         }
-        this.targetDockSwingAngle = this.dockLocked ? 0.0 : 0.38;
+        this.targetDockSwingAngle = this.dockLocked ? 0.0 : this.dockRetractAngle;
         if (!this.isGroundMode) {
           this.enterSpaceCenter(mission);
           return;
@@ -4792,6 +7239,26 @@
 
       if (phase === "launch") {
         if (!isGround && (this._dockingPhaseStarted || this._stationEntered)) return;
+        // Merged main mission: the interactive Shuttle view owns this phase.
+        // main.js starts/stops ShuttleGame; here we only stop the ground world
+        // and suppress the old automatic launch cutscene.
+        if (!isGround && mission.flightMode === "shuttle_docking") {
+          this._launchSequenceStarted = true;
+          this.missionPhase = "launch";
+          this.isLaunching = true;
+          this.isGroundMode = false;
+          this._groundObserverLaunch = false;
+          document.body.classList.remove("ground-mode-active");
+          this._syncSpaceGamesLock();
+          if (this.group) this.group.visible = false;
+          if (this.hudOverlay) this.hudOverlay.style.display = "none";
+          if (this.stackGroup) this.stackGroup.visible = false;
+          if (window.localCrew && window.localCrew.group) window.localCrew.group.visible = false;
+          if (window.launchCutscene && window.launchCutscene.isPlaying && typeof window.launchCutscene.cancel === "function") {
+            window.launchCutscene.cancel();
+          }
+          return;
+        }
         if (!this.isGroundMode) {
           this.enterSpaceCenter(mission);
           return;
@@ -4885,6 +7352,18 @@
 
       // Late Flight joiners skip straight to the active orbital phase. Ground
       // Control ALWAYS remains at Kennedy Space Center on Earth.
+      if (!isGround && phase === "launch" && activeMission && activeMission.flightMode === "shuttle_docking") {
+        this._launchSequenceStarted = true;
+        this.missionPhase = "launch";
+        this.isLaunching = true;
+        this.isGroundMode = false;
+        this._groundObserverLaunch = false;
+        if (this.group) this.group.visible = false;
+        if (this.hudOverlay) this.hudOverlay.style.display = "none";
+        if (this.stackGroup) this.stackGroup.visible = false;
+        if (window.localCrew && window.localCrew.group) window.localCrew.group.visible = false;
+        return;
+      }
       if (!isGround && phase === "station") {
         this.isGroundMode = false;
         this.completeDockingAndEnterStation({ fromNetwork: true });
@@ -4913,7 +7392,7 @@
       this.dockLocked = !!(activeMission && activeMission.dockLocked);
       const myId = nm ? nm.socketId : null;
       this.crewBoarded = !isGround && !!(activeMission && Array.isArray(activeMission.boarded) && activeMission.boarded.indexOf(myId) !== -1);
-      this.dockSwingAngle = this.dockLocked ? 0.0 : 0.38;
+      this.dockSwingAngle = this.dockLocked ? 0.0 : this.dockRetractAngle;
       this.targetDockSwingAngle = this.dockSwingAngle;
       if (this.armPivotGroup) this.armPivotGroup.rotation.y = this.dockSwingAngle;
       if (this.group) this.group.visible = true;
@@ -4987,6 +7466,25 @@
       const isGround = this._isLocalGroundCrew();
       if (this._launchSequenceStarted || (!isGround && this._stationEntered)) return;
       if (this.openCar) this.openCar.forceExit();
+
+      // The merged main mission flies the real Shuttle ascent. A local launch
+      // press only requests clearance; the flight view starts when the server
+      // broadcasts the launch phase, so the old cutscene is never used here.
+      const activeMission = window.netManager && typeof window.netManager.getMission === "function"
+        ? window.netManager.getMission()
+        : null;
+      if (!isGround && activeMission && activeMission.flightMode === "shuttle_docking") {
+        if (!fromNetwork) {
+          if (broadcast && window.netManager && typeof window.netManager.requestLaunch === "function") {
+            window.netManager.requestLaunch();
+          }
+          if (window.gameplay && typeof window.gameplay.showToast === "function") {
+            window.gameplay.showToast("LAUNCH REQUEST SENT — SHUTTLE FLIGHT BEGINS WHEN EARTH CONTROL CLEARS LIFTOFF");
+          }
+          this._renderGroundHUD();
+        }
+        return;
+      }
 
       if (!fromNetwork) {
         if (isGround) return;

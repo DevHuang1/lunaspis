@@ -1,6 +1,58 @@
 # Implementation progress — co-op Shuttle crew mission
 
-Updated 2026-11-13, Asia/Rangoon. This replaces the earlier solo-mission status. For the audit and handoff history, see the [codebase audit](codebase-audit.md), the [mission spec](mission-spec.md) and the [implementation plan](implementation-plan.md).
+Updated 2026-11-14, Asia/Rangoon. This replaces the earlier solo-mission status. For the audit and handoff history, see the [codebase audit](codebase-audit.md), the [mission spec](mission-spec.md) and the [implementation plan](implementation-plan.md).
+
+## 2026-11-14: Shuttle merged into the main mission
+
+The main mission is now one continuous flight instead of two title-screen choices:
+
+1. Board at LC-39A and give launch clearance as before.
+2. Launch clearance arms the authoritative `ShuttleMission` and starts the
+   interactive Shuttle countdown/ascent. The crew flies the same automatic
+   ascent, staging and OMS-2 insertion as the standalone Shuttle mission.
+3. After the orbit is verified, the server raises `handoffReady` and opens the
+   existing main-mission docking phase. The Shuttle view exits and
+   `DockingSimulator` takes over; docking still leads to the station interior
+   and the normal mission objectives.
+
+The title-screen **FLY SHUTTLE** button and the lobby **FLY SPACE SHUTTLE** mode
+toggle were removed so the main mission is the single advertised path. The
+standalone launch-to-runway training flight is preserved: open the game with
+`?shuttle=1` and use **PLAY SOLO** or **CREATE TEAM**. Its full payload, entry
+and landing flow is unchanged.
+
+Implementation points:
+- `shuttle_mission.js`: `handoffAtOrbit` stops the standalone flow at verified
+  orbit and raises `handoffReady`; the standalone default still continues to
+  payload/deorbit/landing.
+- `server.js`: every room creates a Shuttle mission at start, launch order
+  auto-sends `START`, the physics loop detects the orbit handoff and calls the
+  existing `enterRoomDockingPhase`, and resets re-arm a fresh Shuttle mission.
+- `main.js`: merged missions start/stop `ShuttleGame` around the launch phase
+  and restore the main game screen for docking. Ground Control stays in the
+  LCC; flight crew switch to the Shuttle HUD.
+- `space_center.js`: the old launch cutscene is suppressed for merged flights
+  while its code remains available; docking starts from the verified-orbit
+  handoff.
+- `tests/shuttle/run_checks.js`: added checks for merged handoff and for the
+  standalone flow remaining unchanged.
+
+No browser or Chrome run was used for this change. Node evidence:
+
+- `node tests/shuttle/run_checks.js --quick`: **58 passed, 1 failed**. The two
+  new merged-handoff checks and the standalone-flow check pass.
+- The one failure is the existing 0.25/0.5/1 s landing-prompt reaction check
+  (`Touchdown sink rate 6.8 m/s` at 1 s). Running the unmodified `HEAD` test
+  file against this worktree reproduces the same failure (55 passed, 1
+  failed), so it predates the merge and is unrelated.
+- `node --check` passes for `server.js`, `main.js`, `space_center.js`,
+  `shuttle_mission.js`, `shuttle_game.js` and `network.js`.
+- Server boot smoke test with process-local overrides on a free port (3139):
+  startup logged the local-disk mode and `GET /` returned HTTP 200; the
+  process then exited cleanly.
+- Not verified: a live browser playthrough of the merged handoff (Chrome was
+  deliberately not used), and the visual transition from `ShuttleView` to the
+  docking camera.
 
 ## Current state
 

@@ -9,6 +9,7 @@
  * 2. SpaceShip NASA Astronaut suit integration (astronaut_lod0.glb & astronaut_lod1.glb)
  *    with 4 skeletal animation clips ('idle', 'walk', 'look_around', 'wave'),
  *    radial ground contact shadow, and role accent ring
+ * 2b. Earth Control unsuit crew (crew_a.glb & crew_b.glb) for the two ground roles
  * 3. SpaceShip NASA ISS 3D Models (ISS_stationary_opt.glb & ISS_B.glb) + Orbital Fleet
  * 4. Full-window Drag-and-Drop & File Picker for custom user .glb/.gltf models
  * 5. Interactive 3D Model Hangar & Inspector (real-time 3D turntable, wireframe,
@@ -41,6 +42,30 @@
       targetHeight: 1.90,
       rotateY: 0,
       description: "Optimized SpaceShip NASA spacesuit rig with 1K KTX2 textures and 4 skeletal animations for AI crew and multiplayer squad."
+    },
+
+    // --- EARTH CONTROL GROUND CREW (NO SPACESUITS) ---
+    "crew_a": {
+      id: "crew_a",
+      name: "NASA Ground Crew A (Unsuit)",
+      category: "crew",
+      role: "flight_director",
+      file: "models/crew/crew_a.glb",
+      defaultColor: "#0b3d91",
+      targetHeight: 1.90,
+      rotateY: 0,
+      description: "Broad-shouldered ground controller in the NASA-blue jersey and pants. No spacesuit. Uses the same humanoid bone names and idle / walk / look_around / wave clips as the astronaut rigs."
+    },
+    "crew_b": {
+      id: "crew_b",
+      name: "NASA Ground Crew B (Unsuit)",
+      category: "crew",
+      role: "ground_capcom",
+      file: "models/crew/crew_b.glb",
+      defaultColor: "#0b3d91",
+      targetHeight: 1.77,
+      rotateY: 0,
+      description: "Ground controller in the NASA-blue jersey and pants. No spacesuit. Uses the same humanoid bone names and idle / walk / look_around / wave clips as the astronaut rigs."
     },
 
     // --- SPACESHIP PRIMARY ISS & SPACECRAFT MODELS ---
@@ -633,13 +658,19 @@
     }
 
     /**
-     * Maps player station role to SpaceShip astronaut model ID.
+     * Maps a player role to the correct rig. Earth Control roles use the
+     * unsuited crew models; station crew always use a spacesuit rig even if
+     * an unsuited model was selected in the hangar.
      */
-    getModelIdForRole(role, isLocal = false) {
-      if (isLocal) return "astronaut_lod0";
-      const r = (role || "commander").toLowerCase();
-      if (r === "commander") return "astronaut_lod0";
-      return "astronaut_lod1";
+    getModelIdForRole(role, fallbackModelId = null) {
+      const normalized = window.InterfellasRoles
+        ? window.InterfellasRoles.normalizeRole(role, "commander")
+        : String(role || "commander").trim().toLowerCase().replace(/[_-]+/g, " ");
+      if (normalized === "flight_director") return "crew_a";
+      if (normalized === "ground_capcom") return "crew_b";
+      const fallback = fallbackModelId || "astronaut_lod1";
+      if (fallback === "crew_a" || fallback === "crew_b") return "astronaut_lod1";
+      return fallback;
     }
 
     /**
@@ -1653,6 +1684,7 @@
               <div class="hangar-tabs-row">
                 <button class="hangar-tab-btn active" data-cat="all">ALL</button>
                 <button class="hangar-tab-btn" data-cat="astronauts">SUITS</button>
+                <button class="hangar-tab-btn" data-cat="crew">CREW</button>
                 <button class="hangar-tab-btn" data-cat="spacecraft">ISS</button>
                 <button class="hangar-tab-btn" data-cat="custom">CUSTOM</button>
               </div>
@@ -1771,6 +1803,13 @@
 
       modal.querySelector("#hangar-btn-equip").addEventListener("click", () => {
         if (!this.hangarCurrentModel) return;
+
+        if (this.hangarCurrentModel.category === "crew") {
+          if (window.showActionToast) {
+            window.showActionToast(`${this.hangarCurrentModel.name} is an Earth Control crew model. It is assigned automatically to the Flight Director / Ground Systems roles.`);
+          }
+          return;
+        }
 
         if (this.hangarCurrentModel.category !== "astronauts") {
           if (window.showActionToast) {

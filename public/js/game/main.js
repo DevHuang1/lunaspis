@@ -411,7 +411,7 @@
 
     const checklistTitle = document.getElementById("hud-checklist-title");
     if (checklistTitle) {
-      checklistTitle.textContent = (isNarrow || isMobile) ? "OBJECTIVES" : "MISSION OBJECTIVES";
+      checklistTitle.textContent = "MISSION HUB";
     }
 
     const settingsBtn = document.getElementById("btn-voice-settings");
@@ -896,11 +896,17 @@
     const pName = (window.netManager && window.netManager.localPlayer) ? window.netManager.localPlayer.name : "Astronaut";
     const isHost = (window.netManager) ? window.netManager.isHost : false;
     const team = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.team) ? window.netManager.localPlayer.team : "crew";
+    const resolvedTeam = window.InterfellasRoles
+      ? window.InterfellasRoles.getTeamForRole(normalizedRole)
+      : team;
     const defaultModel = isMobile ? "astronaut_lod1" : "astronaut_lod0";
-    const chosenModel = modelKey || (window.glbManager ? window.glbManager.selectedAvatarModelId : defaultModel);
+    const fallbackModel = modelKey || (window.glbManager ? window.glbManager.selectedAvatarModelId : defaultModel);
+    const chosenModel = window.glbManager && typeof window.glbManager.getModelIdForRole === "function"
+      ? window.glbManager.getModelIdForRole(normalizedRole, fallbackModel)
+      : fallbackModel;
 
-    const rig = createAstronautMesh(color, normalizedRole, pName, isHost, chosenModel, team, {
-      enableLight: !isMobile,
+    const rig = createAstronautMesh(color, normalizedRole, pName, isHost, chosenModel, resolvedTeam, {
+      enableLight: !isMobile && resolvedTeam !== "ground",
       castShadow: !isMobile
     });
     localCrew.group = rig.root;
@@ -916,7 +922,7 @@
     localCrew.nameBadge = rig.nameBadge;
     localCrew.color = color;
     localCrew.role = normalizedRole;
-    localCrew.team = team;
+    localCrew.team = resolvedTeam;
 
     // Preserve active in-world coordinates when swapping suits/roles mid-mission;
     // otherwise spawn at Lunaspis's PLAYER_SPAWN in Transit Hub facing -Z.
@@ -957,6 +963,9 @@
     const btnJoin = document.getElementById("btn-join-game");
     const btnQuick = document.getElementById("btn-quick-play");
     const btnShuttleOps = document.getElementById("btn-shuttle-ops");
+    // The standalone Shuttle training flight is no longer a title-screen mode.
+    // It remains reachable with ?shuttle=1 for direct launch-to-landing practice.
+    const standaloneShuttleMode = /[?&]shuttle=1/.test(window.location.search);
 
     const lobbyRoomCode = document.getElementById("lobby-room-code");
     const btnCopyLink = document.getElementById("btn-copy-invite");
@@ -1008,7 +1017,11 @@
         const name = inputName ? inputName.value.trim() : (currentAstronaut ? currentAstronaut.callsign : "Commander");
         const color = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.color)
           || (currentAstronaut ? currentAstronaut.suit_color : "#67e8f9");
-        window.netManager.createRoom(name, color, null, { explicitRole: false, isPublic: false });
+        window.netManager.createRoom(name, color, null, {
+          explicitRole: false,
+          isPublic: false,
+          opsMode: standaloneShuttleMode ? "shuttle_flight" : "iss_expedition"
+        });
       });
     }
 
@@ -1031,7 +1044,9 @@
         const name = inputName ? inputName.value.trim() : (currentAstronaut ? currentAstronaut.callsign : "Crew");
         const color = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.color)
           || (currentAstronaut ? currentAstronaut.suit_color : "#67e8f9");
-        window.netManager.startSolo(name, color, null, { opsMode: "iss_expedition" });
+        window.netManager.startSolo(name, color, null, {
+          opsMode: standaloneShuttleMode ? "shuttle_flight" : "iss_expedition"
+        });
       });
     }
 
@@ -1142,6 +1157,97 @@
           remoteCrewMeshes[id].parent.remove(remoteCrewMeshes[id]);
         }
         delete remoteCrewMeshes[id];
+      }
+    }
+
+    // ------------------------------------------------------------------------
+    // Merged main mission: Shuttle launch/ascent -> ISS docking handoff.
+    // The standalone Shuttle mission remains a separate reachable training
+    // flight, so this path only engages for mission.flightMode === "shuttle_docking".
+    // ------------------------------------------------------------------------
+    function isMergedShuttleMission(mission) {
+      return !!(mission && mission.flightMode === "shuttle_docking");
+    }
+
+    function isLocalGroundCrew() {
+      const player = window.netManager && window.netManager.localPlayer;
+      return !!(player && player.team === "ground");
+    }
+
+    function startMergedShuttleFlight(mission) {
+      if (!isMergedShuttleMission(mission) || isLocalGroundCrew()) return;
+      if (!window.shuttleGame || window.shuttleGame.isActive) return;
+
+      if (window.spaceCenter) {
+        const sc = window.spaceCenter;
+        sc.missionPhase = "launch";
+        sc._launchSequenceStarted = true;
+        sc.isLaunching = true;
+        sc.isGroundMode = false;
+        sc._groundObserverLaunch = false;
+        if (sc.group) sc.group.visible = false;
+        if (sc.stackGroup) sc.stackGroup.visible = false;
+        if (sc.hudOverlay) sc.hudOverlay.style.display = "none";
+      }
+      if (window.localCrew && window.localCrew.group) {
+        window.localCrew.group.visible = false;
+      }
+      if (window.launchCutscene && window.launchCutscene.isPlaying && typeof window.launchCutscene.cancel === "function") {
+        window.launchCutscene.cancel();
+      }
+
+      document.body.classList.add("game-active", "shuttle-mode-active");
+      document.body.classList.remove("ground-mode-active", "docking-active", "interior-active");
+      syncSpaceGamesLock();
+      if (screenGame) screenGame.style.display = "none";
+      const resBar = document.getElementById("lunaspis-resource-meters");
+      if (resBar) resBar.style.display = "none";
+      const launchBanner = document.getElementById("launch-countdown-banner");
+      if (launchBanner) launchBanner.style.display = "none";
+      const briefingOverlay = document.getElementById("mission-briefing-overlay");
+      if (briefingOverlay) briefingOverlay.style.display = "none";
+
+      window.shuttleGame.start({
+        renderer,
+        net: window.netManager,
+        mergedMission: true,
+        canReturnLobby: !!(window.netManager && window.netManager.isHost),
+        onLeave: leaveCurrentRoom,
+        onReturnToLobby: () => {
+          if (window.netManager && window.netManager.isHost && typeof window.netManager.returnToLobby === "function") {
+            window.netManager.returnToLobby();
+          }
+        }
+      });
+      console.log("[Shuttle] merged main-mission flight active");
+    }
+
+    function stopMergedShuttleFlight() {
+      if (!window.shuttleGame || !window.shuttleGame.isActive) {
+        document.body.classList.remove("shuttle-mode-active");
+        return;
+      }
+      window.shuttleGame.exit();
+      document.body.classList.remove("shuttle-mode-active");
+      if (screenGame) screenGame.style.display = "flex";
+      const resBar = document.getElementById("lunaspis-resource-meters");
+      if (resBar) {
+        if (window.gameplay && typeof window.gameplay._applyResourceBarLayout === "function") {
+          window.gameplay._applyResourceBarLayout(resBar);
+        } else {
+          resBar.style.display = "flex";
+        }
+      }
+      onWindowResize();
+      console.log("[Shuttle] merged main-mission flight handed off");
+    }
+
+    function syncMergedShuttleView(mission) {
+      if (!isMergedShuttleMission(mission)) return;
+      if (mission.phase === "launch") {
+        startMergedShuttleFlight(mission);
+      } else {
+        stopMergedShuttleFlight();
       }
     }
 
@@ -1322,6 +1428,19 @@
       btnCameraMode.addEventListener("click", () => cycleCameraMode());
     }
 
+    // Walking/touring the KSC site keeps a short tool row and folds the rest
+    // behind MORE, so the world view is not buried under buttons.
+    const btnHudMore = document.getElementById("btn-hud-more");
+    if (btnHudMore) {
+      btnHudMore.addEventListener("click", () => {
+        const expanded = document.body.classList.toggle("hud-tools-expanded");
+        btnHudMore.setAttribute("aria-expanded", String(expanded));
+        const label = btnHudMore.querySelector("span");
+        if (label) label.textContent = expanded ? "LESS" : "MORE";
+        if (window.spaceAudio) window.spaceAudio.playClick();
+      });
+    }
+
     // Voice & Systems Settings
     const btnVoiceMic = document.getElementById("btn-voice-mic");
     const btnVoiceSettings = document.getElementById("btn-voice-settings");
@@ -1346,6 +1465,15 @@
     const visorOpacityBadge = document.getElementById("visor-opacity-val-badge");
     const toggleCrosshair = document.getElementById("toggle-crosshair");
 
+    function syncPresetButtonsUI() {
+      document.querySelectorAll(".btn-preset[data-preset]").forEach((btn) => {
+        const presetKey = btn.getAttribute("data-preset");
+        const profile = PRESET_PROFILES[presetKey];
+        const isActive = !!profile && Object.keys(profile).every((key) => String(perfSettings[key]) === String(profile[key]));
+        btn.classList.toggle("active", isActive);
+      });
+    }
+
     function syncSettingsUI() {
       if (renderScaleSlider) renderScaleSlider.value = perfSettings.renderScale;
       if (renderScaleBadge) renderScaleBadge.textContent = `${perfSettings.renderScale}% (${(perfSettings.renderScale / 100).toFixed(1)}x)`;
@@ -1364,13 +1492,7 @@
       if (visorOpacityBadge) visorOpacityBadge.textContent = `${perfSettings.visorOpacity}%`;
       if (toggleCrosshair) toggleCrosshair.checked = Boolean(perfSettings.showCrosshair);
 
-      document.querySelectorAll(".btn-preset[data-preset]").forEach((btn) => {
-        const p = btn.getAttribute("data-preset");
-        const isCinematicMatch = p === "cinematic" && perfSettings.cinematicPreset === "cinematic" && perfSettings.renderScale >= 110;
-        const isPotatoMatch = p === "potato" && perfSettings.cinematicPreset === "off" && perfSettings.renderScale <= 75;
-        const isBalancedMatch = p === "balanced" && !isCinematicMatch && !isPotatoMatch;
-        btn.classList.toggle("active", isCinematicMatch || isPotatoMatch || isBalancedMatch);
-      });
+      syncPresetButtonsUI();
     }
 
     toggleSystemsSettingsModal = function (forceState) {
@@ -1752,6 +1874,7 @@
         lastDrsAdjustTime = performance.now();
         if (renderScaleBadge) renderScaleBadge.textContent = `${perfSettings.renderScale}% (${(perfSettings.renderScale / 100).toFixed(1)}x)`;
         savePerfSettings();
+        syncPresetButtonsUI();
         queuePerfSettingsApply();
       });
     }
@@ -1759,6 +1882,7 @@
       selectCinematicPreset.addEventListener("change", () => {
         perfSettings.cinematicPreset = selectCinematicPreset.value;
         savePerfSettings();
+        syncPresetButtonsUI();
         applyPerfSettings();
         updatePerfDisplay();
       });
@@ -1768,6 +1892,7 @@
         perfSettings.fpsCap = Number(selectFpsCap.value) || 0;
         if (fpsCapBadge) fpsCapBadge.textContent = perfSettings.fpsCap === 0 ? "UNCAPPED" : `${perfSettings.fpsCap} FPS`;
         savePerfSettings();
+        syncPresetButtonsUI();
         applyPerfSettings();
       });
     }
@@ -1775,6 +1900,7 @@
       selectLightingQuality.addEventListener("change", () => {
         perfSettings.lightingQuality = selectLightingQuality.value;
         savePerfSettings();
+        syncPresetButtonsUI();
         applyPerfSettings();
       });
     }
@@ -1790,6 +1916,7 @@
       selectTickRate.addEventListener("change", () => {
         perfSettings.tickRate = Number(selectTickRate.value) || 25;
         savePerfSettings();
+        syncPresetButtonsUI();
         applyPerfSettings();
         updatePerfDisplay();
       });
@@ -1798,6 +1925,7 @@
       selectInterpBuffer.addEventListener("change", () => {
         perfSettings.interpBuffer = selectInterpBuffer.value;
         savePerfSettings();
+        syncPresetButtonsUI();
         applyPerfSettings();
       });
     }
@@ -1850,6 +1978,23 @@
       }
       if (typeof window.syncLobbySelectionUI === "function") window.syncLobbySelectionUI();
       if (typeof window.renderHudCrewRoster === "function") window.renderHudCrewRoster();
+    }
+
+    let groundCrewModelsPreloadStarted = false;
+    function preloadGroundCrewModels(players) {
+      if (groundCrewModelsPreloadStarted || !window.glbManager || !Array.isArray(players)) return;
+      const hasGround = players.some((p) => p && (
+        p.team === "ground" ||
+        (window.InterfellasRoles && window.InterfellasRoles.isGroundRole(p.role))
+      ));
+      if (!hasGround) return;
+      groundCrewModelsPreloadStarted = true;
+      ["crew_a", "crew_b"].forEach((id) => {
+        const entry = window.glbManager.catalog && window.glbManager.catalog[id];
+        if (entry && typeof window.glbManager.loadGLB === "function") {
+          window.glbManager.loadGLB(entry.file).catch(() => {});
+        }
+      });
     }
 
     function applySoloLobbyChrome(isSolo) {
@@ -1911,11 +2056,17 @@
       if (window.location.search && window.history && typeof window.history.replaceState === "function") {
         window.history.replaceState({}, "", window.location.pathname);
       }
-      alert(err.message || "Failed to join room");
+      const missingRoom = err && typeof err.message === "string" && err.message.includes("does not exist");
+      const region = window.LunaspisRegions && window.LunaspisRegions.getCurrentRegion();
+      const regionHint = missingRoom && region
+        ? `\n\nYou are on the ${region.label} server. Room codes only exist on the region where the room was created — use the SERVER switch on the title screen and it will retry this code on the other region.`
+        : "";
+      alert((err.message || "Failed to join room") + regionHint);
     });
 
     window.netManager.on("room_update", (data) => {
       syncLocalRigWithServer();
+      preloadGroundCrewModels(data.players);
       updateLobbySlots(data.players, data.hostId, data.status);
       renderLobbyMission(data.mission);
       if (window.shuttleGame && window.shuttleGame.isActive) {
@@ -2047,6 +2198,9 @@
             window.gameplay.showToast(`${actor}: SCIENCE DATA SHARING READY`);
           } else if (ev.type === "ping_room" && ev.ping) {
             window.gameplay.showToast(`EARTH ALERT -> ${String(ev.ping.roomLabel || ev.ping.roomId || "HUB").toUpperCase()}`);
+          } else if (ev.type === "role_locked") {
+            const owner = ev.requiredRoleLabel || "The assigned Earth Control role";
+            window.gameplay.showToast(`[ROLE LOCK] ${String(owner).toUpperCase()} ONLY · ${ev.message || "THIS CONTROL IS NOT YOURS"}`);
           } else if (ev.type === "board_blocked_ground" && ev.message) {
             window.gameplay.showToast(ev.message);
           }
@@ -2057,6 +2211,7 @@
     window.netManager.on("game_started", (data) => {
       screenMenu.style.display = "none";
       screenLobby.style.display = "none";
+      preloadGroundCrewModels(data && data.players);
 
       const mission = (data && data.mission)
         || (window.netManager.roomState && window.netManager.roomState.mission)
@@ -2146,6 +2301,9 @@
         }
 
         showMissionBriefing(mission);
+        // A late joiner can enter while the merged Shuttle flight is already
+        // under way; switch straight into the flight view.
+        syncMergedShuttleView(mission);
       };
 
       // Let gameplay's game_started listener apply the authoritative mission
@@ -2167,6 +2325,9 @@
           window.gameplay.syncMissionUi(payload.mission);
         }
       }
+      // Merged main mission: enter/leave the interactive Shuttle view before the
+      // Space Center applies the phase (launch -> Shuttle, docking -> station).
+      syncMergedShuttleView(payload.mission);
       if (window.spaceCenter && typeof window.spaceCenter.applyMissionState === "function") {
         window.spaceCenter.applyMissionState(payload.mission, payload);
       }
@@ -2324,12 +2485,13 @@
     }
 
     if (missionTip) {
+      const flightPlan = "FLIGHT PLAN: board at LC-39A, launch in the Space Shuttle, reach orbit, then dock at the station.";
       if (selected && selected.tradeoffTip) {
-        missionTip.innerHTML = `<strong>TRADE-OFF:</strong> ${escapeHtml(selected.tradeoffTip)}`;
+        missionTip.innerHTML = `<strong>${flightPlan}</strong><br><strong>TRADE-OFF:</strong> ${escapeHtml(selected.tradeoffTip)}`;
         missionTip.style.display = "block";
       } else {
-        missionTip.style.display = "none";
-        missionTip.innerHTML = "";
+        missionTip.innerHTML = `<strong>${flightPlan}</strong>`;
+        missionTip.style.display = "block";
       }
     }
 
@@ -2443,15 +2605,21 @@
     if (list) {
       const objectives = Array.isArray(mission.objectives) ? mission.objectives : [];
       const completed = new Set(mission.completedObjectives || []);
+      const assignments = mission.objectiveAssignments || {};
       list.innerHTML = objectives.map((objective) => {
         const done = completed.has(objective.id);
         const deps = (objective.dependsOn || []).map((id) => {
           const dep = objectives.find((entry) => entry.id === id);
           return dep ? dep.room : id;
         });
+        const roleId = assignments[objective.id] || objective.role || "all";
+        const roleMeta = window.InterfellasRoles && roleId !== "all"
+          ? window.InterfellasRoles.getRoleMeta(roleId)
+          : { short: "ALL", label: "All Crew", color: "#9aa4ae" };
         return `
           <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
             <span style="font-family:monospace;font-size:11px;font-weight:700;color:${done ? "#34d399" : "#67e8f9"};min-width:46px;">${escapeHtml(objective.room)}</span>
+            <span title="Assigned role: ${escapeHtml(roleMeta.label)}" style="font-family:monospace;font-size:10px;font-weight:700;color:${roleMeta.color};min-width:42px;">${escapeHtml(roleMeta.short)}</span>
             <span style="flex:1;font-size:12.5px;line-height:1.45;color:${done ? "#7fb8a6" : "#ece7dc"};">${escapeHtml(objective.title)}</span>
             <span style="font-family:monospace;font-size:10.5px;color:#9aa4ae;">${done ? "COMPLETE" : deps.length ? "AFTER " + deps.join("+") : "FIRST"}</span>
           </div>
@@ -2762,6 +2930,72 @@
   }
   window.syncLobbySelectionUI = syncLobbySelectionUI;
 
+  let hudMissionHubRoleFilter = "all";
+  let lastHudMissionHubMyRole = null;
+
+  function syncMissionHubRoleFilterForRole(myRole, localIsGround) {
+    if (lastHudMissionHubMyRole && lastHudMissionHubMyRole !== myRole) {
+      hudMissionHubRoleFilter = localIsGround ? myRole : "all";
+    } else if (lastHudMissionHubMyRole === null && localIsGround) {
+      hudMissionHubRoleFilter = myRole;
+    }
+    lastHudMissionHubMyRole = myRole;
+    return hudMissionHubRoleFilter;
+  }
+  window.syncMissionHubRoleFilterForRole = syncMissionHubRoleFilterForRole;
+
+  function setMissionHubRoleFilter(role) {
+    const next = (!role || role === "all")
+      ? "all"
+      : (role === hudMissionHubRoleFilter ? "all" : role);
+    hudMissionHubRoleFilter = next;
+    if (window.gameplay && typeof window.gameplay.updateTaskListUI === "function") {
+      window.gameplay.updateTaskListUI();
+    } else {
+      renderHudCrewRoster();
+    }
+    if (window.spaceAudio) window.spaceAudio.playClick();
+  }
+  window.getMissionHubRoleFilter = () => hudMissionHubRoleFilter;
+  window.setMissionHubRoleFilter = setMissionHubRoleFilter;
+
+  function getMissionHubTaskCounts(mission) {
+    const counts = {};
+    const rolesApi = window.InterfellasRoles;
+    const tasks = window.gameplay && Array.isArray(window.gameplay.tasks) ? window.gameplay.tasks : [];
+    const completed = new Set((mission && mission.completedObjectives) || []);
+    tasks.forEach((task) => {
+      if (!task) return;
+      const rawRole = window.gameplay && typeof window.gameplay.getTaskRole === "function"
+        ? window.gameplay.getTaskRole(task)
+        : (task.role || "all");
+      const roleId = rawRole === "all" ? "all" : (rolesApi ? rolesApi.normalizeRole(rawRole, "commander") : rawRole);
+      if (!counts[roleId]) counts[roleId] = { done: 0, total: 0 };
+      counts[roleId].total += 1;
+      if (completed.has(task.id) || task.completed) counts[roleId].done += 1;
+    });
+    return counts;
+  }
+
+  function getGroundSupportChecks(mission, roleId) {
+    const gs = (mission && mission.groundSupport) || {};
+    if (roleId === "flight_director") {
+      return [
+        { label: "LAUNCH GO", done: !!gs.goNoGoLaunch },
+        { label: "DOCK CLEAR", done: !!gs.dockingClearance }
+      ];
+    }
+    if (roleId === "ground_capcom") {
+      return [
+        { label: "DISH LOCK", done: !!gs.dsnLocked },
+        { label: "POWER ROUTE", done: !!gs.powerRouted },
+        { label: "SCIENCE LINK", done: !!gs.scienceCleared }
+      ];
+    }
+    return [];
+  }
+  window.getGroundSupportChecks = getGroundSupportChecks;
+
   function renderHudCrewRoster() {
     const container = document.getElementById("hud-crew-roster");
     if (!container) return;
@@ -2771,6 +3005,7 @@
     const rolesApi = window.InterfellasRoles;
     const myRole = rolesApi ? rolesApi.normalizeRole(lp.role, "commander") : "commander";
     const localIsGround = lp.team === "ground" || (rolesApi && rolesApi.isGroundRole(myRole));
+    const myMeta = rolesApi ? rolesApi.getRoleMeta(myRole) : { short: "CMD", label: "COMMANDER", color: "#93c5fd" };
 
     const players = rs && Array.isArray(rs.players) && rs.players.length > 0
       ? rs.players
@@ -2785,49 +3020,95 @@
     const swapList = (rs && Array.isArray(rs.swapRequests)) ? rs.swapRequests : [];
     const pendingToIds = new Set(swapList.filter((r) => r && r.fromId === (net && net.socketId)).map((r) => r.toId));
     const boarded = Array.isArray(mission.boarded) ? mission.boarded : [];
+    const taskCounts = getMissionHubTaskCounts(mission);
 
     const groundPlayers = players.filter((p) => p && (p.team === "ground" || (rolesApi && rolesApi.isGroundRole(p.role))));
     const flightPlayers = players.filter((p) => p && !groundPlayers.includes(p));
     const crossZoneOpen = phase === "gantry";
+    syncMissionHubRoleFilterForRole(myRole, localIsGround);
+    const filterRole = hudMissionHubRoleFilter;
+    const filterRoleStillPresent = filterRole === "all"
+      || filterRole === myRole
+      || players.some((p) => p && rolesApi && rolesApi.normalizeRole(p.role, "commander") === filterRole);
+    if (!filterRoleStillPresent) hudMissionHubRoleFilter = "all";
+    const activeFilter = hudMissionHubRoleFilter;
 
-    const renderGroupChips = (list, zoneLabel, countLabel) => {
-      if (!list.length) return "";
-      const chips = list.map((p) => {
-        const pRole = rolesApi ? rolesApi.normalizeRole(p.role, "commander") : (p.role || "commander");
-        const meta = rolesApi ? rolesApi.getRoleMeta(pRole) : { short: "CMD", label: "COMMANDER", color: "#93c5fd" };
-        const isSelf = net && p.id === net.socketId;
-        const pIsGround = p.team === "ground" || (rolesApi && rolesApi.isGroundRole(pRole));
-        const canSwap = !isSelf && players.length > 1 && (crossZoneOpen || pIsGround === localIsGround);
-        const isPending = pendingToIds.has(p.id);
-        const remotePeer = net && net.remotePlayers ? net.remotePlayers[p.id] : null;
-        const radioTag = (isSelf ? (window.voiceManager && window.voiceManager.isRadioTransmitting) : (remotePeer && remotePeer.isRadio)) ? " [ON AIR]" : "";
-        const statusHint = pIsGround
-          ? "EARTH"
-          : (phase === "gantry" ? (boarded.includes(p.id) ? "ABOARD" : "PAD") : (phase === "station" ? "STATION" : "ORBIT"));
+    const headerDot = document.getElementById("hud-checklist-team-icon");
+    if (headerDot) {
+      headerDot.style.background = myMeta.color;
+      headerDot.style.boxShadow = `0 0 0 3px ${myMeta.color}22`;
+    }
+
+    const renderRoleCard = (p) => {
+      if (!p) {
         return `
-          <div class="crew-role-chip${isSelf ? " is-self" : ""}" title="${escapeHtml(meta.label)} · ${statusHint}">
-            <div class="crew-role-chip-head">
-              <span style="color:${meta.color};">${escapeHtml(meta.short)}${isSelf ? " · YOU" : ""}${radioTag}</span>
-              <span style="color:var(--text-muted);font-size:8px;">${statusHint}</span>
+          <div class="hub-role-card is-empty">
+            <div class="hub-role-card-top">
+              <span class="hub-role-card-badge">OPEN</span>
+              <span class="hub-role-card-state">STANDBY</span>
             </div>
-            <div class="crew-role-chip-names">${escapeHtml(p.name || "Crew")}</div>
+            <div class="hub-role-card-name">Open seat</div>
+            <div class="hub-role-card-bottom"><span class="hub-role-card-count">Auto-assigned</span></div>
+          </div>
+        `;
+      }
+      const pRole = rolesApi ? rolesApi.normalizeRole(p.role, "commander") : (p.role || "commander");
+      const meta = rolesApi ? rolesApi.getRoleMeta(pRole) : { short: "CMD", label: "COMMANDER", color: "#93c5fd" };
+      const isSelf = net && p.id === net.socketId;
+      const pIsGround = p.team === "ground" || (rolesApi && rolesApi.isGroundRole(pRole));
+      const canSwap = !isSelf && players.length > 1 && (crossZoneOpen || pIsGround === localIsGround);
+      const isPending = pendingToIds.has(p.id);
+      const isActive = activeFilter === pRole;
+      const remotePeer = net && net.remotePlayers ? net.remotePlayers[p.id] : null;
+      const radioTag = (isSelf ? (window.voiceManager && window.voiceManager.isRadioTransmitting) : (remotePeer && remotePeer.isRadio)) ? " · ON AIR" : "";
+      const statusHint = pIsGround
+        ? "EARTH"
+        : (phase === "gantry" ? (boarded.includes(p.id) ? "ABOARD" : "PAD") : (phase === "station" ? "STATION" : "ORBIT"));
+      const supportChecks = pIsGround ? getGroundSupportChecks(mission, pRole) : [];
+      const supportDone = supportChecks.filter((check) => check.done).length;
+      const roleCount = taskCounts[pRole] || { done: 0, total: 0 };
+      const countValue = pIsGround ? `${supportDone}/${supportChecks.length}` : `${roleCount.done}/${roleCount.total}`;
+      const countLabel = pIsGround ? "CHECKS" : "STEPS";
+      const dutyText = (meta.duties && meta.duties.station) || meta.primaryDuty || "";
+      return `
+        <div class="hub-role-card${isSelf ? " is-self" : ""}${isActive ? " is-active" : ""}"
+          data-hud-role-filter="${escapeHtml(pRole)}"
+          role="button" tabindex="0" aria-pressed="${isActive}"
+          style="--role-color:${meta.color};"
+          title="${escapeHtml(meta.label)} · ${escapeHtml(p.name || "Crew")}${dutyText ? ` · ${escapeHtml(dutyText)}` : ""} · Click to ${isActive ? "show all roles" : (pIsGround ? `view ${meta.label} support checks` : `view ${meta.label} steps`)}">
+          <div class="hub-role-card-top">
+            <span class="hub-role-card-badge">${escapeHtml(meta.short)}${isSelf ? " · YOU" : ""}</span>
+            <span class="hub-role-card-state">${statusHint}${radioTag}</span>
+          </div>
+          <div class="hub-role-card-name">${escapeHtml(p.name || "Crew")}</div>
+          <div class="hub-role-card-bottom">
+            <span class="hub-role-card-count"><strong>${countValue}</strong> ${countLabel}</span>
             ${canSwap ? `
-              <button type="button" class="crew-swap-btn" data-hud-swap="${escapeHtml(p.id)}" ${isPending ? "disabled" : ""}>
+              <button type="button" class="hub-role-swap" data-hud-swap="${escapeHtml(p.id)}" ${isPending ? "disabled" : ""} title="Request a role swap">
                 ${isPending ? "PENDING" : "SWAP"}
               </button>
             ` : ""}
           </div>
-        `;
-      }).join("");
-      return `
-        <div class="crew-roster-zone-title">
-          <span>${zoneLabel}</span>
-          <span>${countLabel}</span>
         </div>
-        <div class="crew-roster-grid">${chips}</div>
       `;
     };
 
+    const renderZone = (list, title, subtext, emptyText) => {
+      const cards = list.length ? list.map(renderRoleCard).join("") : renderRoleCard(null);
+      return `
+        <div class="hub-crew-zone">
+          <div class="hub-crew-zone-head">
+            <span>${title}</span>
+            <span>${subtext}</span>
+          </div>
+          <div class="hub-role-grid">${cards}</div>
+          ${!list.length && emptyText ? `<div class="hub-zone-empty">${escapeHtml(emptyText)}</div>` : ""}
+        </div>
+      `;
+    };
+
+    const groundTarget = players.length <= 1 ? 0 : (players.length <= 3 ? 1 : 2);
+    const showGroundZone = groundPlayers.length > 0 || players.length > 1;
     const gs = mission.groundSupport || {};
     const groundBadges = [
       gs.goNoGoLaunch ? "LAUNCH OK" : null,
@@ -2880,7 +3161,13 @@
         : `<strong>CREW HELP:</strong> Pilot <strong>${escapeHtml(pilot ? pilot.name : "CMD")}</strong> steers [WASD]; team steadies the craft [1-4].`;
     } else {
       const tasks = (window.gameplay && Array.isArray(window.gameplay.tasks)) ? window.gameplay.tasks : [];
-      const myPending = tasks.filter((t) => !t.completed && (t.role === myRole || t.role === "all"));
+      const taskIsMine = (task) => {
+        if (window.gameplay && typeof window.gameplay.getTaskRole === "function" && typeof window.gameplay._getRoleAssignment === "function") {
+          return window.gameplay._getRoleAssignment(window.gameplay.getTaskRole(task)).isMine;
+        }
+        return task.role === myRole || task.role === "all";
+      };
+      const myPending = tasks.filter((t) => !t.completed && taskIsMine(t));
       const anyPending = tasks.filter((t) => !t.completed);
       if (tasks.length > 0 && anyPending.length === 0) {
         callout = `<strong>ALL STATIONS DONE:</strong> Mission complete! Press [Y] for Final Results.`;
@@ -2899,14 +3186,43 @@
       }
     }
 
+    const filterRoleMeta = activeFilter !== "all" && rolesApi ? rolesApi.getRoleMeta(activeFilter) : null;
     container.innerHTML = `
-      ${renderGroupChips(groundPlayers, "GROUND TEAM · EARTH", `${groundPlayers.length}`)}
-      ${renderGroupChips(flightPlayers, "SPACE CREW · STATION", `${flightPlayers.length}`)}
-      <div class="crew-duty-callout">${callout}</div>
+      <div class="hub-filter-row">
+        <div class="hub-filter-group" role="group" aria-label="Filter mission steps by role">
+          <button type="button" class="hub-filter-btn${activeFilter === "all" ? " is-active" : ""}" data-hud-role-filter="all">ALL ROLES</button>
+          <button type="button" class="hub-filter-btn${activeFilter === myRole ? " is-active" : ""}" data-hud-role-filter="${escapeHtml(myRole)}">MY ROLE · ${escapeHtml(myMeta.short)}</button>
+        </div>
+        <span class="hub-filter-current">${filterRoleMeta ? escapeHtml(filterRoleMeta.short) : "ALL"}</span>
+      </div>
+      ${showGroundZone ? renderZone(groundPlayers, "EARTH CONTROL", `${groundPlayers.length} / ${Math.max(groundTarget, groundPlayers.length)}`, "Ground control seats open up with 2+ players.") : ""}
+      ${renderZone(flightPlayers, "FLIGHT CREW", `${flightPlayers.length} JOINED`, "Commander, Engineer, Scientist & Specialist seats.")}
+      <div class="hub-callout">
+        <div class="hub-callout-head"><span class="hub-callout-dot"></span>YOUR NEXT MOVE</div>
+        <div class="hub-callout-body">${callout}</div>
+      </div>
     `;
 
+    const activateFilter = (role) => {
+      if (!role) return;
+      setMissionHubRoleFilter(role);
+    };
+    container.querySelectorAll("[data-hud-role-filter]").forEach((el) => {
+      el.addEventListener("click", (e) => {
+        if (e.target && e.target.closest && e.target.closest("[data-hud-swap]")) return;
+        activateFilter(el.getAttribute("data-hud-role-filter"));
+      });
+      if (el.getAttribute("role") === "button") {
+        el.addEventListener("keydown", (e) => {
+          if (e.key !== "Enter" && e.key !== " ") return;
+          e.preventDefault();
+          activateFilter(el.getAttribute("data-hud-role-filter"));
+        });
+      }
+    });
     container.querySelectorAll("[data-hud-swap]").forEach((btn) => {
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
         const targetId = btn.getAttribute("data-hud-swap");
         if (targetId && net && typeof net.requestRoleSwap === "function") {
           net.requestRoleSwap(targetId);
@@ -4008,7 +4324,10 @@
         const rp = window.netManager.remotePlayers[id];
         if (!remoteCrewMeshes[id]) {
           const isH = window.netManager.roomState && window.netManager.roomState.hostId === id;
-          const chosenModel = rp.modelId || "astronaut_lod1";
+          const fallbackModel = rp.modelId || "astronaut_lod1";
+          const chosenModel = window.glbManager && typeof window.glbManager.getModelIdForRole === "function"
+            ? window.glbManager.getModelIdForRole(rp.role, fallbackModel)
+            : fallbackModel;
           const rig = createAstronautMesh(
             rp.color || "#3b82f6",
             rp.role || "engineer",
@@ -4030,7 +4349,10 @@
           }
           scene.add(rig.root);
         } else {
-          const desiredModel = rp.modelId || "astronaut_lod1";
+          const fallbackModel = rp.modelId || "astronaut_lod1";
+          const desiredModel = window.glbManager && typeof window.glbManager.getModelIdForRole === "function"
+            ? window.glbManager.getModelIdForRole(rp.role, fallbackModel)
+            : fallbackModel;
           if (rp.lastModelId && rp.lastModelId !== desiredModel) {
             scene.remove(remoteCrewMeshes[id]);
             delete remoteCrewMeshes[id];

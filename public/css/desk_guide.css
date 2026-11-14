@@ -1,0 +1,914 @@
+/* ==========================================================================
+   LUNASPIS — MISSION DESK & BEGINNER GUIDE READABILITY PASS
+   Loaded after all other stylesheets. The goal is not "smaller text"; it is
+   clear hierarchy: short intros, scannable facts, progressive disclosure.
+   ========================================================================== */
+
+/* ==========================================================================
+   1. MAIN HUB — MISSION GOAL DESK
+   ========================================================================== */
+.md-hub {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+}
+
+.md-hub-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 22px;
+  align-items: end;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-hairline, rgba(148, 163, 184, 0.22));
+}
+
+.md-hub-kicker {
+  display: block;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  color: var(--accent-cyan, #67e8f9);
+}
+
+.md-hub-hero h2 {
+  margin: 6px 0 8px;
+  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, sans-serif);
+  font-size: clamp(20px, 2.4vw, 27px);
+  font-weight: 600;
+  line-height: 1.18;
+  letter-spacing: 0;
+  color: var(--text-ivory, #f8fafc);
+}
+
+.md-hub-hero p {
+  max-width: 66ch;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-slate, rgba(148, 163, 184, 0.85));
+}
+
+.md-hub-hero-side {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 215px;
+}
+
+.md-safe-btn {
+  min-height: 40px;
+  padding: 9px 14px;
+  border-radius: 4px;
+  border: 1px solid rgba(74, 222, 128, 0.5);
+  background: rgba(22, 163, 74, 0.14);
+  color: #bbf7d0;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  cursor: pointer;
+}
+
+.md-safe-btn:hover {
+  border-color: #4ade80;
+  background: rgba(22, 163, 74, 0.24);
+}
+
+.md-hero-hint {
+  font-size: 10px;
+  line-height: 1.4;
+  text-align: center;
+  color: var(--text-slate, rgba(148, 163, 184, 0.75));
+}
+
+.md-role-line {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10px;
+  letter-spacing: 0.35px;
+  line-height: 1.4;
+  color: #cbd5e1;
+}
+
+.md-role-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.md-role-line strong {
+  color: #93c5fd;
+}
+
+.md-role-owner {
+  margin-left: auto;
+  color: var(--text-slate, rgba(148, 163, 184, 0.8));
+}
+
+.md-hub-step {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.md-step-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+}
+
+.md-step-tag {
+  flex: 0 0 auto;
+  padding: 4px 7px;
+  border: 1px solid rgba(103, 232, 249, 0.3);
+  border-radius: 4px;
+  background: rgba(103, 232, 249, 0.08);
+  color: var(--accent-cyan, #67e8f9);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  white-space: nowrap;
+}
+
+.md-step-titles h3 {
+  margin: 0;
+  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, sans-serif);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0;
+  color: var(--text-ivory, #f8fafc);
+}
+
+.md-step-titles p {
+  margin: 3px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-slate, rgba(148, 163, 184, 0.85));
+}
+
+/* Mission goal cards */
+.md-scenario-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 9px;
+}
+
+.md-scenario-card {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+  padding: 12px 13px;
+  border: 1px solid var(--border-hairline, rgba(148, 163, 184, 0.22));
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text-ivory, #f8fafc);
+  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, sans-serif);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.md-scenario-card:hover {
+  border-color: rgba(103, 232, 249, 0.55);
+}
+
+.md-scenario-card:focus-visible,
+.md-diff-card:focus-visible,
+.md-special-card:focus-visible {
+  outline: 2px solid var(--accent-cyan, #67e8f9);
+  outline-offset: 2px;
+}
+
+.md-scenario-card.is-active {
+  border-color: var(--accent-cyan, #67e8f9);
+  background: rgba(103, 232, 249, 0.08);
+}
+
+.md-scenario-top,
+.md-diff-top,
+.md-special-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.md-scenario-badge {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  color: var(--accent-cyan, #67e8f9);
+}
+
+.md-selected-tag {
+  flex: 0 0 auto;
+  padding: 2px 5px;
+  border-radius: 3px;
+  background: var(--accent-cyan, #67e8f9);
+  color: #050810;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 7.5px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+}
+
+.md-scenario-name {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text-ivory, #f8fafc);
+}
+
+.md-scenario-question {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-slate, rgba(148, 163, 184, 0.9));
+}
+
+.md-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.md-fact {
+  padding: 2px 5px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.035);
+  color: #cbd5e1;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.35px;
+  white-space: nowrap;
+}
+
+.md-scenario-more {
+  display: none;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 1px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: #cbd5e1;
+}
+
+.md-scenario-card.is-active .md-scenario-more {
+  display: flex;
+}
+
+.md-more-label {
+  color: var(--accent-amber, #d0a15c);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+}
+
+.md-more-meta {
+  color: #93c5fd;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 9.5px;
+  line-height: 1.45;
+}
+
+/* Difficulty cards */
+.md-diff-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+  gap: 8px;
+}
+
+.md-diff-card {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-hairline, rgba(148, 163, 184, 0.22));
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text-ivory, #f8fafc);
+  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, sans-serif);
+  text-align: left;
+  cursor: pointer;
+}
+
+.md-diff-card:hover {
+  border-color: rgba(208, 161, 92, 0.6);
+}
+
+.md-diff-card.is-active {
+  border-color: var(--accent-amber, #d0a15c);
+  background: rgba(208, 161, 92, 0.1);
+}
+
+.md-diff-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.md-diff-sub {
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--text-slate, rgba(148, 163, 184, 0.9));
+}
+
+/* Mission-special cards (telescope light, CubeSat size, Bio organism) */
+.md-special-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+.md-special-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 11px 12px;
+  border: 1px solid var(--border-hairline, rgba(148, 163, 184, 0.22));
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text-ivory, #f8fafc);
+  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, sans-serif);
+  text-align: left;
+  cursor: pointer;
+}
+
+.md-special-card.is-active {
+  border-color: var(--accent-cyan, #67e8f9);
+  background: rgba(103, 232, 249, 0.08);
+}
+
+.md-special-name {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.md-special-tags {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+.md-special-copy {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-slate, rgba(148, 163, 184, 0.9));
+}
+
+.md-best-tag {
+  flex: 0 0 auto;
+  padding: 2px 5px;
+  border: 1px solid rgba(74, 222, 128, 0.45);
+  border-radius: 3px;
+  background: rgba(22, 163, 74, 0.16);
+  color: #86efac;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+/* Compact BioNutrients route */
+.md-bio-route {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: 6px;
+  background: rgba(245, 158, 11, 0.07);
+}
+
+.md-bio-step {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 115px;
+  flex: 1 1 115px;
+}
+
+.md-bio-step b {
+  color: #fbbf24;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 9.5px;
+  letter-spacing: 0.5px;
+}
+
+.md-bio-step small {
+  color: #cbd5e1;
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+
+.md-bio-arrow {
+  color: #fbbf24;
+  font-weight: 700;
+}
+
+.md-step-note {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+/* Team roles — collapsed by default so the desk stays focused on the decision */
+.md-team-panel {
+  border: 1px solid var(--border-hairline, rgba(148, 163, 184, 0.22));
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.md-team-panel summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  list-style: none;
+  cursor: pointer;
+}
+
+.md-team-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.md-team-panel summary::after {
+  content: "+";
+  color: #93c5fd;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.md-team-panel[open] summary::after {
+  content: "–";
+}
+
+.md-team-title {
+  color: #93c5fd;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+}
+
+.md-team-meta {
+  margin-left: auto;
+  color: var(--text-slate, rgba(148, 163, 184, 0.8));
+  font-size: 9.5px;
+  line-height: 1.35;
+}
+
+.md-team-intro {
+  margin: 0;
+  padding: 0 12px 8px;
+  color: var(--text-slate, rgba(148, 163, 184, 0.85));
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.md-role-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(205px, 1fr));
+  gap: 6px;
+  padding: 0 12px 12px;
+}
+
+.md-role-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  background: rgba(5, 8, 16, 0.4);
+}
+
+.md-role-card.is-mine {
+  border-color: rgba(37, 99, 235, 0.7);
+  background: rgba(37, 99, 235, 0.1);
+}
+
+.md-role-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.md-role-card-head strong {
+  color: #e2e8f0;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 9.5px;
+  letter-spacing: 0.3px;
+}
+
+.md-role-card-head span {
+  color: #86efac;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 8.5px;
+}
+
+.md-role-card p {
+  margin: 0;
+  color: var(--text-slate, rgba(148, 163, 184, 0.85));
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+
+/* Sticky-feeling action footer */
+.md-hub-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+  margin-right: -8px;
+  padding: 12px 8px 3px 0;
+  border-top: 1px solid var(--border-hairline, rgba(148, 163, 184, 0.22));
+  background: linear-gradient(180deg, rgba(8, 13, 24, 0) 0%, rgba(8, 13, 24, 0.97) 28%);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+}
+
+.md-hub-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.md-summary-label {
+  color: var(--text-slate, rgba(148, 163, 184, 0.75));
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.md-hub-summary strong {
+  color: var(--text-ivory, #f8fafc);
+  font-size: 12.5px;
+  line-height: 1.35;
+}
+
+.md-summary-meta {
+  color: #93c5fd;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 9.5px;
+  line-height: 1.4;
+}
+
+.md-commit-btn {
+  min-height: 42px;
+  padding: 10px 18px;
+  border: 1px solid var(--text-ivory, #f8fafc);
+  border-radius: 4px;
+  background: var(--text-ivory, #f8fafc);
+  color: #050810;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.md-commit-btn:hover {
+  background: #ffffff;
+}
+
+/* ==========================================================================
+   2. BEGINNER GUIDE — LESS READING, MORE RECALL
+   ========================================================================== */
+#modal-academy .academy-step-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#modal-academy .academy-step-title {
+  margin-bottom: 2px;
+  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, sans-serif);
+  font-size: clamp(20px, 2.4vw, 26px);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+#modal-academy .academy-lede {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+#modal-academy .academy-callout {
+  margin-top: 0;
+}
+
+/* Keep Back / Next / Start reachable while the lesson scrolls. */
+#modal-academy .academy-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  padding-top: 10px;
+  padding-bottom: 2px;
+  background: linear-gradient(180deg, rgba(5, 8, 16, 0) 0%, rgba(5, 8, 16, 0.96) 35%);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+#modal-academy .academy-resource p {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+#modal-academy .academy-resource p b {
+  color: #f8fafc;
+}
+
+#modal-academy .academy-flow li {
+  padding: 8px 10px;
+}
+
+#modal-academy .academy-flow span {
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+#modal-academy .academy-phase span {
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+#modal-academy .academy-tradeoff-row {
+  padding: 8px 11px;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+#modal-academy .academy-panel p {
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.academy-goal {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 11px;
+  border: 1px solid rgba(37, 99, 235, 0.3);
+  border-radius: 6px;
+  background: rgba(37, 99, 235, 0.08);
+}
+
+.academy-goal span {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: #93c5fd;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.9px;
+  white-space: nowrap;
+}
+
+.academy-goal strong {
+  color: #e2e8f0;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.academy-try {
+  padding: 9px 11px;
+  border: 1px solid rgba(74, 222, 128, 0.3);
+  border-radius: 6px;
+  background: rgba(22, 163, 74, 0.07);
+}
+
+.academy-try-label {
+  display: block;
+  margin-bottom: 3px;
+  color: #86efac;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.9px;
+}
+
+.academy-try p {
+  margin: 0;
+  color: #d1fae5;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.academy-check {
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.academy-check summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 11px;
+  list-style: none;
+  cursor: pointer;
+  color: #a5f3fc;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.academy-check summary::-webkit-details-marker {
+  display: none;
+}
+
+.academy-check summary::after {
+  content: "REVEAL";
+  flex: 0 0 auto;
+  color: #64748b;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+}
+
+.academy-check[open] summary::after {
+  content: "ANSWER";
+  color: #86efac;
+}
+
+.academy-check p {
+  margin: 0;
+  padding: 0 11px 10px;
+  color: #cbd5e1;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.academy-score-card {
+  padding: 11px 13px;
+  border: 1px solid rgba(208, 161, 92, 0.34);
+  border-radius: 6px;
+  background: rgba(208, 161, 92, 0.07);
+}
+
+.academy-score-card strong {
+  display: block;
+  color: #fde68a;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 13px;
+  letter-spacing: 0.3px;
+}
+
+.academy-score-card .academy-try-label {
+  color: #fde68a;
+}
+
+.academy-score-card p {
+  margin: 4px 0 0;
+  color: #f6e7ca;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.academy-role-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+  gap: 6px;
+}
+
+.academy-role-summary span {
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text-slate, rgba(148, 163, 184, 0.9));
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.academy-role-summary b {
+  color: #93c5fd;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 9.5px;
+  letter-spacing: 0.4px;
+}
+
+/* ==========================================================================
+   3. MOBILE REFINEMENTS
+   ========================================================================== */
+@media (max-width: 760px) {
+  .md-hub {
+    gap: 15px;
+  }
+
+  .md-hub-hero {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    align-items: stretch;
+  }
+
+  .md-hub-hero-side {
+    min-width: 0;
+  }
+
+  .md-safe-btn {
+    width: 100%;
+  }
+
+  .md-step-head {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .md-step-tag {
+    align-self: flex-start;
+  }
+
+  .md-scenario-grid,
+  .md-special-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .md-diff-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .md-role-owner {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .md-hub-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .md-commit-btn {
+    width: 100%;
+  }
+
+  .md-team-panel summary {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .md-team-meta {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  #modal-academy .academy-step-title {
+    font-size: 20px;
+  }
+
+  .academy-goal {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .academy-goal span {
+    margin-top: 0;
+  }
+
+  .academy-check summary {
+    align-items: flex-start;
+  }
+
+  .academy-check summary::after {
+    margin-top: 2px;
+  }
+}

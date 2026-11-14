@@ -175,6 +175,27 @@ function fromCk(name, variant, opts) {
   check("Correct orbital work completes deployment and saves PAYLOAD checkpoint", ok.phase === "deorbit" && ok.obj.deploy_verified === "done");
 })();
 
+// ---------------------------------------------------------------------------- merged main-mission handoff
+(function mergedMainMissionHandoff() {
+  const m = new ShuttleMission({ handoffAtOrbit: true });
+  m.command("START");
+  const p = createPilot();
+  for (let i = 0; i < 60 * 1800 && !m.handoffReady && !m.failure && !m.result; i++) {
+    const o = p.step(m);
+    for (const c of o.cmds) m.command(c[0], c[1]);
+    m.command("SET_CONTROL_INPUT", o.input);
+    const n = Math.max(1, Math.min(o.warp, m._warpLimit().max));
+    m.advanceSim(n / 60);
+    if (m.phase === "payload" || m.phase === "deorbit") break;
+  }
+  const sn = m.snapshot();
+  check("Merged main mission reaches orbit and raises docking handoff", !!(m.handoffReady && sn.handoffReady && m.phase === "insertion" && m.obj.orbit_valid === "done" && !m.result),
+    m.failure ? m.failure.reason : `${m.phase}, orbit_valid=${m.obj.orbit_valid}, paused=${m.paused}`);
+  check("Merged handoff stops before payload/deorbit", m.phase !== "payload" && m.phase !== "deorbit" && m.paused === true, `phase ${m.phase}, paused ${m.paused}`);
+  const standalone = new ShuttleMission();
+  check("Standalone Shuttle mission keeps payload/return flow", standalone.handoffAtOrbit === false && standalone.handoffReady === false);
+})();
+
 // ---------------------------------------------------------------------------- deorbit
 (function deorbit() {
   const before = (() => { const m = new ShuttleMission(); m.checkpoints = ck; m.command("RETRY_CHECKPOINT", { name: "payload" }); return S.elements(m.st.r, m.st.v).periapsisAlt; })();

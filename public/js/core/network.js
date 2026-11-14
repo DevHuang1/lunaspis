@@ -11,6 +11,19 @@
   const FLIGHT_ORDER = ["commander", "engineer", "scientist", "specialist"];
   const ALL_ORDER = [...GROUND_ORDER, ...FLIGHT_ORDER];
 
+  // Earth Control duties are exclusive, matching server.js. The Flight
+  // Director owns launch/docking clearance and crew alerts; Ground Systems
+  // owns the dish, power routing and science downlink.
+  const GROUND_ACTION_ROLES = {
+    go_nogo_launch: ["flight_director"],
+    docking_clearance: ["flight_director"],
+    ping_room: ["flight_director"],
+    clear_ping: ["flight_director"],
+    dsn_lock: ["ground_capcom"],
+    power_route: ["ground_capcom"],
+    science_downlink: ["ground_capcom"]
+  };
+
   const ROLE_META = {
     flight_director: {
       id: "flight_director",
@@ -28,7 +41,7 @@
       duties: {
         pad: "Check Launch Pad & give Launch GO [Control]",
         dock: "Watch Approach & give Docking OK [Control]",
-        station: "Approve Power Routing, Track Crew & Coordinate [Control]"
+        station: "Launch & Docking OK · Alert Rooms · Track Crew [Control]"
       }
     },
     ground_capcom: {
@@ -117,19 +130,25 @@
       color: "#a78bfa",
       padDuty: "Help Check Boarding Bridge & Board Ship",
       dockDuty: "Distance Check [4] & Hatch Watch",
-      consolesSummary: "Extra Help: Science [SCI] · Radio [HULL] · Goal",
-      stationDuty: "Extra Help: Science [SCI] · Radio [HULL] · Goal",
-      primaryDuty: "Spacewalk & Docking Helper [3/4], Cross-Desk Support & Radio Relay",
+      consolesSummary: "Final Test [LDR] · Science [SCI] · Radio [HULL]",
+      stationDuty: "Final Test [LDR] · Science [SCI] · Radio [HULL]",
+      primaryDuty: "Spacewalk & Docking Helper [3/4], Final Test Run [LDR] & Cross-Desk Support",
       duties: {
         pad: "Check Boarding Bridge Lock & Board Ship",
         dock: "Distance Check [4] & Docking Assist",
-        station: "Spacewalk Help · Science [SCI] · Radio [HULL]"
+        station: "Final Test [LDR] · Science [SCI] · Radio [HULL]"
       }
     }
   };
 
   function getTeamForRole(roleId) {
     return GROUND_ORDER.includes(normalizeRole(roleId, "commander")) ? "ground" : "crew";
+  }
+
+  function canRoleDoGroundAction(roleId, action) {
+    const allowed = GROUND_ACTION_ROLES[action];
+    if (!allowed) return false;
+    return allowed.includes(normalizeRole(roleId, "commander"));
   }
 
   function isGroundRole(roleId) {
@@ -201,12 +220,14 @@
     ORDER: ALL_ORDER,
     GROUND_ORDER,
     FLIGHT_ORDER,
+    GROUND_ACTION_ROLES,
     META: ROLE_META,
     normalizeRole,
     getRoleMeta,
     getCrewByRole,
     getTeamForRole,
-    isGroundRole
+    isGroundRole,
+    canRoleDoGroundAction
   };
 
   class NetworkManager {

@@ -46,6 +46,7 @@ const io = new Server(server, {
 require("./server/voice-signaling")(io);
 
 const PORT = process.env.PORT || 3000;
+const DEPLOY_REGION = process.env.SERVER_REGION || process.env.RAILWAY_REPLICA_REGION || "unknown";
 
 // Baseline security headers. The app relies on inline handlers/styles and a
 // CDN-hosted Three.js build, so 'unsafe-inline' is retained for compatibility.
@@ -424,6 +425,18 @@ const ROLES = [
 const GROUND_ROLES = ["flight_director", "ground_capcom"];
 const FLIGHT_ROLES = ["commander", "engineer", "scientist", "specialist"];
 const GROUND_SLOT_SCHEDULE = { 1: 0, 2: 1, 3: 1, 4: 2, 5: 2, 6: 2 };
+// Earth Control duties are exclusive too: the Flight Director clears launch
+// and docking and manages crew alerts; Ground Systems owns the dish, power and
+// science links.
+const GROUND_ACTION_ROLES = {
+  go_nogo_launch: ["flight_director"],
+  docking_clearance: ["flight_director"],
+  ping_room: ["flight_director"],
+  clear_ping: ["flight_director"],
+  dsn_lock: ["ground_capcom"],
+  power_route: ["ground_capcom"],
+  science_downlink: ["ground_capcom"]
+};
 const MAX_PLAYERS = 6;
 const GAME_MODE = "coop";
 const SUIT_COLORS = ["#67e8f9", "#d0a15c", "#7fb8a6", "#c08a8a", "#9a8fc4", "#f8fafc"];
@@ -527,7 +540,7 @@ const MISSION_OBJECTIVES = [
     id: "task_landing",
     title: "Final Review & Launch Check",
     room: "LDR",
-    role: "all",
+    role: "specialist",
     dependsOn: ["task_hull", "task_lss"]
   }
 ];
@@ -611,7 +624,7 @@ const ROLE_INFO = {
     color: "#60a5fa",
     primaryDuty: "Earth Dish & Systems Helper: Connect radio [R], lock Earth dishes, route power, and clear science downloads",
     padDuty: "Check radio signal, clear skies, and launch pad cables from Earth Control",
-    dockDuty: "Watch crew locations, ping station rooms, and lock Earth dish signal",
+    dockDuty: "Watch approach speed, lock Earth dish, and clear science data",
     stationRooms: ["LCC", "COMMS", "PWR"]
   },
   commander: {
@@ -657,10 +670,10 @@ const ROLE_INFO = {
     title: "Spacewalk Specialist",
     callsign: "CREW-SPEC",
     color: "#a78bfa",
-    primaryDuty: "Spacewalk & Docking Helper [3/4], All-Around Backup & Radio Relay [SCI, COMMS, HULL]",
+    primaryDuty: "Spacewalk & Docking Helper [3/4], Final Test Run [LDR] & Radio Relay [SCI, HULL]",
     padDuty: "Help check boarding bridge and cabin seal",
     dockDuty: "Tunnel Signal Check [4] & Hatch Readiness",
-    stationRooms: ["EVA", "SCI", "HUB"]
+    stationRooms: ["EVA", "LDR", "SCI", "HUB"]
   }
 };
 
@@ -796,16 +809,16 @@ function generateRoomCode() {
 
 function groundSpawnFor(index = 0) {
   // Matches SpaceCenterManager._groundSpawnForIndex on the LC-39A gantry deck.
-  // Positioned east of tower columns (x > -28) and safely clear (>2.7m) of the
-  // Arm Control proximity trigger at (-25.9, -6.3) so joining slots never
-  // accidentally auto-lock the access arm on spawn.
+  // Crew staging bays in front of the boarding-bridge threshold and safely
+  // clear (>2.7m) of the Arm Control proximity trigger at (-25.9, -6.3) so
+  // joining slots never accidentally auto-lock the access arm on spawn.
   const slots = [
-    [-25.8, 64.1, -9.0],
-    [-26.8, 64.1, -9.0],
-    [-25.8, 64.1, -10.3],
-    [-26.8, 64.1, -10.3],
-    [-25.8, 64.1, -11.6],
-    [-26.8, 64.1, -11.6]
+    [-29.8, 64.1, -10.6],
+    [-30.9, 64.1, -10.6],
+    [-29.8, 64.1, -9.2],
+    [-30.9, 64.1, -9.2],
+    [-29.8, 64.1, -7.8],
+    [-30.9, 64.1, -7.8]
   ];
   return slots[index % slots.length].slice();
 }
@@ -873,6 +886,10 @@ function createMissionState(scenarioId = "lunar_south_pole", difficultyId = "eng
   const now = Date.now();
   return {
     opsMode: mode, // iss_expedition | shuttle_flight
+    // Main missions now inherit the interactive Shuttle launch/ascent and hand
+    // off to the ISS docking phase at orbit insertion. `shuttle_flight` keeps
+    // the standalone launch-to-runway training flight.
+    flightMode: mode === "shuttle_flight" ? "standalone_shuttle" : "shuttle_docking",
     phase: "gantry", // gantry -> launch -> docking -> station
     dockLocked: false,
     boarded: {}, // socketId -> timestamp
@@ -909,15 +926,61 @@ function availableMissionObjectiveIds(mission) {
     .map((objective) => objective.id);
 }
 
+// Each station objective belongs to one role. The preferred role owns the
+// console when it is staffed; if it is not, the objective is reassigned to the
+// least-loaded station role so solo and small crews can still complete the
+// mission. Once assigned, only that role can complete the objective.
+function resolveMissionObjectiveAssignments(room) {
+  const assignments = {};
+  const crewRoles = [];
+  if (room && room.players) {
+    Object.values(room.players).forEach((player) => {
+      if (!player || getTeamForRole(player.role) === "ground") return;
+      const role = normalizeRoleId(player.role, "commander");
+      if (FLIGHT_ROLES.includes(role) && !crewRoles.includes(role)) crewRoles.push(role);
+    });
+  }
+  const loads = {};
+  crewRoles.forEach((role) => { loads[role] = 0; });
+
+  MISSION_OBJECTIVES.forEach((objective) => {
+    const preferred = objective.role === "all"
+      ? "all"
+      : normalizeRoleId(objective.role, "commander");
+    let assigned = preferred;
+    if (preferred !== "all" && crewRoles.length > 0 && !crewRoles.includes(preferred)) {
+      assigned = crewRoles.slice().sort((a, b) => {
+        const loadDiff = (loads[a] || 0) - (loads[b] || 0);
+        if (loadDiff !== 0) return loadDiff;
+        return FLIGHT_ROLES.indexOf(a) - FLIGHT_ROLES.indexOf(b);
+      })[0];
+    }
+    assignments[objective.id] = assigned;
+    if (assigned !== "all" && loads[assigned] != null) loads[assigned] += 1;
+  });
+
+  return assignments;
+}
+
+function canPlayerCompleteMissionObjective(room, player, objective) {
+  if (!objective) return true;
+  const assignments = resolveMissionObjectiveAssignments(room);
+  const assignedRole = assignments[objective.id]
+    || (objective.role === "all" ? "all" : normalizeRoleId(objective.role, "commander"));
+  if (assignedRole === "all") return true;
+  return normalizeRoleId(player && player.role, "commander") === assignedRole;
+}
+
 function isMissionComplete(mission) {
   return MISSION_OBJECTIVES.every((objective) => mission && mission.completed && mission.completed[objective.id]);
 }
 
-function serializeMission(mission) {
+function serializeMission(mission, room = null) {
   const m = mission || createMissionState();
   const scenario = MISSION_CATALOG[m.scenarioId] || MISSION_CATALOG.lunar_south_pole;
   return {
     opsMode: VALID_OPS_MODES.has(m.opsMode) ? m.opsMode : "iss_expedition",
+    flightMode: m.flightMode || (m.opsMode === "shuttle_flight" ? "standalone_shuttle" : "shuttle_docking"),
     phase: m.phase,
     dockLocked: !!m.dockLocked,
     boarded: Object.keys(m.boarded || {}),
@@ -939,6 +1002,7 @@ function serializeMission(mission) {
     seed: m.seed || 0,
     status: m.status || "active",
     objectives: MISSION_OBJECTIVES,
+    objectiveAssignments: resolveMissionObjectiveAssignments(room),
     completedObjectives: completedMissionObjectiveIds(m),
     availableObjectives: availableMissionObjectiveIds(m),
     design: m.design || null,
@@ -984,11 +1048,45 @@ function buildMissionDebrief(room) {
 function broadcastMissionUpdate(room, extra = {}) {
   const payload = {
     roomId: room.id,
-    mission: serializeMission(room.mission),
+    mission: serializeMission(room.mission, room),
     ...extra
   };
   io.to(room.id).emit("mission_update", payload);
   return payload;
+}
+
+// Shared launch-complex -> docking transition. Kept at module scope because
+// both the socket handlers and the authoritative Shuttle physics loop use it:
+// merged main missions arrive here automatically at verified orbit insertion.
+function enterRoomDockingPhase(room, triggeredById) {
+  if (!room || !room.mission) return false;
+  if (room.mission.phase === "docking" || room.mission.phase === "station") return false;
+  const now = Date.now();
+  room.mission.phase = "docking";
+  room.mission.skipVotes = {};
+  room.mission.phaseStartedAt = now;
+  room.mission.updatedAt = now;
+  room.shuttleInputs = {};
+  room.systems.dockingPilotId = resolveDockingPilotId(room);
+  room.mission.dockingPilotId = room.systems.dockingPilotId;
+  room.systems.dockingState = {
+    pos: [0, -2, -32],
+    vel: [0, 0, 0],
+    quat: [0, 0, 0, 1],
+    angVel: [0, 0, 0],
+    autoAssist: false,
+    fineControl: false,
+    boresightLocked: false,
+    range: 32,
+    rate: 0,
+    alignErr: 0,
+    t: now
+  };
+  broadcastMissionUpdate(room, {
+    action: "phase",
+    playerId: triggeredById || null
+  });
+  return true;
 }
 
 function createNewRoom(roomId, hostId, isPublic = true, opsMode = "iss_expedition") {
@@ -1012,6 +1110,7 @@ function createNewRoom(roomId, hostId, isPublic = true, opsMode = "iss_expeditio
     shuttleLastSnap: 0,
     shuttleTestFreeze: false,
     shuttleResultRecorded: false,
+    shuttleHandedOff: false,
     systems: {
       hull: 100.0,
       oxygen: 100.0,
@@ -1203,6 +1302,10 @@ function sendShuttleSnapshot(room) {
   return sn;
 }
 
+function createRoomShuttleMission(opsMode) {
+  return new ShuttleMission({ handoffAtOrbit: opsMode !== "shuttle_flight" });
+}
+
 async function recordShuttleResult(room) {
   if (!room || room.shuttleResultRecorded || !room.shuttleMission || !room.shuttleMission.result) return;
   room.shuttleResultRecorded = true;
@@ -1236,7 +1339,10 @@ setInterval(() => {
     }
 
     if (room.status !== "playing" || playerCount === 0) continue;
-    if (room.shuttleMission && room.mission && room.mission.opsMode === "shuttle_flight") continue;
+    const inShuttleFlight = room.shuttleMission && room.mission && (
+      room.mission.opsMode === "shuttle_flight" || room.mission.phase === "launch"
+    );
+    if (inShuttleFlight) continue;
 
     const sys = room.systems;
 
@@ -1270,8 +1376,10 @@ setInterval(() => {
   const now = Date.now();
   for (const roomId in rooms) {
     const room = rooms[roomId];
-    if (!room || room.status !== "playing" || !room.shuttleMission) continue;
-    if (!room.mission || room.mission.opsMode !== "shuttle_flight") continue;
+    if (!room || room.status !== "playing" || !room.shuttleMission || !room.mission) continue;
+    const standaloneShuttle = room.mission.opsMode === "shuttle_flight";
+    const mergedLaunch = room.mission.flightMode === "shuttle_docking" && room.mission.phase === "launch";
+    if (!standaloneShuttle && !mergedLaunch) continue;
     if (Object.keys(room.players).length === 0) continue;
     const dt = room.shuttleLastTick ? (now - room.shuttleLastTick) / 1000 : 0;
     room.shuttleLastTick = now;
@@ -1284,7 +1392,15 @@ setInterval(() => {
       room.shuttleLastSnap = now;
       sendShuttleSnapshot(room);
     }
-    if (room.shuttleMission.result) {
+    if (mergedLaunch && room.shuttleMission.handoffReady && !room.shuttleHandedOff) {
+      // The Shuttle has a verified orbit. Main mission control takes over and
+      // opens the existing ISS docking phase; the shuttle sim stays paused.
+      room.shuttleHandedOff = true;
+      console.log(`[SHUTTLE] ${roomId}: orbit verified — handing off to station docking`);
+      enterRoomDockingPhase(room, null);
+      continue;
+    }
+    if (standaloneShuttle && room.shuttleMission.result) {
       recordShuttleResult(room);
     }
   }
@@ -1292,6 +1408,16 @@ setInterval(() => {
 
 function serializePlayer(player) {
   const { userId, ...publicPlayer } = player || {};
+  if (player) {
+    const role = normalizeRoleId(player.role, "commander");
+    if (getTeamForRole(role) === "ground") {
+      // Earth Control players are always the unsuited crew rigs.
+      publicPlayer.modelId = role === "flight_director" ? "crew_a" : "crew_b";
+    } else if (publicPlayer.modelId === "crew_a" || publicPlayer.modelId === "crew_b") {
+      // Station crew keep pressure suits even if a crew rig was selected.
+      publicPlayer.modelId = "astronaut_lod1";
+    }
+  }
   return publicPlayer;
 }
 
@@ -1363,7 +1489,7 @@ function serializeRoom(room) {
     swapRequests: serializeSwapRequests(room),
     systems: room.systems,
     tasks: room.tasks,
-    mission: serializeMission(room.mission)
+    mission: serializeMission(room.mission, room)
   };
 }
 
@@ -1972,6 +2098,7 @@ io.on("connection", (socket) => {
     room.mission = room.mission || createMissionState();
     if (data.opsMode && VALID_OPS_MODES.has(data.opsMode)) {
       room.mission.opsMode = data.opsMode;
+      room.mission.flightMode = data.opsMode === "shuttle_flight" ? "standalone_shuttle" : "shuttle_docking";
     }
     if (data.scenarioId && MISSION_CATALOG[data.scenarioId]) {
       room.mission.scenarioId = data.scenarioId;
@@ -2034,19 +2161,16 @@ io.on("connection", (socket) => {
     room.systems.dockingPilotId = resolveDockingPilotId(room);
     room.mission.dockingPilotId = room.systems.dockingPilotId;
 
-    if (opsMode === "shuttle_flight") {
-      room.shuttleMission = new ShuttleMission();
-      room.shuttleInputs = {};
-      room.shuttleLastTick = Date.now();
-      room.shuttleLastSnap = 0;
-      room.shuttleResultRecorded = false;
-      room.shuttleTestFreeze = false;
-    } else {
-      room.shuttleMission = null;
-      room.shuttleInputs = {};
-      room.shuttleResultRecorded = false;
-      room.shuttleTestFreeze = false;
-    }
+    // Every mission flies the Shuttle after launch. Main missions stop at orbit
+    // insertion and hand off to docking; the standalone mode continues to
+    // payload, entry and runway landing.
+    room.shuttleMission = createRoomShuttleMission(opsMode);
+    room.shuttleInputs = {};
+    room.shuttleLastTick = Date.now();
+    room.shuttleLastSnap = 0;
+    room.shuttleResultRecorded = false;
+    room.shuttleTestFreeze = false;
+    room.shuttleHandedOff = false;
 
     Object.keys(room.players).forEach((pid) => {
       const player = room.players[pid];
@@ -2077,7 +2201,7 @@ io.on("connection", (socket) => {
       players: Object.values(room.players).map(serializePlayer),
       systems: room.systems,
       tasks: room.tasks,
-      mission: serializeMission(room.mission)
+      mission: serializeMission(room.mission, room)
     });
     // Keep roomState.status in sync ("playing") so proximity voice and HUD
     // states activate immediately for every client, including late joiners.
@@ -2113,12 +2237,18 @@ io.on("connection", (socket) => {
     }
     let r;
     if (type === "RESTART") {
-      room.shuttleMission = new ShuttleMission();
+      const merged = !!(room.mission && room.mission.flightMode === "shuttle_docking");
+      room.shuttleMission = createRoomShuttleMission(merged ? "iss_expedition" : "shuttle_flight");
       room.shuttleInputs = {};
       room.shuttleLastTick = Date.now();
+      room.shuttleLastSnap = 0;
       room.shuttleResultRecorded = false;
       room.shuttleTestFreeze = false;
+      room.shuttleHandedOff = false;
       room.status = "playing";
+      // A merged main-mission restart re-arms the same automatic launch so the
+      // crew is never stranded in the Shuttle briefing screen.
+      if (merged && room.mission.phase === "launch") room.shuttleMission.command("START");
       r = { accepted: true };
     } else {
       r = room.shuttleMission.command(type, data.args && typeof data.args === "object" ? data.args : {});
@@ -2322,6 +2452,25 @@ io.on("connection", (socket) => {
     room.mission.phaseStartedAt = now;
     room.mission.updatedAt = now;
 
+    // Main mission launch clearance starts the interactive Shuttle flight.
+    // The CDR no longer has to press a separate Shuttle START key: the launch
+    // order itself arms the automatic countdown/ascent.
+    if (!room.shuttleMission || room.shuttleMission.exited || !["briefing", "prelaunch"].includes(room.shuttleMission.phase)) {
+      room.shuttleMission = createRoomShuttleMission(room.mission.opsMode);
+    }
+    if (room.shuttleMission.phase === "briefing") {
+      room.shuttleMission.command("START");
+    }
+    room.shuttleInputs = {};
+    room.shuttleLastTick = now;
+    room.shuttleLastSnap = 0;
+    room.shuttleHandedOff = false;
+
+    // Send the armed Shuttle snapshot first so the client already has the
+    // countdown/ascent state when the launch update switches it into ShuttleView.
+    if (room.shuttleMission && room.mission.flightMode === "shuttle_docking") {
+      sendShuttleSnapshot(room);
+    }
     broadcastMissionUpdate(room, {
       action: "launch",
       playerId: launchedById || null,
@@ -2397,8 +2546,21 @@ io.on("connection", (socket) => {
     const gs = room.mission.groundSupport || (room.mission.groundSupport = createGroundSupportState());
     const hasGround = roomHasGroundCrew(room);
 
-    // If sender is Ground (or GO/NO-GO is already approved, or no Ground exists), release immediately
+    // Only the Flight Director can provide final launch clearance from Earth
+    // Control. Ground Systems keeps to the dish, power and science links.
     if (getTeamForRole(p.role) === "ground") {
+      if (normalizeRoleId(p.role, "commander") !== "flight_director") {
+        const roleMeta = ROLE_INFO.flight_director;
+        socket.emit("ground_support_event", {
+          type: "role_locked",
+          action: "go_nogo_launch",
+          requiredRole: "flight_director",
+          requiredRoleShort: roleMeta.short,
+          requiredRoleLabel: roleMeta.title,
+          message: "Only the Flight Director can give final launch clearance."
+        });
+        return;
+      }
       gs.goNoGoLaunch = true;
       gs.goNoGoBy = p.name;
       gs.goNoGoAt = now;
@@ -2456,7 +2618,23 @@ io.on("connection", (socket) => {
     const room = rooms[currentRoomId];
     const p = room.players[socket.id];
     if (!p || room.status !== "playing") return;
-    if (getTeamForRole(p.role) !== "ground" && socket.id !== room.hostId) return;
+    const type = String(data.type || "").trim().slice(0, 32);
+    const allowedRoles = GROUND_ACTION_ROLES[type];
+    if (!allowedRoles) return;
+    const actorRole = normalizeRoleId(p.role, "commander");
+    if (!allowedRoles.includes(actorRole)) {
+      const requiredRole = allowedRoles[0];
+      const roleMeta = ROLE_INFO[requiredRole] || null;
+      socket.emit("ground_support_event", {
+        type: "role_locked",
+        action: type,
+        requiredRole,
+        requiredRoleShort: roleMeta ? roleMeta.short : String(requiredRole).toUpperCase(),
+        requiredRoleLabel: roleMeta ? roleMeta.title : String(requiredRole).toUpperCase(),
+        message: `${roleMeta ? roleMeta.title : requiredRole} is the only Earth Control role cleared for this action.`
+      });
+      return;
+    }
 
     const now = Date.now();
     if (socket.lastGroundActionAt && now - socket.lastGroundActionAt < 300) return;
@@ -2464,7 +2642,6 @@ io.on("connection", (socket) => {
 
     room.mission = room.mission || createMissionState();
     const gs = room.mission.groundSupport || (room.mission.groundSupport = createGroundSupportState());
-    const type = String(data.type || "").trim().slice(0, 32);
 
     if (type === "go_nogo_launch") {
       gs.goNoGoLaunch = true;
@@ -2597,33 +2774,6 @@ io.on("connection", (socket) => {
     }
   });
 
-  function enterRoomDockingPhase(room, triggeredById) {
-    const now = Date.now();
-    room.mission.phase = "docking";
-    room.mission.skipVotes = {};
-    room.mission.phaseStartedAt = now;
-    room.mission.updatedAt = now;
-    room.systems.dockingPilotId = resolveDockingPilotId(room);
-    room.mission.dockingPilotId = room.systems.dockingPilotId;
-    room.systems.dockingState = {
-      pos: [0, -2, -32],
-      vel: [0, 0, 0],
-      quat: [0, 0, 0, 1],
-      angVel: [0, 0, 0],
-      autoAssist: false,
-      fineControl: false,
-      boresightLocked: false,
-      range: 32,
-      rate: 0,
-      alignErr: 0,
-      t: now
-    };
-    broadcastMissionUpdate(room, {
-      action: "phase",
-      playerId: triggeredById || null
-    });
-  }
-
   socket.on("launch_skip_vote", () => {
     if (!currentRoomId || !rooms[currentRoomId]) return;
     const room = rooms[currentRoomId];
@@ -2632,6 +2782,9 @@ io.on("connection", (socket) => {
     room.mission = room.mission || createMissionState();
     if (room.mission.phase !== "launch") return;
     if (getTeamForRole(p.role) === "ground" && socket.id !== room.hostId) return;
+    // Merged main missions must reach verified orbit before docking opens;
+    // old/console skip requests cannot bypass the Shuttle flight.
+    if (room.mission.flightMode === "shuttle_docking" && (!room.shuttleMission || !room.shuttleMission.handoffReady)) return;
 
     room.mission.skipVotes = room.mission.skipVotes || {};
     room.mission.skipVotes[socket.id] = true;
@@ -2662,6 +2815,12 @@ io.on("connection", (socket) => {
     room.mission = room.mission || createMissionState();
 
     if (data.phase === "docking" && room.mission.phase === "launch") {
+      // Merged main missions hand off only from the authoritative orbit check.
+      if (room.mission.flightMode === "shuttle_docking") {
+        if (!room.shuttleMission || !room.shuttleMission.handoffReady) return;
+        enterRoomDockingPhase(room, socket.id);
+        return;
+      }
       const flightIds = getFlightCrewIds(room);
       const elapsedMs = Date.now() - (room.mission.phaseStartedAt || 0);
       const isNaturalOrAuthority = !!data.naturalEnd || elapsedMs >= 26000 || flightIds.length <= 1 || socket.id === room.hostId || normalizeRoleId(p.role) === "commander";
@@ -2994,11 +3153,21 @@ io.on("connection", (socket) => {
 
     const scenarioId = room.mission && room.mission.scenarioId;
     const difficultyId = room.mission && room.mission.difficultyId;
-    room.mission = createMissionState(scenarioId, difficultyId);
+    const opsMode = (room.mission && VALID_OPS_MODES.has(room.mission.opsMode)) ? room.mission.opsMode : "iss_expedition";
+    room.mission = createMissionState(scenarioId, difficultyId, opsMode);
     room.mission.updatedAt = now;
     room.tasks = { completed: 0, total: COOP_OBJECTIVE_IDS.size };
     room.completedTaskIds = {};
     room.sideGames = {};
+    // Re-arm the Shuttle for the next launch attempt. Without this, a reset
+    // after orbit insertion would leave a paused/finished mission behind.
+    room.shuttleMission = createRoomShuttleMission(opsMode);
+    room.shuttleInputs = {};
+    room.shuttleLastTick = Date.now();
+    room.shuttleLastSnap = 0;
+    room.shuttleResultRecorded = false;
+    room.shuttleTestFreeze = false;
+    room.shuttleHandedOff = false;
     room.systems.docking = { range: 18.5, velocity: 0.30, alignment: 3.5, latchesLocked: false };
     room.systems.dockingState = null;
     room.systems.dockingPilotId = resolveDockingPilotId(room);
@@ -3040,6 +3209,26 @@ io.on("connection", (socket) => {
     // completions so the room always advances through valid tracks.
     if (isMissionObjective) {
       const objectiveDef = MISSION_OBJECTIVES.find((objective) => objective.id === taskId);
+      const assignedRole = resolveMissionObjectiveAssignments(room)[taskId]
+        || (objectiveDef && objectiveDef.role === "all" ? "all" : normalizeRoleId(objectiveDef && objectiveDef.role, "commander"));
+
+      // Mission consoles are owned by one role. The server is authoritative:
+      // a client cannot complete another role's objective by spoofing the event.
+      if (!canPlayerCompleteMissionObjective(room, p, objectiveDef)) {
+        const roleMeta = ROLE_INFO[assignedRole] || null;
+        socket.emit("objective_locked", {
+          taskId,
+          taskName,
+          missing: [],
+          reason: "role",
+          assignedRole,
+          assignedRoleShort: roleMeta ? roleMeta.short : String(assignedRole).toUpperCase(),
+          assignedRoleLabel: roleMeta ? roleMeta.title : String(assignedRole).toUpperCase(),
+          mission: serializeMission(room.mission, room)
+        });
+        return;
+      }
+
       const completed = new Set(Object.keys(room.mission.completed));
       const missing = objectiveDef
         ? objectiveDef.dependsOn.filter((dependency) => !completed.has(dependency))
@@ -3049,7 +3238,7 @@ io.on("connection", (socket) => {
           taskId,
           taskName,
           missing,
-          mission: serializeMission(room.mission)
+          mission: serializeMission(room.mission, room)
         });
         return;
       }
@@ -3059,7 +3248,7 @@ io.on("connection", (socket) => {
           taskName,
           missing: [],
           reason: "station_phase",
-          mission: serializeMission(room.mission)
+          mission: serializeMission(room.mission, room)
         });
         return;
       }
@@ -3127,7 +3316,7 @@ io.on("connection", (socket) => {
           countsTowardMission: false,
           design: designPatch,
           tasks: room.tasks,
-          mission: serializeMission(room.mission),
+          mission: serializeMission(room.mission, room),
           alreadyCompleted: true,
           revised: true
         });
@@ -3139,7 +3328,7 @@ io.on("connection", (socket) => {
           taskId: taskId,
           taskName: taskName,
           tasks: room.tasks,
-          mission: serializeMission(room.mission),
+          mission: serializeMission(room.mission, room),
           alreadyCompleted: true
         });
       }
@@ -3181,7 +3370,7 @@ io.on("connection", (socket) => {
       countsTowardMission: isMissionObjective,
       design: designPatch,
       tasks: room.tasks,
-      mission: serializeMission(room.mission)
+      mission: serializeMission(room.mission, room)
     });
 
     // Victory when the whole crew has completed all shared objectives and the
@@ -3206,7 +3395,7 @@ io.on("connection", (socket) => {
       io.to(currentRoomId).emit("crew_victory", {
         winningTeam: "crew",
         tasks: room.tasks,
-        mission: serializeMission(room.mission),
+        mission: serializeMission(room.mission, room),
         debrief,
         reason: `${debrief.scenarioCode} COMPLETE — ALL ${debrief.totalObjectives} SHARED OBJECTIVES VERIFIED BY FLIGHT & GROUND CREW`
       });
@@ -3273,6 +3462,7 @@ io.on("connection", (socket) => {
     room.shuttleInputs = {};
     room.shuttleResultRecorded = false;
     room.shuttleTestFreeze = false;
+    room.shuttleHandedOff = false;
     room.systems.docking = { range: 18.5, velocity: 0.30, alignment: 3.5, latchesLocked: false };
     room.systems.dockingState = null;
     room.systems.dockingPilotId = resolveDockingPilotId(room);
@@ -3392,6 +3582,7 @@ io.on("connection", (socket) => {
       room.shuttleInputs = {};
       room.shuttleResultRecorded = false;
       room.shuttleTestFreeze = false;
+      room.shuttleHandedOff = false;
       room.systems.dockingPilotId = null;
       room.systems.dockingState = null;
     } else {
@@ -3460,6 +3651,7 @@ db.initDatabase()
   .then(() => {
     server.listen(PORT, "0.0.0.0", () => {
       console.log(`🚀 Interfellas NASA ISS Expedition 3D Simulator online on port ${PORT}`);
+      console.log(`🌍 Server region: ${DEPLOY_REGION}`);
       console.log(`📦 Railway Object Storage: ${storage.isConfigured() ? 'Active (' + storage.bucket + ')' : 'Local Disk Mode'}`);
 
       // Auto-populate Railway Bucket in background if configured
@@ -3472,6 +3664,7 @@ db.initDatabase()
     console.error("[DB] Fatal error during database startup:", err);
     server.listen(PORT, "0.0.0.0", () => {
       console.log(`🚀 Interfellas server online on port ${PORT} (fallback mode)`);
+      console.log(`🌍 Server region: ${DEPLOY_REGION}`);
       console.log(`📦 Railway Object Storage: ${storage.isConfigured() ? 'Active (' + storage.bucket + ')' : 'Local Disk Mode'}`);
 
       // Auto-populate Railway Bucket in background if configured

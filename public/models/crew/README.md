@@ -28,6 +28,22 @@ red accents finish the uniform.
   The faces, hands and hair carry most of the detail; the body under the
   uniform is deliberately simpler.
 
+## Game integration
+
+`crew_a.glb` and `crew_b.glb` are registered in `js/core/glb_manager.js` under
+the `crew` category. `glb_manager.getModelIdForRole()` assigns them to the two
+Earth Control roles:
+
+| Role | Model |
+| --- | --- |
+| `flight_director` (Mission Boss) | `crew_a.glb` |
+| `ground_capcom` (Earth Radio Helper) | `crew_b.glb` |
+
+Station crew roles always use `astronaut_lod0.glb` / `astronaut_lod1.glb`, even
+if an unsuited model was selected in the hangar. Both crew models share the
+astronaut rig's bone names and `idle`, `walk`, `look_around` and `wave` clips,
+so movement, emotes and name badges work without extra animation code.
+
 ## Bones
 
 ```

@@ -743,6 +743,12 @@
           }
           #open-car-hud:not(.is-driving) .oc-drive-only { display: none; }
           #open-car-hud.is-driving .oc-near-only { display: none; }
+          /* While driving, keep only the speed/controls strip so the road and
+             dashboard stay visible instead of a second full menu card. */
+          #open-car-hud.is-driving .oc-card { min-width: 0; padding: 6px 12px; }
+          #open-car-hud.is-driving .oc-title { display: none; }
+          #open-car-hud.is-driving .oc-hint { display: none; }
+          #open-car-hud.is-driving .oc-state { margin-top: 2px; font-size: 8px; }
           @media (max-width: 820px) {
             #open-car-hud {
               bottom: max(140px, calc(env(safe-area-inset-bottom) + 128px));
@@ -753,6 +759,33 @@
             #open-car-hud .oc-hint { display: none; }
             #open-car-hud .oc-btn { padding: 7px 10px; font-size: 10px; }
             #open-car-hud .oc-speed span { font-size: 20px; }
+            /* Driving on a phone: four short controls in one row and the speed
+               underneath, never a tall portrait stack over the car. */
+            #open-car-hud.is-driving .oc-card {
+              width: calc(100vw - 16px);
+              max-width: 380px;
+              padding: 6px 8px;
+            }
+            #open-car-hud.is-driving .oc-row {
+              display: grid;
+              grid-template-columns: repeat(4, minmax(0, 1fr));
+              gap: 5px;
+              width: 100%;
+            }
+            #open-car-hud.is-driving .oc-btn {
+              padding: 6px 3px;
+              font-size: 9px;
+              letter-spacing: 0.4px;
+            }
+            #open-car-hud.is-driving .oc-speed {
+              grid-column: 1 / -1;
+              flex-direction: row;
+              justify-content: center;
+              gap: 6px;
+              min-width: 0;
+            }
+            #open-car-hud.is-driving .oc-speed span { font-size: 18px; }
+            #open-car-hud.is-driving .oc-state { margin-top: 2px; }
           }
         `;
         document.head.appendChild(style);
@@ -1485,6 +1518,9 @@
       );
 
       const show = active && (this.isDriving || this._nearby());
+      if (this.sc && typeof this.sc._syncGroundPresentationMode === "function") {
+        this.sc._syncGroundPresentationMode();
+      }
       this.hud.classList.toggle("is-visible", show);
       this.hud.classList.toggle("is-driving", this.isDriving);
       if (this.speedEl) {
@@ -1521,7 +1557,10 @@
     _stackAboveGroundHud() {
       if (!this.hud) return;
       const groundHud = document.getElementById("space-center-ground-hud");
-      const groundVisible = !!(groundHud && groundHud.style.display !== "none");
+      // Driving hides the site-tour dock in CSS; do not float the car card up
+      // into empty space above it.
+      const groundVisible = !!(groundHud && groundHud.style.display !== "none" &&
+        !document.body.classList.contains("ground-car-driving"));
       if (!groundVisible || !this.hud.classList.contains("is-visible")) {
         if (this.hud.style.bottom !== "") this.hud.style.bottom = "";
         return;

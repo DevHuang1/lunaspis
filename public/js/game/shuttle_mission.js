@@ -51,6 +51,10 @@
       this.checkpoints = {}; this.retries = 0; this.rejections = 0; this.failures = [];
       this.events = []; this.messages = []; this.guid = {}; this.flags = { orbitDwell: 0, heatT: 0, gT: 0, entryCk: false };
       this.plan = null; this.touchdown = null; this.integrity = "normal";
+      // Merged main-mission flights stop at a verified orbit and hand control to
+      // the station docking phase instead of continuing to payload/return.
+      this.handoffAtOrbit = !!(this.opts && this.opts.handoffAtOrbit);
+      this.handoffReady = false;
       this.assistLog = { alphaAssistOffT: 0, holdUsed: false, warpUsedMax: 1 };
       this.prev = { r: this.st.r.slice(), q: this.st.q.slice() };
       this._say("Training flight ready: launch a satellite in space and land safely on Florida Runway 15.", "info");
@@ -430,9 +434,19 @@
               // handover transient: the DAP releases with residual rates the pilot must null
               st.w = add(S.orbitRateBody(st), [0.45 * DEG, -0.40 * DEG, 0.70 * DEG]);
               st.burn = null;
-              this._setPhase("payload");
-              this._saveCheckpoint("orbit");
-              this._say(`Stable orbit reached (${(el.periapsisAlt / 1e3).toFixed(0)} × ${(el.apoapsisAlt / 1e3).toFixed(0)} km). Steering handed to you. Next: open cargo doors, power satellite, stop spin, aim, release, and drift clear.`, "info");
+              if (this.handoffAtOrbit) {
+                // Main-mission merge: hold the shuttle on its verified orbit. The
+                // server sees handoffReady and opens the ISS docking phase.
+                this._saveCheckpoint("orbit");
+                this.handoffReady = true;
+                this.paused = true;
+                this._emit("DOCKING_HANDOFF", { peri: el.periapsisAlt, apo: el.apoapsisAlt });
+                this._say(`Stable orbit reached (${(el.periapsisAlt / 1e3).toFixed(0)} × ${(el.apoapsisAlt / 1e3).toFixed(0)} km). Handing off to station docking.`, "info");
+              } else {
+                this._setPhase("payload");
+                this._saveCheckpoint("orbit");
+                this._say(`Stable orbit reached (${(el.periapsisAlt / 1e3).toFixed(0)} × ${(el.apoapsisAlt / 1e3).toFixed(0)} km). Steering handed to you. Next: open cargo doors, power satellite, stop spin, aim, release, and drift clear.`, "info");
+              }
             }
           }
           if (norm(st.r) - S.RE < 95e3) this._fail("Did not reach orbit: the ship fell back into Earth's air without an orbit-push burn.");
@@ -603,6 +617,7 @@
       const lim = this._warpLimit();
       return {
         schemaVersion: 1, missionId: this.missionId, revision: this.revision, mode: "solo-training", phase: this.phase,
+        handoffAtOrbit: this.handoffAtOrbit, handoffReady: this.handoffReady,
         simTime: st.t, theta0: st.theta0, met: st.launchT !== undefined && st.launchT !== null ? st.t - st.launchT : null, countdown: this.phase === "prelaunch" ? this.countdown : null,
         paused: this.paused, warp: this.warp, warpReq: this.warpReq, warpMax: lim.max, warpWhy: lim.why, integrity: this.integrity,
         vehicle: { r: st.r, v: st.v, q: st.q, w: st.w, regime: st.regime, cfg: st.cfg, gear: st.flight.gear, gearCmd: st.flight.gearCmd, sb: st.flight.sb,

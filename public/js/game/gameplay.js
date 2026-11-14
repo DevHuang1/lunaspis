@@ -1039,7 +1039,7 @@
           name: "7. Full Mission Test Run & Results",
           location: "Mission Test Simulator",
           pos: [0, 0.0, 24.0],
-          role: "all",
+          role: "specialist",
           resource: "science",
           requires: ["task_hull", "task_lss"],
           completed: false
@@ -1220,6 +1220,18 @@
         return dep ? dep.title : dependency;
       });
       return `Requires ${titles.join(" + ")}`;
+    }
+
+    // The server sends a live role assignment for the current crew. Fall back
+    // to the console's preferred role when an older snapshot has no assignment.
+    getTaskRole(task) {
+      if (!task) return "all";
+      const mission = this.getMissionState();
+      const assignments = mission && mission.objectiveAssignments;
+      if (assignments && typeof assignments === "object" && assignments[task.id]) {
+        return assignments[task.id];
+      }
+      return task.role || "all";
     }
 
     buildDesignPatch(task) {
@@ -1972,7 +1984,13 @@
         ? window.InterfellasRoles.getCrewByRole(players)
         : { [role]: [] };
       const holders = grouped[role] || [];
-      const isMine = myRole === role;
+      const myTeam = window.InterfellasRoles
+        ? window.InterfellasRoles.getTeamForRole(myRole)
+        : "crew";
+      // If nobody currently holds a console's role (for example a solo
+      // commander), that role's station may be covered by any flight-crew
+      // member. Ground Control cannot take station consoles.
+      const isMine = myRole === role || (holders.length === 0 && myTeam !== "ground");
       const isUnstaffed = holders.length === 0;
       const namesText = holders.length > 0
         ? holders.map((p) => (p.id === (nm && nm.socketId) ? "YOU" : (p.name || "Crew"))).join(", ")
@@ -2001,7 +2019,7 @@
 
       let roleStrip = "";
       if (this.activeTask && !this.activeTask.isPreFlightMdl) {
-        const assign = this._getRoleAssignment(this.activeTask.role);
+        const assign = this._getRoleAssignment(this.getTaskRole(this.activeTask));
         const stripBorder = assign.isMine ? "rgba(59,130,246,0.55)" : "rgba(148,163,184,0.28)";
         const stripBg = assign.isMine ? "rgba(37,99,235,0.14)" : "rgba(15,23,42,0.72)";
         const stripColor = assign.isMine ? "#dbeafe" : "#cbd5e1";
@@ -2011,7 +2029,7 @@
             : `[YOUR DESK] ASSIGNED WORKSTATION [${assign.short} ${assign.label}]`)
           : assign.isUnstaffed
             ? `OPEN ROLE [${assign.short} ${assign.label}] · Anyone can fill in here`
-            : `IN CHARGE: [${assign.short}] ${this._escapeHtml(assign.namesText)} · Anyone can help`;
+            : `ASSIGNED TO: [${assign.short}] ${this._escapeHtml(assign.namesText)} · Only this role can run this station`;
         const gs = (mission && mission.groundSupport) || {};
         const gsTags = [
           gs.dsnLocked ? "DISH LOCKED" : null,
@@ -2198,6 +2216,26 @@
           }
         });
       }
+
+      const btnOpenCml = container.querySelector("#btn-open-cml-workbench");
+      if (btnOpenCml && !btnOpenCml.dataset.bound) {
+        btnOpenCml.dataset.bound = "1";
+        btnOpenCml.addEventListener("click", () => {
+          this.openCmlWorkbench("checklist", { returnTask: this.activeTask });
+        });
+      }
+
+      container.querySelectorAll(".btn-cml-pill-jump").forEach((btn) => {
+        if (btn.dataset.bound) return;
+        btn.dataset.bound = "1";
+        btn.addEventListener("click", () => {
+          const target = Number.parseInt(btn.dataset.cmlJump, 10);
+          this.openCmlWorkbench("checklist", {
+            returnTask: this.activeTask,
+            targetCml: Number.isFinite(target) ? target : undefined
+          });
+        });
+      });
 
       const pdSlot = container.querySelector("#mdl-point-design-3d");
       if (pdSlot) {
@@ -3601,6 +3639,13 @@
           if (mission) this.syncMissionUi(mission);
           return;
         }
+        if (data && data.reason === "role") {
+          const roleLabel = data.assignedRoleLabel || String(data.assignedRole || "ASSIGNED ROLE").toUpperCase();
+          const roleShort = data.assignedRoleShort || "";
+          this.showToast(`[ROLE LOCK] ${roleShort ? `${roleShort} · ` : ""}${roleLabel.toUpperCase()} ONLY · THIS CONSOLE IS NOT YOURS`);
+          if (mission) this.applyMissionDefinition(mission);
+          return;
+        }
         const names = ((data && data.missing) || []).map((id) => {
           const def = mission && Array.isArray(mission.objectives)
             ? mission.objectives.find((objective) => objective.id === id)
@@ -3700,12 +3745,16 @@
       });
     }
 
-    // Allows players to open the Mission Architecture console directly from the Space Center Pad or HUD
+    // Allows players to open the Mission Architecture console directly from the Space Center Pad or HUD.
+    // The HUB charter objective belongs to the assigned station role; other roles still get the
+    // pre-flight design desk without taking that role's station objective.
     openMissionPlannerFromGround() {
       const archTask = this.tasks.find((t) => t.id === "task_antenna") || this.tasks[0];
-      if (archTask) {
+      if (archTask && this._getRoleAssignment(this.getTaskRole(archTask)).isMine) {
         this.openTaskModal(archTask);
+        return;
       }
+      this.openPreFlightMdlDesk("arch");
     }
 
     updateProximity(playerPos) {
@@ -3748,8 +3797,10 @@
           btnUse.style.display = "flex";
           labelUse.textContent = "[E] OPEN CSA LAB · CANADARM2 / TOMATOSPHERE";
         } else if (closest) {
-          const assign = this._getRoleAssignment(closest.role);
-          const tag = assign.isMine ? `[ASSIGNED · ${assign.badgeText}]` : `[${assign.badgeText}]`;
+          const assign = this._getRoleAssignment(this.getTaskRole(closest));
+          const tag = assign.isMine
+            ? `ASSIGNED · ${assign.badgeText}`
+            : `ROLE LOCK · ${assign.short} ONLY`;
           btnUse.style.display = "flex";
           labelUse.textContent = `[E] ${tag} ${closest.completed ? "REVIEW " : ""}${closest.name.toUpperCase()}`;
         } else {
@@ -3784,6 +3835,15 @@
         return;
       }
 
+      // Role ownership is enforced here for the UI and again on the server for
+      // completion, so a crewmate cannot run another role's station.
+      const assigned = this._getRoleAssignment(this.getTaskRole(task));
+      if (!assigned.isMine) {
+        this.showToast(`[ROLE LOCK] ${assigned.label.toUpperCase()} ONLY · ${assigned.namesText} OWNS THIS STATION`);
+        if (window.spaceAudio) window.spaceAudio.playAlarm("warning");
+        return;
+      }
+
       this._runCleanup();
       this.activeTask = task;
       if (window.csaNasaLab && typeof window.csaNasaLab.syncGroundLockState === "function") {
@@ -3795,8 +3855,7 @@
 
       if (!modal || !title || !body) return;
 
-      const assign = this._getRoleAssignment(task.role);
-      title.textContent = `${task.location} · [${assign.badgeText}] · ${task.name.toUpperCase()}`;
+      title.textContent = `${task.location} · [${assigned.badgeText}] · ${task.name.toUpperCase()}`;
       body.innerHTML = "";
       modal.style.display = "flex";
 
@@ -3854,6 +3913,13 @@
     }
 
     finishTask(task, stayOpen = false, options = {}) {
+      const assigned = this._getRoleAssignment(this.getTaskRole(task));
+      if (!assigned.isMine) {
+        this.showToast(`[ROLE LOCK] ${assigned.label.toUpperCase()} ONLY · THIS CONSOLE IS NOT YOURS`);
+        if (window.spaceAudio) window.spaceAudio.playAlarm("warning");
+        return;
+      }
+
       this._runCleanup();
       const evaluation = options && options.evaluation ? options.evaluation : null;
       const wasCompleted = task.completed;
@@ -3947,37 +4013,97 @@
       const render = () => {
         const md = this.missionDesign;
         const t = this.evaluateMissionDesign();
+        this.telemetry = t;
+        this._activeRenderCallback = render;
+
+        const modalTitle = document.getElementById("task-modal-title");
+        if (modalTitle) modalTitle.textContent = "MAIN HUB · MISSION GOAL";
+
+        const SCENARIO_QUICK = {
+          earth_climate: {
+            question: "How fast are ice sheets, oceans, and the atmosphere changing?",
+            keyNeed: "Cameras + radar",
+            science: "Science to pack: Optical · Radar · Altimetry · Spectrometer"
+          },
+          lunar_south_pole: {
+            question: "Where is hidden water ice at the Moon's South Pole?",
+            keyNeed: "Ice-sensing tools",
+            science: "Science to pack: Neutron · Altimetry · Spectrometer · Optical"
+          },
+          asteroid_rendezvous: {
+            question: "What is this asteroid made of, and where is it drifting?",
+            keyNeed: "Mineral + dust mappers",
+            science: "Science to pack: Spectrometer · Altimetry · Magnetometer · Neutron"
+          },
+          space_telescope: {
+            question: "What can distant stars and planets tell us about the universe?",
+            keyNeed: "Telescope + cooling",
+            science: "Science to pack: Optical · Spectrometer"
+          },
+          cubesat_101: {
+            question: "Can a student-built satellite do useful science?",
+            keyNeed: "Tiny science payload",
+            science: "Science to pack: Optical · Magnetometer"
+          },
+          bionutrients_2: {
+            question: "Can astronauts grow Vitamin A on the Space Station?",
+            keyNeed: "Yeast kit + freezer",
+            science: "Mission special: a yeast kit, bag, recipe, and freezer plan"
+          },
+          sandbox: {
+            question: "What happens when you mix any parts you like?",
+            keyNeed: "No rules",
+            science: "Open playground: no fixed science target"
+          }
+        };
 
         const scenarioCards = Object.values(MISSION_SCENARIOS)
           .map((sc) => {
             const active = md.scenarioId === sc.id;
+            const quick = SCENARIO_QUICK[sc.id] || { question: sc.summary, keyNeed: "", science: "" };
+            const budget = Math.round(sc.baseBudgetM * t.difficulty.budgetMultiplier);
             return `
-              <div class="md-scenario-card" data-id="${sc.id}" style="padding:14px 16px;border-radius:8px;border:1px solid ${active ? "#67e8f9" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(103,232,249,0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;transition:all 0.15s;">
-                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;">
-                  <span style="font-family:monospace;font-size:10.5px;font-weight:700;color:#67e8f9;letter-spacing:0.9px;">${sc.badge}</span>
-                  <span style="font-family:monospace;font-size:11px;font-weight:700;color:#d0a15c;">Budget: $${Math.round(sc.baseBudgetM * t.difficulty.budgetMultiplier)}M · Goal: ${sc.targetLifetimeMonths} mo</span>
-                </div>
-                <div style="font-size:14.5px;font-weight:700;color:#ece7dc;margin-bottom:6px;">${sc.name}</div>
-                <div style="font-size:12.5px;color:#cbd5e1;line-height:1.5;margin-bottom:8px;">${sc.summary}</div>
-                <div style="font-family:monospace;font-size:11px;color:#7fb8a6;line-height:1.4;">
-                  ${
-                    sc.isBioPayload
-                      ? "Goals: Make Vitamin A ≥3 mg/L · 12+ Pouches · <250g · <300mL · -80°C Freezer"
-                      : `Helpful Tools: ${sc.requiredScienceTypes.map((x) => x.toUpperCase()).join(" · ")} | Min Fuel Push: ${sc.minDeltaV} m/s`
-                  }
-                </div>
-              </div>
+              <button type="button" class="md-scenario-card${active ? " is-active" : ""}" data-id="${sc.id}" aria-pressed="${active}">
+                <span class="md-scenario-top">
+                  <span class="md-scenario-badge">${sc.badge}</span>
+                  ${active ? `<span class="md-selected-tag">SELECTED</span>` : ""}
+                </span>
+                <span class="md-scenario-name">${sc.name}</span>
+                <span class="md-scenario-question">${quick.question}</span>
+                <span class="md-facts">
+                  <span class="md-fact">$${budget}M budget</span>
+                  <span class="md-fact">${sc.targetLifetimeMonths} months</span>
+                  <span class="md-fact">${quick.keyNeed}</span>
+                </span>
+                <span class="md-scenario-more">
+                  <span class="md-more-label">WHY THIS MISSION</span>
+                  <span>${sc.summary}</span>
+                  ${quick.science ? `<span class="md-more-meta">${quick.science}</span>` : ""}
+                </span>
+              </button>
             `;
           })
           .join("");
 
+        const DIFF_QUICK = {
+          cadet: { label: "Beginner", sub: "Extra room and friendly hints", facts: ["+25% budget", "Friendly hints"] },
+          engineer: { label: "Standard", sub: "Real-world budget and limits", facts: ["Standard budget", "Balanced limits"] },
+          director: { label: "Expert", sub: "Tighter budget and stricter checks", facts: ["−12% budget", "Strict storm checks"] }
+        };
         const diffBtns = Object.values(DIFFICULTY_LEVELS)
           .map((d) => {
             const active = md.difficultyId === d.id;
+            const quick = DIFF_QUICK[d.id] || { label: d.name, sub: d.desc, facts: [] };
             return `
-              <button type="button" class="md-diff-btn" data-id="${d.id}" style="flex:1;min-width:180px;padding:11px 14px;border-radius:6px;border:1px solid ${active ? "#d0a15c" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(208,161,92,0.14)" : "rgba(255,255,255,0.03)"};color:#ece7dc;text-align:left;cursor:pointer;">
-                <div style="font-family:monospace;font-size:11.5px;font-weight:700;color:${active ? "#fde047" : "#ece7dc"};">${d.name}</div>
-                <div style="font-size:11.5px;color:#cbd5e1;margin-top:4px;line-height:1.45;">${d.desc}</div>
+              <button type="button" class="md-diff-btn md-diff-card${active ? " is-active" : ""}" data-id="${d.id}" aria-pressed="${active}" title="${this._escapeHtml(d.desc)}">
+                <span class="md-diff-top">
+                  <span class="md-diff-name">${quick.label}</span>
+                  ${active ? `<span class="md-selected-tag">SELECTED</span>` : ""}
+                </span>
+                <span class="md-diff-sub">${quick.sub}</span>
+                <span class="md-facts">
+                  ${quick.facts.map((fact) => `<span class="md-fact">${fact}</span>`).join("")}
+                </span>
               </button>
             `;
           })
@@ -3985,145 +4111,206 @@
 
         let specializationHtml = "";
         if (t.scenario.requiresWavelength) {
+          const WAVE_QUICK = {
+            uv_optical: "No extra cooling needed",
+            near_ir: "Needs active cooling",
+            mid_ir: "Deep-freeze cooling + shade",
+            xray: "Needs active cooling"
+          };
           specializationHtml = `
-            <div style="margin-bottom:14px;">
-              <div style="font-family:monospace;font-size:11.5px;font-weight:700;letter-spacing:1.2px;color:#c4b5fd;margin-bottom:8px;">
-                STEP 1C · WHAT KIND OF LIGHT WILL YOUR TELESCOPE SEE?
+            <section class="md-hub-step" aria-labelledby="md-hub-special-title">
+              <div class="md-step-head">
+                <span class="md-step-tag">MISSION SPECIAL</span>
+                <div class="md-step-titles">
+                  <h3 id="md-hub-special-title">Choose what your telescope sees</h3>
+                  <p>Different kinds of light need different cooling. Pick the one that matches your science goal.</p>
+                </div>
               </div>
-              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;">
+              <div class="md-special-grid">
                 ${Object.values(WAVELENGTH_BANDS).map((wb) => {
                   const active = md.wavelengthId === wb.id;
                   return `
-                    <div class="md-wave-card" data-id="${wb.id}" style="padding:12px 14px;border-radius:7px;border:1px solid ${active ? "#c084fc" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(192,132,252,0.14)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                      <div style="font-size:13px;font-weight:700;color:#ece7dc;">${wb.name}</div>
-                      <div style="font-size:11.5px;color:#cbd5e1;margin-top:4px;line-height:1.45;">${wb.explain}</div>
-                    </div>
+                    <button type="button" class="md-wave-card md-special-card${active ? " is-active" : ""}" data-id="${wb.id}" aria-pressed="${active}">
+                      <span class="md-special-top">
+                        <span class="md-special-name">${wb.name}</span>
+                        ${active ? `<span class="md-selected-tag">SELECTED</span>` : ""}
+                      </span>
+                      <span class="md-facts">
+                        <span class="md-fact">${WAVE_QUICK[wb.id] || "Check cooling"}</span>
+                      </span>
+                      <span class="md-special-copy">${wb.explain}</span>
+                    </button>
                   `;
                 }).join("")}
               </div>
-            </div>
+            </section>
           `;
         } else if (t.scenario.isCubesat) {
           specializationHtml = `
-            <div style="margin-bottom:14px;">
-              <div style="font-family:monospace;font-size:11.5px;font-weight:700;letter-spacing:1.2px;color:#67e8f9;margin-bottom:8px;">
-                STEP 1C · PICK YOUR MINI-SATELLITE BOX SIZE
+            <section class="md-hub-step" aria-labelledby="md-hub-special-title">
+              <div class="md-step-head">
+                <span class="md-step-tag">MISSION SPECIAL</span>
+                <div class="md-step-titles">
+                  <h3 id="md-hub-special-title">Pick your mini-satellite size</h3>
+                  <p>Bigger sizes carry more tools — and weigh more.</p>
+                </div>
               </div>
-              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;">
+              <div class="md-special-grid">
                 ${Object.values(CUBESAT_FORMS).map((cf) => {
                   const active = md.cubesatFormId === cf.id;
                   return `
-                    <div class="md-csform-card" data-id="${cf.id}" style="padding:12px 14px;border-radius:7px;border:1px solid ${active ? "#67e8f9" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(103,232,249,0.14)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                      <div style="font-size:13px;font-weight:700;color:#ece7dc;">${cf.name}</div>
-                      <div style="font-family:monospace;font-size:11px;color:#7fb8a6;margin:5px 0;">Weight Limit: ${cf.maxMassKg} kg · Holds up to ${cf.maxInst} tools</div>
-                      <div style="font-size:11.5px;color:#cbd5e1;line-height:1.45;">${cf.explain}</div>
-                    </div>
+                    <button type="button" class="md-csform-card md-special-card${active ? " is-active" : ""}" data-id="${cf.id}" aria-pressed="${active}">
+                      <span class="md-special-top">
+                        <span class="md-special-name">${cf.name}</span>
+                        ${active ? `<span class="md-selected-tag">SELECTED</span>` : ""}
+                      </span>
+                      <span class="md-facts">
+                        <span class="md-fact">${cf.maxMassKg} kg max</span>
+                        <span class="md-fact">${cf.maxInst} tools</span>
+                      </span>
+                      <span class="md-special-copy">${cf.explain}</span>
+                    </button>
                   `;
                 }).join("")}
               </div>
-            </div>
+            </section>
           `;
         } else if (t.scenario.isBioPayload) {
           specializationHtml = `
-            <div style="margin-bottom:14px;">
-              <div style="padding:12px 14px;border-radius:7px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.32);margin-bottom:12px;font-size:12px;color:#e2e8f0;line-height:1.5;">
-                <div style="font-family:monospace;font-size:11px;font-weight:700;color:#fbbf24;margin-bottom:6px;">
-                  HOW SPACE STATION VITAMIN MAKER (BIONUTRIENTS-2) WORKS
-                </div>
-                <div><strong>Why It Matters:</strong> Astronauts on long trips need a fast, safe way to grow fresh vitamins on demand without carrying heavy jars from Earth.</div>
-                <div style="margin-top:5px;"><strong>3 Simple Goals:</strong> (1) Wake up sleeping yeast · (2) Grow fresh Vitamin A nutrient on the Space Station · (3) Keep each pouch super light (&lt;250g) and compact (&lt;300mL).</div>
-                <div style="margin-top:6px;font-family:monospace;font-size:10.5px;color:#93c5fd;line-height:1.45;">
-                  1. LAUNCH (Supply Ship) -> 2. SPACE (Add clean filtered water -> Warm at 30°C -> Shake at 6h -> Freeze at -80°C) -> 3. EARTH TEAM (Watch live) -> 4. LAB CHECK (Thaw &amp; measure Vitamin A)
+            <section class="md-hub-step" aria-labelledby="md-hub-special-title">
+              <div class="md-step-head">
+                <span class="md-step-tag">MISSION SPECIAL</span>
+                <div class="md-step-titles">
+                  <h3 id="md-hub-special-title">Grow Vitamin A on the Space Station</h3>
+                  <p>Three moves: launch dry yeast, grow it with clean water and warmth, then freeze it for lab tests.</p>
                 </div>
               </div>
-              <div style="font-family:monospace;font-size:11.5px;font-weight:700;letter-spacing:1.2px;color:#fbbf24;margin-bottom:8px;">
-                STEP 1C · PICK WHICH HELPFUL MICROBE TO GROW
+              <div class="md-bio-route">
+                <span class="md-bio-step"><b>1 · LAUNCH</b><small>Sealed dry yeast pouches</small></span>
+                <span class="md-bio-arrow">→</span>
+                <span class="md-bio-step"><b>2 · GROW</b><small>Filtered water · 30°C · 6h shake</small></span>
+                <span class="md-bio-arrow">→</span>
+                <span class="md-bio-step"><b>3 · TEST</b><small>Freeze at −80°C · measure Vitamin A</small></span>
               </div>
-              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;">
+              <p class="md-step-note">Goal: 12+ bags · at least 3 mg/L Vitamin A · each bag under 250 g and 300 mL.</p>
+              <div class="md-special-grid">
                 ${Object.values(BIO_ORGANISM_OPTIONS).map((org) => {
                   const active = md.bioOrganismId === org.id;
                   return `
-                    <div class="md-bioorg-card" data-id="${org.id}" style="padding:12px 14px;border-radius:7px;border:1px solid ${active ? "#fbbf24" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(245,158,11,0.14)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                      <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
-                        <span style="font-size:13px;font-weight:700;color:#ece7dc;">${org.name}</span>
-                        ${org.goalAligned ? `<span style="font-family:monospace;font-size:10px;padding:2px 6px;border-radius:3px;background:rgba(74,222,128,0.18);color:#86efac;font-weight:700;">BEST MATCH</span>` : ""}
-                      </div>
-                      <div style="font-family:monospace;font-size:11px;color:#fcd34d;margin:5px 0;">Warmth: ${org.targetTempC}°C · 6h Shake: ${org.requiresSixHourShake ? "NEEDED" : "No"} · Vitamin Output: ${org.baseBetaCaroteneUgMl} mg/L</div>
-                      <div style="font-size:11.5px;color:#cbd5e1;line-height:1.45;">${org.explain}</div>
-                    </div>
+                    <button type="button" class="md-bioorg-card md-special-card${active ? " is-active" : ""}" data-id="${org.id}" aria-pressed="${active}" title="${this._escapeHtml(org.explain)}">
+                      <span class="md-special-top">
+                        <span class="md-special-name">${org.name}</span>
+                        <span class="md-special-tags">
+                          ${org.goalAligned ? `<span class="md-best-tag">BEST MATCH</span>` : ""}
+                          ${active ? `<span class="md-selected-tag">SELECTED</span>` : ""}
+                        </span>
+                      </span>
+                      <span class="md-facts">
+                        <span class="md-fact">${org.targetTempC}°C warm</span>
+                        <span class="md-fact">${org.requiresSixHourShake ? "6h shake" : "No 6h shake"}</span>
+                        <span class="md-fact">${org.baseBetaCaroteneUgMl} mg/L</span>
+                      </span>
+                      <span class="md-special-copy">${org.explain}</span>
+                    </button>
                   `;
                 }).join("")}
               </div>
-            </div>
+            </section>
           `;
         }
 
+        const role = this._getRoleAssignment(this.getTaskRole(task));
+        const crewSize = (window.netManager && window.netManager.roomState && Array.isArray(window.netManager.roomState.players))
+          ? window.netManager.roomState.players.length
+          : 1;
+        const roleOwnerText = role.isUnstaffed
+          ? (crewSize <= 1 ? "SOLO · YOU COVER THIS DESK" : "OPEN · ANY CREW CAN COVER")
+          : this._escapeHtml(role.namesText);
+        const difficultyLabel = (DIFF_QUICK[md.difficultyId] || {}).label || md.difficultyId;
+        const roleDuties = {
+          flight_director: "Earth · launch clearance and docking go-ahead",
+          ground_capcom: "Earth · Earth dishes, power, and science links",
+          commander: "Space · launch, docking, mission goal, and orbit",
+          engineer: "Space · body, solar, radio, and engines",
+          scientist: "Space · science tools and cooling",
+          specialist: "Space · final test; backup at any desk"
+        };
+        const rolesHtml = ["flight_director", "ground_capcom", "commander", "engineer", "scientist", "specialist"]
+          .map((rId) => {
+            const a = this._getRoleAssignment(rId);
+            return `
+              <div class="md-role-card${a.isMine ? " is-mine" : ""}">
+                <span class="md-role-card-head">
+                  <strong style="color:${a.color};">[${a.short}] ${this._escapeHtml(a.label)}</strong>
+                  <span>${a.isUnstaffed ? (a.isMine ? "OPEN · YOU CAN COVER" : "OPEN") : `${this._escapeHtml(a.namesText)}${a.isMine ? " (YOU)" : ""}`}</span>
+                </span>
+                <p>${roleDuties[rId] || "Helps across all desks."}</p>
+              </div>
+            `;
+          })
+          .join("");
+
         container.innerHTML = `
-          ${this._renderLiveTradeoffStrip({ onRerender: render })}
-          <div style="margin-bottom:14px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
-              <span style="font-family:monospace;font-size:11.5px;font-weight:700;letter-spacing:1.2px;color:#9aa4ae;">
-                STEP 1A · PICK YOUR MISSION GOAL
-              </span>
-              <button type="button" id="btn-arch-apply-rec" style="padding:6px 12px;border-radius:5px;border:1px solid rgba(74,222,128,0.45);background:rgba(74,222,128,0.12);color:#86efac;font-family:monospace;font-size:11px;font-weight:700;cursor:pointer;">
-                AUTO-FILL RECOMMENDED SETUP FOR ${t.scenario.code}
-              </button>
-            </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;">
-              ${scenarioCards}
-            </div>
-          </div>
+          <div class="md-hub">
+            <header class="md-hub-hero">
+              <div class="md-hub-hero-copy">
+                <span class="md-hub-kicker">MISSION SETUP · DESK 1 OF 7</span>
+                <h2>Pick the question this mission will answer.</h2>
+                <p>One goal sets your budget, trip length, and the science your team must pack. Difficulty changes how much spare room you get. You can change this later.</p>
+              </div>
+              <div class="md-hub-hero-side">
+                <button type="button" id="btn-arch-apply-rec" class="md-safe-btn">Use a safe starter setup</button>
+                <span class="md-hero-hint">Fills all 7 desks with a working plan.</span>
+              </div>
+            </header>
 
-          ${specializationHtml}
+            <div class="md-role-line">
+              <span class="md-role-dot" style="background:${role.color};"></span>
+              <span><strong>${role.isMine ? "YOUR DESK" : "OPEN ROLE"}</strong> · ${this._escapeHtml(role.label)}</span>
+              <span class="md-role-owner">${roleOwnerText}</span>
+            </div>
 
-          <div style="margin-bottom:14px;">
-            <div style="font-family:monospace;font-size:11.5px;font-weight:700;letter-spacing:1.2px;color:#9aa4ae;margin-bottom:8px;">
-              STEP 1B · PICK DIFFICULTY &amp; BUDGET SIZE
-            </div>
-            <div style="display:flex;gap:10px;flex-wrap:wrap;">
-              ${diffBtns}
-            </div>
-          </div>
+            <section class="md-hub-step" aria-labelledby="md-hub-goal-title">
+              <div class="md-step-head">
+                <span class="md-step-tag">MISSION GOAL</span>
+                <div class="md-step-titles">
+                  <h3 id="md-hub-goal-title">What should this mission discover?</h3>
+                  <p>Choose one question. The right science tools come later.</p>
+                </div>
+              </div>
+              <div class="md-scenario-grid">${scenarioCards}</div>
+            </section>
 
-          <div style="padding:12px 14px;border-radius:4px;background:rgba(8,13,24,0.78);border:1px solid rgba(148,163,184,0.22);margin-bottom:16px;">
-            <div style="font-family:var(--font-mono,monospace);font-size:11.5px;font-weight:700;letter-spacing:1.1px;color:#93c5fd;margin-bottom:8px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-              <span>WHO DOES WHAT ON THE TEAM (EARTH TEAM &amp; SPACE TEAM)</span>
-              <span style="color:#94a3b8;font-weight:500;">Roles are picked automatically · Click [SWAP] on the left panel to trade</span>
-            </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;font-size:12px;color:#cbd5e1;margin-top:8px;">
-              ${(["flight_director", "ground_capcom", "commander", "engineer", "scientist", "specialist"]).map((rId) => {
-                const a = this._getRoleAssignment(rId);
-                const dutiesMap = {
-                  flight_director: "Earth Team · Gives the green light for launch and safe docking",
-                  ground_capcom: "Earth Team · Connects giant Earth dishes, backup power & science links",
-                  commander: "Space Team · Starts launch [L], steers docking & picks Mission Goal + Orbit",
-                  engineer: "Space Team · Retracts launch bridge [F], chooses Body, Solar, Radio & Engines",
-                  scientist: "Space Team · Aligns docking camera [3/4], picks Science Tools & Cooling",
-                  specialist: "Space Team · Helps teammates at any workstation and runs spacewalk checks"
-                };
-                return `
-                  <div style="padding:10px 12px;border-radius:4px;border:1px solid ${a.isMine ? "#2563eb" : "rgba(148,163,184,0.2)"};background:${a.isMine ? "rgba(37,99,235,0.14)" : "rgba(5,8,16,0.55)"};display:flex;flex-direction:column;gap:5px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-                      <strong style="color:${a.color};">[${a.short}] ${this._escapeHtml(a.label)}</strong>
-                      <span style="font-family:var(--font-mono,monospace);font-size:10.5px;color:${a.isUnstaffed ? "#94a3b8" : "#86efac"};">${this._escapeHtml(a.namesText)}${a.isMine ? " (YOU)" : ""}</span>
-                    </div>
-                    <div style="font-size:11.5px;color:#cbd5e1;line-height:1.45;">${dutiesMap[rId] || "Helps across all stations"}</div>
-                  </div>
-                `;
-              }).join("")}
-            </div>
-            <div style="font-size:12px;color:#cbd5e1;margin-top:10px;padding-top:8px;border-top:1px solid rgba(148,163,184,0.16);line-height:1.48;">
-              <strong style="color:#93c5fd;">Helpful Tip:</strong> ${t.scenario.tradeoffTip}
-            </div>
-          </div>
+            ${specializationHtml}
 
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
-            <span style="font-family:var(--font-mono,monospace);font-size:11.5px;color:#94a3b8;">
-              Chosen Mission: <strong style="color:#f8fafc;">${t.scenario.code}</strong> · Budget Limit: <strong style="color:#86efac;">$${t.budgetCapM}M</strong>
-            </span>
-            <button type="button" id="btn-commit-arch" style="padding:11px 22px;border-radius:4px;border:1px solid #f8fafc;background:#f8fafc;color:#050810;font-family:var(--font-mono,monospace);font-size:12px;font-weight:700;letter-spacing:1.2px;cursor:pointer;">
-              SAVE MISSION GOAL &amp; CONTINUE
-            </button>
+            <section class="md-hub-step" aria-labelledby="md-hub-diff-title">
+              <div class="md-step-head">
+                <span class="md-step-tag">DIFFICULTY</span>
+                <div class="md-step-titles">
+                  <h3 id="md-hub-diff-title">How much room do you want for mistakes?</h3>
+                  <p>Difficulty changes budget and safety margins — not the mission goal.</p>
+                </div>
+              </div>
+              <div class="md-diff-grid">${diffBtns}</div>
+            </section>
+
+            <details class="md-team-panel">
+              <summary>
+                <span class="md-team-title">Who does what on a team</span>
+                <span class="md-team-meta">6 roles · open only if you play with friends</span>
+              </summary>
+              <p class="md-team-intro">Solo? You can run every desk. With a team, each role covers different desks.</p>
+              <div class="md-role-grid">${rolesHtml}</div>
+            </details>
+
+            <footer class="md-hub-footer">
+              <div class="md-hub-summary">
+                <span class="md-summary-label">CURRENT SETUP</span>
+                <strong>${t.scenario.code} · ${t.scenario.name}</strong>
+                <span class="md-summary-meta">$${t.budgetCapM}M budget · ${t.scenario.targetLifetimeMonths} months · ${difficultyLabel}</span>
+              </div>
+              <button type="button" id="btn-commit-arch" class="md-commit-btn">Save goal &amp; continue →</button>
+            </footer>
           </div>
         `;
 
@@ -5570,7 +5757,7 @@
       if (mission) this.syncTasksFromMission(mission);
 
       if (checklistTitle) {
-        checklistTitle.textContent = window.isMobileDevice ? "OBJECTIVES" : "MISSION OBJECTIVES";
+        checklistTitle.textContent = "MISSION HUB";
       }
 
       let completedCount = 0;
@@ -5586,74 +5773,287 @@
       }
 
       if (!container) return;
-      container.innerHTML = "";
 
+      const rolesApi = window.InterfellasRoles;
+      const net = window.netManager;
+      const myRole = rolesApi && net && net.localPlayer
+        ? rolesApi.normalizeRole(net.localPlayer.role, "commander")
+        : "commander";
+      const localIsGround = !!(net && net.localPlayer && (
+        net.localPlayer.team === "ground" ||
+        (rolesApi && rolesApi.isGroundRole(myRole))
+      ));
+      if (typeof window.syncMissionHubRoleFilterForRole === "function") {
+        window.syncMissionHubRoleFilterForRole(myRole, localIsGround);
+      }
+      const roleFilter = typeof window.getMissionHubRoleFilter === "function"
+        ? window.getMissionHubRoleFilter()
+        : "all";
+      const phase = mission && mission.phase;
       const completedSet = new Set((mission && mission.completedObjectives) || []);
 
-      this.tasks.forEach((t) => {
+      const entries = this.tasks.map((t, index) => {
         const isCompleted = mission ? completedSet.has(t.id) : t.completed;
         const isAvailable = this.isTaskAvailable(t.id, mission);
         const isLocked = !isCompleted && !isAvailable;
         const lockReason = isLocked ? this.getTaskLockReason(t.id, mission) : "";
-        const phase = mission && mission.phase;
         const phaseLocked = !isCompleted && !!phase && phase !== "station" && t.id !== "task_antenna";
-        const isBlocked = isLocked || phaseLocked;
-        const blockedReason = phaseLocked ? "AVAILABLE INSIDE THE STATION" : lockReason;
-
-        const assign = this._getRoleAssignment(t.role);
-        const item = document.createElement("div");
-        item.className = `task-checklist-item ${isCompleted ? "done" : ""} ${isBlocked ? "locked" : ""} ${assign.isMine && !isCompleted ? "is-my-role" : ""}`;
-        item.style.cursor = isBlocked ? "not-allowed" : "pointer";
-        item.style.opacity = isBlocked ? "0.5" : "1";
-        if (assign.isMine && !isCompleted && !isBlocked) {
-          item.style.borderColor = "rgba(103, 232, 249, 0.45)";
-        }
-        item.title = isBlocked
-          ? blockedReason
-          : (isCompleted ? `Completed — click to review (${assign.badgeText})` : `Owner: ${assign.badgeText} — Click to open console`);
-
-        let badgeCls = "badge-all";
-        if (assign.role === "flight_director") badgeCls = "badge-fdir";
-        else if (assign.role === "ground_capcom") badgeCls = "badge-cap";
-        else if (assign.role === "commander") badgeCls = "badge-cmd";
-        else if (assign.role === "engineer") badgeCls = "badge-eng";
-        else if (assign.role === "scientist") badgeCls = "badge-sci";
-        else if (assign.role === "specialist") badgeCls = "badge-spc";
-        const roleBadge = `<span class="task-badge ${badgeCls}">${this._escapeHtml(assign.badgeText)}</span>`;
-
-        let statusIcon = "[ ]";
-        if (isCompleted) statusIcon = "DONE";
-        else if (phaseLocked) statusIcon = "ORBIT";
-        else if (isLocked) statusIcon = "LOCK";
-        else statusIcon = "OPEN";
-
-        item.innerHTML = `
-          <div class="task-status-icon" style="font-size:10px;font-family:var(--font-mono,monospace);font-weight:700;letter-spacing:0.4px;width:auto;min-width:40px;color:${isCompleted ? "#86efac" : isBlocked ? "#94a3b8" : "#93c5fd"};">${statusIcon}</div>
-          <div class="task-item-content">
-            <div class="task-title-row">
-              <span class="task-title-text">${t.name}</span>
-              ${roleBadge}
-            </div>
-            <div class="task-location-row">
-              <span class="task-loc-pin">LOC</span>
-              <span class="task-loc-text">${t.location}</span>
-            </div>
-            ${isBlocked && blockedReason ? `<div class="task-location-row" style="color:#fbbf24;font-size:10.5px;">[${phaseLocked ? "ORBIT" : "LOCK"}] ${blockedReason}</div>` : ""}
-          </div>
-        `;
-        item.addEventListener("click", () => {
-          if (isBlocked) {
-            if (window.gameplay) window.gameplay.showToast(`${phaseLocked ? "[ORBIT]" : "[LOCK]"} ${blockedReason || "COMPLETE THE PRIOR OBJECTIVE FIRST"}`);
-            if (window.spaceAudio) window.spaceAudio.playAlarm("warning");
-            return;
-          }
-          this.openTaskModal(t);
-        });
-        container.appendChild(item);
+        const assign = this._getRoleAssignment(this.getTaskRole(t));
+        const roleLocked = !assign.isMine;
+        const clickBlocked = !isCompleted && (isLocked || phaseLocked || roleLocked);
+        const blockedReason = phaseLocked
+          ? "AVAILABLE INSIDE THE STATION"
+          : isLocked
+            ? lockReason
+            : roleLocked
+              ? `ASSIGNED TO ${assign.label.toUpperCase()} · ${assign.namesText}`
+              : "";
+        return {
+          task: t,
+          order: index + 1,
+          isCompleted,
+          isAvailable,
+          isLocked,
+          phaseLocked,
+          assign,
+          roleId: assign.role,
+          roleLocked,
+          clickBlocked,
+          blockedReason
+        };
       });
+
+      const groups = new Map();
+      entries.forEach((entry) => {
+        if (!groups.has(entry.roleId)) groups.set(entry.roleId, []);
+        groups.get(entry.roleId).push(entry);
+      });
+
+      const groupOrder = [];
+      if (roleFilter !== "all") {
+        if (groups.has(roleFilter)) groupOrder.push(roleFilter);
+        if (groups.has("all") && roleFilter !== "all") groupOrder.push("all");
+      } else {
+        const flightOrder = rolesApi && Array.isArray(rolesApi.FLIGHT_ORDER)
+          ? rolesApi.FLIGHT_ORDER
+          : ["commander", "engineer", "scientist", "specialist"];
+        if (groups.has(myRole)) groupOrder.push(myRole);
+        flightOrder.forEach((role) => {
+          if (role !== myRole && groups.has(role)) groupOrder.push(role);
+        });
+        if (groups.has("all")) groupOrder.push("all");
+        groups.forEach((_, roleId) => {
+          if (!groupOrder.includes(roleId)) groupOrder.push(roleId);
+        });
+      }
+
+      const players = net && net.roomState && Array.isArray(net.roomState.players) ? net.roomState.players : [];
+      const groundRolesPresent = new Set(
+        players
+          .filter((p) => p && (p.team === "ground" || (rolesApi && rolesApi.isGroundRole(p.role))))
+          .map((p) => (rolesApi ? rolesApi.normalizeRole(p.role, "commander") : p.role))
+      );
+      if (rolesApi && rolesApi.isGroundRole(myRole)) groundRolesPresent.add(myRole);
+      const groundOrder = rolesApi && Array.isArray(rolesApi.GROUND_ORDER)
+        ? rolesApi.GROUND_ORDER
+        : ["flight_director", "ground_capcom"];
+      const supportRoleIds = roleFilter !== "all"
+        ? (rolesApi && rolesApi.isGroundRole(roleFilter) ? [roleFilter] : [])
+        : groundOrder.filter((roleId) => groundRolesPresent.has(roleId));
+
+      const groupsHtml = groupOrder
+        .map((roleId) => this._renderMissionHubRoleGroup(groups.get(roleId), {
+          roleId,
+          myRole,
+          rolesApi
+        }))
+        .join("");
+
+      let supportHtml = "";
+      supportRoleIds.forEach((roleId) => {
+        if (!window.getGroundSupportChecks || typeof window.getGroundSupportChecks !== "function") return;
+        const checks = window.getGroundSupportChecks(mission, roleId);
+        if (!checks || !checks.length) return;
+        supportHtml += this._renderMissionHubSupportGroup(roleId, checks, rolesApi);
+      });
+
+      if (!groupsHtml && !supportHtml) {
+        container.innerHTML = roleFilter === "all"
+          ? `<div class="hub-empty-filter"><span>Mission steps are loading…</span></div>`
+          : `
+            <div class="hub-empty-filter">
+              <span>No mission steps are assigned to this role right now.</span>
+              <button type="button" data-hub-clear-filter>SHOW ALL ROLES</button>
+            </div>
+          `;
+      } else {
+        container.innerHTML = groupsHtml + supportHtml;
+      }
+
+      container.onclick = (event) => {
+        const clear = event.target && event.target.closest ? event.target.closest("[data-hub-clear-filter]") : null;
+        if (clear) {
+          if (typeof window.setMissionHubRoleFilter === "function") window.setMissionHubRoleFilter("all");
+          return;
+        }
+        const item = event.target && event.target.closest ? event.target.closest("[data-hub-task-id]") : null;
+        if (!item) return;
+        const taskId = item.getAttribute("data-hub-task-id");
+        const entry = entries.find((candidate) => candidate.task.id === taskId);
+        if (!entry) return;
+        if (entry.clickBlocked) {
+          const prefix = entry.phaseLocked ? "[ORBIT]" : entry.isLocked ? "[LOCK]" : "[ROLE LOCK]";
+          this.showToast(`${prefix} ${entry.blockedReason || "COMPLETE THE PRIOR OBJECTIVE FIRST"}`);
+          if (window.spaceAudio) window.spaceAudio.playAlarm("warning");
+          return;
+        }
+        this.openTaskModal(entry.task);
+      };
+
+      container.onkeydown = (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        const item = event.target && event.target.closest ? event.target.closest("[data-hub-task-id]") : null;
+        if (!item) return;
+        event.preventDefault();
+        item.click();
+      };
+
+      container.querySelectorAll("[data-hub-task-id]").forEach((item) => {
+        item.setAttribute("aria-disabled", String(item.classList.contains("is-click-blocked")));
+      });
+
       if (typeof window.renderHudCrewRoster === "function") {
         window.renderHudCrewRoster();
       }
+    }
+
+    _renderMissionHubRoleGroup(entries, context) {
+      if (!entries || !entries.length) return "";
+      const rolesApi = context.rolesApi;
+      const roleId = context.roleId;
+      const meta = roleId === "all"
+        ? { short: "ALL", label: "ALL CREW", color: "#9a8fc4" }
+        : (rolesApi
+          ? rolesApi.getRoleMeta(roleId)
+          : { short: String(roleId).slice(0, 4).toUpperCase(), label: String(roleId).toUpperCase(), color: "#93c5fd" });
+      const assign = entries[0].assign;
+      const isMine = roleId !== "all" && roleId === context.myRole;
+      const dutyText = roleId === "all"
+        ? "Shared by the whole crew"
+        : ((meta.duties && meta.duties.station) || meta.primaryDuty || "");
+      const ownerText = `${assign.namesText}${dutyText ? ` · ${dutyText}` : ""}`;
+      const doneCount = entries.filter((entry) => entry.isCompleted).length;
+      const pct = entries.length ? Math.round((doneCount / entries.length) * 100) : 0;
+      const actionable = entries.find((entry) => entry.assign.isMine && !entry.isCompleted && !entry.isLocked && !entry.phaseLocked);
+      const actionableId = actionable ? actionable.task.id : null;
+      const tasksHtml = entries.map((entry) => {
+        return this._renderMissionHubTask(entry, {
+          isActionable: entry.task.id === actionableId
+        });
+      }).join("");
+      return `
+        <div class="hub-role-group${isMine ? " is-mine" : ""}" style="--role-color:${meta.color};">
+          <div class="hub-role-group-head">
+            <span class="hub-role-group-badge">${this._escapeHtml(meta.short)}</span>
+            <span class="hub-role-group-title">${this._escapeHtml(meta.label)}</span>
+            ${isMine ? `<span class="hub-role-group-you">YOUR ROLE</span>` : ""}
+            <span class="hub-role-group-count">${doneCount}/${entries.length}</span>
+          </div>
+          <div class="hub-role-group-owner" title="${this._escapeHtml(ownerText)}">${this._escapeHtml(ownerText)}${assign.isUnstaffed ? " · OPEN SEAT" : ""}</div>
+          <div class="hub-role-group-track"><i style="width:${pct}%"></i></div>
+          <div class="hub-role-group-tasks">${tasksHtml}</div>
+        </div>
+      `;
+    }
+
+    _renderMissionHubTask(entry, options) {
+      const task = entry.task;
+      const taskTitle = String(task.name || "Mission step").replace(/^\s*\d+\.\s*/, "");
+      const roleMine = entry.assign.isMine;
+      const isActionable = !!options.isActionable && roleMine;
+      const status = entry.isCompleted
+        ? "DONE"
+        : entry.phaseLocked
+          ? "IN ORBIT"
+          : entry.isLocked
+            ? "LOCKED"
+            : isActionable
+              ? "DO THIS"
+              : roleMine
+                ? "READY"
+                : "ASSIGNED";
+      const statusClass = entry.isCompleted
+        ? "is-done"
+        : entry.phaseLocked
+          ? "is-orbit"
+          : entry.isLocked
+            ? "is-locked"
+            : isActionable
+              ? "is-todo"
+              : roleMine
+                ? "is-ready"
+                : "is-crew";
+      const classes = [
+        "hub-task-item",
+        entry.isCompleted ? "is-complete" : "",
+        entry.isLocked || entry.phaseLocked ? "is-locked" : "",
+        roleMine ? "is-mine" : "is-other-role",
+        isActionable ? "is-actionable" : "",
+        entry.clickBlocked ? "is-click-blocked" : ""
+      ].filter(Boolean).join(" ");
+      const note = entry.phaseLocked
+        ? `<div class="hub-task-note">Opens inside the station</div>`
+        : entry.isLocked
+          ? `<div class="hub-task-note">${this._escapeHtml(entry.blockedReason || "Complete earlier steps first")}</div>`
+          : "";
+      const title = entry.isCompleted
+        ? `Completed — assigned to ${entry.assign.badgeText}`
+        : entry.clickBlocked
+          ? entry.blockedReason
+          : `Owner: ${entry.assign.badgeText} — Click to open console`;
+      return `
+        <div class="${classes}" data-hub-task-id="${this._escapeHtml(task.id)}" role="button" tabindex="0" title="${this._escapeHtml(title)}">
+          <div class="hub-task-number">${String(entry.order).padStart(2, "0")}</div>
+          <div class="hub-task-body">
+            <div class="hub-task-title-row">
+              <span class="hub-task-title">${this._escapeHtml(taskTitle)}</span>
+              <span class="hub-task-status ${statusClass}">${status}</span>
+            </div>
+            <div class="hub-task-meta">
+              <span class="hub-task-room">${this._escapeHtml(task.code || task.room || "OPS")}</span>
+              <span class="hub-task-loc">${this._escapeHtml(task.location || task.room || "Workstation")}</span>
+            </div>
+            ${note}
+          </div>
+        </div>
+      `;
+    }
+
+    _renderMissionHubSupportGroup(roleId, checks, rolesApi) {
+      const meta = rolesApi
+        ? rolesApi.getRoleMeta(roleId)
+        : { short: String(roleId).slice(0, 4).toUpperCase(), label: String(roleId).toUpperCase(), color: "#93c5fd" };
+      const doneCount = checks.filter((check) => check.done).length;
+      const pct = checks.length ? Math.round((doneCount / checks.length) * 100) : 0;
+      const rows = checks.map((check) => `
+        <div class="hub-support-row${check.done ? " is-done" : ""}">
+          <span class="hub-support-dot"></span>
+          <span class="hub-support-label">${this._escapeHtml(check.label)}</span>
+          <span class="hub-support-state">${check.done ? "OK" : "PENDING"}</span>
+        </div>
+      `).join("");
+      return `
+        <div class="hub-role-group hub-support-group" style="--role-color:${meta.color};">
+          <div class="hub-role-group-head">
+            <span class="hub-role-group-badge">${this._escapeHtml(meta.short)}</span>
+            <span class="hub-role-group-title">${this._escapeHtml(meta.label)} SUPPORT</span>
+            <span class="hub-role-group-count">${doneCount}/${checks.length}</span>
+          </div>
+          <div class="hub-role-group-owner">Ground Desk [C] · live Earth checks</div>
+          <div class="hub-role-group-track"><i style="width:${pct}%"></i></div>
+          <div class="hub-support-list">${rows}</div>
+        </div>
+      `;
     }
 
     getGroundTelemetrySummary() {

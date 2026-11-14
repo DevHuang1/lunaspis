@@ -138,6 +138,8 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .title-chip-btn {
@@ -158,6 +160,37 @@ body {
 .title-chip-btn:hover {
   border-color: var(--accent-cyan);
   color: var(--accent-cyan);
+}
+
+.title-region-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.title-region-btn[hidden],
+.lobby-region-badge[hidden] {
+  display: none;
+}
+
+.region-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-cyan);
+  box-shadow: 0 0 8px var(--accent-cyan);
+}
+
+.lobby-region-badge {
+  padding: 3px 7px;
+  border: 1px solid var(--border-hairline);
+  border-radius: 3px;
+  color: var(--accent-sage);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.1px;
+  white-space: nowrap;
 }
 
 .title-auth-pill {
@@ -3788,6 +3821,53 @@ body.telemetry-collapsed #space-center-ground-hud {
   border-color: rgba(103, 232, 249, 0.75);
   background: rgba(16, 60, 78, 0.85);
   color: #a5f3fc;
+}
+
+/* ==========================================================================
+   GROUND EXPLORATION MODE — walking tour & open car
+   The site tour is a view-first mode. Keep the mission paperwork, telemetry
+   resources and the long tool row out of the camera until asked for.
+   ========================================================================== */
+#btn-hud-more {
+  display: none !important;
+}
+
+body.ground-explore-active #btn-hud-more {
+  display: inline-flex !important;
+}
+
+body.ground-explore-active #hud-voice-panel .voice-sub-row {
+  display: none !important;
+}
+
+body.ground-explore-active:not(.hud-tools-expanded) .voice-header-row > .voice-mic-btn:not(#btn-camera-mode):not(#btn-voice-mic):not(#btn-sband-radio):not(#btn-hud-more),
+body.ground-explore-active:not(.hud-tools-expanded) .voice-header-row > .voice-settings-btn {
+  display: none !important;
+}
+
+body.ground-explore-active .hud-race-bar-container,
+body.ground-explore-active .hud-checklist-panel,
+body.ground-explore-active #lunaspis-resource-meters,
+body.ground-explore-active #btn-telemetry-toggle,
+body.ground-explore-active #lunaspis-ship-minimap,
+body.ground-explore-active #hud-crosshair {
+  display: none !important;
+}
+
+/* Driving gets one compact strip, not the site-tour dock plus the car card. */
+body.ground-car-driving #space-center-ground-hud,
+body.ground-car-driving #btn-proximity-use {
+  display: none !important;
+}
+
+body.ground-site-tour #space-center-ground-hud.is-collapsed {
+  min-width: 0;
+  max-width: calc(100vw - 24px);
+  padding: 4px 8px;
+}
+
+body.ground-site-tour #space-center-ground-hud.is-collapsed .sc-hud-primary {
+  gap: 4px;
 }
 
 #ship-interior-hud {

@@ -3591,3 +3591,752 @@ textarea:focus-visible {
     scroll-behavior: auto !important;
   }
 }
+
+/* ---------- Ground action buttons: disabled state (restored from local WIP) ---------- */
+.ground-action-btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  filter: grayscale(0.45);
+}
+
+.ground-action-btn:disabled:hover {
+  border-color: inherit;
+}
+
+/* ==========================================================================
+   MISSION HUB — role-first objectives panel
+   ========================================================================== */
+
+.hud-checklist-panel {
+  padding: 0;
+  gap: 0;
+  border-color: var(--ui-border);
+}
+
+.hud-checklist-panel .hud-checklist-header {
+  padding: 10px 12px 9px;
+  margin: 0;
+  border-bottom: 1px solid var(--ui-divider);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0));
+}
+
+#hud-checklist-title {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.checklist-count-pill {
+  font-size: 9.5px;
+  padding: 2px 7px;
+  border-color: var(--ui-brand-line);
+  background: var(--ui-brand-soft);
+  color: var(--ui-brand-strong);
+}
+
+.hud-crew-roster {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px 11px;
+  border: 0;
+  border-bottom: 1px solid var(--ui-divider);
+  border-radius: 0;
+  background: transparent;
+  font-family: var(--ui-font-mono);
+}
+
+.hub-filter-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.hub-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.hub-filter-btn {
+  appearance: none;
+  padding: 4px 8px;
+  border-radius: 3px;
+  border: 1px solid var(--ui-border);
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--ui-text-muted);
+  font-family: var(--ui-font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: border-color var(--ui-dur-fast) var(--ui-ease), background var(--ui-dur-fast) var(--ui-ease), color var(--ui-dur-fast) var(--ui-ease);
+}
+
+.hub-filter-btn:hover {
+  border-color: var(--ui-brand-line);
+  color: var(--ui-text);
+}
+
+.hub-filter-btn.is-active {
+  border-color: var(--ui-brand-line);
+  background: var(--ui-brand-soft);
+  color: var(--ui-brand-strong);
+}
+
+.hub-filter-current {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  border-radius: 2px;
+  border: 1px solid var(--ui-border);
+  color: var(--ui-text-dim);
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.hub-crew-zone {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hub-crew-zone-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  color: var(--ui-text-dim);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+}
+
+.hub-crew-zone-head span:last-child {
+  color: var(--ui-text-dim);
+  letter-spacing: 0.06em;
+}
+
+.hub-role-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+  gap: 4px;
+}
+
+.hub-role-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 6px 7px 6px 8px;
+  border: 1px solid var(--ui-border);
+  border-left: 3px solid var(--role-color, var(--ui-brand));
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  outline: none;
+  transition: background var(--ui-dur-fast) var(--ui-ease), border-color var(--ui-dur-fast) var(--ui-ease);
+}
+
+.hub-role-card:hover,
+.hub-role-card:focus-visible {
+  border-color: var(--ui-brand-line);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.hub-role-card.is-self {
+  background: var(--ui-brand-soft);
+}
+
+.hub-role-card.is-active {
+  border-color: var(--role-color, var(--ui-brand));
+  background: rgba(208, 161, 92, 0.14);
+  box-shadow: inset 0 0 0 1px var(--role-color, var(--ui-brand));
+}
+
+.hub-role-card.is-empty {
+  border-style: dashed;
+  border-left-style: dashed;
+  border-left-color: var(--ui-border);
+  opacity: 0.62;
+  cursor: default;
+}
+
+.hub-role-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  min-width: 0;
+}
+
+.hub-role-card-badge {
+  color: var(--role-color, var(--ui-brand-strong));
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hub-role-card-state {
+  flex: 0 0 auto;
+  color: var(--ui-text-dim);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.hub-role-card-name {
+  color: var(--ui-text);
+  font-family: var(--ui-font-sans);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hub-role-card-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  min-height: 13px;
+}
+
+.hub-role-card-count {
+  color: var(--ui-text-dim);
+  font-size: 7.5px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.hub-role-card-count strong {
+  color: var(--role-color, var(--ui-brand-strong));
+  font-size: 9px;
+}
+
+.hub-role-swap {
+  appearance: none;
+  padding: 1px 4px;
+  border: 1px solid var(--ui-border);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--ui-text-muted);
+  font-family: var(--ui-font-mono);
+  font-size: 6.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.hub-role-swap:hover {
+  border-color: var(--role-color, var(--ui-brand-line));
+  color: var(--ui-text);
+}
+
+.hub-role-swap:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.hub-zone-empty {
+  padding: 2px 1px 1px;
+  color: var(--ui-text-dim);
+  font-family: var(--ui-font-sans);
+  font-size: 8.5px;
+  line-height: 1.35;
+}
+
+.hub-callout {
+  padding: 8px 9px;
+  border: 1px solid var(--ui-brand-line);
+  border-radius: var(--ui-radius-sm);
+  background: linear-gradient(180deg, rgba(208, 161, 92, 0.12), rgba(208, 161, 92, 0.03));
+}
+
+.hub-callout-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 3px;
+  color: var(--ui-brand-strong);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+}
+
+.hub-callout-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--ui-brand);
+  animation: hub-pulse 1.8s ease-in-out infinite;
+}
+
+.hub-callout-body {
+  color: var(--ui-text-muted);
+  font-family: var(--ui-font-sans);
+  font-size: 10px;
+  line-height: 1.42;
+}
+
+.hub-callout-body strong {
+  color: var(--ui-text);
+}
+
+.hud-task-list-body {
+  gap: 6px;
+  padding: 9px 11px 10px;
+  max-height: 320px;
+}
+
+.hub-role-group {
+  overflow: hidden;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.hub-role-group.is-mine {
+  border-color: var(--ui-brand-line);
+  background: rgba(208, 161, 92, 0.045);
+}
+
+.hub-role-group-head {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 7px 8px 1px;
+}
+
+.hub-role-group-badge {
+  flex: 0 0 auto;
+  color: var(--role-color, var(--ui-brand-strong));
+  font-family: var(--ui-font-mono);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+}
+
+.hub-role-group-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--ui-text-muted);
+  font-family: var(--ui-font-mono);
+  font-size: 8px;
+  letter-spacing: 0.07em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hub-role-group-you {
+  flex: 0 0 auto;
+  padding: 1px 4px;
+  border: 1px solid var(--ui-brand-line);
+  border-radius: 2px;
+  background: var(--ui-brand-soft);
+  color: var(--ui-brand-strong);
+  font-family: var(--ui-font-mono);
+  font-size: 6.5px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+
+.hub-role-group-count {
+  flex: 0 0 auto;
+  color: var(--role-color, var(--ui-brand-strong));
+  font-family: var(--ui-font-mono);
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.hub-role-group-owner {
+  padding: 0 8px;
+  color: var(--ui-text-dim);
+  font-family: var(--ui-font-mono);
+  font-size: 7.5px;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hub-role-group-track {
+  height: 2px;
+  margin: 4px 8px 5px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.hub-role-group-track i {
+  display: block;
+  height: 100%;
+  border-radius: 1px;
+  background: var(--role-color, var(--ui-brand));
+  transition: width var(--ui-dur) var(--ui-ease);
+}
+
+.hub-role-group-tasks {
+  display: flex;
+  flex-direction: column;
+  padding: 0 4px 4px;
+}
+
+.hub-task-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 5px 6px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+  transition: background var(--ui-dur-fast) var(--ui-ease), border-color var(--ui-dur-fast) var(--ui-ease);
+}
+
+.hub-task-item + .hub-task-item {
+  border-top-color: var(--ui-divider);
+}
+
+.hub-task-item:hover,
+.hub-task-item:focus-visible {
+  border-color: var(--ui-brand-line);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.hub-task-item.is-actionable {
+  border-color: var(--ui-brand-line);
+  background: var(--ui-brand-soft);
+}
+
+.hub-task-item.is-actionable:hover {
+  background: rgba(208, 161, 92, 0.2);
+}
+
+.hub-task-item.is-locked {
+  opacity: 0.62;
+}
+
+.hub-task-item.is-complete {
+  opacity: 0.5;
+}
+
+.hub-task-number {
+  flex: 0 0 auto;
+  min-width: 13px;
+  padding-top: 1px;
+  color: var(--ui-text-dim);
+  font-family: var(--ui-font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.hub-task-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hub-task-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 5px;
+  min-width: 0;
+}
+
+.hub-task-title {
+  min-width: 0;
+  color: var(--ui-text);
+  font-family: var(--ui-font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.32;
+}
+
+.hub-task-item.is-complete .hub-task-title {
+  color: var(--ui-text-muted);
+  text-decoration: line-through;
+}
+
+.hub-task-status {
+  flex: 0 0 auto;
+  padding: 1px 4px;
+  border: 1px solid var(--ui-border);
+  border-radius: 2px;
+  color: var(--ui-text-dim);
+  font-family: var(--ui-font-mono);
+  font-size: 6.5px;
+  font-weight: 800;
+  letter-spacing: 0.045em;
+  white-space: nowrap;
+}
+
+.hub-task-status.is-todo {
+  border-color: var(--ui-brand-line);
+  background: var(--ui-brand-soft);
+  color: var(--ui-brand-strong);
+}
+
+.hub-task-status.is-ready {
+  border-color: var(--ui-border-strong);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ui-text-muted);
+}
+
+.hub-task-status.is-crew {
+  border-color: var(--ui-border);
+  background: transparent;
+  color: var(--ui-text-dim);
+}
+
+.hub-task-status.is-orbit {
+  border-color: rgba(131, 168, 150, 0.35);
+  background: rgba(131, 168, 150, 0.1);
+  color: #a9c4b8;
+}
+
+.hub-task-status.is-locked {
+  border-color: rgba(208, 161, 92, 0.38);
+  background: rgba(208, 161, 92, 0.1);
+  color: var(--ui-brand-strong);
+}
+
+.hub-task-status.is-done {
+  border-color: rgba(131, 168, 150, 0.4);
+  background: rgba(131, 168, 150, 0.12);
+  color: #a9c4b8;
+}
+
+.hub-task-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  color: var(--ui-text-dim);
+  font-family: var(--ui-font-mono);
+  font-size: 7.5px;
+  line-height: 1.3;
+}
+
+.hub-task-room {
+  flex: 0 0 auto;
+  padding: 0 3px;
+  border: 1px solid var(--ui-brand-line);
+  border-radius: 2px;
+  color: var(--ui-brand-strong);
+  font-weight: 700;
+}
+
+.hub-task-loc {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hub-task-note {
+  color: var(--ui-brand-strong);
+  font-family: var(--ui-font-sans);
+  font-size: 8.5px;
+  line-height: 1.35;
+}
+
+.hub-support-list {
+  display: flex;
+  flex-direction: column;
+  padding: 0 7px 6px;
+}
+
+.hub-support-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 1px;
+  border-top: 1px solid var(--ui-divider);
+  color: var(--ui-text-muted);
+  font-family: var(--ui-font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.03em;
+}
+
+.hub-support-row:first-child {
+  border-top: 0;
+}
+
+.hub-support-dot {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border: 1px solid var(--ui-border-strong);
+  border-radius: 50%;
+  background: transparent;
+}
+
+.hub-support-label {
+  flex: 1 1 auto;
+}
+
+.hub-support-state {
+  flex: 0 0 auto;
+  color: var(--ui-text-dim);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.hub-support-row.is-done .hub-support-dot {
+  border-color: var(--ui-ok);
+  background: var(--ui-ok);
+}
+
+.hub-support-row.is-done .hub-support-label {
+  color: #a9c4b8;
+}
+
+.hub-support-row.is-done .hub-support-state {
+  color: var(--ui-ok);
+}
+
+.hub-empty-filter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 8px;
+  color: var(--ui-text-muted);
+  font-family: var(--ui-font-sans);
+  font-size: 9.5px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.hub-empty-filter button {
+  appearance: none;
+  padding: 3px 8px;
+  border: 1px solid var(--ui-brand-line);
+  border-radius: 3px;
+  background: var(--ui-brand-soft);
+  color: var(--ui-brand-strong);
+  font-family: var(--ui-font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  cursor: pointer;
+}
+
+.hub-empty-filter button:hover {
+  border-color: var(--ui-brand);
+  background: rgba(208, 161, 92, 0.2);
+}
+
+@keyframes hub-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(208, 161, 92, 0.32); }
+  50% { opacity: 0.6; box-shadow: 0 0 0 3px rgba(208, 161, 92, 0); }
+}
+
+@media (max-width: 900px) {
+  .hud-crew-roster {
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .hud-task-list-body {
+    padding: 7px 8px;
+    max-height: 250px;
+  }
+
+  .hub-role-card {
+    padding: 5px 6px;
+  }
+
+  .hub-callout {
+    padding: 7px 8px;
+  }
+
+  .hub-callout-body {
+    font-size: 9.5px;
+  }
+
+  .hub-task-title {
+    font-size: 10.5px;
+  }
+}
+
+@media (max-width: 640px) {
+  .hud-task-list-body {
+    max-height: 220px;
+  }
+
+  .hub-filter-current {
+    display: none;
+  }
+}
+
+@media (max-width: 540px) {
+  .hud-checklist-panel .hud-checklist-header {
+    padding: 8px 9px;
+  }
+
+  #hud-checklist-title {
+    font-size: 9.5px;
+    letter-spacing: 0.02em;
+  }
+}
+
+@media (max-width: 560px) {
+  .hub-role-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hub-role-card {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .hub-role-card-top {
+    flex: 0 0 auto;
+  }
+
+  .hub-role-card-name {
+    flex: 1 1 auto;
+  }
+
+  .hub-role-card-bottom {
+    flex: 0 0 auto;
+  }
+
+  .hub-role-card-count {
+    display: none;
+  }
+}
+
+@media (max-height: 520px) and (max-width: 900px) {
+  .hud-task-list-body {
+    max-height: 70px;
+  }
+
+  .hub-role-card {
+    padding: 4px 5px;
+  }
+
+  .hub-role-card-name {
+    font-size: 9.5px;
+  }
+}
