@@ -67,7 +67,7 @@
   let toggleSystemsSettingsModal = null, toggleDiagnosticsOverlay = null;
 
   const defaultPerfSettings = {
-    renderScale: isMobile ? 85 : 100,
+    renderScale: isMobile ? 95 : 100,
     cinematicPreset: isMobile ? "off" : "balanced",
     fpsCap: 60,
     lightingQuality: isMobile ? "low" : "high",
@@ -130,7 +130,7 @@
     );
     // Mobile GPUs hit thermal/fill-rate limits sooner, so allow DRS to fall a
     // little further before the frame rate becomes visibly unstable.
-    const drsFloor = isMobile ? 0.6 : 0.7;
+    const drsFloor = isMobile ? 0.7 : 0.7;
     const drs = Math.max(drsFloor, Math.min(1.0, Number(dynamicResolutionMultiplier) || 1.0));
     return Math.max(isMobile ? 0.3 : 0.35, Math.min(MAX_RENDER_SCALE, userScale * drs));
   }
@@ -1056,6 +1056,12 @@
       });
     }
 
+    function syncSpaceGamesLock() {
+      if (window.csaNasaLab && typeof window.csaNasaLab.syncGroundLockState === "function") {
+        window.csaNasaLab.syncGroundLockState();
+      }
+    }
+
     function cleanupGameWorldForLobby() {
       isGameStarted = false;
       window.isGameStarted = false;
@@ -1070,8 +1076,10 @@
         "shuttle-mode-active",
         "solar-system-active",
         "vr-stereo-active",
-        "vr-webxr-active"
+        "vr-webxr-active",
+        "space-games-ground-locked"
       );
+      syncSpaceGamesLock();
 
       if (window.shuttleGame && window.shuttleGame.isActive && typeof window.shuttleGame.exit === "function") {
         window.shuttleGame.exit();
@@ -1919,6 +1927,7 @@
           window.spaceCenter._renderLccConsole();
         }
       }
+      syncSpaceGamesLock();
       if (typeof window.renderSwapBanners === "function") {
         window.renderSwapBanners();
       }
@@ -1937,6 +1946,7 @@
       if (window.spaceCenter && typeof window.spaceCenter.syncLocalRoleChange === "function") {
         window.spaceCenter.syncLocalRoleChange();
       }
+      syncSpaceGamesLock();
       if (window.gameplay) {
         if (typeof window.gameplay.updateTaskListUI === "function") window.gameplay.updateTaskListUI();
         if (typeof window.gameplay.showToast === "function") {
@@ -1962,6 +1972,7 @@
       if (window.spaceCenter && typeof window.spaceCenter.syncLocalRoleChange === "function") {
         window.spaceCenter.syncLocalRoleChange();
       }
+      syncSpaceGamesLock();
       if (window.gameplay && typeof window.gameplay.updateTaskListUI === "function") {
         window.gameplay.updateTaskListUI();
       }
@@ -2035,6 +2046,7 @@
         isGameStarted = true;
         window.isGameStarted = true;
         document.body.classList.add("game-active", "shuttle-mode-active");
+        syncSpaceGamesLock();
         screenGame.style.display = "none";
         const resBar = document.getElementById("lunaspis-resource-meters");
         if (resBar) resBar.style.display = "none";
@@ -2061,6 +2073,7 @@
         isGameStarted = true;
         window.isGameStarted = true;
         document.body.classList.add("game-active");
+        syncSpaceGamesLock();
         screenGame.style.display = "flex";
         syncResponsiveHudState();
         const resBar = document.getElementById("lunaspis-resource-meters");
@@ -2302,10 +2315,10 @@
       const active = scenario.id === selected.id;
       return `
         <button type="button" data-scenario-id="${escapeHtml(scenario.id)}" style="
-          flex:1 1 170px;
-          min-width:170px;
+          flex:1 1 190px;
+          min-width:190px;
           text-align:left;
-          padding:10px;
+          padding:13px 14px;
           border-radius:8px;
           border:1px solid ${active ? "#67e8f9" : "rgba(255,255,255,0.12)"};
           background:${active ? "rgba(103,232,249,0.10)" : "rgba(255,255,255,0.025)"};
@@ -2315,10 +2328,10 @@
           opacity:${canSelect ? "1" : "0.82"};
           transition:all 0.15s;
         ">
-          <div style="font-family:monospace;font-size:8.5px;font-weight:700;color:#67e8f9;letter-spacing:1.1px;">${escapeHtml(scenario.badge)}</div>
-          <div style="font-size:11px;font-weight:700;color:#ece7dc;margin:4px 0 3px;">${escapeHtml(scenario.code)} · ${escapeHtml(scenario.name)}</div>
-          <div style="font-size:9.5px;color:#9aa4ae;line-height:1.35;height:39px;overflow:hidden;">${escapeHtml(scenario.summary)}</div>
-          <div style="display:flex;justify-content:space-between;margin-top:6px;font-family:monospace;font-size:8.5px;color:#7fb8a6;">
+          <div style="font-family:monospace;font-size:10.5px;font-weight:700;color:#67e8f9;letter-spacing:0.9px;">${escapeHtml(scenario.badge)}</div>
+          <div style="font-size:13px;font-weight:700;color:#ece7dc;margin:5px 0 4px;">${escapeHtml(scenario.code)} · ${escapeHtml(scenario.name)}</div>
+          <div style="font-size:11.5px;color:#9aa4ae;line-height:1.48;min-height:48px;">${escapeHtml(scenario.summary)}</div>
+          <div style="display:flex;justify-content:space-between;margin-top:8px;font-family:monospace;font-size:10.5px;color:#7fb8a6;">
             <span>$${Number(scenario.baseBudgetM || 0)}M CAP</span>
             <span>${Number(scenario.targetLifetimeMonths || 0)} MO</span>
           </div>
@@ -2331,15 +2344,15 @@
         const active = difficulty.id === selectedDifficultyId;
         return `
           <button type="button" data-difficulty-id="${escapeHtml(difficulty.id)}" title="${escapeHtml(difficulty.desc)}" style="
-            padding:5px 9px;
+            padding:6px 12px;
             border-radius:999px;
             border:1px solid ${active ? "#d0a15c" : "rgba(255,255,255,0.14)"};
             background:${active ? "rgba(208,161,92,0.16)" : "rgba(255,255,255,0.03)"};
             color:${active ? "#fde68a" : "#9aa4ae"};
             font-family:monospace;
-            font-size:9px;
+            font-size:11px;
             font-weight:700;
-            letter-spacing:0.8px;
+            letter-spacing:0.6px;
             cursor:${canSelect ? "pointer" : "default"};
           ">${escapeHtml(String(difficulty.name || difficulty.id).split("(")[0].trim().toUpperCase())}</button>
         `;
@@ -2415,10 +2428,10 @@
           return dep ? dep.room : id;
         });
         return `
-          <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
-            <span style="font-family:monospace;font-size:9px;font-weight:700;color:${done ? "#34d399" : "#67e8f9"};min-width:38px;">${escapeHtml(objective.room)}</span>
-            <span style="flex:1;font-size:11px;color:${done ? "#7fb8a6" : "#ece7dc"};">${escapeHtml(objective.title)}</span>
-            <span style="font-family:monospace;font-size:8.5px;color:#9aa4ae;">${done ? "COMPLETE" : deps.length ? "AFTER " + deps.join("+") : "FIRST"}</span>
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);">
+            <span style="font-family:monospace;font-size:11px;font-weight:700;color:${done ? "#34d399" : "#67e8f9"};min-width:46px;">${escapeHtml(objective.room)}</span>
+            <span style="flex:1;font-size:12.5px;line-height:1.45;color:${done ? "#7fb8a6" : "#ece7dc"};">${escapeHtml(objective.title)}</span>
+            <span style="font-family:monospace;font-size:10.5px;color:#9aa4ae;">${done ? "COMPLETE" : deps.length ? "AFTER " + deps.join("+") : "FIRST"}</span>
           </div>
         `;
       }).join("");
@@ -2924,6 +2937,14 @@
     window.addEventListener("keydown", (e) => {
       if (window.shuttleGame && window.shuttleGame.isActive) return;
       if (e.code === "Escape" || e.key === "Escape") {
+        if (window.csaNasaLab && window.csaNasaLab.modalEl && window.csaNasaLab.modalEl.style.display && window.csaNasaLab.modalEl.style.display !== "none") {
+          window.csaNasaLab.closeModal();
+          return;
+        }
+        if (window.spaceCenter && window.spaceCenter.lccConsoleOpen && typeof window.spaceCenter.openLccConsole === "function") {
+          window.spaceCenter.openLccConsole(false);
+          return;
+        }
         if (emoteWheelOpen) {
           setEmoteWheelOpen(false);
           return;
@@ -2964,7 +2985,7 @@
       const tTag = e.target && e.target.tagName ? e.target.tagName : "";
       if (tTag === "INPUT" || tTag === "TEXTAREA" || tTag === "SELECT" || (e.target && e.target.isContentEditable)) return;
 
-      const blockingOverlay = ["modal-auth", "modal-academy", "modal-mission-log", "modal-station-systems", "task-modal-overlay", "victory-overlay", "mission-briefing-overlay"]
+      const blockingOverlay = ["modal-auth", "modal-academy", "modal-mission-log", "modal-station-systems", "task-modal-overlay", "victory-overlay", "mission-briefing-overlay", "csa-nasa-lab-modal", "glb-hangar-modal"]
         .some((id) => {
           const el = document.getElementById(id);
           return el && el.style.display && el.style.display !== "none";
