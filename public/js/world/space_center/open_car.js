@@ -1024,7 +1024,11 @@
 
       // Steering authority shrinks a little at high speed for stable arcs.
       const maxSteer = 0.54 - Math.min(0.36, Math.abs(this.speed) * 0.022);
-      const steerTarget = Math.max(-1, Math.min(1, (right - left) + joyX)) * maxSteer;
+      // The chase camera sits behind the car and looks along +Z, so world +X
+      // appears on the LEFT of the screen. Invert the input here so D / right
+      // stick actually turns the car to the viewer's right.
+      const steerInput = Math.max(-1, Math.min(1, (left - right) - joyX));
+      const steerTarget = steerInput * maxSteer;
       this.steer += (steerTarget - this.steer) * Math.min(1, delta * 7.5);
 
       if (Math.abs(this.speed) > 0.015) {
@@ -1108,7 +1112,7 @@
           : { pitch: 0, roll: 0 };
       const accel = (this.speed - previousSpeed) / Math.max(0.001, delta);
       const dynPitch = Math.max(-0.045, Math.min(0.045, -accel * 0.0032));
-      const dynRoll = (-this.steer * Math.abs(this.speed) / MAX_FORWARD_SPEED) * 0.1;
+      const dynRoll = (this.steer * Math.abs(this.speed) / MAX_FORWARD_SPEED) * 0.1;
       const targetPitch = slope.pitch + dynPitch;
       const targetRoll = slope.roll + dynRoll;
       this._bodyPitch += (targetPitch - this._bodyPitch) * Math.min(1, delta * 9);
