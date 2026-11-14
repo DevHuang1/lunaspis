@@ -2226,6 +2226,23 @@
       const rimMat = new THREE.MeshStandardMaterial({ color: 0x76858e, metalness: 0.58, roughness: 0.38 });
       const innerRimMat = new THREE.MeshStandardMaterial({ color: 0xd2dce0, metalness: 0.25, roughness: 0.5 });
       const statusMat = new THREE.MeshStandardMaterial({ color: 0x65e6ba, emissive: 0x28b68a, emissiveIntensity: 0.8 });
+      // The bulkhead around each hatch used to be a flat, untextured slab and
+      // read as an unfinished wall beside the racks. Tie it into the module
+      // panelling and add an explicit structural frame.
+      const hatchWallMap = textures.wall.clone();
+      hatchWallMap.wrapS = hatchWallMap.wrapT = THREE.RepeatWrapping;
+      hatchWallMap.repeat.set(0.34, 0.34);
+      hatchWallMap.needsUpdate = true;
+      const hatchWallMaterial = new THREE.MeshStandardMaterial({
+        map: hatchWallMap,
+        color: 0xc4cdcc,
+        roughness: 0.72,
+        metalness: 0.17,
+        side: THREE.DoubleSide
+      });
+      const hatchBulkheadMat = new THREE.MeshStandardMaterial({ color: 0x7f8e92, roughness: 0.56, metalness: 0.34 });
+      const hatchLeafMat = new THREE.MeshStandardMaterial({ color: 0x9da9a8, roughness: 0.58, metalness: 0.3 });
+      const hatchHardwareMat = new THREE.MeshStandardMaterial({ color: 0x51656d, roughness: 0.46, metalness: 0.5 });
       const hatch = (x, z, alongX, code, label) => {
         const portal = new THREE.Group();
         portal.position.set(x, 1.08, z);
@@ -2240,10 +2257,35 @@
         const opening = new THREE.Path();
         opening.absarc(0, 0, 1.08, 0, Math.PI * 2, true);
         shell.holes.push(opening);
-        const pressureWall = new THREE.Mesh(new THREE.ShapeGeometry(shell, 32),
-          new THREE.MeshStandardMaterial({ color: 0xb9c5c8, roughness: 0.68, metalness: 0.18, side: THREE.DoubleSide }));
+        const pressureWall = new THREE.Mesh(new THREE.ShapeGeometry(shell, 32), hatchWallMaterial);
         pressureWall.position.z = -0.04;
         portal.add(pressureWall);
+        // Finished bulkhead frame: side posts, head and sill hide the raw
+        // pressure-wall edges and make the hatch sit in a real structural bay.
+        [
+          { size: [0.1, 2.9, 0.14], position: [-1.5, 0.34, -0.02] },
+          { size: [0.1, 2.9, 0.14], position: [1.5, 0.34, -0.02] },
+          { size: [3.1, 0.1, 0.14], position: [0, 1.79, -0.02] },
+          { size: [3.1, 0.1, 0.14], position: [0, -1.1, -0.02] }
+        ].forEach((piece) => {
+          const frame = new THREE.Mesh(new THREE.BoxGeometry(...piece.size), hatchBulkheadMat);
+          frame.position.set(...piece.position);
+          portal.add(frame);
+        });
+        const frameBolts = new THREE.InstancedMesh(new THREE.SphereGeometry(0.022, 6, 4),
+          hatchHardwareMat, 20);
+        const frameBoltTransform = new THREE.Object3D();
+        for (let index = 0; index < 10; index++) {
+          frameBoltTransform.position.set(-1.5, -0.92 + index * 0.26, 0.055);
+          frameBoltTransform.updateMatrix();
+          frameBolts.setMatrixAt(index, frameBoltTransform.matrix);
+          frameBoltTransform.position.set(1.5, -0.92 + index * 0.26, 0.055);
+          frameBoltTransform.updateMatrix();
+          frameBolts.setMatrixAt(10 + index, frameBoltTransform.matrix);
+        }
+        frameBolts.instanceMatrix.needsUpdate = true;
+        frameBolts.frustumCulled = false;
+        portal.add(frameBolts);
         const outer = new THREE.Mesh(new THREE.TorusGeometry(1.18, 0.085, 8, 32), rimMat);
         const inner = new THREE.Mesh(new THREE.TorusGeometry(1.06, 0.035, 8, 32), innerRimMat);
         portal.add(outer, inner);
@@ -2331,28 +2373,75 @@
           const leaf = new THREE.Group();
           leaf.position.set(-1.42, 0, -0.95);
           leaf.rotation.y = Math.PI / 2;
-          const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.92, 0.92, 0.075, 32),
-            new THREE.MeshStandardMaterial({ color: 0xb7c2bf, roughness: 0.62, metalness: 0.25 }));
+          const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.92, 0.92, 0.075, 32), hatchLeafMat);
           plate.rotation.x = Math.PI / 2;
           leaf.add(plate);
+          const edgeRim = new THREE.Mesh(new THREE.TorusGeometry(0.9, 0.032, 8, 36), hatchHardwareMat);
+          edgeRim.position.z = 0.042;
+          leaf.add(edgeRim);
+          const recessedPanel = new THREE.Mesh(new THREE.CylinderGeometry(0.79, 0.79, 0.018, 32),
+            new THREE.MeshStandardMaterial({ color: 0x8c9998, roughness: 0.66, metalness: 0.26 }));
+          recessedPanel.rotation.x = Math.PI / 2;
+          recessedPanel.position.z = 0.049;
+          leaf.add(recessedPanel);
           const seal = new THREE.Mesh(new THREE.TorusGeometry(0.86, 0.04, 8, 32), rimMat);
           seal.position.z = 0.045;
           leaf.add(seal);
+          // Radial stiffeners and latch dogs make the leaf read as a real
+          // pressure door rather than a blank white disc.
+          [Math.PI / 4, Math.PI * 3 / 4, Math.PI * 5 / 4, Math.PI * 7 / 4].forEach((angle) => {
+            const rib = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.026, 0.02), hatchHardwareMat);
+            rib.position.set(Math.cos(angle) * 0.47, Math.sin(angle) * 0.47, 0.064);
+            rib.rotation.z = angle;
+            leaf.add(rib);
+          });
+          const latchDogs = new THREE.InstancedMesh(new THREE.BoxGeometry(0.09, 0.045, 0.032),
+            hatchHardwareMat, 8);
+          const latchTransform = new THREE.Object3D();
+          for (let index = 0; index < 8; index++) {
+            const angle = Math.PI / 8 + index * Math.PI / 4;
+            latchTransform.position.set(Math.cos(angle) * 0.855, Math.sin(angle) * 0.855, 0.066);
+            latchTransform.rotation.set(0, 0, angle);
+            latchTransform.updateMatrix();
+            latchDogs.setMatrixAt(index, latchTransform.matrix);
+          }
+          latchDogs.instanceMatrix.needsUpdate = true;
+          latchDogs.frustumCulled = false;
+          leaf.add(latchDogs);
           const windowRim = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.025, 8, 24), rimMat);
-          windowRim.position.set(0, 0.18, 0.05);
+          windowRim.position.set(0, 0.18, 0.062);
           leaf.add(windowRim);
           const windowGlass = new THREE.Mesh(new THREE.CircleGeometry(0.16, 24),
             new THREE.MeshStandardMaterial({ color: 0x263c45, roughness: 0.22, metalness: 0.4 }));
-          windowGlass.position.set(0, 0.18, 0.055);
+          windowGlass.position.set(0, 0.18, 0.067);
           leaf.add(windowGlass);
-          const handle = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.045, 0.08),
-            new THREE.MeshStandardMaterial({ color: 0x526c79, roughness: 0.5, metalness: 0.5 }));
-          handle.position.set(0, -0.3, 0.08);
-          leaf.add(handle);
+          const handwheel = new THREE.Group();
+          handwheel.position.set(0, -0.3, 0.088);
+          const wheelRim = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.019, 8, 22), hatchHardwareMat);
+          handwheel.add(wheelRim);
+          [0, Math.PI / 2].forEach((angle) => {
+            const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.27, 0.018, 0.018), hatchHardwareMat);
+            spoke.rotation.z = angle;
+            handwheel.add(spoke);
+          });
+          const wheelHub = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.045, 12), hatchHardwareMat);
+          wheelHub.rotation.x = Math.PI / 2;
+          handwheel.add(wheelHub);
+          leaf.add(handwheel);
           const caution = new THREE.Mesh(new THREE.PlaneGeometry(0.28, 0.08),
             new THREE.MeshBasicMaterial({ map: createSignTexture("HATCH", "PRESSURE SEAL") }));
-          caution.position.set(0, -0.57, 0.05);
+          caution.position.set(0, -0.57, 0.07);
           leaf.add(caution);
+          // Hinge pin and arms connect the leaf to the structural jamb instead
+          // of leaving it visually suspended in the module.
+          const hingePin = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 1.86, 10), hatchHardwareMat);
+          hingePin.position.set(-0.92, 0, 0);
+          leaf.add(hingePin);
+          [-0.72, 0.72].forEach((y) => {
+            const hingeArm = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.095, 0.13), hatchHardwareMat);
+            hingeArm.position.set(-0.845, y, 0.015);
+            leaf.add(hingeArm);
+          });
           portal.add(leaf);
         }
         group.add(portal);
