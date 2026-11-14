@@ -255,7 +255,7 @@
     }
 
     // ── Elevator interaction ─────────────────────────────────────────────────
-    _handleElevatorKey() {
+    _handleElevatorKey(targetFloor) {
       if (!this.elevatorCab || !this._elevatorConfig) return;
       const cfg = this._elevatorConfig;
 
@@ -263,47 +263,117 @@
       // towerGroup is at padGroup(-34, 19.8, 0); padGroup is at scene origin.
       const elevWorldX = -34 + cfg.x;
       const elevWorldZ = 0  + cfg.z;
-      const gantryY    = 64.1; // world Y of gantry deck
-      const groundY    = 19.8; // world Y of pad ground level
 
-      // Current player world position
-      const cam = this.camera;
-      if (!cam) return;
-      const px = cam.position.x;
-      const pz = cam.position.z;
-      const py = cam.position.y;
+      // Current player world position (support both localCrew and camera)
+      const crewPos = (window.localCrew && window.localCrew.group) ? window.localCrew.group.position : (this.camera ? this.camera.position : null);
+      if (!crewPos) return;
+      const px = crewPos.x;
+      const pz = crewPos.z;
+      const py = crewPos.y;
 
       const groundDist = Math.sqrt((px - elevWorldX) ** 2 + (pz - elevWorldZ) ** 2);
-      const atGround   = py < groundY + 5  && groundDist < 7;
-      const atGantry   = py >= groundY - 2 && groundDist < 10;
+      const isNearElevator = groundDist < 24.0;
 
       if (this.elevatorMoving) {
-        // Pressing G while moving: cancel / stop (player teleports to nearest floor)
-        this.elevatorMoving = false;
-        this.elevatorRidingPlayer = false;
+        if (window.gameplay && typeof window.gameplay.showToast === "function") {
+          window.gameplay.showToast("🛗 ELEVATOR IN TRANSIT — Please hold on...");
+        }
         return;
       }
 
-      if (atGround) {
-        // Call elevator down (if needed) then ride up
-        this.elevatorTargetY = cfg.top;
-        this.elevatorMoving  = true;
-        this.elevatorRidingPlayer = true;
+      if (!isNearElevator && !this.elevatorRidingPlayer) {
         if (window.gameplay && typeof window.gameplay.showToast === "function") {
-          window.gameplay.showToast("🛗 ELEVATOR: Ascending to Gantry Level — stand clear of doors");
+          window.gameplay.showToast("🛗 Walk to the ELEVATOR on the west face of the FSS tower, then press [G] or [E]");
+        }
+        return;
+      }
+
+      // Determine current floor
+      const atGround = py < 35.0;
+      const atTop    = py >= 85.0;
+      const atGantry = !atGround && !atTop;
+
+      if (window.spaceAudio && typeof window.spaceAudio.playAirlockCycle === "function") {
+        window.spaceAudio.playAirlockCycle();
+      }
+
+      if (atGround) {
+        // Player is at Ground (0m)
+        if (this.elevatorY < 4.0) {
+          // Cab is at Ground: ride up to Gantry Level to board the spacecraft!
+          this.elevatorTargetY = cfg.gantry !== undefined ? cfg.gantry : 44;
+          this.elevatorMoving  = true;
+          this.elevatorRidingPlayer = true;
+          if (window.localCrew && window.localCrew.group) {
+            window.localCrew.group.position.set(-42.2, 19.8, -4.0);
+          }
+          if (window.gameplay && typeof window.gameplay.showToast === "function") {
+            window.gameplay.showToast("🛗 ELEVATOR: Ascending to Gantry Level (44m) — Walk to White Room to board spacecraft");
+          }
+        } else {
+          // Cab is elsewhere: call elevator down to Ground
+          this.elevatorTargetY = cfg.bottom !== undefined ? cfg.bottom : 0;
+          this.elevatorMoving  = true;
+          this.elevatorRidingPlayer = false;
+          if (window.gameplay && typeof window.gameplay.showToast === "function") {
+            window.gameplay.showToast("🛗 ELEVATOR CALLED: Descending to Ground Level (0m)...");
+          }
         }
       } else if (atGantry) {
-        // Send elevator back down
-        this.elevatorTargetY = cfg.bottom;
-        this.elevatorMoving  = true;
-        this.elevatorRidingPlayer = true;
-        if (window.gameplay && typeof window.gameplay.showToast === "function") {
-          window.gameplay.showToast("🛗 ELEVATOR: Descending to Ground Level");
+        // Player is at Gantry Level (44m)
+        if (Math.abs(this.elevatorY - 44.0) < 4.0) {
+          // Cab is at Gantry: ride to Top Deck if requested, otherwise down to Ground
+          if (targetFloor === 88 || targetFloor === "top") {
+            this.elevatorTargetY = cfg.top !== undefined ? cfg.top : 88;
+            this.elevatorMoving  = true;
+            this.elevatorRidingPlayer = true;
+            if (window.localCrew && window.localCrew.group) {
+              window.localCrew.group.position.set(-42.2, 64.1, -4.0);
+            }
+            if (window.gameplay && typeof window.gameplay.showToast === "function") {
+              window.gameplay.showToast("🛗 ELEVATOR: Ascending to Tower Top Observation Deck (88m)");
+            }
+          } else {
+            this.elevatorTargetY = cfg.bottom !== undefined ? cfg.bottom : 0;
+            this.elevatorMoving  = true;
+            this.elevatorRidingPlayer = true;
+            if (window.localCrew && window.localCrew.group) {
+              window.localCrew.group.position.set(-42.2, 64.1, -4.0);
+            }
+            if (window.gameplay && typeof window.gameplay.showToast === "function") {
+              window.gameplay.showToast("🛗 ELEVATOR: Descending to Ground Level (0m) — Press [T] next time for Top Deck");
+            }
+          }
+        } else {
+          // Cab is elsewhere: call elevator to Gantry
+          this.elevatorTargetY = cfg.gantry !== undefined ? cfg.gantry : 44;
+          this.elevatorMoving  = true;
+          this.elevatorRidingPlayer = false;
+          if (window.gameplay && typeof window.gameplay.showToast === "function") {
+            window.gameplay.showToast("🛗 ELEVATOR CALLED: In transit to Gantry Level (44m)...");
+          }
         }
-      } else {
-        // Too far — hint
-        if (window.gameplay && typeof window.gameplay.showToast === "function") {
-          window.gameplay.showToast("🛗 Walk to the ELEVATOR on the west side of the tower, then press [G]");
+      } else if (atTop) {
+        // Player is at Top Deck (88m)
+        if (Math.abs(this.elevatorY - 88.0) < 4.0) {
+          // Cab is at Top: ride back down to Gantry for spacecraft boarding!
+          this.elevatorTargetY = cfg.gantry !== undefined ? cfg.gantry : 44;
+          this.elevatorMoving  = true;
+          this.elevatorRidingPlayer = true;
+          if (window.localCrew && window.localCrew.group) {
+            window.localCrew.group.position.set(-42.2, 108.1, -4.0);
+          }
+          if (window.gameplay && typeof window.gameplay.showToast === "function") {
+            window.gameplay.showToast("🛗 ELEVATOR: Descending to Gantry Level (44m) for Spacecraft Boarding");
+          }
+        } else {
+          // Cab is elsewhere: call elevator up to Top Deck
+          this.elevatorTargetY = cfg.top !== undefined ? cfg.top : 88;
+          this.elevatorMoving  = true;
+          this.elevatorRidingPlayer = false;
+          if (window.gameplay && typeof window.gameplay.showToast === "function") {
+            window.gameplay.showToast("🛗 ELEVATOR CALLED: Ascending to Tower Top Deck (88m)...");
+          }
         }
       }
     }
@@ -1053,128 +1123,189 @@
       });
 
       // ════════════════════════════════════════════════════════════════════════
-      // ── FUNCTIONAL ELEVATOR SYSTEM ──────────────────────────────────────────
-      // Elevator shaft on the west face of the tower.
-      // Shaft centre: X=-9, Z=4 in towerGroup space.
-      // Rides from Y=0 (ground) to Y=44 (gantry deck).
+      // ── FULL-HEIGHT 3-STOP ELEVATOR SYSTEM ──────────────────────────────────
+      // Connects Ground Level (0m) -> Spacecraft Boarding Gantry (44m) -> Tower Top (88m)
+      // Shaft centre: X = -8.2, Z = -4.0 (aligned with Gantry Deck walkway)
       // ════════════════════════════════════════════════════════════════════════
-      const ELV_X = -9, ELV_Z = 4;
-      const ELV_BOTTOM = 0, ELV_TOP = 44;
+      const ELV_X = -8.2, ELV_Z = -4.0;
+      const ELV_BOTTOM = 0, ELV_GANTRY = 44, ELV_TOP = 88;
 
-      // Shaft rails (two vertical I-beams)
+      // Shaft rails (two vertical heavy I-beams spanning full tower height 0 to 88m)
       const shaftMat = new THREE.MeshStandardMaterial({ color: 0x37474f, roughness: 0.6, metalness: 0.75 });
-      this._makeBeam(this.towerGroup, 0.3, towerHeight, 0.3, ELV_X - 1.2, towerHeight / 2, ELV_Z, shaftMat);
-      this._makeBeam(this.towerGroup, 0.3, towerHeight, 0.3, ELV_X + 1.2, towerHeight / 2, ELV_Z, shaftMat);
-      // Shaft cross ties
+      this._makeBeam(this.towerGroup, 0.35, towerHeight, 0.35, ELV_X - 1.5, towerHeight / 2, ELV_Z, shaftMat);
+      this._makeBeam(this.towerGroup, 0.35, towerHeight, 0.35, ELV_X + 1.5, towerHeight / 2, ELV_Z, shaftMat);
+      // Shaft cross ties every 8m
       for (let y = 8; y <= towerHeight; y += 8) {
-        this._makeBeam(this.towerGroup, 2.6, 0.18, 0.18, ELV_X, y, ELV_Z, shaftMat);
+        this._makeBeam(this.towerGroup, 3.2, 0.22, 0.22, ELV_X, y, ELV_Z, shaftMat);
+        this._makeBeam(this.towerGroup, 0.22, 0.22, 2.8, ELV_X, y, ELV_Z - 1.4, shaftMat);
+        this._makeBeam(this.towerGroup, 0.22, 0.22, 2.8, ELV_X, y, ELV_Z + 1.4, shaftMat);
       }
 
-      // Elevator cabin (animated group)
+      // ── Elevator Cabin (Animated Group) ──
       this.elevatorCab = new THREE.Group();
       this.elevatorCab.name = "ElevatorCab";
       this.elevatorCab.position.set(ELV_X, ELV_BOTTOM, ELV_Z);
       this.towerGroup.add(this.elevatorCab);
 
-      // Cabin walls — steel + glass
-      const cabSteel = new THREE.MeshStandardMaterial({ color: 0x546e7a, roughness: 0.5, metalness: 0.75 });
+      const cabSteel = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.45, metalness: 0.75 });
       const cabGlass = new THREE.MeshStandardMaterial({
-        color: 0x80deea, roughness: 0.1, metalness: 0.0,
-        transparent: true, opacity: 0.42, side: THREE.DoubleSide
+        color: 0x80deea, roughness: 0.08, metalness: 0.1,
+        transparent: true, opacity: 0.45, side: THREE.DoubleSide
       });
-      // Floor
-      const cabFloor = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.12, 2.4), cabSteel);
-      cabFloor.position.set(0, 0.06, 0);
+      // Floor (3.0m x 2.8m)
+      const cabFloor = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.16, 2.8), cabSteel);
+      cabFloor.position.set(0, 0.08, 0);
       this.elevatorCab.add(cabFloor);
       // Ceiling
-      const cabCeil = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.12, 2.4), cabSteel);
-      cabCeil.position.set(0, 2.5, 0);
+      const cabCeil = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.16, 2.8), cabSteel);
+      cabCeil.position.set(0, 2.7, 0);
       this.elevatorCab.add(cabCeil);
-      // Back wall (steel)
-      const cabBack = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.4, 0.12), cabSteel);
-      cabBack.position.set(0, 1.25, -1.2);
+      // Back wall (west face)
+      const cabBack = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.6, 2.8), cabSteel);
+      cabBack.position.set(-1.44, 1.35, 0);
       this.elevatorCab.add(cabBack);
-      // Side walls (glass)
-      [-1.3, 1.3].forEach(x => {
-        const sw = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.4, 2.4), cabGlass);
-        sw.position.set(x, 1.25, 0);
+      // Side walls (glass on north & south sides)
+      [-1.34, 1.34].forEach(z => {
+        const sw = new THREE.Mesh(new THREE.BoxGeometry(2.8, 2.6, 0.08), cabGlass);
+        sw.position.set(0, 1.35, z);
         this.elevatorCab.add(sw);
       });
-      // Front glass (facing tower exterior)
-      const cabFront = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.4, 0.08), cabGlass);
-      cabFront.position.set(0, 1.25, 1.2);
-      this.elevatorCab.add(cabFront);
-      // Corner pillars
-      [[-1.25, -1.1], [1.25, -1.1], [-1.25, 1.1], [1.25, 1.1]].forEach(([px, pz]) => {
-        const cp = new THREE.Mesh(new THREE.BoxGeometry(0.14, 2.65, 0.14), cabSteel);
-        cp.position.set(px, 1.25, pz);
+      // Corner structural pillars
+      [[-1.4, -1.3], [-1.4, 1.3], [1.4, -1.3], [1.4, 1.3]].forEach(([px, pz]) => {
+        const cp = new THREE.Mesh(new THREE.BoxGeometry(0.16, 2.7, 0.16), cabSteel);
+        cp.position.set(px, 1.35, pz);
         this.elevatorCab.add(cp);
       });
-      // Interior ambient light inside cab
-      const cabLight = new THREE.PointLight(0xfff5e0, 0.9, 6);
-      cabLight.position.set(0, 2.2, 0);
+      // Interior warm spotlight
+      const cabLight = new THREE.PointLight(0xfff7ed, 1.2, 8);
+      cabLight.position.set(0, 2.4, 0);
       this.elevatorCab.add(cabLight);
-      // Cabin status strip (green = at gantry, amber = moving, red = at ground)
+
+      // Status indicator strip (green = arrived, amber = moving)
       this._elevatorLightMat = new THREE.MeshStandardMaterial({
-        color: 0x34d399, emissive: 0x34d399, emissiveIntensity: 2.0
+        color: 0x34d399, emissive: 0x34d399, emissiveIntensity: 2.2
       });
-      const cabStatus = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.08, 0.08), this._elevatorLightMat);
-      cabStatus.position.set(0, 2.45, -1.14);
+      const cabStatus = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 2.4), this._elevatorLightMat);
+      cabStatus.position.set(-1.38, 2.55, 0);
       this.elevatorCab.add(cabStatus);
 
-      // ── Ground-level call panel ──
-      const callPanelGroup = new THREE.Group();
-      callPanelGroup.name = "ElevatorCallPanel";
-      callPanelGroup.position.set(ELV_X - 1.6, 2.0, ELV_Z + 1.6);
-      this.towerGroup.add(callPanelGroup);
-      const cpBase = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.2, 0.12),
-        new THREE.MeshStandardMaterial({ color: 0x1c2a35, roughness: 0.45, metalness: 0.65 }));
-      cpBase.position.set(0, 0, 0);
-      callPanelGroup.add(cpBase);
-      // Up button
-      const btnMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xfacc15, emissiveIntensity: 1.5 });
-      const btn = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.08, 12), btnMat);
-      btn.rotation.x = Math.PI / 2;
-      btn.position.set(0, 0.2, 0.08);
-      callPanelGroup.add(btn);
-      // "ELEVATOR" text texture label
-      const lblCanvas = document.createElement("canvas");
-      lblCanvas.width = 256; lblCanvas.height = 96;
-      const lblCtx = lblCanvas.getContext("2d");
-      lblCtx.fillStyle = "#0f172a";
-      lblCtx.fillRect(0, 0, 256, 96);
-      lblCtx.fillStyle = "#fbbf24";
-      lblCtx.font = "bold 28px Arial";
-      lblCtx.textAlign = "center";
-      lblCtx.fillText("ELEVATOR", 128, 36);
-      lblCtx.fillStyle = "#94a3b8";
-      lblCtx.font = "18px Arial";
-      lblCtx.fillText("[G] Call / Ride", 128, 68);
-      const lblTex = new THREE.CanvasTexture(lblCanvas);
-      const lbl = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.26), new THREE.MeshBasicMaterial({ map: lblTex, transparent: true }));
-      lbl.position.set(0, -0.28, 0.07);
-      callPanelGroup.add(lbl);
+      // ── Connecting Catwalks at Every Floor ──
+      const bridgeDeckMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.72, metalness: 0.35 });
+      const bridgeRailMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.5, metalness: 0.4 });
 
-      // ── Gantry-level call panel (same design, at top) ──
-      const callPanelTop = callPanelGroup.clone();
-      callPanelTop.name = "ElevatorCallPanelTop";
-      callPanelTop.position.set(ELV_X - 1.6, ELV_TOP + 2.0, ELV_Z + 1.6);
-      this.towerGroup.add(callPanelTop);
+      // 1. Ground Level Landing Platform (y = 0m, pad deck)
+      const groundPlatform = new THREE.Mesh(new THREE.BoxGeometry(5.0, 0.25, 6.0), bridgeDeckMat);
+      groundPlatform.position.set(ELV_X - 1.0, 0.12, ELV_Z);
+      groundPlatform.receiveShadow = true;
+      this.towerGroup.add(groundPlatform);
+
+      // Ground safety railings
+      this._makeBeam(this.towerGroup, 5.0, 0.1, 0.1, ELV_X - 1.0, 1.2, ELV_Z + 3.0, bridgeRailMat);
+      this._makeBeam(this.towerGroup, 5.0, 0.1, 0.1, ELV_X - 1.0, 1.2, ELV_Z - 3.0, bridgeRailMat);
+      this._makeBeam(this.towerGroup, 0.1, 0.1, 6.0, ELV_X - 3.5, 1.2, ELV_Z, bridgeRailMat);
+
+      // Ground Entrance Header Sign: "ELEVATOR TO GANTRY & SPACECRAFT"
+      const groundSignCanvas = document.createElement("canvas");
+      groundSignCanvas.width = 512; groundSignCanvas.height = 128;
+      const gsCtx = groundSignCanvas.getContext("2d");
+      gsCtx.fillStyle = "#0f172a";
+      gsCtx.fillRect(0, 0, 512, 128);
+      gsCtx.strokeStyle = "#38bdf8";
+      gsCtx.lineWidth = 6;
+      gsCtx.strokeRect(4, 4, 504, 120);
+      gsCtx.fillStyle = "#38bdf8";
+      gsCtx.font = "bold 34px Arial";
+      gsCtx.textAlign = "center";
+      gsCtx.fillText("🛗 ELEVATOR TO SPACECRAFT", 256, 48);
+      gsCtx.fillStyle = "#fbbf24";
+      gsCtx.font = "bold 24px Arial";
+      gsCtx.fillText("[E] or [G] RIDE TO GANTRY (44m)", 256, 92);
+      const gsTex = new THREE.CanvasTexture(groundSignCanvas);
+      const groundSignMesh = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 0.9), new THREE.MeshBasicMaterial({ map: gsTex, transparent: true }));
+      groundSignMesh.position.set(ELV_X, 3.2, ELV_Z - 1.45);
+      this.towerGroup.add(groundSignMesh);
+
+      // 2. Gantry Level Catwalk Bridge (y = 44m -> leads straight to Orbiter Access Arm & White Room!)
+      const gantryBridge = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.35, 3.6), bridgeDeckMat);
+      gantryBridge.position.set(-7.2, ELV_GANTRY, ELV_Z);
+      gantryBridge.castShadow = true;
+      gantryBridge.receiveShadow = true;
+      this.towerGroup.add(gantryBridge);
+
+      // Bridge side railings
+      this._makeBeam(this.towerGroup, 2.4, 0.1, 0.1, -7.2, ELV_GANTRY + 1.15, ELV_Z + 1.8, bridgeRailMat);
+      this._makeBeam(this.towerGroup, 2.4, 0.1, 0.1, -7.2, ELV_GANTRY + 1.15, ELV_Z - 1.8, bridgeRailMat);
+
+      // 3. Tower Top Observation Bridge (y = 88m -> leads to top crane & lightning mast deck)
+      const topBridge = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.35, 3.6), bridgeDeckMat);
+      topBridge.position.set(-7.2, ELV_TOP, ELV_Z);
+      topBridge.castShadow = true;
+      topBridge.receiveShadow = true;
+      this.towerGroup.add(topBridge);
+
+      this._makeBeam(this.towerGroup, 2.4, 0.1, 0.1, -7.2, ELV_TOP + 1.15, ELV_Z + 1.8, bridgeRailMat);
+      this._makeBeam(this.towerGroup, 2.4, 0.1, 0.1, -7.2, ELV_TOP + 1.15, ELV_Z - 1.8, bridgeRailMat);
+
+      // ── Call Stations at Ground, Gantry, and Top ──
+      const createCallStation = (yPos, labelText) => {
+        const grp = new THREE.Group();
+        grp.position.set(ELV_X - 1.6, yPos + 1.8, ELV_Z - 1.5);
+        this.towerGroup.add(grp);
+
+        const base = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.3, 0.15),
+          new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.45, metalness: 0.65 }));
+        grp.add(base);
+
+        const btn = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.08, 12),
+          new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xfacc15, emissiveIntensity: 1.8 }));
+        btn.rotation.x = Math.PI / 2;
+        btn.position.set(0, 0.22, 0.08);
+        grp.add(btn);
+
+        const canvas = document.createElement("canvas");
+        canvas.width = 256; canvas.height = 128;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#0f172a";
+        ctx.fillRect(0, 0, 256, 128);
+        ctx.fillStyle = "#38bdf8";
+        ctx.font = "bold 26px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("🛗 ELEVATOR", 128, 38);
+        ctx.fillStyle = "#facc15";
+        ctx.font = "bold 20px Arial";
+        ctx.fillText(labelText, 128, 72);
+        ctx.fillStyle = "#94a3b8";
+        ctx.font = "16px Arial";
+        ctx.fillText("[E] / [G] CALL & RIDE", 128, 104);
+        const tex = new THREE.CanvasTexture(canvas);
+        const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.65, 0.35), new THREE.MeshBasicMaterial({ map: tex, transparent: true }));
+        sign.position.set(0, -0.32, 0.08);
+        grp.add(sign);
+        return grp;
+      };
+
+      createCallStation(ELV_BOTTOM, "1: GROUND (0m)");
+      createCallStation(ELV_GANTRY, "2: GANTRY (44m)");
+      createCallStation(ELV_TOP,    "3: TOWER TOP (88m)");
 
       // Store elevator config for update() / key handler
-      this._elevatorConfig = { x: ELV_X, z: ELV_Z, bottom: ELV_BOTTOM, top: ELV_TOP };
+      this._elevatorConfig = { x: ELV_X, z: ELV_Z, bottom: ELV_BOTTOM, gantry: ELV_GANTRY, top: ELV_TOP };
       this.elevatorY = ELV_BOTTOM;
       this.elevatorTargetY = ELV_BOTTOM;
 
-      // ── [G] key → call elevator / ride ──
+      // ── Keydown listener for [G] and [T] ──
       if (!this._elevatorKeyBound) {
         this._elevatorKeyBound = true;
         window.addEventListener("keydown", (ev) => {
           if (!window.isGameStarted || !this.isGroundMode) return;
-          if (ev.code !== "KeyG") return;
           if (ev.target && (ev.target.tagName === "INPUT" || ev.target.tagName === "TEXTAREA")) return;
-          ev.preventDefault();
-          this._handleElevatorKey();
+          if (ev.code === "KeyG") {
+            ev.preventDefault();
+            this._handleElevatorKey();
+          } else if (ev.code === "KeyT" && this.camera && Math.abs(this.camera.position.y - 64.1) < 8) {
+            ev.preventDefault();
+            this._handleElevatorKey("top");
+          }
         });
       }
 
@@ -1230,12 +1361,14 @@
       this._makeBeam(this.towerGroup, 0.26, 0.26, 17.6, 9.0, 41.0, -4.0, darkSteelMat, 0, 0, 0);
 
       // Safety railings around the open sides of the gantry deck (corner-trimmed).
+      // West railing is split around z = -4.0 to leave a clear 3.6m doorway for the elevator bridge!
       const railMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.55, metalness: 0.35 });
       const railPostMat = new THREE.MeshStandardMaterial({ color: 0x9aa8b3, roughness: 0.55, metalness: 0.45 });
       const railSegments = [
         { x: 1.5, z: 4.92, sx: 15.88, sz: 0.12, rotY: 0 },
         { x: 1.5, z: -12.92, sx: 15.88, sz: 0.12, rotY: 0 },
-        { x: -6.42, z: -4.0, sx: 0.12, sz: 17.72, rotY: 0 },
+        { x: -6.42, z: 1.35, sx: 0.12, sz: 7.1, rotY: 0 },
+        { x: -6.42, z: -9.35, sx: 0.12, sz: 7.1, rotY: 0 },
         { x: 9.42, z: -10.8, sx: 0.12, sz: 4.12, rotY: 0 },
         { x: 9.42, z: 2.8, sx: 0.12, sz: 4.32, rotY: 0 }
       ];
@@ -1250,7 +1383,9 @@
       }
       for (let i = 0; i < 18; i++) {
         const z = -12.8 + i * 0.98;
-        this._makeBeam(this.towerGroup, 0.08, 1.35, 0.08, -6.4, 44.7, z, railPostMat);
+        if (z < -5.8 || z > -2.2) {
+          this._makeBeam(this.towerGroup, 0.08, 1.35, 0.08, -6.4, 44.7, z, railPostMat);
+        }
       }
 
       // Boarding Dock Control Console on Gantry Deck.
@@ -1565,6 +1700,20 @@
           (bx + tx) / 2, (pyrBaseY + pyrTopY) / 2, (bz + tz) / 2, pyrColMat,
           Math.atan2(bz - tz, pyrTopY - pyrBaseY), 0, Math.atan2(bx - tx, pyrTopY - pyrBaseY));
       });
+
+      // Solid observation deck platform floor at y = 88.0m (under lightning spire)
+      const topDeckPlatform = new THREE.Mesh(new THREE.BoxGeometry(11.6, 0.45, 11.6), deckMat);
+      topDeckPlatform.position.set(0, pyrBaseY, 0);
+      topDeckPlatform.receiveShadow = true;
+      this.towerGroup.add(topDeckPlatform);
+
+      // Top Deck perimeter safety railings (with open gap on west side at z = -4.0 where elevator bridge connects)
+      const topRailMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.45, metalness: 0.5 });
+      this._makeBeam(this.towerGroup, 11.6, 0.1, 0.1, 0, pyrBaseY + 1.15, 5.7, topRailMat);
+      this._makeBeam(this.towerGroup, 11.6, 0.1, 0.1, 0, pyrBaseY + 1.15, -5.7, topRailMat);
+      this._makeBeam(this.towerGroup, 0.1, 0.1, 11.6, 5.7, pyrBaseY + 1.15, 0, topRailMat);
+      this._makeBeam(this.towerGroup, 0.1, 0.1, 7.8, -5.7, pyrBaseY + 1.15, 1.8, topRailMat);
+      this._makeBeam(this.towerGroup, 0.1, 0.1, 3.6, -5.7, pyrBaseY + 1.15, -7.6, topRailMat);
 
       // Pyramidal horizontal tie frames & X-braces
       [pyrBaseY + 4.0, pyrBaseY + 8.0, pyrTopY].forEach((fy) => {
@@ -2554,24 +2703,54 @@
       if (this.siteTourActive) {
         return this._resolveSiteTourCollision(currentPos, proposedPos);
       }
-      // Gantry level Y = 64.1m
-      const y = 64.1;
+
+      // If riding the elevator while in transit, lock position inside the moving cabin
+      if (this.elevatorMoving && this.elevatorRidingPlayer) {
+        return new THREE.Vector3(-42.2, 19.8 + this.elevatorY, -4.0);
+      }
+
+      const py = currentPos.y;
       const nx = proposedPos.x;
       const nz = proposedPos.z;
       const px = currentPos.x;
       const pz = currentPos.z;
 
+      // ── LEVEL 1: PAD GROUND LEVEL (py < 35m) ──
+      if (py < 35.0) {
+        const groundY = 19.8;
+        const clampedX = Math.max(-65.0, Math.min(20.0, nx));
+        const clampedZ = Math.max(-45.0, Math.min(45.0, nz));
+        return new THREE.Vector3(clampedX, groundY, clampedZ);
+      }
+
+      // ── LEVEL 3: TOWER TOP OBSERVATION DECK (py >= 85m) ──
+      if (py >= 85.0) {
+        const topY = 108.1;
+        const inTopDeck = nx >= -39.8 && nx <= -28.2 && nz >= -5.8 && nz <= 5.8;
+        const inTopBridge = nx >= -43.6 && nx <= -39.8 && nz >= -5.8 && nz <= -2.2;
+        if (inTopDeck || inTopBridge) {
+          return new THREE.Vector3(nx, topY, nz);
+        }
+        if (nz >= -5.8 && nz <= -2.2) {
+          const cx = Math.max(-43.6, Math.min(-28.2, nx));
+          const cz = Math.max(-5.8, Math.min(-2.2, nz));
+          return new THREE.Vector3(cx, topY, cz);
+        }
+        const cx = Math.max(-39.8, Math.min(-28.2, nx));
+        const cz = Math.max(-5.8, Math.min(5.8, nz));
+        return new THREE.Vector3(cx, topY, cz);
+      }
+
+      // ── LEVEL 2: GANTRY LEVEL (35m <= py < 85m) ──
+      const y = 64.1;
       // Walkable Zone 1: Tower Gantry Staging Deck
-      // (world x: -40.2 to -24.8, z: -12.7 to 4.7)
       const inGantry = nx >= -40.2 && nx <= -24.8 && nz >= -12.7 && nz <= 4.7;
-      // Walkable Zone 2: Boarding Bridge / White Room when Dock is Extended
-      // (world x: -25.5 to -3.6, z: -8.8 to -5.6)
+      // Walkable Zone 2: Elevator bridge & cabin west of gantry deck
+      const inElevBridge = nx >= -43.6 && nx <= -40.0 && nz >= -5.8 && nz <= -2.2;
+      // Walkable Zone 3: Boarding Bridge / White Room when Dock is Extended
       const inBridge = this.dockLocked && nx >= -25.5 && nx <= -3.6 && nz >= -8.8 && nz <= -5.6;
 
-      // Already standing on the access arm: clamp both axes to the bridge
-      // footprint. Without this, stepping toward the side edge made the old
-      // code fall through to the deck clamp and snap the player several
-      // metres back to x = -24.8.
+      // Already standing on the access arm: clamp both axes to the bridge corridor
       const wasOnBridge = this.dockLocked &&
         px >= -25.5 && px <= -3.6 && pz >= -8.8 && pz <= -5.6;
       if (wasOnBridge) {
@@ -2583,17 +2762,20 @@
         return new THREE.Vector3(armX, y, armZ);
       }
 
-      if (inGantry || inBridge) {
-        // Board when the player crosses into the White Room at the orbiter
-        // hatch end of the access arm.
+      if (inGantry || inElevBridge || inBridge) {
         if (inBridge && !this.crewBoarded && nx >= -6.8) {
           this.boardSpacecraft();
         }
         return new THREE.Vector3(nx, y, nz);
       }
 
-      // Leaving the deck on the east side is only allowed through the bridge
-      // corridor; everywhere else is clamped to the gantry edge.
+      // Clamping: if heading into or inside elevator bridge corridor
+      if (nz >= -5.8 && nz <= -2.2) {
+        const clampedX = Math.max(-43.6, Math.min(-24.8, nx));
+        const clampedZ = Math.max(-5.8, Math.min(-2.2, nz));
+        return new THREE.Vector3(clampedX, y, clampedZ);
+      }
+
       const clampedX = Math.max(-40.2, Math.min(-24.8, nx));
       const clampedZ = Math.max(-12.7, Math.min(4.7, nz));
       return new THREE.Vector3(clampedX, y, clampedZ);
@@ -2679,7 +2861,41 @@
             }
           }
 
-          if ((e.code === "KeyE" || e.code === "KeyB") && this.dockLocked && !this.crewBoarded && this.missionPhase === "gantry") {
+          if (e.code === "KeyG") {
+            e.preventDefault();
+            this._handleElevatorKey();
+            return;
+          }
+
+          if (e.code === "KeyT" && !this.siteTourActive) {
+            const pos = (window.localCrew && window.localCrew.group) ? window.localCrew.group.position : (this.camera ? this.camera.position : null);
+            if (pos && Math.abs(pos.y - 64.1) < 8.0) {
+              e.preventDefault();
+              this._handleElevatorKey("top");
+              return;
+            }
+          }
+
+          if (e.code === "KeyE") {
+            if (this.dockLocked && !this.crewBoarded && this.missionPhase === "gantry") {
+              const distHatch = this._distanceToGuidancePoint(-7.8, -7.2);
+              if (distHatch !== null && distHatch <= 2.6) {
+                e.preventDefault();
+                this.boardSpacecraft();
+                return;
+              }
+            }
+            const elevX = -34 + (this._elevatorConfig ? this._elevatorConfig.x : -8.2);
+            const elevZ = (this._elevatorConfig ? this._elevatorConfig.z : -4.0);
+            const pos = (window.localCrew && window.localCrew.group) ? window.localCrew.group.position : (this.camera ? this.camera.position : null);
+            if (pos && Math.hypot(pos.x - elevX, pos.z - elevZ) < 14.0) {
+              e.preventDefault();
+              this._handleElevatorKey();
+              return;
+            }
+          }
+
+          if (e.code === "KeyB" && this.dockLocked && !this.crewBoarded && this.missionPhase === "gantry") {
             const distHatch = this._distanceToGuidancePoint(-7.8, -7.2);
             if (distHatch !== null && distHatch <= 2.6) {
               e.preventDefault();
@@ -2855,6 +3071,15 @@
       const step1Done = this.dockLocked;
       const step2Done = this.crewBoarded;
 
+      const camPos = (window.localCrew && window.localCrew.group) ? window.localCrew.group.position : (this.camera ? this.camera.position : null);
+      const elevX = -34 + (this._elevatorConfig ? this._elevatorConfig.x : -8.2);
+      const elevZ = (this._elevatorConfig ? this._elevatorConfig.z : -4.0);
+      const nearElevator = camPos ? Math.hypot(camPos.x - elevX, camPos.z - elevZ) < 14.0 : false;
+      const isAtGround = camPos ? camPos.y < 35.0 : false;
+      const isAtTop = camPos ? camPos.y >= 85.0 : false;
+      const isAtGantry = !isAtGround && !isAtTop;
+      const canGoTop = isAtGantry && !this.isLaunching && !this.siteTourActive;
+
       const armOwnerLabel = crewState.armOwner
         ? (crewState.armOwner.isSelf ? `YOU (${crewState.armOwner.roleShort})` : `${crewState.armOwner.roleShort} · ${crewState.armOwner.name}`)
         : "ENG";
@@ -2885,6 +3110,12 @@
       } else if (this.isLaunching) {
         statusText = "T-0: MAIN ENGINE & BOOSTER IGNITION · LIFTOFF!";
         statusColor = "#f87171";
+      } else if (isAtGround && !step2Done) {
+        statusText = "LC-39A · TAKE ELEVATOR [G/E] TO GANTRY (44m) TO BOARD ORBITER";
+        statusColor = "#38bdf8";
+      } else if (isAtTop && !step2Done) {
+        statusText = "LC-39A · TOWER TOP (88m) · TAKE ELEVATOR [G/E] DOWN TO GANTRY TO BOARD";
+        statusColor = "#facc15";
       } else if (!step1Done) {
         distance = this._distanceToGuidancePoint(-25.9, -6.3);
         target = "arm";
@@ -2917,6 +3148,10 @@
         step1Done,
         step2Done,
         nearTerm,
+        nearElevator,
+        canGoTop,
+        isAtGround,
+        isAtTop,
         canLaunchNow,
         aboardCount: crewState.aboardCount,
         crewTotal: crewState.crewTotal,
@@ -2950,6 +3185,9 @@
             <button type="button" id="btn-sc-term-act" class="sc-hud-btn sc-btn-term" style="display:${guidance.nearTerm ? "inline-flex" : "none"};">
               ${guidance.nearTerm ? guidance.nearTerm.shortAction : "TERMINAL [E]"}
             </button>
+            <button type="button" id="btn-sc-elv-act" class="sc-hud-btn sc-btn-elv" style="display:${guidance.nearElevator ? "inline-flex" : "none"};">
+              🛗 ELEVATOR [G/E]
+            </button>
             <button type="button" id="btn-sc-launch" class="sc-hud-btn sc-btn-launch" style="display:${guidance.canLaunchNow ? "inline-flex" : "none"};">
               ${touchUI ? "🚀 LAUNCH" : "🚀 LAUNCH [L]"}
             </button>
@@ -2961,6 +3199,14 @@
 
         <div class="sc-hud-body" style="display:${this.hudCollapsed ? "none" : "flex"};">
           <div class="sc-hud-tools">
+            <button type="button" id="btn-sc-elevator" class="sc-hud-btn sc-btn-elv" title="Operate FSS Elevator [G]">
+              ${touchUI ? "🛗 ELEVATOR" : "🛗 ELEVATOR [G]"}
+            </button>
+            ${guidance.canGoTop ? `
+            <button type="button" id="btn-sc-top-deck" class="sc-hud-btn sc-btn-top" title="Ride Elevator to Tower Top Observation Deck [T]">
+              ${touchUI ? "🗼 TOP DECK" : "🗼 TOP DECK [T]"}
+            </button>
+            ` : ""}
             <button type="button" id="btn-sc-mission-plan" class="sc-hud-btn sc-btn-plan">
               ${touchUI ? "📋 DESIGN" : "📋 DESIGN [M]"}
             </button>
@@ -2998,6 +3244,27 @@
         btnToggle.addEventListener("click", () => {
           this.hudCollapsed = !this.hudCollapsed;
           this._renderGroundHUD();
+        });
+      }
+
+      const btnElvAct = this.hudOverlay.querySelector("#btn-sc-elv-act");
+      if (btnElvAct) {
+        btnElvAct.addEventListener("click", () => {
+          this._handleElevatorKey();
+        });
+      }
+
+      const btnElv = this.hudOverlay.querySelector("#btn-sc-elevator");
+      if (btnElv) {
+        btnElv.addEventListener("click", () => {
+          this._handleElevatorKey();
+        });
+      }
+
+      const btnTop = this.hudOverlay.querySelector("#btn-sc-top-deck");
+      if (btnTop) {
+        btnTop.addEventListener("click", () => {
+          this._handleElevatorKey("top");
         });
       }
 
@@ -3766,7 +4033,7 @@
       // ── Elevator animation ──────────────────────────────────────────────────
       if (this.elevatorMoving && this.elevatorCab && this._elevatorConfig) {
         const cfg = this._elevatorConfig;
-        const speed = 8.0; // metres per second
+        const speed = 12.0; // metres per second smooth lift
         const diff  = this.elevatorTargetY - this.elevatorY;
         const step  = Math.sign(diff) * Math.min(Math.abs(diff), speed * delta);
         this.elevatorY += step;
@@ -3778,9 +4045,15 @@
           this._elevatorLightMat.emissive.setHex(0xf59e0b);
         }
 
-        // Carry the player if riding (towerGroup world Y offset = 19.8)
-        if (this.elevatorRidingPlayer && this.camera) {
-          this.camera.position.y = 19.8 + this.elevatorY + 1.4;
+        // Carry the player smoothly inside the cab if riding
+        if (this.elevatorRidingPlayer) {
+          const worldY = 19.8 + this.elevatorY;
+          if (window.localCrew && window.localCrew.group) {
+            window.localCrew.group.position.set(-42.2, worldY, -4.0);
+          }
+          if (this.camera) {
+            this.camera.position.set(-42.2, worldY + 1.48, -4.0);
+          }
         }
 
         // Arrived?
@@ -3788,23 +4061,67 @@
           this.elevatorY = this.elevatorTargetY;
           this.elevatorCab.position.y = this.elevatorY;
           this.elevatorMoving = false;
-          this.elevatorRidingPlayer = false;
 
-          if (this.camera) {
-            const isTop = this.elevatorY >= cfg.top - 1;
-            this.camera.position.y = isTop ? 64.1 : 19.8;
-            if (window.gameplay && typeof window.gameplay.showToast === "function") {
-              window.gameplay.showToast(isTop
-                ? "🛗 GANTRY LEVEL — extend the Orbiter Access Arm with [F]"
-                : "🛗 GROUND LEVEL — Elevator doors open");
-            }
-          }
+          const arrivedGantry = Math.abs(this.elevatorY - 44.0) < 2.0;
+          const arrivedTop    = Math.abs(this.elevatorY - 88.0) < 2.0;
+          const arrivedGround = Math.abs(this.elevatorY - 0.0) < 2.0;
 
           if (this._elevatorLightMat) {
-            const col = this.elevatorY >= cfg.top - 1 ? 0x34d399 : 0xef4444;
+            const col = arrivedGround ? 0x38bdf8 : (arrivedGantry ? 0x34d399 : 0xfacc15);
             this._elevatorLightMat.color.setHex(col);
             this._elevatorLightMat.emissive.setHex(col);
           }
+
+          if (window.spaceAudio && typeof window.spaceAudio.playAirlockCycle === "function") {
+            window.spaceAudio.playAirlockCycle();
+          }
+
+          if (this.elevatorRidingPlayer) {
+            this.elevatorRidingPlayer = false;
+
+            if (arrivedGantry) {
+              if (window.localCrew && window.localCrew.group) {
+                window.localCrew.group.position.set(-40.2, 64.1, -4.0);
+                window.localCrew.group.rotation.y = Math.PI / 2;
+              }
+              if (typeof window.setCameraYawPitch === "function") {
+                window.setCameraYawPitch(Math.PI / 2, 0.0);
+              }
+              if (window.gameplay && typeof window.gameplay.showToast === "function") {
+                window.gameplay.showToast("🛗 GANTRY LEVEL (44m) — Walk east across catwalk to extend Orbiter Access Arm [F] & board [E]");
+              }
+            } else if (arrivedTop) {
+              if (window.localCrew && window.localCrew.group) {
+                window.localCrew.group.position.set(-40.2, 108.1, -4.0);
+                window.localCrew.group.rotation.y = Math.PI / 2;
+              }
+              if (typeof window.setCameraYawPitch === "function") {
+                window.setCameraYawPitch(Math.PI / 2, 0.0);
+              }
+              if (window.gameplay && typeof window.gameplay.showToast === "function") {
+                window.gameplay.showToast("🛗 TOWER TOP DECK (88m) — Observation deck under the lightning mast spire");
+              }
+            } else {
+              if (window.localCrew && window.localCrew.group) {
+                window.localCrew.group.position.set(-41.0, 19.8, -4.0);
+                window.localCrew.group.rotation.y = -Math.PI / 2;
+              }
+              if (typeof window.setCameraYawPitch === "function") {
+                window.setCameraYawPitch(-Math.PI / 2, 0.0);
+              }
+              if (window.gameplay && typeof window.gameplay.showToast === "function") {
+                window.gameplay.showToast("🛗 PAD GROUND LEVEL (0m) — Elevator doors open");
+              }
+            }
+          } else {
+            // Cab arrived after being called by a player waiting at the call station
+            if (window.gameplay && typeof window.gameplay.showToast === "function") {
+              const floorLabel = arrivedTop ? "TOWER TOP (88m)" : (arrivedGantry ? "GANTRY LEVEL (44m)" : "GROUND LEVEL (0m)");
+              window.gameplay.showToast(`🛗 ELEVATOR ARRIVED AT ${floorLabel} — Press [E] or [G] to ride`);
+            }
+          }
+
+          this._renderGroundHUD();
         }
       }
       // ───────────────────────────────────────────────────────────────────────
