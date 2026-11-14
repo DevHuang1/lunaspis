@@ -240,50 +240,71 @@
       // Camera & Stack Motion Profiles
       if (t < 3.5) {
         // Stage 1: T-3.5s to T0: countdown, engine ignition and deluge on the
-        // real LC-39A pad. A slow push-in keeps the tower and stack in frame.
+        // real LC-39A pad. Seamlessly maintains the user's high-angle north-east tracking vantage point (90° right).
         this.stackGroup.position.set(0, 0, 0);
         const k = t / 3.5;
-        this.camera.position.set(58 - 10 * k, 20 + 6 * k, 78 - 14 * k);
-        const ignitionShake = Math.max(0, t - 2.5) * 0.09;
-        this.camera.position.x += Math.sin(t * 47) * ignitionShake;
-        this.camera.position.y += Math.cos(t * 53) * ignitionShake * 0.7;
-        this.camera.lookAt(0, 32 + 4 * k, 0);
+        let camX = 96.0 + Math.cos(t * 0.12) * 3.0;
+        let camY = 46.0 + k * 2.0;
+        let camZ = -72.0 - Math.sin(t * 0.12) * 3.0;
+
+        // Acoustic rumble / camera vibration as SSME main engines roar to life
+        const ignitionShake = Math.max(0, t - 1.5) * 0.12;
+        camX += Math.sin(t * 47) * ignitionShake;
+        camY += Math.cos(t * 53) * ignitionShake * 0.7;
+
+        this.camera.position.set(camX, camY, camZ);
+        this.camera.lookAt(0, 42.0 + k * 2.0, 0);
         this._updateTelemetry(0, 0, t - 3.5, "T-3s: MAIN ENGINES IGNITE & WATER COOLING ACTIVE");
-      } else if (t < 7.0) {
-        // Stage 2: T0 to T+3.5s: Booster ignition & tower liftoff, start roll turn.
+      } else if (t < 8.0) {
+        // Stage 2: T0 to T+4.5s: SRB ignition & tower liftoff, clearing the 300 FT Fixed Service Structure!
         const climbTime = t - 3.5;
-        const altitude = Math.pow(climbTime, 2.1) * 12.0;
+        const altitude = Math.pow(climbTime, 2.05) * 11.5;
         this.stackGroup.position.set(0, altitude, 0);
 
         // Roll program (rolls 120 degrees to line up with flight path)
-        const rollFrac = Math.min(1.0, (climbTime / 3.5));
+        const rollFrac = Math.min(1.0, Math.max(0, climbTime - 0.8) / 3.5);
         this.stackGroup.rotation.y = rollFrac * (Math.PI * 0.66);
 
-        // Ease from the pad tracking camera into the ascent chase camera.
-        const k = Math.min(1, climbTime / 3.5);
-        this.camera.position.set(
-          48 + (45 - 48) * k,
-          26 + (altitude + 18 - 26) * k,
-          64 + (55 - 64) * k
-        );
-        const liftoffShake = Math.max(0, 1 - climbTime / 2.4) * 0.32;
-        this.camera.position.x += Math.sin(t * 41) * liftoffShake;
-        this.camera.position.y += Math.cos(t * 57) * liftoffShake * 0.6;
-        this.camera.lookAt(0, altitude + 22, 0);
-        this._updateTelemetry(altitude / 100, climbTime * 140, climbTime, "T+0s: LIFTOFF! ROCKET CLEARS THE LAUNCH TOWER");
+        // Track the ascending vehicle from the north-east perspective (90° right), pulling back slightly to frame the entire pad and launch stack
+        const k = Math.min(1.0, climbTime / 4.5);
+        let camX = 96.0 + 13.0 * k;
+        let camY = 48.0 + 12.0 * k;
+        let camZ = -72.0 - 10.0 * k;
+
+        const liftoffShake = Math.max(0, 1.0 - climbTime / 3.2) * 0.35;
+        camX += Math.sin(t * 41) * liftoffShake;
+        camY += Math.cos(t * 57) * liftoffShake * 0.6;
+
+        this.camera.position.set(camX, camY, camZ);
+
+        // Camera tilts upward tracking the rocket clearing the FSS tower
+        const trackY = 44.0 + altitude * 0.72;
+        this.camera.lookAt(0, trackY, 0);
+
+        const telemAlt = Math.max(0, altitude / 100);
+        this._updateTelemetry(telemAlt, climbTime * 145, climbTime, "T+0s: LIFTOFF! ROCKET CLEARS THE LAUNCH TOWER");
       } else if (t < 13.0) {
-        // Stage 3: T+3.5 to T+9.5s: Pitch-over climbing over 3D Earth
+        // Stage 3: T+4.5 to T+9.5s: Pitch-over heads-down climbing over Florida & Atlantic Coast
         const climbTime = t - 3.5;
-        const altitude = 166.5 + (t - 7.0) * 172.25;
-        const downrange = (t - 7.0) * 140;
+        const altitude = 135.0 + (t - 8.0) * 185.0;
+        const downrange = (t - 8.0) * 150.0;
 
         this.stackGroup.position.set(0, altitude, -downrange);
-        this.stackGroup.rotation.x = -Math.min(1.1, (t - 7.0) * 0.18);
+        this.stackGroup.rotation.x = -Math.min(1.1, (t - 8.0) * 0.18);
 
-        this.camera.position.set(45, altitude + 18, -downrange + 55);
+        // Smoothly transition from the north-east pad tracking camera into the upper-atmosphere chase shot
+        const k = Math.min(1.0, (t - 8.0) / 4.8);
+        const startX = 109.0, startY = 60.0, startZ = -82.0;
+        const targetX = 55.0, targetY = altitude + 18.0, targetZ = -downrange + 55.0;
+
+        this.camera.position.set(
+          startX + (targetX - startX) * k,
+          startY + (targetY - startY) * k,
+          startZ + (targetZ - startZ) * k
+        );
         this.camera.lookAt(this.stackGroup.position.x, this.stackGroup.position.y + 10, this.stackGroup.position.z);
 
-        this._updateTelemetry(altitude * 0.8, 1200 + (t - 7) * 450, climbTime, "T+5s: MISSION CONTROL CONFIRMS SMOOTH CLIMB PATH");
+        this._updateTelemetry(altitude * 0.8, 1200 + (t - 8) * 480, climbTime, "T+5s: MISSION CONTROL CONFIRMS SMOOTH CLIMB PATH");
       } else if (t < 19.0) {
         // Stage 4: T+13s: Side Rocket Booster Separation
         if (!this.srbSeparated) {
@@ -446,6 +467,7 @@
       this.spaceCenterStack = sc.stackGroup || null;
       this.groundGroup.visible = true;
       if (this.spaceCenterStack) this.spaceCenterStack.visible = false;
+      if (this.earthMesh) this.earthMesh.visible = false;
       if (typeof sc._applyGroundAtmosphere === "function") sc._applyGroundAtmosphere();
       this.groundPhase = true;
       this.groundReleased = false;
@@ -460,6 +482,7 @@
 
       if (this.groundGroup) this.groundGroup.visible = false;
       if (this.spaceCenterStack) this.spaceCenterStack.visible = true;
+      if (this.earthMesh) this.earthMesh.visible = true;
       if (window.spaceCenter && typeof window.spaceCenter._restoreSpaceAtmosphere === "function") {
         window.spaceCenter._restoreSpaceAtmosphere();
       }
@@ -470,14 +493,16 @@
       this.groundGroup = null;
       if (this.spaceCenterStack) this.spaceCenterStack.visible = true;
       this.spaceCenterStack = null;
+      if (this.earthMesh) this.earthMesh.visible = true;
     }
 
     _updateGroundFlash() {
       if (!this.flashEl) return;
       if (this.groundPhase) {
-        const alpha = Math.max(0, Math.min(1, (this.elapsed - 6.8) / 0.6));
+        // Keep Pad 39A ground and Florida coastline visible throughout liftoff and tower clearance (until t >= 11.8s)
+        const alpha = Math.max(0, Math.min(1, (this.elapsed - 11.8) / 0.8));
         this.flashEl.style.opacity = String(alpha);
-        if (this.elapsed >= 7.5) this._releaseGroundStage();
+        if (this.elapsed >= 12.6) this._releaseGroundStage();
       } else if (this.groundReleased) {
         const alpha = Math.max(0, 1 - (this.elapsed - this.groundReleasedAt) / 1.1);
         this.flashEl.style.opacity = String(alpha);
@@ -784,7 +809,7 @@
 
       // Rotate entire Stack Core by -90° around X so +Z (nose) points up (+Y)!
       this.stackCore.rotation.x = -Math.PI / 2;
-      this.stackCore.position.set(0, 32.2, 0);
+      this.stackCore.position.set(0, 44.0, 0);
 
       // 7. Giant 3D Earth Globe Below Stack
       try {

@@ -281,6 +281,7 @@
 
     if (boxes) {
       for (const box of boxes) {
+        if (box.disabled) continue;
         if (typeof box.minY === "number" && effY < box.minY) continue;
         if (typeof box.maxY === "number" && effY > box.maxY) continue;
         if (box.rotated) {

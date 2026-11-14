@@ -1387,6 +1387,7 @@
 
       if (x < bounds.minX + r || x > bounds.maxX - r || z < bounds.minZ + r || z > bounds.maxZ - r) return true;
       for (const box of boxes) {
+        if (box.disabled) continue;
         if (box.rotated) {
           const dx = x - box.cx;
           const dz = z - box.cz;

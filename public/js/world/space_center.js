@@ -66,6 +66,7 @@
       this.openCar = null;              // Drivable open-top NASA ground car
       this.rssGroup = null;
       this.goxVentArm = null;
+      this.lccDoors = null;             // Interactive secure entrance doors to Launch Control Center (LCC)
 
       // Elevator system
       this.elevatorCab = null;          // THREE.Group — the moving cabin
@@ -170,7 +171,7 @@
       if (!THREE.InstancedMesh || !this.padGroup) return;
       this.padGroup.updateMatrixWorld(true);
       const invPad = new THREE.Matrix4().copy(this.padGroup.matrixWorld).invert();
-      const excluded = new Set([this.elevatorCab, this.armPivotGroup, this.stackGroup]);
+      const excluded = new Set([this.elevatorCab, this.armPivotGroup, this.stackGroup, this.goxVentArm]);
       const isExcluded = (object) => {
         let node = object;
         while (node) { if (excluded.has(node)) return true; node = node.parent; }
@@ -214,7 +215,7 @@
       if (!this.padGroup || !this.site || typeof this.site._mergeGeometryList !== "function") return;
       this.padGroup.updateWorldMatrix(true, true);
       const invPad = new THREE.Matrix4().copy(this.padGroup.matrixWorld).invert();
-      const excluded = new Set([this.elevatorCab, this.armPivotGroup, this.stackGroup]);
+      const excluded = new Set([this.elevatorCab, this.armPivotGroup, this.stackGroup, this.goxVentArm]);
       const isExcluded = (object) => {
         let node = object;
         while (node) { if (excluded.has(node)) return true; node = node.parent; }
@@ -937,6 +938,37 @@
           window.gameplay.showToast("🛗 ELEVATOR: Descending to Gantry Level (44m) for Spacecraft Boarding");
         }
       }
+    }
+
+    // ── Launch Control Center (LCC) Entrance Door Interaction ─────────────────
+    _isNearLccDoor() {
+      const pos = (window.localCrew && window.localCrew.group)
+        ? window.localCrew.group.position
+        : (this.camera ? this.camera.position : null);
+      if (!pos) return false;
+      const d = this.lccDoors || { cx: -180, cz: 203 };
+      return Math.hypot(pos.x - d.cx, pos.z - d.cz) < 6.8 && pos.y < 8.0;
+    }
+
+    toggleLccDoors(forceState) {
+      if (!this.lccDoors) return;
+      const d = this.lccDoors;
+      d.isOpen = forceState !== undefined ? !!forceState : !d.isOpen;
+      d.target = d.isOpen ? 1.0 : 0.0;
+      if (d.collider) d.collider.disabled = d.isOpen;
+
+      if (window.spaceAudio && typeof window.spaceAudio.playAirlockCycle === "function") {
+        window.spaceAudio.playAirlockCycle();
+      }
+
+      if (window.gameplay && typeof window.gameplay.showToast === "function") {
+        window.gameplay.showToast(
+          d.isOpen
+            ? "🚪 LAUNCH CONTROL CENTER: Doors Open — Welcome to Firing Room & Mission Control"
+            : "🚪 LAUNCH CONTROL CENTER: Doors Closed — Access Secured"
+        );
+      }
+      this._renderGroundHUD();
     }
 
     _updateSunShadowFocus(camPos) {
@@ -2108,7 +2140,6 @@
         cabLight.position.set(0, 2.4, 0);
         this.elevatorCab.add(cabLight);
       }
-
       // Status indicator strip (green = arrived, amber = moving)
       this._elevatorLightMat = new THREE.MeshStandardMaterial({
         color: 0x34d399, emissive: 0x34d399, emissiveIntensity: 2.2
@@ -2238,28 +2269,11 @@
       createCallStation(ELV_BOTTOM, "1: GROUND (PAD 39A)");
       createCallStation(ELV_GANTRY, "2: GANTRY (44m)");
       createCallStation(ELV_TOP,    "3: TOWER TOP (88m)");
-      createCallStation(ELV_TOP,    "3: TOWER TOP (88m)");
 
       // Store elevator config for update() / key handler
       this._elevatorConfig = { x: ELV_X, z: ELV_Z, bottom: ELV_BOTTOM, gantry: ELV_GANTRY, top: ELV_TOP };
       this.elevatorY = ELV_BOTTOM;
       this.elevatorTargetY = ELV_BOTTOM;
-
-      // ── Keydown listener for [G] and [T] ──
-      if (!this._elevatorKeyBound) {
-        this._elevatorKeyBound = true;
-        window.addEventListener("keydown", (ev) => {
-          if (!window.isGameStarted || !this.isGroundMode) return;
-          if (ev.target && (ev.target.tagName === "INPUT" || ev.target.tagName === "TEXTAREA")) return;
-          if (ev.code === "KeyG") {
-            ev.preventDefault();
-            this._handleElevatorKey();
-          } else if (ev.code === "KeyT" && this.camera && Math.abs(this.camera.position.y - 64.1) < 8) {
-            ev.preventDefault();
-            this._handleElevatorKey("top");
-          }
-        });
-      }
 
       // Small service platforms at a few levels.
       [28, 60, 80].forEach((y) => {
@@ -4243,56 +4257,8 @@
     // ============================================================================
     _buildWaterDelugeSystem() {
       const THREE = window.THREE;
-      const delugeGroup = new THREE.Group();
-      delugeGroup.name = "WaterDelugeSystem";
-      delugeGroup.position.set(78, 0, -70);
-      this.padGroup.add(delugeGroup);
 
-      const tankMat = new THREE.MeshStandardMaterial({ color: 0xdfe7ec, roughness: 0.5, metalness: 0.28 });
-      const legMat = new THREE.MeshStandardMaterial({ color: 0x8d99a3, roughness: 0.55, metalness: 0.4 });
-
-      // Four support legs and cross-braced water tower.
-      const legGeo = new THREE.CylinderGeometry(0.7, 0.95, 45, 10);
-      [
-        [-8, -8], [8, -8], [-8, 8], [8, 8]
-      ].forEach(([x, z]) => {
-        const leg = new THREE.Mesh(legGeo, legMat);
-        leg.position.set(x, 22.5, z);
-        delugeGroup.add(leg);
-      });
-
-      for (let y = 8; y <= 36; y += 9) {
-        this._makeBeam(delugeGroup, 16, 0.28, 0.28, 0, y, -8, legMat);
-        this._makeBeam(delugeGroup, 16, 0.28, 0.28, 0, y, 8, legMat);
-        this._makeBeam(delugeGroup, 0.28, 0.28, 16, -8, y, 0, legMat);
-        this._makeBeam(delugeGroup, 0.28, 0.28, 16, 8, y, 0, legMat);
-      }
-      this._makeBeam(delugeGroup, 22, 0.25, 0.25, 0, 22, -8, legMat, 0.62, 0, 0);
-      this._makeBeam(delugeGroup, 22, 0.25, 0.25, 0, 22, 8, legMat, -0.62, 0, 0);
-
-      const sphereTank = new THREE.Mesh(new THREE.SphereGeometry(11, 24, 18), tankMat);
-      sphereTank.position.set(0, 54, 0);
-      delugeGroup.add(sphereTank);
-
-      const tankBand = new THREE.Mesh(new THREE.CylinderGeometry(11.05, 11.05, 1.5, 32), new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.6, metalness: 0.2 }));
-      tankBand.position.set(0, 54, 0);
-      delugeGroup.add(tankBand);
-
-      // Vertical riser pipe down from the tank and across toward the pad.
-      const pipeMat = new THREE.MeshStandardMaterial({ color: 0x9aa6b0, roughness: 0.45, metalness: 0.7 });
-      const riser = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 46, 10), pipeMat);
-      riser.position.set(0, 31, 0);
-      delugeGroup.add(riser);
-
-      const feedPipe = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 60, 8), pipeMat);
-      feedPipe.rotation.z = Math.PI / 2;
-      feedPipe.position.set(-30, 2.0, 0);
-      delugeGroup.add(feedPipe);
-
-      const delugeBase = new THREE.Mesh(new THREE.BoxGeometry(20, 1.6, 20), new THREE.MeshStandardMaterial({ color: 0x66727b, roughness: 0.9, metalness: 0.1 }));
-      delugeBase.position.set(0, 0.8, 0);
-      delugeGroup.add(delugeBase);
-
+      // Active water deluge spray under the vehicle launch mount (no giant sphere blocking view)
       const waterSprayMat = new THREE.MeshStandardMaterial({
         color: 0xe0f2fe,
         transparent: true,
@@ -4301,7 +4267,6 @@
       });
       this.delugeWaterMesh = new THREE.Mesh(new THREE.CylinderGeometry(9, 14, 12, 16), waterSprayMat);
       this.delugeWaterMesh.position.set(0, 14, 0);
-      // Keep the deluge effect at the pad, not under the water tower.
       this.padGroup.add(this.delugeWaterMesh);
 
       const steamMat = new THREE.MeshBasicMaterial({
@@ -4523,28 +4488,6 @@
             shortAction: "OPEN CONTROL CONSOLE [E]",
             action: "lcc_console",
             color: 0x3b82f6
-          },
-          {
-            id: "mcc_flight_director",
-            x: -68,
-            z: 240.5,
-            y: 0.3,
-            radius: 4.6,
-            label: "E · MISSION LEADER CONSOLE",
-            shortAction: "MISSION LEADER · GOALS [E]",
-            action: "mission",
-            color: 0xfbbf24
-          },
-          {
-            id: "mcc_ground_systems",
-            x: -52,
-            z: 240.5,
-            y: 0.3,
-            radius: 4.6,
-            label: "E · GROUND SUPPORT CONSOLE",
-            shortAction: "GROUND SUPPORT · PATH & RADIO [E]",
-            action: "orbit",
-            color: 0x67e8f9
           },
           {
             id: "lcc_fd",
@@ -5593,6 +5536,7 @@
       let nz = Math.max(bounds.minZ, Math.min(bounds.maxZ, proposedPos.z));
       const blocked = (x, z) => {
         for (const box of boxes) {
+          if (box.disabled) continue;
           // Never block crawlerway ramp or pad approach in fallback collider loop
           if (box.name && (box.name.toLowerCase().includes("ramp") || box.name.toLowerCase().includes("berm"))) continue;
           if (box.rotated) {
@@ -5615,7 +5559,6 @@
           }
         }
         for (const circle of circles) {
-          if (circle.name && (circle.name.toLowerCase().includes("berm") || circle.name.toLowerCase().includes("ramp"))) continue;
           if (Math.hypot(x - circle.x, z - circle.z) < circle.r + radius) return true;
         }
         return false;
@@ -5837,6 +5780,11 @@
               return;
             }
             if (e.code === "KeyE") {
+              if (this.lccDoors && this._isNearLccDoor()) {
+                e.preventDefault();
+                this.toggleLccDoors();
+                return;
+              }
               const elevX = -34 + (this._elevatorConfig ? this._elevatorConfig.x : -8.2);
               const elevZ = (this._elevatorConfig ? this._elevatorConfig.z : -4.0);
               if (pos && Math.hypot(pos.x - elevX, pos.z - elevZ) < 24.0) {
@@ -5941,6 +5889,11 @@
           }
 
           if (e.code === "KeyE") {
+            if (this.lccDoors && this._isNearLccDoor()) {
+              e.preventDefault();
+              this.toggleLccDoors();
+              return;
+            }
             if (this.dockLocked && !this.crewBoarded && this.missionPhase === "gantry") {
               const distHatch = this._distanceToGuidancePoint(-5.2, -7.2);
               if (distHatch !== null && distHatch <= 2.6) {
@@ -6191,6 +6144,8 @@
       const isAtTop = camPos ? camPos.y >= 85.0 : false;
       const isAtGantry = !isAtGround && !isAtTop;
       const canGoTop = isAtGantry && !this.isLaunching && !this.siteTourActive;
+      const nearLccDoor = this._isNearLccDoor();
+      const lccDoorOpen = !!(this.lccDoors && this.lccDoors.isOpen);
 
       const armOwnerLabel = crewState.armOwner
         ? (crewState.armOwner.isSelf ? `YOU (${crewState.armOwner.roleShort})` : `${crewState.armOwner.roleShort} · ${crewState.armOwner.name}`)
@@ -6213,7 +6168,12 @@
       let target = null;
 
       const nearTerm = (this.siteTourActive || isGround) ? this._getNearbyFacilityTerminal() : null;
-      if (this.siteTourActive) {
+      if (nearLccDoor) {
+        statusText = lccDoorOpen
+          ? "LAUNCH CONTROL CENTER · DOORS OPEN · PRESS [E] TO CLOSE"
+          : "LAUNCH CONTROL CENTER ENTRANCE · DOORS LOCKED · PRESS [E] TO ENTER";
+        statusColor = lccDoorOpen ? "#86efac" : "#ef4444";
+      } else if (this.siteTourActive) {
         const current = tourSpawns[this.siteTourIndex] || tourSpawns[0];
         if (nearTerm) {
           statusText = `${nearTerm.label} · [E] OPEN TERMINAL`;
@@ -6303,6 +6263,8 @@
         crewBoarded: this.crewBoarded,
         canBoard,
         canUnboard,
+        nearLccDoor,
+        lccDoorOpen,
         nearTerm,
         nearElevator,
         canGoTop,
@@ -6416,12 +6378,18 @@
           </div>
 
           <div class="sc-hud-primary">
+            <button type="button" id="btn-sc-lcc-door" class="sc-hud-btn ${guidance.lccDoorOpen ? "sc-btn-plan" : "sc-btn-launch"}" style="display:${guidance.nearLccDoor ? "inline-flex" : "none"};">
+              ${guidance.lccDoorOpen ? (touchUI ? "🚪 CLOSE LCC" : "🚪 CLOSE DOORS [E]") : (touchUI ? "🚪 ENTER LCC" : "🚪 ENTER LCC [E]")}
+            </button>
             <button type="button" id="btn-sc-term-act" class="sc-hud-btn sc-btn-term" style="display:${guidance.nearTerm ? "inline-flex" : "none"};">
               ${guidance.nearTerm ? guidance.nearTerm.shortAction : "TERMINAL [E]"}
             </button>
             ${touring ? `
               <button type="button" id="btn-sc-site-tour" class="sc-hud-btn sc-btn-tour is-active">
                 ${touchUI ? tourExitLabel : `${tourExitLabel} [T]`}
+              </button>
+              <button type="button" id="btn-sc-elv-act" class="sc-hud-btn sc-btn-elv">
+                ${guidance.isAtGround ? (touchUI ? "🗼 TO TOP DECK" : "🗼 TO TOP DECK [3/T]") : (guidance.isAtTop ? (touchUI ? "🛗 TO GROUND" : "🛗 TO GROUND [1]") : (touchUI ? "🛗 ELEVATOR" : "🛗 ELEVATOR [G/E]"))}
               </button>
             ` : guidance.isGround ? `
               <button type="button" id="btn-sc-lcc-console" class="sc-hud-btn ${this.lccConsoleOpen ? "sc-btn-launch" : "sc-btn-term"}">
@@ -6529,6 +6497,13 @@
       const btnReturnLcc = this.hudOverlay.querySelector("#btn-sc-return-lcc");
       if (btnReturnLcc) {
         btnReturnLcc.addEventListener("click", () => this.exitSiteTour());
+      }
+
+      const btnLccDoor = this.hudOverlay.querySelector("#btn-sc-lcc-door");
+      if (btnLccDoor) {
+        btnLccDoor.addEventListener("click", () => {
+          this.toggleLccDoors();
+        });
       }
 
       const btnElvAct = this.hudOverlay.querySelector("#btn-sc-elv-act");
@@ -6708,6 +6683,15 @@
         btnBoarding.textContent = guidance.canUnboard
           ? (guidance.touchUI ? "STEP OUT" : "STEP OUT [E/B]")
           : (guidance.touchUI ? "BOARD" : "BOARD [E/B]");
+      }
+
+      const btnLccDoor = this.hudOverlay.querySelector("#btn-sc-lcc-door");
+      if (btnLccDoor) {
+        btnLccDoor.style.display = guidance.nearLccDoor ? "inline-flex" : "none";
+        btnLccDoor.textContent = guidance.lccDoorOpen
+          ? (guidance.touchUI ? "🚪 CLOSE LCC" : "🚪 CLOSE DOORS [E]")
+          : (guidance.touchUI ? "🚪 ENTER LCC" : "🚪 ENTER LCC [E]");
+        btnLccDoor.className = `sc-hud-btn ${guidance.lccDoorOpen ? "sc-btn-plan" : "sc-btn-launch"}`;
       }
 
       const btnTermAct = this.hudOverlay.querySelector("#btn-sc-term-act");
@@ -7966,6 +7950,39 @@
         const targetGoxAngle = this.isLaunching ? -0.55 : 0.0;
         if (Math.abs(this.goxVentArm.rotation.y - targetGoxAngle) > 0.001) {
           this.goxVentArm.rotation.y += (targetGoxAngle - this.goxVentArm.rotation.y) * Math.min(1, delta * 2.5);
+        }
+      }
+
+      // ── Launch Control Center (LCC) entrance doors animation ────────────────
+      if (this.lccDoors) {
+        const d = this.lccDoors;
+        const diff = d.target - d.progress;
+        if (Math.abs(diff) > 0.0005) {
+          const step = Math.sign(diff) * Math.min(Math.abs(diff), delta * 2.8);
+          d.progress += step;
+          if (Math.abs(d.target - d.progress) < 0.002) {
+            d.progress = d.target;
+          }
+          if (d.leftDoor) {
+            d.leftDoor.position.x = d.leftBaseX - d.progress * d.slideDist;
+          }
+          if (d.rightDoor) {
+            d.rightDoor.position.x = d.rightBaseX + d.progress * d.slideDist;
+          }
+          if (d.statusMat) {
+            const p = d.progress;
+            const r = (0xef * (1 - p) + 0x22 * p) / 255;
+            const g = (0x44 * (1 - p) + 0xc5 * p) / 255;
+            const b = (0x44 * (1 - p) + 0x5e * p) / 255;
+            d.statusMat.color.setRGB(r, g, b);
+            d.statusMat.emissive.setRGB(r * 0.85, g * 0.85, b * 0.85);
+          }
+          if (d.markerMat) {
+            d.markerMat.color.setHex(d.progress > 0.5 ? 0x22c55e : 0x38bdf8);
+            d.markerMat.opacity = 0.55 + 0.35 * Math.sin(clockElapsed * 3.5);
+          }
+        } else if (d.markerMat) {
+          d.markerMat.opacity = 0.55 + 0.35 * Math.sin(clockElapsed * 3.5);
         }
       }
 
