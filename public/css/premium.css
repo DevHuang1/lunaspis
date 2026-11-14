@@ -1,0 +1,274 @@
+/* ==========================================================================
+   PERILUNE — Mission-control UI refinement
+   Restrained, professional aerospace styling. No decorative effects.
+   Loaded after style.css.
+   ========================================================================== */
+
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: "SF Mono", SFMono-Regular, ui-monospace, Menlo, Monaco, Consolas, monospace;
+
+  /* NASA / mission-control palette */
+  --bg-obsidian: #050810;
+  --surface-glass: rgba(10, 16, 28, 0.92);
+  --surface-elevated: rgba(14, 20, 34, 0.96);
+  --border-hairline: rgba(148, 163, 184, 0.22);
+  --border-strong: rgba(148, 163, 184, 0.4);
+  --text-ivory: #e5e7eb;
+  --text-slate: rgba(148, 163, 184, 0.85);
+  --accent-cyan: #2563eb;
+  --accent-amber: #d97706;
+  --accent-sage: #16a34a;
+  --accent-rose: #dc2626;
+  --accent-lavender: #7c3aed;
+}
+
+/* ---------- Base ---------- */
+html, body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-family: var(--font-sans);
+  background: #050810;
+}
+
+/* ---------- Typography scope ---------- */
+.title-brand,
+.title-callsign-lbl,
+.title-callsign-input,
+.title-code-input,
+.title-eyebrow,
+.room-code-text,
+.lobby-count-text,
+.customizer-title,
+.field-label,
+.settings-label,
+.settings-val-badge,
+.settings-select,
+.btn-title-primary,
+.btn-title-secondary,
+.btn-title-join,
+.btn-primary,
+.btn-secondary,
+.btn-start-game,
+.btn-copy,
+.btn-auth-action,
+.btn-lobby-voice,
+.btn-preset,
+.sys-tab-btn,
+.auth-tab-btn,
+.hud-race-team-info,
+.hud-race-score,
+.hud-checklist-header,
+.checklist-count-pill,
+.task-badge,
+.task-loc-text,
+.task-modal-title,
+.diag-title,
+.diag-stat-label,
+.diag-stat-value,
+.diag-stat-sub,
+.victory-eyebrow,
+.perf-metric,
+.perf-label,
+.perf-val,
+.perf-status-badge,
+.voice-mic-btn,
+.voice-status-badge,
+.voice-key-hint,
+.voice-settings-btn,
+.emote-wheel-header,
+.emote-label,
+.emote-hotkey,
+#emote-toast,
+.dossier-stat-num,
+.dossier-stat-lbl,
+#action-toast,
+#launch-countdown-banner,
+.hangar-card-badge,
+.hangar-card-role,
+.hangar-card-title,
+.hangar-card-desc,
+.hangar-ctrl-btn,
+.hangar-viewport-status,
+.hangar-stat-lbl,
+.hangar-stat-val,
+#mobile-joystick-hint,
+.lobby-mission-selected,
+.lobby-mission-hint,
+.net-diag-lbl,
+.net-diag-val,
+.keybind-row,
+.pod-role,
+.pod-ready-badge,
+.settings-toggle-title,
+.settings-toggle-desc,
+.prox-key-badge {
+  font-family: var(--font-mono);
+}
+
+/* ---------- Scrollbars (minimal) ---------- */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.25); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.45); }
+
+/* ---------- Focus ---------- */
+.input-styled:focus,
+.settings-select:focus,
+.title-code-input:focus,
+.title-callsign-input:focus {
+  border-color: var(--accent-cyan);
+  outline: none;
+}
+
+/* ---------- Surfaces: flat, crisp ---------- */
+.lobby-top-bar,
+.lobby-customizer,
+.lobby-mission-panel,
+.lobby-player-pod,
+.hud-race-bar-container,
+.hud-checklist-panel,
+#hud-voice-panel,
+#perf-overlay,
+.task-modal-card,
+.settings-modal-card,
+.mission-briefing-card,
+.hangar-modal-card,
+#emote-wheel,
+.active-speaker-tag {
+  background: var(--surface-glass);
+  border: 1px solid var(--border-hairline);
+  border-radius: 6px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: none;
+}
+
+/* ---------- Buttons: flat, no lift ---------- */
+.btn-title-primary,
+.btn-title-secondary,
+.btn-title-join,
+.btn-primary,
+.btn-secondary,
+.btn-start-game,
+.btn-copy,
+.btn-auth-action,
+.btn-lobby-voice,
+.btn-preset,
+.btn-secondary,
+.voice-mic-btn,
+.hangar-ctrl-btn,
+.dpad-btn,
+.btn-title-join {
+  border-radius: 4px;
+  transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+.btn-title-primary,
+.btn-primary,
+.btn-start-game {
+  background: #e5e7eb;
+  color: #050810;
+  border: 1px solid #e5e7eb;
+}
+.btn-title-primary:hover,
+.btn-primary:hover,
+.btn-start-game:hover {
+  background: #ffffff;
+  border-color: #ffffff;
+}
+.btn-title-secondary,
+.btn-secondary,
+.btn-lobby-voice,
+.btn-copy,
+.voice-mic-btn,
+.hangar-ctrl-btn {
+  background: transparent;
+  border: 1px solid var(--border-hairline);
+  color: var(--text-ivory);
+}
+.btn-title-secondary:hover,
+.btn-secondary:hover,
+.btn-lobby-voice:hover,
+.btn-copy:hover,
+.voice-mic-btn:hover,
+.hangar-ctrl-btn:hover {
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+}
+
+/* ---------- Inputs ---------- */
+.input-styled,
+.settings-select,
+.title-code-input,
+.title-callsign-input {
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-hairline);
+}
+
+/* ---------- Progress ---------- */
+.hud-race-track {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.hud-race-fill {
+  border-radius: 2px;
+}
+.fill-coop {
+  background: var(--accent-cyan);
+}
+
+/* ---------- Checklist ---------- */
+.task-checklist-item {
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.task-checklist-item:hover {
+  border-color: var(--accent-cyan);
+  background: rgba(37, 99, 235, 0.06);
+}
+.checklist-count-pill {
+  border-radius: 3px;
+}
+
+/* ---------- Proximity button ---------- */
+#btn-proximity-use {
+  border-radius: 4px;
+  box-shadow: none;
+  background: var(--surface-glass);
+  border: 1px solid var(--accent-cyan);
+}
+
+/* ---------- Modals: no sheen ---------- */
+.task-modal-card,
+.settings-modal-card,
+.mission-briefing-card,
+.hangar-modal-card {
+  border-radius: 6px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7);
+}
+
+/* ---------- Title display: solid, no gradient ---------- */
+.title-display {
+  color: var(--text-ivory);
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  text-shadow: none;
+  filter: none;
+}
+
+/* ---------- Misc ---------- */
+a { transition: color 0.12s ease; }
+a:hover { color: var(--accent-cyan); }
+
+/* Keep reduced-motion respect */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
