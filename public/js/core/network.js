@@ -691,6 +691,11 @@
         if (this.coverageState && c && c.revision !== this.coverageState.revision) return;
         this.emitEvent("coverage_clock", c);
       });
+      this.socket.on("deploy_state", (d) => {
+        if (d && d.assess === undefined && this.deployState && this.deployState.assessRev === d.assessRev) d.assess = this.deployState.assess;
+        this.deployState = d;
+        this.emitEvent("deploy_state", d);
+      });
 
       this.socket.on("player_moved", (data) => {
         const rp = this.remotePlayers[data.id];
@@ -1054,6 +1059,7 @@
       this.snapshot = null;
       this.snapshot = null;
       this.coverageState = null;
+      this.deployState = null;
       this.isHost = false;
       this.isSoloRoom = false;
       this.remotePlayers = {};

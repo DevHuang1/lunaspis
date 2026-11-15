@@ -7,12 +7,62 @@
  */
 "use strict";
 const C = require("../public/js/coverage/coverage_core.js");
+const DC = require("../public/js/coverage/deploy_core.js");
 
 const RATES = [1, 10, 60, 300, 1000];
 
-function createCoverageState(hostId, scenario) {
+function createCoverageState(hostId, scenario, opts) {
+  opts = opts || {};
   const scn = scenario && C.validate(scenario).ok ? C.normalize(scenario) : C.defaultSandbox(Date.now());
-  return { scenario: scn, revision: 1, editorId: hostId, clock: { simT: 0, wallRef: Date.now(), rate: 60, paused: true }, hashes: {}, desync: false };
+  const cov = { scenario: scn, revision: 1, editorId: hostId, clock: { simT: 0, wallRef: Date.now(), rate: 60, paused: true }, hashes: {}, desync: false, deploy: null, deployResult: null };
+  // The session opens with the CubeSat still inside the ISS: deployment from Kibo (deploy_core.js), unless skipped.
+  if (opts.deploy) cov.deploy = { active: true, sim: DC.create({ epochMs: Date.now(), testHooks: !!opts.testHooks }), inputs: {}, lastAssessRev: -1 };
+  return cov;
+}
+
+// ------------------------------------------------------------------ ISS deployment (co-op consoles)
+/** Console owners: 1 player holds all; 2 → host JEMRMS + flight, guest crew; 3+ → host JEMRMS, 2nd crew, 3rd flight. */
+function deployRoles(room) {
+  const ids = Object.keys(room.players);
+  const order = [room.hostId, ...ids.filter((id) => id !== room.hostId)].filter((id) => room.players[id]);
+  const pick = (i) => order[Math.min(i, order.length - 1)] || null;
+  const map = order.length >= 3 ? { rms: pick(0), crew: pick(1), flight: pick(2) } : order.length === 2 ? { rms: pick(0), crew: pick(1), flight: pick(0) } : { rms: pick(0), crew: pick(0), flight: pick(0) };
+  const out = {};
+  for (const r of DC.ROLES) { const id = map[r], p = id && room.players[id]; out[r] = { playerId: id, name: p ? p.name : null }; }
+  return out;
+}
+function deploySnapshot(cov, room, withAssess) {
+  if (!cov.deploy) return null;
+  const sim = cov.deploy.sim, snap = sim.snapshot(withAssess);
+  snap.active = cov.deploy.active; snap.roles = deployRoles(room); snap.serverNow = Date.now();
+  return snap;
+}
+/** Advance the deployment simulation; uses only the JEMRMS console owner's hand-controller input. */
+function tickDeploy(cov, room, dt) {
+  const d = cov.deploy; if (!d || !d.active) return [];
+  const roles = deployRoles(room), inp = d.inputs[roles.rms.playerId];
+  d.sim.setInput(inp && Date.now() - inp.at < 1500 ? inp.v : null);
+  return d.sim.advance(dt);
+}
+function finishDeploy(cov, handoff) {
+  const d = cov.deploy; if (!d) return;
+  d.active = false;
+  const now = Date.now();
+  if (handoff) {
+    const prev = cov.scenario, h = handoff, sim = d.sim;
+    const next = Object.assign({}, prev, {
+      mode: "sandbox", title: "CubeSat deployed from the ISS (J-SSOD)", epochUtc: h.epochUtc,
+      orbit: { type: "circular", altKm: h.altKm, incDeg: h.incDeg, nodeLonDeg: h.nodeLonDeg, phaseDeg: h.phaseDeg },
+      pins: [], edited: false,
+    });
+    delete next.derivedFrom;
+    const v = C.validate(next);
+    if (v.ok) {
+      cov.scenario = C.normalize(next); cov.revision++; cov.hashes = {}; cov.desync = false;
+      cov.clock = { simT: 0, wallRef: now, rate: cov.clock.rate, paused: true };
+      cov.deployResult = { handoff: h, done: sim.st.done, violations: sim.st.violations.slice(), releaseUtc: h.releaseUtc };
+    }
+  }
 }
 
 function clockNow(cov, now) {
@@ -33,7 +83,8 @@ function publicState(cov, room) {
   settle(cov, now);
   const ed = room.players[cov.editorId];
   return { revision: cov.revision, pinsRev: cov.pinsRev || 0, scenario: cov.scenario, editorId: cov.editorId, editorName: ed ? ed.name : null,
-           clock: { ...cov.clock }, serverNow: now, desync: cov.desync };
+           clock: { ...cov.clock }, serverNow: now, desync: cov.desync,
+           deployActive: !!(cov.deploy && cov.deploy.active), deployResult: cov.deployResult };
 }
 
 /** Apply a client request. Returns { accepted, reason?, changed: "scenario"|"clock"|"editor"|null }. */
@@ -41,7 +92,39 @@ function applyRequest(cov, room, socketId, req) {
   req = req || {};
   const now = Date.now();
   const isEditor = socketId === cov.editorId, isHost = socketId === room.hostId;
+  const deploying = !!(cov.deploy && cov.deploy.active);
+  if (deploying && ["SET_SCENARIO", "SET_PINS", "CLOCK"].includes(req.type)) return { accepted: false, reason: "The CubeSat is still on the ISS — finish or skip the deployment first" };
   switch (req.type) {
+    case "DEPLOY_INPUT": {
+      if (!deploying) return { accepted: true, changed: null };
+      const roles = deployRoles(room);
+      if (roles.rms.playerId !== socketId) return { accepted: false, reason: "Only the JEMRMS operator flies the arm" };
+      cov.deploy.inputs[socketId] = { v: req.input || {}, at: now };
+      return { accepted: true, changed: null };
+    }
+    case "DEPLOY": {
+      if (!deploying) return { accepted: false, reason: "No deployment in progress" };
+      const sim = cov.deploy.sim, cmd = String(req.cmd || "");
+      if (cmd === "SKIP") {
+        if (!isHost && !isEditor) return { accepted: false, reason: "Only the host can skip the deployment" };
+        finishDeploy(cov, null); return { accepted: true, changed: "deploy-end" };
+      }
+      if (cmd === "HANDOFF" && !isHost && !isEditor) return { accepted: false, reason: "The host starts the coverage phase" };
+      const roles = deployRoles(room), mine = DC.ROLES.filter((r) => roles[r].playerId === socketId);
+      // a command acts for the caller's consoles; GO names its console explicitly
+      let role = mine.length === DC.ROLES.length ? "all" : null;
+      if (!role) {
+        const needs = { STEP: "crew", PUMP: "crew", VENT: "crew", LEAK_CHECK: "crew", OUTER_HATCH: "crew", TABLE: "crew", CAMERA: "crew", GRAPPLE: "rms", MOVE: "rms", BRAKES: "rms", ARM: "flight", DEPLOY: "flight", WARP: "flight", BEGIN: "flight", HANDOFF: "flight" };
+        const need = cmd === "GO" ? req.arg : needs[cmd];
+        if (cmd === "WARP" || cmd === "BEGIN" || cmd === "HANDOFF") role = isHost || mine.includes("flight") ? "all" : null;
+        else role = need && mine.includes(need) ? need : (mine[0] || "observer");
+      }
+      if (!role) return { accepted: false, reason: "The flight director controls that" };
+      const r = sim.command(role, cmd, req.arg);
+      if (!r.accepted) return { accepted: false, reason: r.reason, changed: "deploy" };
+      if (cmd === "HANDOFF") { finishDeploy(cov, sim.st.handoff); return { accepted: true, changed: "deploy-end" }; }
+      return { accepted: true, changed: "deploy" };
+    }
     case "SET_SCENARIO": {
       if (!isEditor) return { accepted: false, reason: "Only the editor can change the scenario" };
       const v = C.validate(req.scenario);
@@ -103,4 +186,4 @@ function onPlayerLeft(cov, room) {
   for (const id of Object.keys(cov.hashes)) if (!room.players[id]) delete cov.hashes[id];
 }
 
-module.exports = { createCoverageState, applyRequest, publicState, onPlayerLeft, clockNow, RATES };
+module.exports = { createCoverageState, applyRequest, publicState, onPlayerLeft, clockNow, RATES, deployRoles, deploySnapshot, tickDeploy, finishDeploy };
