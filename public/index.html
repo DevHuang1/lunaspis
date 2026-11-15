@@ -279,27 +279,34 @@
       <div class="title-nav-scrim" id="title-nav-scrim" aria-hidden="true"></div>
       <nav class="title-nav" id="title-primary-nav" aria-label="Primary">
         <button type="button" class="title-nav-link is-active">FLIGHT DECK</button>
-        <button type="button" class="title-nav-link" id="btn-open-hangar-menu">HANGAR</button>
         <button type="button" class="title-nav-link" id="btn-title-dossier">DOSSIER</button>
         <button type="button" class="title-nav-link" id="btn-title-settings">SETTINGS</button>
       </nav>
       <div class="title-top-actions">
-        <div class="title-region-toggle" id="region-toggle" role="group" aria-label="Server region">
-          <span class="region-status-dot" aria-hidden="true"></span>
-          <span class="region-toggle-label" data-region-label>SERVER</span>
-          <div class="region-toggle-pills">
-            <button class="region-opt-btn" id="btn-region-asia" type="button" data-region="asia" aria-pressed="false">ASIA</button>
-            <button class="region-opt-btn" id="btn-region-us" type="button" data-region="us" aria-pressed="false">US</button>
+        <div class="title-tools">
+          <button type="button" class="title-tool-btn" id="btn-title-tools" aria-haspopup="true" aria-expanded="false" aria-controls="title-tools-menu">
+            <span>TOOLS</span>
+            <span class="title-tool-chevron" aria-hidden="true">&#9662;</span>
+          </button>
+          <div class="title-tools-menu" id="title-tools-menu" role="menu" hidden>
+            <button type="button" class="title-tools-item" id="btn-open-academy" role="menuitem">
+              <span>BEGINNER GUIDE</span>
+              <small>How to play &amp; controls</small>
+            </button>
+            <button type="button" class="title-tools-item" id="btn-open-mission-log" role="menuitem">
+              <span>PAST FLIGHTS</span>
+              <small>Records &amp; mission reports</small>
+            </button>
+            <button type="button" class="title-tools-item" id="btn-open-nasa-csa-menu" role="menuitem">
+              <span>GAMES &amp; TOOLS</span>
+              <small>Labs, telescope &amp; path tools</small>
+            </button>
           </div>
         </div>
         <button type="button" class="title-menu-btn" id="btn-title-nav-toggle" aria-controls="title-primary-nav" aria-expanded="false" aria-label="Open navigation menu">
           <svg class="ui-icon" aria-hidden="true"><use href="#i-menu"></use></svg>
           <span>MENU</span>
         </button>
-        <div class="title-status-rail" aria-hidden="true">
-          <span class="status-pill status-pill--ok"><i></i>NET NOMINAL</span>
-          <span class="status-pill">LEO // LUNAR</span>
-        </div>
       </div>
     </header>
 
@@ -326,12 +333,6 @@
         <button class="btn-title-join" id="btn-join-game">JOIN</button>
       </div>
 
-      <div class="title-hero-utils">
-        <button type="button" class="title-util-btn" id="btn-open-academy" title="How to play, controls &amp; simple cheat sheet [F1]">BEGINNER GUIDE</button>
-        <button type="button" class="title-util-btn" id="btn-open-mission-log" title="Past flights, personal bests &amp; shareable mission reports">PAST FLIGHTS</button>
-        <button type="button" class="title-util-btn" id="btn-open-nasa-csa-menu" title="Space Games &amp; Activities + 3D Path &amp; Telescope Lab">GAMES &amp; TOOLS</button>
-      </div>
-
       <div id="user-stats-card" class="title-telemetry-strip" hidden>
         <span>MISSIONS <strong id="stat-missions">0</strong></span>
         <span class="strip-sep">&middot;</span>
@@ -340,13 +341,6 @@
         <span>CHECKS <strong id="stat-tasks" class="val-amber">0</strong></span>
       </div>
     </main>
-
-    <footer class="title-control-strip" aria-hidden="true">
-      <span class="ctl-group"><kbd class="ctl-glyph" data-action="navigate">WASD</kbd> NAVIGATE</span>
-      <span class="ctl-group"><kbd class="ctl-glyph" data-action="select">ENTER</kbd> SELECT</span>
-      <span class="ctl-group"><kbd class="ctl-glyph" data-action="close">ESC</kbd> BACK</span>
-      <span class="title-control-meta">LUNASPIS // BUILD 6.0 · LEO &rarr; LUNAR</span>
-    </footer>
   </div>
 
   <!-- ========================================================================
@@ -490,31 +484,9 @@
       <div class="crosshair-ring"></div>
     </div>
 
-    <!-- Top-Left Co-op Progress Bar -->
-    <div class="hud-race-bar-container">
-      <div class="hud-race-team coop">
-        <div class="hud-race-team-info">
-          <span class="hud-race-team-dot dot-coop"></span>
-          <span class="hud-race-team-name">TEAM MISSION STEPS</span>
-          <span class="hud-race-score" id="race-score-coop">0 / 7</span>
-        </div>
-        <div class="hud-race-track">
-          <div class="hud-race-fill fill-coop" id="race-fill-coop" style="width: 0%;"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Live Crew Role & Phase Control Assignment Panel was moved inside #hud-checklist-panel for clean docking -->
-
-    <div class="hud-task-bar-container" style="display:none;">
-      <div class="hud-task-label-row">
-        <span class="hud-task-label" id="hud-task-label">MISSION STEPS [0/7]</span>
-        <span class="hud-systems-badge">READY</span>
-      </div>
-      <div class="hud-task-track">
-        <div class="hud-task-fill" id="hud-task-fill"></div>
-      </div>
-    </div>
+    <!-- Top-Left Mission Progress: the role-filtered Mission Hub below is the
+         single source of truth. Legacy race/task bars were removed to keep the
+         in-game HUD free of duplicate progress readouts. -->
 
     <!-- Mission Hub: role-filtered objectives, crew assignments and next action -->
     <div class="hud-checklist-panel" id="hud-checklist-panel">
@@ -530,6 +502,7 @@
         </div>
       </div>
       <div class="hud-checklist-progress" aria-hidden="true"><span id="hud-checklist-progress-fill"></span></div>
+      <div id="hud-checklist-next" class="checklist-next" hidden>NEXT: —</div>
       <div id="hud-crew-roster" class="hud-crew-roster" hidden>
         <!-- Rendered by main.js: role filters, roster cards and next action -->
       </div>
@@ -560,6 +533,11 @@
         <button id="btn-voice-mic" class="voice-mic-btn" data-label="MIC" title="Mute [M]" aria-label="Toggle microphone">
           <span id="voice-mic-icon" class="voice-btn__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-mic"></use></svg></span>
           <span id="voice-mic-label" class="voice-btn__label">ON</span>
+        </button>
+        <button id="btn-hud-comms" class="voice-mic-btn" data-label="COMMS" title="Crew comms" aria-label="Open crew comms" aria-controls="crew-comms-panel" aria-expanded="false">
+          <span class="voice-btn__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-chat"></use></svg></span>
+          <span class="voice-btn__label">COMMS</span>
+          <span id="crew-comms-badge" class="hud-comms-badge" hidden>0</span>
         </button>
         <span class="hud-action-divider" aria-hidden="true"></span>
         <button id="btn-quick-deck" class="voice-mic-btn" data-label="QUICK DECK" title="Quick Deck [Q] / Emotes [X]" aria-label="Open Quick Deck" aria-haspopup="dialog" aria-expanded="false">
@@ -664,12 +642,12 @@
           <span class="deck-row__hint">F1</span>
         </button>
         <button type="button" id="btn-hud-cml" class="deck-row" title="Mission Readiness Guide — 9 Stages from Big Idea to Launch">
-          <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-globe"></use></svg></span>
+          <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-chart"></use></svg></span>
           <span class="deck-row__copy"><span class="deck-row__label">MISSION STAGES</span><span class="deck-row__sub">CML readiness guide (9 stages)</span></span>
           <span class="deck-row__hint">CML</span>
         </button>
         <button type="button" id="btn-hud-nasa-csa" class="deck-row" title="Play Space Mini-Games, Build a Telescope &amp; Read Simple Guides">
-          <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-globe"></use></svg></span>
+          <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-flask"></use></svg></span>
           <span class="deck-row__copy"><span class="deck-row__label">SPACE GAMES &amp; LAB</span><span class="deck-row__sub">Mini-games &amp; telescope tools</span></span>
           <span class="deck-row__hint">OPS</span>
         </button>
@@ -1101,10 +1079,6 @@
   </div>
 
   <!-- SHARED CREW COMMS (Earth Control ↔ Flight Crew) -->
-  <button type="button" id="crew-comms-toggle" title="Open crew comms" aria-expanded="false">
-    <span>COMMS</span>
-    <span id="crew-comms-badge" hidden>0</span>
-  </button>
   <section id="crew-comms-panel" aria-hidden="true">
     <header class="cc-head">
       <div>

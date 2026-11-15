@@ -161,6 +161,26 @@ body #space-center-ground-map {
     white-space: normal;
   }
 
+  .title-tools {
+    position: static;
+    width: 100%;
+  }
+
+  .title-tool-btn {
+    width: 100%;
+    justify-content: space-between;
+    min-height: 36px;
+    padding: 6px 9px;
+  }
+
+  .title-tools-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: calc(14px + var(--safe-right));
+    left: calc(14px + var(--safe-left));
+    width: auto;
+  }
+
   .title-top-actions .title-region-toggle {
     grid-column: 1 / -1;
     justify-content: space-between;
@@ -559,19 +579,6 @@ body #space-center-ground-map {
   body #space-center-ground-map {
     top: calc(168px + var(--safe-top)) !important;
     right: calc(8px + var(--safe-right)) !important;
-  }
-
-  /* Keep long mission labels on one line instead of wrapping on small phones. */
-  .hud-race-team-info {
-    gap: 4px;
-  }
-
-  .hud-race-team-name {
-    flex: 1 1 auto;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   #lunaspis-ship-minimap,

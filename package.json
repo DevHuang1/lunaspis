@@ -15,7 +15,8 @@
     "test:regions": "node tests/regions/run_checks.js",
     "test:shuttle": "node tests/shuttle/run_checks.js",
     "test:space-center": "node tests/space_center/run_checks.js",
-    "test:security": "node tests/security/run_checks.js"
+    "test:security": "node tests/security/run_checks.js",
+    "test:ui": "node tests/ui/run_checks.js"
   },
   "keywords": [
     "threejs",

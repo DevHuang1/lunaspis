@@ -2429,11 +2429,15 @@
           tip: "Science value score. The mission objective requires at least 60."
         }
       ];
+      // Walking / flying only needs the three limits that can stop a mission.
+      // COMMS/DATA, DELTA-V and SCIENCE stay in the mission-design console so
+      // the always-on strip stays a single compact row.
+      const hudMetrics = metrics.filter((m) => m.key === "budget" || m.key === "mass" || m.key === "power");
       const previousCritical = this._criticalResources || {};
       const previousPct = this._resourcePct || {};
       const nextCritical = {};
 
-      bar.innerHTML = metrics
+      bar.innerHTML = hudMetrics
         .map((m) => {
           nextCritical[m.key] = !m.ok;
           const isNewCritical = !m.ok && !previousCritical[m.key];
@@ -2452,7 +2456,7 @@
         })
         .join("");
       requestAnimationFrame(() => {
-        metrics.forEach((m) => {
+        hudMetrics.forEach((m) => {
           const fill = bar.querySelector(`[data-res-key="${m.key}"] .lunaspis-res-fill`);
           if (fill) fill.style.width = `${m.pct}%`;
         });
@@ -6263,23 +6267,9 @@
       render();
     }
 
-    updateTaskBar(taskData) {
-      if (!taskData && window.netManager && window.netManager.roomState && window.netManager.roomState.tasks) {
-        taskData = window.netManager.roomState.tasks;
-      }
-      const doneCount = this.tasks.filter((t) => t.completed).length;
-      const tasks = taskData || { completed: doneCount, total: this.tasks.length };
-
-      const scoreCoop = document.getElementById("race-score-coop");
-      const fillCoop = document.getElementById("race-fill-coop");
-
-      if (scoreCoop && fillCoop) {
-        const done = Math.max(doneCount, tasks.completed || 0);
-        const total = tasks.total || 7;
-        const pct = Math.min(100, Math.round((done / total) * 100));
-        scoreCoop.textContent = `${done} / ${total}`;
-        fillCoop.style.width = `${pct}%`;
-      }
+    updateTaskBar() {
+      // Legacy race/task progress bars were removed from the HUD. Mission Hub
+      // is the single progress readout; keep this no-op for older call sites.
     }
 
     updateTaskListUI() {
@@ -6377,6 +6367,17 @@
         if (!groups.has(entry.roleId)) groups.set(entry.roleId, []);
         groups.get(entry.roleId).push(entry);
       });
+
+      const nextEntry = entries.find((entry) => !entry.isCompleted && !entry.clickBlocked)
+        || entries.find((entry) => !entry.isCompleted);
+      const nextEl = document.getElementById("hud-checklist-next");
+      if (nextEl) {
+        const nextTitle = nextEntry
+          ? String(nextEntry.task.name || "Mission step").replace(/^\s*\d+\.\s*/, "")
+          : "All mission steps complete";
+        nextEl.textContent = `NEXT: ${nextTitle}`;
+        nextEl.hidden = false;
+      }
 
       const groupOrder = [];
       if (roleFilter !== "all") {
@@ -6487,12 +6488,9 @@
           : { short: String(roleId).slice(0, 4).toUpperCase(), label: String(roleId).toUpperCase(), color: "#93c5fd" });
       const assign = entries[0].assign;
       const isMine = roleId !== "all" && roleId === context.myRole;
-      const dutyText = roleId === "all"
-        ? "Shared by the whole crew"
-        : ((meta.duties && meta.duties.station) || meta.primaryDuty || "");
-      const ownerText = `${assign.namesText}${dutyText ? ` · ${dutyText}` : ""}`;
+      const ownerText = assign.isUnstaffed ? "OPEN SEAT" : assign.namesText;
       const doneCount = entries.filter((entry) => entry.isCompleted).length;
-      const pct = entries.length ? Math.round((doneCount / entries.length) * 100) : 0;
+      const phaseLockedCount = entries.filter((entry) => entry.phaseLocked).length;
       const actionable = entries.find((entry) => entry.assign.isMine && !entry.isCompleted && !entry.isLocked && !entry.phaseLocked);
       const actionableId = actionable ? actionable.task.id : null;
       const tasksHtml = entries.map((entry) => {
@@ -6506,10 +6504,10 @@
             <span class="hub-role-group-badge">${this._escapeHtml(meta.short)}</span>
             <span class="hub-role-group-title">${this._escapeHtml(meta.label)}</span>
             ${isMine ? `<span class="hub-role-group-you">YOUR ROLE</span>` : ""}
+            ${phaseLockedCount ? `<span class="hub-role-group-orbit" title="These steps unlock inside the station">IN ORBIT · ${phaseLockedCount}</span>` : ""}
             <span class="hub-role-group-count">${doneCount}/${entries.length}</span>
           </div>
-          <div class="hub-role-group-owner" title="${this._escapeHtml(ownerText)}">${this._escapeHtml(ownerText)}${assign.isUnstaffed ? " · OPEN SEAT" : ""}</div>
-          <div class="hub-role-group-track"><i style="width:${pct}%"></i></div>
+          <div class="hub-role-group-owner" title="${this._escapeHtml(ownerText)}">${this._escapeHtml(ownerText)}</div>
           <div class="hub-role-group-tasks">${tasksHtml}</div>
         </div>
       `;
@@ -6520,10 +6518,12 @@
       const taskTitle = String(task.name || "Mission step").replace(/^\s*\d+\.\s*/, "");
       const roleMine = entry.assign.isMine;
       const isActionable = !!options.isActionable && roleMine;
-      const status = entry.isCompleted
-        ? "DONE"
-        : entry.phaseLocked
-          ? "IN ORBIT"
+      // "IN ORBIT" is shown once per role group in the group header instead of
+      // repeating on every phase-locked row.
+      const status = entry.phaseLocked
+        ? ""
+        : entry.isCompleted
+          ? "DONE"
           : entry.isLocked
             ? "LOCKED"
             : isActionable
@@ -6533,15 +6533,13 @@
                 : "ASSIGNED";
       const statusClass = entry.isCompleted
         ? "is-done"
-        : entry.phaseLocked
-          ? "is-orbit"
-          : entry.isLocked
-            ? "is-locked"
-            : isActionable
-              ? "is-todo"
-              : roleMine
-                ? "is-ready"
-                : "is-crew";
+        : entry.isLocked
+          ? "is-locked"
+          : isActionable
+            ? "is-todo"
+            : roleMine
+              ? "is-ready"
+              : "is-crew";
       const classes = [
         "hub-task-item",
         entry.isCompleted ? "is-complete" : "",
@@ -6551,7 +6549,7 @@
         entry.clickBlocked ? "is-click-blocked" : ""
       ].filter(Boolean).join(" ");
       const note = entry.phaseLocked
-        ? `<div class="hub-task-note">Opens inside the station</div>`
+        ? ""
         : entry.isLocked
           ? `<div class="hub-task-note">${this._escapeHtml(entry.blockedReason || "Complete earlier steps first")}</div>`
           : "";
@@ -6566,7 +6564,7 @@
           <div class="hub-task-body">
             <div class="hub-task-title-row">
               <span class="hub-task-title">${this._escapeHtml(taskTitle)}</span>
-              <span class="hub-task-status ${statusClass}">${status}</span>
+              ${status ? `<span class="hub-task-status ${statusClass}">${status}</span>` : ""}
             </div>
             <div class="hub-task-meta">
               <span class="hub-task-room">${this._escapeHtml(task.code || task.room || "OPS")}</span>
@@ -6583,7 +6581,6 @@
         ? rolesApi.getRoleMeta(roleId)
         : { short: String(roleId).slice(0, 4).toUpperCase(), label: String(roleId).toUpperCase(), color: "#93c5fd" };
       const doneCount = checks.filter((check) => check.done).length;
-      const pct = checks.length ? Math.round((doneCount / checks.length) * 100) : 0;
       const rows = checks.map((check) => `
         <div class="hub-support-row${check.done ? " is-done" : ""}">
           <span class="hub-support-dot"></span>
@@ -6599,7 +6596,6 @@
             <span class="hub-role-group-count">${doneCount}/${checks.length}</span>
           </div>
           <div class="hub-role-group-owner">Ground Desk [C] · live Earth checks</div>
-          <div class="hub-role-group-track"><i style="width:${pct}%"></i></div>
           <div class="hub-support-list">${rows}</div>
         </div>
       `;

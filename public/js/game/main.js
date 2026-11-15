@@ -516,13 +516,7 @@
     }
   }
 
-  function syncResponsiveHudState(width, height) {
-    const size = (typeof width === "number" && typeof height === "number")
-      ? { w: width, h: height }
-      : getViewportSize();
-    const isNarrow = size.w <= 900;
-    const isCompact = size.w <= 1024 || size.h <= 700 || isMobile;
-
+  function syncResponsiveHudState() {
     if (isMobile) {
       document.body.classList.add("touch-ui");
     }
@@ -540,12 +534,14 @@
     if (!userToggledChecklist) {
       const checklistPanel = document.getElementById("hud-checklist-panel");
       if (checklistPanel) {
-        checklistPanel.classList.toggle("collapsed", isCompact);
+        // Start compact on every viewport. The header carries the current
+        // objective; the full role/task list stays one click away.
+        checklistPanel.classList.add("collapsed");
       }
     }
 
     if (!userToggledTelemetry) {
-      document.body.classList.toggle("telemetry-collapsed", isCompact);
+      document.body.classList.add("telemetry-collapsed");
     }
     syncTelemetryToggleUI();
   }
@@ -725,6 +721,27 @@
       });
       window.matchMedia("(min-width: 981px)").addEventListener?.("change", (event) => {
         if (event.matches) setNavOpen(false);
+      });
+    }
+
+    const toolsBtn = document.getElementById("btn-title-tools");
+    const toolsMenu = document.getElementById("title-tools-menu");
+    if (toolsBtn && toolsMenu) {
+      const setToolsOpen = (open) => {
+        toolsMenu.hidden = !open;
+        toolsBtn.setAttribute("aria-expanded", String(open));
+      };
+      toolsBtn.addEventListener("click", () => setToolsOpen(toolsMenu.hidden));
+      toolsMenu.querySelectorAll("button").forEach((button) => {
+        button.addEventListener("click", () => setToolsOpen(false));
+      });
+      document.addEventListener("pointerdown", (event) => {
+        if (toolsMenu.hidden) return;
+        if (toolsMenu.contains(event.target) || toolsBtn.contains(event.target)) return;
+        setToolsOpen(false);
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !toolsMenu.hidden) setToolsOpen(false);
       });
     }
   }
@@ -1161,6 +1178,9 @@
           console.log(`[SpaceShip] High-fidelity NASA ISS (${modelId}) loaded & wired to 27-part Showcase.`);
         } catch (e) {
           console.warn("Could not instantiate ISS model:", e);
+          if (window.issShowcase && typeof window.issShowcase.notifyModelError === "function") {
+            window.issShowcase.notifyModelError(e);
+          }
         }
       };
 
@@ -1169,7 +1189,12 @@
         .catch(() => {
           window.glbManager.loadGLB("models/iss/ISS_B.glb")
             .then((entry) => attachStation(entry, "iss_b"))
-            .catch((err) => console.warn("Could not load ISS GLB:", err));
+            .catch((err) => {
+              console.warn("Could not load ISS GLB:", err);
+              if (window.issShowcase && typeof window.issShowcase.notifyModelError === "function") {
+                window.issShowcase.notifyModelError(err);
+              }
+            });
         });
     }
   }
@@ -1833,13 +1858,6 @@
         if (window.spaceAudio) window.spaceAudio.playClick();
       });
     });
-
-    const btnHangarMenu = document.getElementById("btn-open-hangar-menu");
-    if (btnHangarMenu) {
-      btnHangarMenu.addEventListener("click", () => {
-        if (window.glbManager) window.glbManager.openHangar();
-      });
-    }
 
     const btnHangarLobby = document.getElementById("btn-open-hangar-lobby");
     if (btnHangarLobby) {
@@ -2971,7 +2989,7 @@
     // Shared in-game crew comms: Earth Control <-> Flight Crew text channel,
     // quick callouts, and mic access. Voice itself is one global crew channel.
     const crewCommsPanel = document.getElementById("crew-comms-panel");
-    const crewCommsToggle = document.getElementById("crew-comms-toggle");
+    const crewCommsToolbar = document.getElementById("btn-hud-comms");
     const crewCommsLog = document.getElementById("crew-comms-log");
     const crewCommsInput = document.getElementById("crew-comms-input");
     const crewCommsBadge = document.getElementById("crew-comms-badge");
@@ -2991,7 +3009,10 @@
       if (!crewCommsPanel) return;
       crewCommsOpen = !!open;
       crewCommsPanel.setAttribute("aria-hidden", crewCommsOpen ? "false" : "true");
-      if (crewCommsToggle) crewCommsToggle.setAttribute("aria-expanded", String(crewCommsOpen));
+      if (crewCommsToolbar) {
+        crewCommsToolbar.setAttribute("aria-expanded", String(crewCommsOpen));
+        crewCommsToolbar.classList.toggle("active", crewCommsOpen);
+      }
       if (crewCommsVoiceLabel) crewCommsVoiceLabel.textContent = crewCommsOpen ? "CLOSE" : "OPEN";
       if (crewCommsOpen) {
         setCrewCommsBadge(0);
@@ -3051,8 +3072,8 @@
       if (crewCommsInput) crewCommsInput.value = "";
     }
 
-    if (crewCommsToggle) {
-      crewCommsToggle.addEventListener("click", () => setCrewCommsOpen(!crewCommsOpen));
+    if (crewCommsToolbar) {
+      crewCommsToolbar.addEventListener("click", () => setCrewCommsOpen(!crewCommsOpen));
     }
     if (crewCommsVoiceBtn) {
       crewCommsVoiceBtn.addEventListener("click", () => setCrewCommsOpen(!crewCommsOpen));
@@ -4481,7 +4502,7 @@
       if (!target || typeof target.closest !== "function") return false;
       return Boolean(
         target.closest(
-          "button, input, textarea, select, a, .hud-checklist-panel, .hud-race-bar-container, #hud-crew-roster, #hud-voice-panel, #virtual-dpad, #mobile-joystick-zone, #task-modal-overlay, #iss-showcase-ui, #mission-viz-ui, #solar-system-ui, #vr-mode-overlay, #ground-lcc-console, #lunaspis-ship-minimap, #space-center-ground-map, #ship-interior-hud, #space-center-ground-hud, #docking-hud-overlay, #launch-cutscene-overlay, #lunaspis-resource-meters, #btn-telemetry-toggle, #emote-wheel, #hud-diagnostics-overlay, #modal-station-systems, #victory-overlay, #mission-briefing-overlay, #action-toast, .modal-card, .menu-card"
+          "button, input, textarea, select, a, .hud-checklist-panel, #hud-crew-roster, #hud-voice-panel, #virtual-dpad, #mobile-joystick-zone, #task-modal-overlay, #iss-showcase-ui, #mission-viz-ui, #solar-system-ui, #vr-mode-overlay, #ground-lcc-console, #lunaspis-ship-minimap, #space-center-ground-map, #ship-interior-hud, #space-center-ground-hud, #docking-hud-overlay, #launch-cutscene-overlay, #lunaspis-resource-meters, #btn-telemetry-toggle, #emote-wheel, #hud-diagnostics-overlay, #modal-station-systems, #victory-overlay, #mission-briefing-overlay, #action-toast, .modal-card, .menu-card"
         )
       );
     };
@@ -5271,12 +5292,12 @@
     const elapsed = clock.getElapsedTime();
     updateGamepad(delta);
 
-    if (window.artemisGame && window.artemisGame.isActive) {
+    if (window.artemisGame && window.artemisGame.isActive && !(window.issShowcase && window.issShowcase.isActive)) {
       window.artemisGame.frame(delta);
       return;
     }
 
-    if (window.shuttleGame && window.shuttleGame.isActive) {
+    if (window.shuttleGame && window.shuttleGame.isActive && !(window.issShowcase && window.issShowcase.isActive)) {
       window.shuttleGame.frame(delta);
       return;
     }
@@ -5329,7 +5350,9 @@
       window.issShowcase.update(delta, elapsed, camera);
     }
 
-    if (!isGameStarted) {
+    if (window.issShowcase && window.issShowcase.isActive) {
+      // ISS Showcase owns the camera even when opened from the title screen.
+    } else if (!isGameStarted) {
       updateTitleCamera(elapsed);
     } else if (window.launchCutscene && window.launchCutscene.isPlaying) {
       // Launch Cutscene controls camera ascent trajectory
@@ -5339,8 +5362,6 @@
       // NASA Mission Viz Trajectory Theater controls 3D orbital camera
     } else if (window.solarSystem && window.solarSystem.isActive) {
       // Solar System Atlas controls its own orbital camera
-    } else if (window.issShowcase && window.issShowcase.isActive) {
-      // ISS Showcase controls camera orbit & part focus
     } else if (window.shipInterior && window.shipInterior.isMoonLandingActive) {
       // Lunar Touchdown Scene controls camera orbit around Apollo Lunar Module
     } else if (

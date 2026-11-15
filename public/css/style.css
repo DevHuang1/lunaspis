@@ -1036,82 +1036,6 @@ body {
   pointer-events: none;
 }
 
-.hud-race-bar-container {
-  position: absolute;
-  top: 12px;
-  left: 16px;
-  width: 310px;
-  max-width: calc(100vw - 32px);
-  background: var(--surface-glass);
-  border: 1px solid var(--border-hairline);
-  border-radius: 6px;
-  padding: 7px 12px;
-  backdrop-filter: blur(12px);
-  pointer-events: auto;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  z-index: 50;
-}
-
-.hud-race-team {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.hud-race-team-info {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 1px;
-}
-
-.hud-race-team.coop .hud-race-team-name {
-  color: var(--text-ivory);
-}
-
-.hud-race-team-dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-}
-
-.dot-coop {
-  background: var(--accent-cyan);
-}
-
-.hud-race-score {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--accent-amber);
-}
-
-.hud-race-track {
-  width: 100%;
-  height: 5px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 3px;
-  overflow: hidden;
-  position: relative;
-}
-
-.hud-race-fill {
-  height: 100%;
-  border-radius: 3px;
-  transition: width 0.4s ease;
-}
-
-.fill-coop {
-  background: linear-gradient(90deg, var(--accent-cyan), var(--accent-sage));
-}
-
 /* Crosshair Reticle */
 #hud-crosshair {
   position: absolute;
@@ -3212,7 +3136,6 @@ body.touch-ui #virtual-dpad {
   /* Reduce GPU cost of translucent glass panels on mobile. */
   #perf-overlay,
   #hud-voice-panel,
-  .hud-race-bar-container,
   .hud-checklist-panel,
   #space-center-ground-hud,
   #emote-wheel,
@@ -4061,7 +3984,6 @@ body.interior-active #hud-active-speakers {
 /* Medium Desktop (901px .. 1360px): keep compact panel sizing without forcing
    the 5-icon HUD voice bar onto two rows. */
 @media (max-width: 1360px) and (min-width: 901px) {
-  .hud-race-bar-container,
   .hud-checklist-panel {
     width: 248px;
   }
@@ -4120,14 +4042,6 @@ body.interior-active #hud-active-speakers {
     transform: translateX(-50%);
     padding: 3px 9px;
     gap: 8px;
-  }
-
-  .hud-race-bar-container {
-    top: calc(36px + var(--safe-top));
-    left: calc(8px + var(--safe-left));
-    width: 236px;
-    max-width: calc(50vw - 16px);
-    padding: 4px 9px;
   }
 
   .hud-checklist-panel {
@@ -4466,14 +4380,6 @@ body.interior-active #hud-active-speakers {
     height: 5px;
   }
 
-  .hud-race-bar-container {
-    top: calc(30px + var(--safe-top));
-    left: calc(8px + var(--safe-left));
-    width: calc(100vw - 190px);
-    max-width: none;
-    padding: 4px 8px;
-  }
-
   .hud-checklist-panel {
     top: calc(76px + var(--safe-top));
     left: calc(8px + var(--safe-left));
@@ -4635,14 +4541,6 @@ body.interior-active #hud-active-speakers {
     transform: translateX(-50%);
   }
 
-  .hud-race-bar-container {
-    top: calc(28px + var(--safe-top));
-    left: calc(8px + var(--safe-left));
-    width: 196px;
-    max-width: none;
-    padding: 4px 8px;
-  }
-
   .hud-checklist-panel {
     top: calc(74px + var(--safe-top));
     left: calc(8px + var(--safe-left));
@@ -4794,7 +4692,6 @@ body.interior-active #hud-active-speakers {
 
 /* Fullscreen Mode Isolation: keep normal flight/ground HUDs strictly hidden
    during Docking, Launch Cutscene, and ISS 3D Showcase modes. */
-body.docking-active .hud-race-bar-container,
 body.docking-active #hud-checklist-panel,
 body.docking-active #hud-crew-roster,
 body.docking-active #hud-voice-panel,
@@ -4812,7 +4709,6 @@ body.docking-active #emote-toast,
 body.docking-active #launch-countdown-banner,
 body.docking-active #perf-overlay,
 body.docking-active .hud-diagnostics-deck,
-body.launch-active .hud-race-bar-container,
 body.launch-active #hud-checklist-panel,
 body.launch-active #hud-crew-roster,
 body.launch-active #hud-voice-panel,
@@ -4830,7 +4726,6 @@ body.launch-active #emote-toast,
 body.launch-active #launch-countdown-banner,
 body.launch-active #perf-overlay,
 body.launch-active .hud-diagnostics-deck,
-body.iss-showcase-active .hud-race-bar-container,
 body.iss-showcase-active #hud-checklist-panel,
 body.iss-showcase-active #hud-crew-roster,
 body.iss-showcase-active #hud-voice-panel,
@@ -4848,7 +4743,6 @@ body.iss-showcase-active #emote-toast,
 body.iss-showcase-active #launch-countdown-banner,
 body.iss-showcase-active #perf-overlay,
 body.iss-showcase-active .hud-diagnostics-deck,
-body.mission-viz-active .hud-race-bar-container,
 body.mission-viz-active #hud-checklist-panel,
 body.mission-viz-active #hud-crew-roster,
 body.mission-viz-active #hud-voice-panel,
@@ -4866,7 +4760,6 @@ body.mission-viz-active #emote-toast,
 body.mission-viz-active #launch-countdown-banner,
 body.mission-viz-active #perf-overlay,
 body.mission-viz-active .hud-diagnostics-deck,
-body.solar-system-active .hud-race-bar-container,
 body.solar-system-active #hud-checklist-panel,
 body.solar-system-active #hud-crew-roster,
 body.solar-system-active #hud-voice-panel,
@@ -4886,7 +4779,6 @@ body.solar-system-active #perf-overlay,
 body.solar-system-active #iss-showcase-ui,
 body.solar-system-active #mission-viz-ui,
 body.solar-system-active .hud-diagnostics-deck,
-body.vr-stereo-active .hud-race-bar-container,
 body.vr-stereo-active #hud-checklist-panel,
 body.vr-stereo-active #hud-crew-roster,
 body.vr-stereo-active #hud-voice-panel,
@@ -4986,7 +4878,6 @@ body.ground-explore-active:not(.hud-tools-expanded) .voice-header-row > .voice-s
   display: none !important;
 }
 
-body.ground-explore-active .hud-race-bar-container,
 body.ground-explore-active .hud-checklist-panel,
 body.ground-explore-active #lunaspis-resource-meters,
 body.ground-explore-active #btn-telemetry-toggle,
@@ -5008,6 +4899,19 @@ body.ground-site-tour #space-center-ground-hud.is-collapsed {
 
 body.ground-site-tour #space-center-ground-hud.is-collapsed .sc-hud-primary {
   gap: 4px;
+}
+
+/* Ground walking and the ISS showcase have their own contextual controls.
+   Hide the generic compass / reticle / key strip so they cannot overlap the
+   Mission Hub or the showcase side panels. */
+body.ground-mode-active #hud-compass,
+body.ground-mode-active #hud-crosshair,
+body.ground-mode-active #hud-control-strip,
+body.shuttle-mode-active #hud-control-strip,
+body.iss-showcase-active #hud-compass,
+body.iss-showcase-active #hud-crosshair,
+body.iss-showcase-active #hud-control-strip {
+  display: none !important;
 }
 
 #station-map-overlay {
@@ -5090,7 +4994,6 @@ body.interior-active #lunaspis-ship-minimap:focus-visible { outline: 2px solid #
   body.interior-active #lunaspis-ship-minimap { width: 112px; height: 112px; }
 }
 
-body.docking-active .hud-race-bar-container,
 body.docking-active #hud-checklist-panel,
 body.docking-active #hud-crew-roster,
 body.docking-active #hud-voice-panel,
@@ -5108,7 +5011,6 @@ body.docking-active #emote-toast,
 body.docking-active #launch-countdown-banner,
 body.docking-active #perf-overlay,
 body.docking-active .hud-diagnostics-deck,
-body.launch-active .hud-race-bar-container,
 body.launch-active #hud-checklist-panel,
 body.launch-active #hud-crew-roster,
 body.launch-active #hud-voice-panel,
@@ -5126,7 +5028,6 @@ body.launch-active #emote-toast,
 body.launch-active #launch-countdown-banner,
 body.launch-active #perf-overlay,
 body.launch-active .hud-diagnostics-deck,
-body.iss-showcase-active .hud-race-bar-container,
 body.iss-showcase-active #hud-checklist-panel,
 body.iss-showcase-active #hud-crew-roster,
 body.iss-showcase-active #hud-voice-panel,
@@ -5146,7 +5047,6 @@ body.iss-showcase-active #perf-overlay,
 body.iss-showcase-active .hud-diagnostics-deck,
 body.iss-showcase-active #ground-lcc-console,
 body.iss-showcase-active #hud-swap-banner,
-body.mission-viz-active .hud-race-bar-container,
 body.mission-viz-active #hud-checklist-panel,
 body.mission-viz-active #hud-crew-roster,
 body.mission-viz-active #hud-voice-panel,
@@ -5166,7 +5066,6 @@ body.mission-viz-active #perf-overlay,
 body.mission-viz-active .hud-diagnostics-deck,
 body.mission-viz-active #ground-lcc-console,
 body.mission-viz-active #hud-swap-banner,
-body.solar-system-active .hud-race-bar-container,
 body.solar-system-active #hud-checklist-panel,
 body.solar-system-active #hud-crew-roster,
 body.solar-system-active #hud-voice-panel,
@@ -5188,7 +5087,6 @@ body.solar-system-active #mission-viz-ui,
 body.solar-system-active .hud-diagnostics-deck,
 body.solar-system-active #ground-lcc-console,
 body.solar-system-active #hud-swap-banner,
-body.vr-stereo-active .hud-race-bar-container,
 body.vr-stereo-active #hud-checklist-panel,
 body.vr-stereo-active #hud-crew-roster,
 body.vr-stereo-active #hud-voice-panel,
@@ -5320,4 +5218,13 @@ body.space-games-ground-locked #mv-btn-csa-lab {
 .lobby-region-switch .region-opt-btn {
   font-size: 9px;
   padding: 2px 6px;
+}
+
+/* Keep the ISS reference viewer free of every other gameplay HUD layer. */
+body.iss-showcase-active #shuttle-hud,
+body.iss-showcase-active #artemis-hud,
+body.iss-showcase-active #crew-comms-panel,
+body.iss-showcase-active .vl-ship-panel,
+body.iss-showcase-active .vl-cabin-float {
+  display: none !important;
 }

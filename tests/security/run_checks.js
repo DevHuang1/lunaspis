@@ -305,7 +305,8 @@ async function testHttpHardening() {
   const home = await fetch(`${BASE}/`, { headers: { "X-Forwarded-Proto": "https" } });
   const csp = home.headers.get("content-security-policy") || "";
   const hsts = home.headers.get("strict-transport-security") || "";
-  check("CSP no longer allows unsafe-eval", !csp.includes("unsafe-eval"), csp.slice(0, 120));
+  check("CSP no longer allows JavaScript unsafe-eval", !/(^|[\s;])'unsafe-eval'($|[\s;])/.test(csp), csp.slice(0, 160));
+  check("CSP allows the WebAssembly decoders used by the 3D asset loaders", /(^|[\s;])'wasm-unsafe-eval'($|[\s;])/.test(csp), csp.slice(0, 160));
   check("HSTS is sent on secure proxied requests", hsts.includes("max-age="), hsts);
   check("COOP/CORP isolation headers are present",
     home.headers.get("cross-origin-opener-policy") === "same-origin" &&

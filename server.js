@@ -107,8 +107,11 @@ const PORT = process.env.PORT || 3000;
 const DEPLOY_REGION = process.env.SERVER_REGION || process.env.RAILWAY_REPLICA_REGION || process.env.RAILWAY_SERVICE_NAME || "local";
 
 // Baseline security headers. The app relies on inline bootstrap scripts and
-// inline styles, so 'unsafe-inline' is retained for compatibility. 'unsafe-eval'
-// is not required by the application or Three.js and is deliberately omitted.
+// inline styles, so 'unsafe-inline' is retained for compatibility. JavaScript
+// eval ('unsafe-eval') is not required by the application or Three.js and is
+// deliberately omitted. 'wasm-unsafe-eval' is required because the 3D GLB
+// assets (including the ISS showcase) are decoded by WebAssembly Draco and
+// Meshopt decoders.
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
@@ -122,7 +125,7 @@ app.use((req, res, next) => {
   res.setHeader(
     "Content-Security-Policy",
     "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; " +
+    "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdnjs.cloudflare.com; " +
     "style-src 'self' 'unsafe-inline'; " +
     "img-src 'self' data: blob:; " +
     "media-src 'self' blob:; " +
