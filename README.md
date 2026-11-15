@@ -73,6 +73,10 @@ Interfellas/
 │           ├── artemis_mission.js  # Artemis phase/resource/checkpoint state machine
 │           ├── artemis_game.js     # Artemis client, 3D view and dedicated HUD
 │           └── main.js            # Main Three.js render loop, desktop/mobile controls & DRS
+├── .github/workflows/
+│   └── gmat-base-image.yml        # Builds the prebuilt GMAT base image
+├── docker/
+│   └── gmat-base.Dockerfile       # Ubuntu 22.04 + GMAT R2026a runtime base
 ├── Dockerfile                     # Production container definition
 ├── Procfile                       # Process declaration
 ├── railway.json                   # Railway build & deploy configuration
@@ -133,6 +137,12 @@ npm start
 # Open http://localhost:3000
 ```
 
+## 🐳 Container Builds
+
+`Dockerfile` pulls `ghcr.io/devhuang1/lunaspis-gmat:r2026a`, a prebuilt Ubuntu 22.04 + GMAT R2026a runtime, so routine deploys skip the ~383 MB GMAT download. The base is published by `.github/workflows/gmat-base-image.yml` when `docker/gmat-base.Dockerfile` changes, or manually via **Actions → GMAT base image → Run workflow**.
+
+The GHCR package must be publicly readable (or Railway must be configured with GHCR credentials) before Railway can pull it: GitHub → **Packages → lunaspis-gmat → Package settings → Change visibility → Public**.
+
 ## 🏗️ Space Center 2 Web Port
 
 The LC-39A complex from the original Godot project has been converted to
@@ -188,7 +198,7 @@ Module relationships and interior details were also checked against NASA's [stat
 - **Client asset ids:** astronaut `modelId` values are restricted to catalog-id characters and the browser only loads paths from its local catalog, preventing untrusted URLs from being fetched by other players.
 - **3D Crew Link:** the Earth Control ↔ Flight Crew link is rendered with animated 3D models, so it needs no camera permission, WebRTC media, STUN or TURN configuration. The legacy unauthenticated `/api/video/ice` TURN credential endpoint has been removed; if a future media feature needs TURN, use authenticated short-lived HMAC credentials.
 - **Headers:** page scripts are nonce-gated and use no `unsafe-inline`; `script-src-attr` is disabled. `wasm-unsafe-eval` is allowed for the meshopt and Basis/KTX2 WebAssembly decoders. Inline style attributes are constrained to `style-src-attr`, while dynamic `<style>` elements use the same per-request nonce. HSTS is sent on secure requests, frame/opener/resource isolation headers are enabled, and the app runs as a non-root user in the container.
-- **Dependencies:** `npm audit --omit=dev` should be run in CI (currently reports 0 vulnerabilities). `npm run test:security` covers the crash payloads, validation forgery, auth backoff, host reclaim, CSP nonces and header checks. The GMAT release is pinned by SHA-256 in the Dockerfile.
+- **Dependencies:** `npm audit --omit=dev` should be run in CI (currently reports 0 vulnerabilities). `npm run test:security` covers the crash payloads, validation forgery, auth backoff, host reclaim, CSP nonces and header checks. The GMAT release is pinned by SHA-256 in `docker/gmat-base.Dockerfile`, and the production image pulls the prebuilt `ghcr.io/devhuang1/lunaspis-gmat:r2026a` base published by `.github/workflows/gmat-base-image.yml`.
 
 ## 🌐 Server Regions
 

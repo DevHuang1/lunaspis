@@ -8,3 +8,5 @@ npm-debug.log
 **/.gmat-runtime
 design-reference
 tests
+.github
+docker

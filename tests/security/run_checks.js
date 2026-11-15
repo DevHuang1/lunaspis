@@ -140,11 +140,15 @@ function testGeneratedCoreFreshness() {
   });
   check("server/mission_design_core.js matches public/js/game/gameplay.js", result.status === 0, (result.stdout || result.stderr || "").trim());
   const dockerfile = fs.readFileSync(path.join(ROOT, "Dockerfile"), "utf8");
-  check("GMAT release is pinned by SHA-256",
-    /ARG GMAT_SHA256="[a-f0-9]{64}"/.test(dockerfile) &&
-    dockerfile.includes("sha256sum -c -") &&
-    !dockerfile.includes("md5sum"),
+  const baseDockerfile = fs.readFileSync(path.join(ROOT, "docker/gmat-base.Dockerfile"), "utf8");
+  check("GMAT release is pinned by SHA-256 in the base image",
+    /ARG GMAT_SHA256="[a-f0-9]{64}"/.test(baseDockerfile) &&
+    baseDockerfile.includes("sha256sum -c -") &&
+    !baseDockerfile.includes("md5sum"),
     "SHA-256 verification present");
+  check("production image builds on the prebuilt GMAT base",
+    /^FROM ghcr\.io\/devhuang1\/lunaspis-gmat:r2026a(?:@sha256:[a-f0-9]{64})?$/m.test(dockerfile),
+    "FROM points at the prebuilt GMAT base tag");
 }
 
 // ---------------------------------------------------------------------------
