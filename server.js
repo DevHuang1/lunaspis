@@ -10,6 +10,7 @@ const { MISSION_DESIGN_KEYS, sanitizeDesignPatch } = require("./server/design_sa
 const { validateFinalReport } = require("./server/mission_validation");
 const { propagateCoast } = require("./server/gmat-propagation");
 const { ShuttleMission, CREW: SHUTTLE_CREW } = require("./public/js/game/shuttle_mission.js");
+const { ArtemisMission, DUTIES: ARTEMIS_DUTIES, COMMAND_DUTY: ARTEMIS_COMMAND_DUTY } = require("./public/js/game/artemis_mission.js");
 const gmatForecast = require("./server/gmat_forecast");
 const planetSeeds = require("./public/data/gmat-planet-seeds.json");
 
@@ -567,6 +568,13 @@ const MISSION_OBJECTIVES = [
 const COOP_OBJECTIVE_IDS = new Set(MISSION_OBJECTIVES.map((o) => o.id));
 
 const MISSION_CATALOG = {
+  artemis_expedition: {
+    id: "artemis_expedition",
+    name: "Artemis Lunar Expedition (Training)",
+    code: "ARTEMIS",
+    badge: "LUNAR EXPEDITION",
+    summary: "Launch on SLS, fly Orion to lunar orbit, dock with a Blue Moon-style lander, land at the south pole, return samples, and splash down. Dated training scenario, not an exact reconstruction."
+  },
   lunar_south_pole: {
     id: "lunar_south_pole",
     name: "Moon Water Hunter",
@@ -904,14 +912,17 @@ function createMissionState(scenarioId = "lunar_south_pole", difficultyId = "eng
   const scenario = MISSION_CATALOG[scenarioId] ? scenarioId : "lunar_south_pole";
   const difficulty = DIFFICULTY_IDS.has(difficultyId) ? difficultyId : "engineer";
   const mode = VALID_OPS_MODES.has(opsMode) ? opsMode : "iss_expedition";
+  const isArtemis = scenario === "artemis_expedition";
   const now = Date.now();
   return {
     opsMode: mode, // iss_expedition | shuttle_flight
+    flightProfile: isArtemis ? "artemis" : "shuttle_iss",
     // Main missions now inherit the interactive Shuttle launch/ascent and hand
     // off to the ISS docking phase at orbit insertion. `shuttle_flight` keeps
-    // the standalone launch-to-runway training flight.
-    flightMode: mode === "shuttle_flight" ? "standalone_shuttle" : "shuttle_docking",
-    phase: "gantry", // gantry -> launch -> docking -> station
+    // the standalone launch-to-runway training flight. Artemis uses its own
+    // server-authoritative simulation instead of the Shuttle flight model.
+    flightMode: isArtemis ? "artemis" : (mode === "shuttle_flight" ? "standalone_shuttle" : "shuttle_docking"),
+    phase: isArtemis ? "artemis" : "gantry", // gantry -> launch -> docking -> station
     dockLocked: false,
     boarded: {}, // socketId -> timestamp
     skipVotes: {}, // socketId -> true (launch cutscene skip readiness)
@@ -1002,8 +1013,11 @@ function serializeMission(mission, room = null) {
   const scenario = MISSION_CATALOG[m.scenarioId] || MISSION_CATALOG.lunar_south_pole;
   return {
     opsMode: VALID_OPS_MODES.has(m.opsMode) ? m.opsMode : "iss_expedition",
+    flightProfile: m.flightProfile || "shuttle_iss",
     flightMode: m.flightMode || (m.opsMode === "shuttle_flight" ? "standalone_shuttle" : "shuttle_docking"),
     phase: m.phase,
+    artemisPhase: room && room.artemisMission ? room.artemisMission.phase : null,
+    artemisResult: room && room.artemisMission ? room.artemisMission.result : null,
     dockLocked: !!m.dockLocked,
     boarded: Object.keys(m.boarded || {}),
     skipVotes: Object.keys(m.skipVotes || {}),
@@ -1457,6 +1471,13 @@ function createNewRoom(roomId, hostId, isPublic = true, opsMode = "iss_expeditio
     shuttleTestFreeze: false,
     shuttleResultRecorded: false,
     shuttleHandedOff: false,
+    artemisMission: null,
+    artemisInputs: {},
+    artemisSurfaceInputs: {},
+    artemisDuties: null,
+    artemisLastTick: 0,
+    artemisLastSnap: 0,
+    artemisResultRecorded: false,
     systems: {
       hull: 100.0,
       oxygen: 100.0,
@@ -1658,6 +1679,108 @@ function createRoomShuttleMission(opsMode) {
   return new ShuttleMission({ handoffAtOrbit: opsMode !== "shuttle_flight" });
 }
 
+// ── ARTEMIS LUNAR EXPEDITION ───────────────────────────────────────────────
+// A separate server-authoritative mission profile. It does not consume the
+// Shuttle mission graph or the seven ISS station objectives.
+function assignArtemisDuties(room) {
+  const crew = Object.values((room && room.players) || {}).filter((p) => p && getTeamForRole(p.role) !== "ground");
+  if (!crew.length) return null;
+  const byRole = {};
+  crew.forEach((p) => { byRole[normalizeRoleId(p.role, "commander")] = p.id; });
+  const order = crew.map((p) => p.id);
+  const pick = (role, index) => byRole[role] || order[index % order.length];
+  const duties = {
+    surface_pilot: pick("commander", 0),
+    surface_science: pick("scientist", 1),
+    orion_nav: pick("specialist", 2),
+    orion_systems: pick("engineer", 3)
+  };
+  const used = new Set();
+  for (const duty of Object.keys(duties)) {
+    if (!used.has(duties[duty])) { used.add(duties[duty]); continue; }
+    const alt = order.find((id) => !used.has(id));
+    if (alt) { duties[duty] = alt; used.add(alt); }
+  }
+  return duties;
+}
+
+function artemisDutyPayload(room) {
+  const out = {};
+  const dutyMap = (room && room.artemisDuties) || {};
+  for (const id of Object.keys(ARTEMIS_DUTIES)) {
+    const player = dutyMap[id] && room.players ? room.players[dutyMap[id]] : null;
+    out[id] = Object.assign({}, ARTEMIS_DUTIES[id], {
+      playerId: dutyMap[id] || null,
+      playerName: player ? player.name : null,
+      role: player ? player.role : null
+    });
+  }
+  return out;
+}
+
+function sendArtemisSnapshot(room) {
+  if (!room || !room.artemisMission) return null;
+  const sn = room.artemisMission.snapshot();
+  sn.duties = artemisDutyPayload(room);
+  sn.players = Object.values(room.players || {}).map((p) => ({ id: p.id, name: p.name, role: p.role, team: p.team, color: p.color }));
+  sn.roomId = room.id;
+  io.to(room.id).emit("artemis_state", sn);
+  return sn;
+}
+
+function mergedArtemisInputs(room) {
+  const duties = (room && room.artemisDuties) || {};
+  const surface = {};
+  for (const [id, input] of Object.entries((room && room.artemisSurfaceInputs) || {})) {
+    if (room.players && room.players[id]) surface[id] = input;
+  }
+  return {
+    docking: (room.artemisInputs && room.artemisInputs[duties.orion_nav]) || {},
+    descent: (room.artemisInputs && room.artemisInputs[duties.surface_pilot]) || {},
+    surface
+  };
+}
+
+async function recordArtemisResult(room) {
+  if (!room || !room.artemisMission || room.artemisResultRecorded || !room.artemisMission.result) return;
+  room.artemisResultRecorded = true;
+  const result = room.artemisMission.result;
+  room.mission = room.mission || createMissionState("artemis_expedition");
+  room.mission.result = result;
+  room.mission.status = result.success ? "complete" : "active";
+  room.mission.completedAt = result.success ? Date.now() : null;
+  if (result.success) {
+    room.status = "victory";
+    await db.upsertGameRoom(room.id, room.hostId, "victory");
+    for (const pid in room.players) {
+      const p = room.players[pid];
+      const s = io.sockets.sockets.get(pid);
+      if (p && p.userId && s && s.isAuthenticated) db.incrementUserStats(p.userId, { gamesWon: 1 });
+    }
+  } else {
+    await db.upsertGameRoom(room.id, room.hostId, "playing");
+  }
+  const payload = {
+    mission: serializeMission(room.mission, room),
+    result,
+    debrief: {
+      success: !!result.success,
+      abort: !!result.abort,
+      failure: result.failure || null,
+      samples: result.samples || 0,
+      photos: result.photos || 0,
+      fuel: result.fuel || {},
+      assistance: !!result.assistance,
+      retries: result.retries || 0,
+      met: result.met || 0,
+      splashdown: result.splashdown || null
+    }
+  };
+  broadcastMissionUpdate(room, { action: "artemis_result", playerId: null, playerName: "FLIGHT" });
+  io.to(room.id).emit("artemis_result", payload);
+  broadcastRoomUpdate(room);
+}
+
 async function recordShuttleResult(room) {
   if (!room || room.shuttleResultRecorded || !room.shuttleMission || !room.shuttleMission.result) return;
   room.shuttleResultRecorded = true;
@@ -1770,6 +1893,31 @@ setInterval(() => {
   }
 }, 1000 / 30);
 
+// Artemis expedition loop (20 Hz). The mission class owns fixed-step mission
+// time; this loop only supplies merged player inputs and snapshots.
+setInterval(() => {
+  const now = Date.now();
+  for (const roomId in rooms) {
+    const room = rooms[roomId];
+    if (!room || room.status !== "playing" || !room.artemisMission || !room.mission) continue;
+    if (room.mission.flightProfile !== "artemis") continue;
+    if (Object.keys(room.players).length === 0) continue;
+    if (!room.artemisDuties) room.artemisDuties = assignArtemisDuties(room);
+    const dt = room.artemisLastTick ? (now - room.artemisLastTick) / 1000 : 0;
+    room.artemisLastTick = now;
+    room.artemisMission.setInputs(mergedArtemisInputs(room));
+    const events = room.artemisMission.advance(Math.min(dt, 0.5));
+    if (events.length) io.to(roomId).emit("artemis_events", events.filter((e) => e.type !== "COMMAND_ACCEPTED"));
+    if (now - room.artemisLastSnap >= 1000 / 10 || events.length) {
+      room.artemisLastSnap = now;
+      sendArtemisSnapshot(room);
+    }
+    if (room.artemisMission.result && !room.artemisResultRecorded) {
+      recordArtemisResult(room).catch((err) => console.error("[ARTEMIS] result error:", err.message));
+    }
+  }
+}, 1000 / 20);
+
 function serializePlayer(player) {
   const { userId, ...publicPlayer } = player || {};
   if (player) {
@@ -1854,6 +2002,7 @@ function serializeRoom(room) {
     swapRequests: serializeSwapRequests(room),
     systems: room.systems,
     tasks: room.tasks,
+    artemisDuties: room.artemisDuties || null,
     mission: serializeMission(room.mission, room)
   };
 }
@@ -2223,6 +2372,11 @@ io.on("connection", (socket) => {
     scheduleRoomSave(room, true);
     if (room.status === "playing" && room.shuttleMission) {
       sendShuttleSnapshot(room);
+    }
+    if (room.status === "playing" && room.artemisMission) {
+      room.artemisDuties = assignArtemisDuties(room);
+      room.artemisMission.duties = artemisDutyPayload(room);
+      sendArtemisSnapshot(room);
     }
   }
 
@@ -2597,6 +2751,51 @@ io.on("connection", (socket) => {
     room.systems.dockingPilotId = resolveDockingPilotId(room);
     room.mission.dockingPilotId = room.systems.dockingPilotId;
 
+    if (room.mission.flightProfile === "artemis") {
+      room.mission.phase = "artemis";
+      room.tasks = { completed: 0, total: 11 };
+      room.completedTaskIds = {};
+      room.artemisDuties = assignArtemisDuties(room);
+      const duty = room.artemisDuties || {};
+      const surfaceCrew = [...new Set([duty.surface_pilot, duty.surface_science].filter(Boolean))];
+      const orionCrew = [...new Set([duty.orion_nav, duty.orion_systems].filter(Boolean))];
+      room.artemisMission = new ArtemisMission({
+        surfaceCrew: surfaceCrew.length ? surfaceCrew : undefined,
+        orionCrew: orionCrew.length ? orionCrew : undefined
+      });
+      room.artemisMission.duties = artemisDutyPayload(room);
+      room.artemisInputs = {};
+      room.artemisSurfaceInputs = {};
+      room.artemisLastTick = Date.now();
+      room.artemisLastSnap = 0;
+      room.artemisResultRecorded = false;
+      room.shuttleMission = null;
+      room.shuttleInputs = {};
+      Object.keys(room.players).forEach((pid) => { room.players[pid].tasksDone = 0; });
+      console.log(`[ARTEMIS] ${room.mission.scenarioId} started in room ${currentRoomId} by host (${surfaceCrew.length} surface / ${orionCrew.length} Orion)`);
+      await db.upsertGameRoom(currentRoomId, room.hostId, "playing");
+      for (const pid in room.players) {
+        const memberSocket = io.sockets.sockets.get(pid);
+        const p = room.players[pid];
+        if (p.userId && memberSocket && memberSocket.isAuthenticated) db.incrementUserStats(p.userId, { gamesPlayed: 1 });
+      }
+      io.to(currentRoomId).emit("game_started", {
+        roomId: currentRoomId,
+        mode: GAME_MODE,
+        opsMode: "artemis_expedition",
+        flightProfile: "artemis",
+        artemisMissionId: room.artemisMission.missionId,
+        maxPlayers: MAX_PLAYERS,
+        players: Object.values(room.players).map(serializePlayer),
+        systems: room.systems,
+        tasks: room.tasks,
+        mission: serializeMission(room.mission, room)
+      });
+      sendArtemisSnapshot(room);
+      broadcastRoomUpdate(room);
+      return;
+    }
+
     // Every mission flies the Shuttle after launch. Main missions stop at orbit
     // insertion and hand off to docking; the standalone mode continues to
     // payload, entry and runway landing.
@@ -2703,6 +2902,96 @@ io.on("connection", (socket) => {
       io.to(room.id).emit("shuttle_events", ev.filter((e) => e.type !== "COMMAND_ACCEPTED"));
     }
     sendShuttleSnapshot(room);
+  });
+
+  // ── Artemis commands and controls (server-authoritative, duty-gated) ─────
+  function artemisCanCommand(room, player, type) {
+    if (!room || !room.artemisMission || !player) return false;
+    const flight = Object.values(room.players || {}).filter((p) => p && getTeamForRole(p.role) !== "ground");
+    if (flight.length < 4) return true;
+    if (type === "START" && room.hostId === player.id) return true;
+    if (["PAUSE", "SET_WARP", "RETRY_CHECKPOINT", "RESTART", "EXIT", "SET_ASSIST", "DEBRIEF"].includes(type)) return true;
+    const duties = room.artemisDuties || (room.artemisDuties = assignArtemisDuties(room));
+    if (!duties) return false;
+    if (type === "SURFACE_INTERACT") return duties.surface_pilot === player.id || duties.surface_science === player.id;
+    const duty = ARTEMIS_COMMAND_DUTY[type];
+    if (!duty) return false;
+    return duties[duty] === player.id;
+  }
+
+  socket.on("artemis_command", (data = {}, callback) => {
+    data = asObject(data);
+    const reply = (r) => { if (typeof callback === "function") callback(r); };
+    const room = currentRoomId && rooms[currentRoomId];
+    if (!room || !room.artemisMission || !room.players[socket.id]) return reply({ accepted: false, reason: "Not in an Artemis expedition" });
+    const player = room.players[socket.id];
+    const type = String(data.type || "").slice(0, 40);
+    if (!artemisCanCommand(room, player, type)) {
+      const duty = ARTEMIS_COMMAND_DUTY[type];
+      const ownerId = duty && room.artemisDuties ? room.artemisDuties[duty] : null;
+      const owner = ownerId && room.players[ownerId];
+      return reply({ accepted: false, reason: `${duty ? (ARTEMIS_DUTIES[duty] ? ARTEMIS_DUTIES[duty].label : duty) : "This station"} is owned by ${owner ? owner.name : "another crewmember"}` });
+    }
+    const args = data.args && typeof data.args === "object" ? data.args : {};
+    if (type === "SURFACE_INTERACT") args.actorId = socket.id;
+    const r = room.artemisMission.command(type, args);
+    reply(r);
+    if (r.accepted && (type === "RETRY_CHECKPOINT" || type === "RESTART")) {
+      room.artemisResultRecorded = false;
+      room.status = "playing";
+      if (room.mission) { room.mission.result = null; room.mission.status = "active"; }
+    }
+    const events = room.artemisMission.drainEvents();
+    if (events.length) io.to(room.id).emit("artemis_events", events.filter((e) => e.type !== "COMMAND_ACCEPTED"));
+    sendArtemisSnapshot(room);
+    if (room.artemisMission.result && !room.artemisResultRecorded) recordArtemisResult(room).catch((err) => console.error("[ARTEMIS] result error:", err.message));
+  });
+
+  socket.on("artemis_input", (data = {}) => {
+    data = asObject(data);
+    const room = currentRoomId && rooms[currentRoomId];
+    if (!room || !room.artemisMission || !room.players[socket.id]) return;
+    const clean = {};
+    for (const k of ["pitch", "yaw", "roll", "tx", "ty", "tz", "throttle", "fine"]) {
+      if (k === "fine") { if (typeof data[k] === "boolean") clean[k] = data[k]; continue; }
+      if (typeof data[k] === "number" && Number.isFinite(data[k])) clean[k] = Math.max(-1, Math.min(1, data[k]));
+    }
+    room.artemisInputs = room.artemisInputs || {};
+    room.artemisInputs[socket.id] = clean;
+  });
+
+  socket.on("artemis_surface_input", (data = {}) => {
+    data = asObject(data);
+    const room = currentRoomId && rooms[currentRoomId];
+    if (!room || !room.artemisMission || !room.players[socket.id]) return;
+    const clean = {};
+    for (const k of ["forward", "strafe", "turn"]) {
+      if (typeof data[k] === "number" && Number.isFinite(data[k])) clean[k] = Math.max(-1, Math.min(1, data[k]));
+    }
+    if (typeof data.sprint === "boolean") clean.sprint = data.sprint;
+    room.artemisSurfaceInputs = room.artemisSurfaceInputs || {};
+    room.artemisSurfaceInputs[socket.id] = clean;
+  });
+
+  socket.on("artemis_reassign", (data = {}, callback) => {
+    data = asObject(data);
+    const reply = (r) => { if (typeof callback === "function") callback(r); };
+    const room = currentRoomId && rooms[currentRoomId];
+    if (!room || !room.artemisMission || !room.players[socket.id]) return reply({ ok: false, error: "Not in an Artemis expedition" });
+    const actor = room.players[socket.id];
+    if (socket.id !== room.hostId && normalizeRoleId(actor.role) !== "commander") return reply({ ok: false, error: "Only the host or commander can reassign duties" });
+    if (["descent", "landed", "surface", "ascent", "reunion"].includes(room.artemisMission.phase)) return reply({ ok: false, error: "Reassign before descent so no crewmember is moved while on the surface" });
+    const duty = String(data.duty || "");
+    const targetId = String(data.playerId || "");
+    if (!ARTEMIS_DUTIES[duty] || !room.players[targetId] || getTeamForRole(room.players[targetId].role) === "ground") return reply({ ok: false, error: "Invalid duty or flight-crew target" });
+    room.artemisDuties = room.artemisDuties || assignArtemisDuties(room);
+    room.artemisDuties[duty] = targetId;
+    room.artemisMission.duties = artemisDutyPayload(room);
+    const d = room.artemisDuties;
+    room.artemisMission.crew.surface = [...new Set([d.surface_pilot, d.surface_science].filter(Boolean))];
+    room.artemisMission.crew.orion = [...new Set([d.orion_nav, d.orion_systems].filter(Boolean))];
+    sendArtemisSnapshot(room);
+    reply({ ok: true, duties: artemisDutyPayload(room) });
   });
 
   socket.on("shuttle_gmat_coast", async (callback) => {
@@ -3593,6 +3882,28 @@ io.on("connection", (socket) => {
     if (socket.lastMissionResetAt && now - socket.lastMissionResetAt < 1500) return;
     socket.lastMissionResetAt = now;
 
+    if (room.artemisMission || (room.mission && room.mission.flightProfile === "artemis") || (room.mission && room.mission.scenarioId === "artemis_expedition")) {
+      room.artemisDuties = assignArtemisDuties(room);
+      const duty = room.artemisDuties || {};
+      const surfaceCrew = [...new Set([duty.surface_pilot, duty.surface_science].filter(Boolean))];
+      const orionCrew = [...new Set([duty.orion_nav, duty.orion_systems].filter(Boolean))];
+      room.mission = createMissionState("artemis_expedition", room.mission && room.mission.difficultyId, room.mission && room.mission.opsMode);
+      room.mission.phase = "artemis";
+      room.artemisMission = new ArtemisMission({ surfaceCrew: surfaceCrew.length ? surfaceCrew : undefined, orionCrew: orionCrew.length ? orionCrew : undefined });
+      room.artemisMission.duties = artemisDutyPayload(room);
+      room.artemisInputs = {};
+      room.artemisSurfaceInputs = {};
+      room.artemisResultRecorded = false;
+      room.artemisLastTick = Date.now();
+      room.artemisLastSnap = 0;
+      room.status = "playing";
+      room.tasks = { completed: 0, total: 11 };
+      sendArtemisSnapshot(room);
+      broadcastMissionUpdate(room, { action: "reset", playerId: socket.id, playerName: p.name });
+      broadcastRoomUpdate(room);
+      return;
+    }
+
     if (room.launchPollTimer) {
       clearTimeout(room.launchPollTimer);
       room.launchPollTimer = null;
@@ -4041,6 +4352,13 @@ io.on("connection", (socket) => {
     room.shuttleResultRecorded = false;
     room.shuttleTestFreeze = false;
     room.shuttleHandedOff = false;
+    room.artemisMission = null;
+    room.artemisInputs = {};
+    room.artemisSurfaceInputs = {};
+    room.artemisDuties = null;
+    room.artemisResultRecorded = false;
+    room.artemisLastTick = 0;
+    room.artemisLastSnap = 0;
     room.systems.docking = { range: 18.5, velocity: 0.30, alignment: 3.5, latchesLocked: false };
     room.systems.dockingState = null;
     room.systems.dockingPilotId = resolveDockingPilotId(room);
@@ -4118,6 +4436,13 @@ io.on("connection", (socket) => {
     if (room.shuttleInputs) {
       delete room.shuttleInputs[socket.id];
     }
+    if (room.artemisInputs) delete room.artemisInputs[socket.id];
+    if (room.artemisSurfaceInputs) delete room.artemisSurfaceInputs[socket.id];
+    if (room.artemisMission && room.artemisDuties && Object.values(room.artemisDuties).includes(socket.id)) {
+      room.artemisDuties = assignArtemisDuties(room);
+      room.artemisMission.duties = artemisDutyPayload(room);
+      sendArtemisSnapshot(room);
+    }
     if (room.swapRequests) {
       for (const [reqId, req] of Object.entries(room.swapRequests)) {
         if (req.fromId === socket.id || req.toId === socket.id) {
@@ -4186,6 +4511,11 @@ io.on("connection", (socket) => {
         room.shuttleResultRecorded = false;
         room.shuttleTestFreeze = false;
         room.shuttleHandedOff = false;
+        room.artemisMission = null;
+        room.artemisInputs = {};
+        room.artemisSurfaceInputs = {};
+        room.artemisDuties = null;
+        room.artemisResultRecorded = false;
         room.systems.dockingPilotId = null;
         room.systems.dockingState = null;
         await saveRoomSnapshotNow(room).catch(() => {});

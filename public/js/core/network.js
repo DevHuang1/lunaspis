@@ -253,6 +253,8 @@
       this.roomState = null;
       this.mission = null;
       this.snapshot = null;
+      this.artemisSnapshot = null;
+      this.lastArtemisResult = null;
       this.remotePlayers = {}; // id -> { id, name, color, role, targetPos, curPos, targetYaw, curYaw, mesh, isEva }
       this.lastSendTime = 0;
       this.lastHeartbeatTime = 0;
@@ -626,7 +628,9 @@
           if (this.roomState) this.roomState.mission = data.mission;
         }
         const isShuttle = !!((data && data.opsMode === "shuttle_flight") || (this.mission && this.mission.opsMode === "shuttle_flight"));
-        if (!isShuttle) this.snapshot = null;
+        const isArtemis = !!(data && (data.flightProfile === "artemis" || data.opsMode === "artemis_expedition")) || !!(this.mission && this.mission.flightProfile === "artemis");
+        if (!isShuttle && !isArtemis) this.snapshot = null;
+        this.artemisSnapshot = null;
         if (this.roomState) this.roomState.status = "playing";
         if (window.spaceAudio) window.spaceAudio.play("missionStart");
         this.emitEvent("game_started", data);
@@ -645,6 +649,25 @@
         this.packetsReceivedThisSec++;
         this.snapshot = sn;
         this.emitEvent("shuttle_state", sn);
+      });
+
+      this.socket.on("artemis_state", (sn) => {
+        this.packetsReceivedThisSec++;
+        this.artemisSnapshot = sn;
+        if (sn && sn.roomId) this.roomId = this.roomId || sn.roomId;
+        this.emitEvent("artemis_state", sn);
+      });
+      this.socket.on("artemis_events", (events) => {
+        this.emitEvent("artemis_events", events);
+      });
+      this.socket.on("artemis_result", (data) => {
+        if (data && data.mission) {
+          this.mission = data.mission;
+          if (this.roomState) this.roomState.mission = data.mission;
+        }
+        if (this.roomState && data && data.result && data.result.success) this.roomState.status = "victory";
+        this.lastArtemisResult = data && data.result ? data.result : null;
+        this.emitEvent("artemis_result", data);
       });
 
       this.socket.on("shuttle_events", (ev) => {
@@ -1324,6 +1347,44 @@
         this.socket.emit("shuttle_input", input, (r) => {
           if (!done) { done = true; resolve(!!r); }
         });
+      });
+    }
+
+    sendArtemisCommand(type, args, callback) {
+      if (!this.socket || !this.connected) {
+        if (typeof callback === "function") callback({ accepted: false, reason: "Not connected" });
+        return Promise.resolve({ accepted: false, reason: "Not connected" });
+      }
+      this.packetsSentThisSec++;
+      return new Promise((resolve) => {
+        let done = false;
+        const timer = setTimeout(() => { if (!done) { done = true; resolve({ accepted: false, reason: "Timed out" }); } }, 4000);
+        this.socket.emit("artemis_command", { type, args: args || {} }, (r) => {
+          if (done) return;
+          done = true; clearTimeout(timer);
+          const out = r || { accepted: false };
+          if (typeof callback === "function") callback(out);
+          resolve(out);
+        });
+      });
+    }
+
+    sendArtemisInput(input) {
+      if (!this.socket || !this.connected) return;
+      this.packetsSentThisSec++;
+      this.socket.volatile.emit("artemis_input", input || {});
+    }
+
+    sendArtemisSurfaceInput(input) {
+      if (!this.socket || !this.connected) return;
+      this.packetsSentThisSec++;
+      this.socket.volatile.emit("artemis_surface_input", input || {});
+    }
+
+    reassignArtemisDuty(duty, playerId, callback) {
+      if (!this.socket || !this.connected) return;
+      this.socket.emit("artemis_reassign", { duty, playerId }, (r) => {
+        if (typeof callback === "function") callback(r || { ok: false });
       });
     }
 
