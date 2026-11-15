@@ -281,7 +281,7 @@
     if (els.exportButton) els.exportButton.addEventListener("click", exportLog);
     if (els.clearButton) els.clearButton.addEventListener("click", clearLog);
 
-    [document.getElementById("btn-open-mission-log"), document.getElementById("btn-victory-log")].forEach((button) => {
+    [document.getElementById("btn-victory-log")].forEach((button) => {
       if (!button) return;
       button.addEventListener("click", open);
     });

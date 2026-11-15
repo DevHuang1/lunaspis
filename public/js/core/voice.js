@@ -848,6 +848,9 @@
 
         // [M] - Toggle Microphone Mute (or enable mic if not started yet)
         if (e.code === "KeyM" && !e.repeat) {
+          // The Shuttle flight deck uses [M] for auto nose angle; [V] is its
+          // mic control, so do not toggle the mic from the global shortcut there.
+          if (window.shuttleGame && window.shuttleGame.isActive) return;
           e.preventDefault();
           if (!this.isEnabled) {
             this.startMicrophone();

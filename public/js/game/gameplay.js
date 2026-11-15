@@ -6419,7 +6419,7 @@
             <span class="hub-role-group-title">${this._escapeHtml(meta.label)} SUPPORT</span>
             <span class="hub-role-group-count">${doneCount}/${checks.length}</span>
           </div>
-          <div class="hub-role-group-owner">Ground Desk [C] · live Earth checks</div>
+          <div class="hub-role-group-owner">Ground Desk [F2] · live Earth checks</div>
           <div class="hub-role-group-track"><i style="width:${pct}%"></i></div>
           <div class="hub-support-list">${rows}</div>
         </div>

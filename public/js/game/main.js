@@ -675,17 +675,6 @@
         window.addEventListener("keydown", finishBoot, { once: true });
       }
     }
-    const dossierBtn = document.getElementById("btn-title-dossier");
-    if (dossierBtn) {
-      dossierBtn.addEventListener("click", () => {
-        if (window.missionLog && typeof window.missionLog.open === "function") {
-          window.missionLog.open();
-          return;
-        }
-        const logBtn = document.getElementById("btn-open-mission-log");
-        if (logBtn) logBtn.click();
-      });
-    }
     const settingsBtn = document.getElementById("btn-title-settings");
     if (settingsBtn) {
       settingsBtn.addEventListener("click", () => {
@@ -1566,6 +1555,7 @@
         "docking-active",
         "interior-active",
         "iss-showcase-active",
+        "lunar-scene-active",
         "mission-viz-active",
         "shuttle-mode-active",
         "artemis-mode-active",
@@ -3993,13 +3983,13 @@
     let callout = "";
     if (localIsGround) {
       if (phase === "gantry") {
-        callout = `<strong>GROUND CONTROL ROOM:</strong> Wait for every astronaut to board (${boarded.length}/${flightPlayers.length}), then approve the Flight Crew's liftoff request in Ground Desk [C]. All-crew voice + CREW COMMS are always open.`;
+        callout = `<strong>GROUND CONTROL ROOM:</strong> Wait for every astronaut to board (${boarded.length}/${flightPlayers.length}), then approve the Flight Crew's liftoff request in Ground Desk [F2]. All-crew voice + CREW COMMS are always open.`;
       } else if (phase === "launch") {
-        callout = `<strong>LIFTOFF WATCH:</strong> Watch rocket liftoff from Ground Control · Turn on Dish Lock &amp; Solar Routing in Ground Desk [C].`;
+        callout = `<strong>LIFTOFF WATCH:</strong> Watch rocket liftoff from Ground Control · Turn on Dish Lock &amp; Solar Routing in Ground Desk [F2].`;
       } else if (phase === "docking") {
-        callout = `<strong>DOCKING SUPPORT:</strong> Give Safe Docking Clearance in Ground Desk [C] while Space Crew lines up with the hatch.`;
+        callout = `<strong>DOCKING SUPPORT:</strong> Give Safe Docking Clearance in Ground Desk [F2] while Space Crew lines up with the hatch.`;
       } else {
-        callout = `<strong>MISSION SUPPORT:</strong> Track Space Crew live in Ground Desk [C], alert rooms, &amp; use CREW COMMS to reach the ship.`;
+        callout = `<strong>MISSION SUPPORT:</strong> Track Space Crew live in Ground Desk [F2], alert rooms, &amp; use CREW COMMS to reach the ship.`;
       }
     } else if (phase === "gantry" || phase === "boarding") {
       const unboarded = flightPlayers.filter((p) => !boarded.includes(p.id)).map((p) => p.name);
@@ -4061,6 +4051,8 @@
     }
 
     const filterRoleMeta = activeFilter !== "all" && rolesApi ? rolesApi.getRoleMeta(activeFilter) : null;
+    const skipStepLabels = { gantry: "SKIP STEP · LAUNCH", launch: "SKIP STEP · ISS DOCKING", docking: "SKIP STEP · STATION" };
+    const skipStepLabel = skipStepLabels[phase] || null;
     container.innerHTML = `
       <div class="hub-filter-row">
         <div class="hub-filter-group" role="group" aria-label="Filter mission steps by role">
@@ -4074,6 +4066,7 @@
       <div class="hub-callout">
         <div class="hub-callout-head"><span class="hub-callout-dot"></span>YOUR NEXT MOVE</div>
         <div class="hub-callout-body">${callout}</div>
+        ${skipStepLabel ? `<div class="hub-callout-actions"><button type="button" class="hub-filter-btn" id="btn-hub-skip-step">${skipStepLabel} ⏭</button></div>` : ""}
       </div>
     `;
 
@@ -4104,6 +4097,23 @@
         if (window.spaceAudio) window.spaceAudio.playClick();
       });
     });
+
+    const skipStepBtn = container.querySelector("#btn-hub-skip-step");
+    if (skipStepBtn) {
+      skipStepBtn.addEventListener("click", () => {
+        if (!net || typeof net.requestMissionSkipStep !== "function") return;
+        skipStepBtn.disabled = true;
+        skipStepBtn.textContent = "SKIP REQUESTED…";
+        net.requestMissionSkipStep().then((r) => {
+          if (window.gameplay && typeof window.gameplay.showToast === "function") {
+            if (!r || r.accepted === false) window.gameplay.showToast((r && r.reason) || "Step skip is not available");
+            else if (r.pending) window.gameplay.showToast(`SKIP VOTE ${r.votes}/${r.needed} — waiting for the crew`);
+            else window.gameplay.showToast(`SKIP STEP · ${String(r.phase || "next step").replace(/_/g, " ").toUpperCase()}`);
+          }
+          renderHudCrewRoster();
+        });
+      });
+    }
 
     renderSwapBanners();
   }
@@ -4412,7 +4422,7 @@
       // Solar Atlas is a full-screen takeover; close it before another view hotkey opens.
       if (
         window.solarSystem && window.solarSystem.isActive &&
-        ["KeyU", "KeyJ", "KeyK", "KeyG", "KeyI", "KeyC", "KeyV"].indexOf(e.code) !== -1
+        ["KeyU", "KeyJ", "KeyK", "KeyG", "KeyI", "KeyC"].indexOf(e.code) !== -1
       ) {
         window.solarSystem.close();
       }
@@ -4509,13 +4519,17 @@
       if (e.code === "KeyK" || e.key === "k" || e.key === "K") {
         e.preventDefault();
         if (window.missionViz && window.missionViz.isActive) window.missionViz.close();
+        // Capture the intended [K] state before closing a layered [J] showcase:
+        // closing it may restore the lunar scene it was opened over.
+        const showMoon = !(window.shipInterior && window.shipInterior.isMoonLandingActive);
+        if (window.issShowcase && window.issShowcase.isActive) window.issShowcase.close();
         if (window.shipInterior && typeof window.shipInterior.toggleMoonLandingScene === "function") {
-          window.shipInterior.toggleMoonLandingScene();
+          window.shipInterior.toggleMoonLandingScene(showMoon);
         }
       }
 
-      // Cycle camera [C] or [V]
-      if (e.code === "KeyC" || e.code === "KeyV" || e.key === "c" || e.key === "v" || e.key === "C" || e.key === "V") {
+      // Cycle camera [C]
+      if (e.code === "KeyC" || e.key === "c" || e.key === "C") {
         if (!(window.dockingSim && window.dockingSim.isActive)) {
           cycleCameraMode();
         }

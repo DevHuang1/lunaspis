@@ -999,6 +999,13 @@
         }
         window.shipInterior.hide();
       }
+      // The showcase is mounted at the origin; hide the launch complex so the
+      // reference model is not drawn inside the pad or the crawlerway terrain.
+      this._previousGroundSuspended = !!(
+        window.spaceCenter &&
+        typeof window.spaceCenter.suspendGroundPresentation === "function" &&
+        window.spaceCenter.suspendGroundPresentation()
+      );
       this._previousIssVisible = !!(window.issGroup && window.issGroup.visible);
       if (window.issGroup) window.issGroup.visible = false;
       if (this.showcaseGroup) this.showcaseGroup.visible = true;
@@ -1015,6 +1022,15 @@
       if (this.overlayEl) this.overlayEl.style.display = "none";
       if (this.showcaseGroup) this.showcaseGroup.visible = false;
       if (window.issGroup) window.issGroup.visible = this._previousIssVisible;
+      // The previous scene may hide the ground again on its own (for example,
+      // [J] opened on top of an active lunar scene). Restore our ground state
+      // first so the restored scene's suspension is the one that wins.
+      if (this._previousGroundSuspended && window.spaceCenter && typeof window.spaceCenter.resumeGroundPresentation === "function") {
+        window.spaceCenter.resumeGroundPresentation();
+      }
+      if (window.localCrew && window.localCrew.group) {
+        window.localCrew.group.visible = this._previousCrewVisible !== false;
+      }
       if (window.shipInterior) {
         if (this._previousMoonLandingActive && typeof window.shipInterior.startMoonLandingScene === "function") {
           window.shipInterior.startMoonLandingScene();
@@ -1024,12 +1040,10 @@
           window.shipInterior.hide();
         }
       }
-      if (window.localCrew && window.localCrew.group) {
-        window.localCrew.group.visible = this._previousCrewVisible !== false;
-      }
       this._previousInteriorActive = false;
       this._previousMoonLandingActive = false;
       this._previousCrewVisible = true;
+      this._previousGroundSuspended = false;
     }
 
     toggle() {

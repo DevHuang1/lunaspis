@@ -241,6 +241,7 @@
       if (window.solarSystem && window.solarSystem.isActive) return true;
       if (window.missionViz && window.missionViz.isActive) return true;
       if (window.issShowcase && window.issShowcase.isActive) return true;
+      if (window.shipInterior && window.shipInterior.isMoonLandingActive) return true;
       if (window.vrManager && window.vrManager.isAnyVRActive) return true;
       const overlays = ["mission-briefing-overlay", "modal-academy", "modal-mission-log", "modal-station-systems", "task-modal-overlay", "victory-overlay"];
       for (const id of overlays) {
@@ -260,6 +261,7 @@
       if (window.solarSystem && window.solarSystem.isActive) return false;
       if (window.missionViz && window.missionViz.isActive) return false;
       if (window.issShowcase && window.issShowcase.isActive) return false;
+      if (window.shipInterior && window.shipInterior.isMoonLandingActive) return false;
       if (window.vrManager && window.vrManager.isAnyVRActive) return false;
       return true;
     }

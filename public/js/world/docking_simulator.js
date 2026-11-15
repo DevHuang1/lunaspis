@@ -163,7 +163,7 @@
       this._bindInputs();
       this._bindCameraControls();
       document.body.classList.add("docking-active");
-      document.body.classList.remove("ground-mode-active", "launch-active", "interior-active");
+      document.body.classList.remove("ground-mode-active", "launch-active", "interior-active", "lunar-scene-active");
       if (window.csaNasaLab && typeof window.csaNasaLab.syncGroundLockState === "function") {
         window.csaNasaLab.syncGroundLockState();
       }
@@ -412,6 +412,17 @@
       this._completeDocking(corridorCapture);
     }
 
+    requestMissionSkipStep() {
+      const nm = window.netManager;
+      if (!nm || typeof nm.requestMissionSkipStep !== "function") return;
+      nm.requestMissionSkipStep().then((r) => {
+        if (!window.gameplay || typeof window.gameplay.showToast !== "function") return;
+        if (!r || r.accepted === false) window.gameplay.showToast((r && r.reason) || "Step skip is not available");
+        else if (r.pending) window.gameplay.showToast(`SKIP VOTE ${r.votes}/${r.needed} — waiting for the crew`);
+        else window.gameplay.showToast(`SKIP STEP · ${String(r.phase || "next step").replace(/_/g, " ").toUpperCase()}`);
+      });
+    }
+
     _setupTargetBeacon() {
       if (!this.scene) return;
       const THREE = window.THREE;
@@ -554,11 +565,11 @@
           return;
         }
 
-        if (e.code === "KeyV") {
+        if (e.code === "KeyC") {
           e.preventDefault();
           this.cameraMode = this.cameraMode === "chase" ? "cockpit" : "chase";
           if (this.camModeBadge) {
-            this.camModeBadge.textContent = this.cameraMode === "chase" ? "VIEW: CHASE [V]" : "VIEW: COCKPIT [V]";
+            this.camModeBadge.textContent = this.cameraMode === "chase" ? "VIEW: CHASE [C]" : "VIEW: COCKPIT [C]";
           }
           if (window.spaceAudio) window.spaceAudio.playClick();
           return;
@@ -1200,7 +1211,7 @@
 
           <div class="dock-actions-wrap">
             <button type="button" id="dock-cam-badge" style="background:rgba(6,10,16,0.9);border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:7px 12px;font-family:inherit;font-size:10px;font-weight:700;color:#efeee7;cursor:pointer;">
-              VIEW: ${this.cameraMode === "chase" ? "CHASE" : "COCKPIT"} [V]
+              VIEW: ${this.cameraMode === "chase" ? "CHASE" : "COCKPIT"} [C]
             </button>
             <button type="button" id="btn-dock-auto" style="background:rgba(var(--ui-brand-rgb),0.12);border:1px solid rgba(var(--ui-brand-rgb),0.4);border-radius:6px;padding:7px 12px;font-family:inherit;font-size:10px;font-weight:700;color:var(--ui-brand-strong);cursor:pointer;">
               AUTO-DOCK ASSIST [T]
@@ -1210,6 +1221,9 @@
             </button>
             <button type="button" id="btn-dock-latch-now" style="background:rgba(99,230,168,0.16);border:1px solid rgba(99,230,168,0.55);color:#63e6a8;padding:7px 14px;border-radius:6px;font-family:inherit;font-size:10px;font-weight:700;letter-spacing:1px;cursor:pointer;">
               COMPLETE DOCK &amp; BOARD STATION ⏩
+            </button>
+            <button type="button" id="btn-dock-skip-step" style="background:rgba(251,191,36,0.14);border:1px solid rgba(251,191,36,0.55);color:#fde68a;padding:7px 12px;border-radius:6px;font-family:inherit;font-size:10px;font-weight:700;letter-spacing:1px;cursor:pointer;">
+              SKIP STEP · STATION ⏭
             </button>
             <button type="button" id="btn-dock-leave" style="background:rgba(255,107,107,0.14);border:1px solid rgba(255,107,107,0.5);color:#ff6b6b;padding:7px 12px;border-radius:6px;font-family:inherit;font-size:10px;font-weight:700;letter-spacing:1px;cursor:pointer;">
               LEAVE
@@ -1269,7 +1283,7 @@
       if (this.camModeBadge) {
         this.camModeBadge.addEventListener("click", () => {
           this.cameraMode = this.cameraMode === "chase" ? "cockpit" : "chase";
-          this.camModeBadge.textContent = this.cameraMode === "chase" ? "VIEW: CHASE [V]" : "VIEW: COCKPIT [V]";
+          this.camModeBadge.textContent = this.cameraMode === "chase" ? "VIEW: CHASE [C]" : "VIEW: COCKPIT [C]";
         });
       }
 
@@ -1286,6 +1300,11 @@
       const btnLatchNow = this.hudOverlay.querySelector("#btn-dock-latch-now");
       if (btnLatchNow) {
         btnLatchNow.addEventListener("click", () => this.skip());
+      }
+
+      const btnSkipStep = this.hudOverlay.querySelector("#btn-dock-skip-step");
+      if (btnSkipStep) {
+        btnSkipStep.addEventListener("click", () => this.requestMissionSkipStep());
       }
 
       const btnLeave = this.hudOverlay.querySelector("#btn-dock-leave");

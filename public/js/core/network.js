@@ -1146,6 +1146,31 @@
       this.socket.emit("launch_skip_vote");
     }
 
+    setLaunchSpeed(speed) {
+      if (!this.connected || !this.roomId) return;
+      this.packetsSentThisSec++;
+      this.socket.emit("launch_speed", { speed: Number(speed) === 3 ? 3 : 1 });
+    }
+
+    requestMissionSkipStep() {
+      return new Promise((resolve) => {
+        if (!this.socket || !this.connected || !this.roomId) {
+          return resolve({ accepted: false, reason: "Not connected" });
+        }
+        let done = false;
+        const timer = setTimeout(() => {
+          if (!done) { done = true; resolve({ accepted: false, reason: "Timed out" }); }
+        }, 5000);
+        this.packetsSentThisSec++;
+        this.socket.emit("mission_skip_step", {}, (r) => {
+          if (done) return;
+          done = true;
+          clearTimeout(timer);
+          resolve(r || { accepted: false });
+        });
+      });
+    }
+
     beginDockingPhase(options = {}) {
       if (!this.connected || !this.roomId) return;
       this.socket.emit("space_phase", {

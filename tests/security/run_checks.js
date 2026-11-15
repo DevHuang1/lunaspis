@@ -299,6 +299,33 @@ async function testMissionAuthority() {
   check("shared time acceleration is accepted from any crew seat",
     !!(sharedWarp && sharedWarp[0] && sharedWarp[0].accepted),
     sharedWarp && sharedWarp[0] ? sharedWarp[0].reason : "no response");
+  const sharedFF = await guest.emit("shuttle_command", { type: "FAST_FORWARD", args: {} });
+  check("fast forward is accepted from any crew seat",
+    !!(sharedFF && sharedFF[0] && sharedFF[0].accepted),
+    sharedFF && sharedFF[0] ? sharedFF[0].reason : "no response");
+  const stepLaunch = await guest.emit("mission_skip_step", {});
+  check("step skip advances the pad step to launch",
+    !!(stepLaunch && stepLaunch[0] && stepLaunch[0].accepted && stepLaunch[0].phase === "launch"),
+    stepLaunch && stepLaunch[0] ? `${stepLaunch[0].accepted} ${stepLaunch[0].phase || stepLaunch[0].reason}` : "no response");
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  const ffSnaps = guest.events.filter((entry) => entry[0] === "shuttle_state").map((entry) => entry[1]);
+  const ffSnap = ffSnaps[ffSnaps.length - 1];
+  check("fast forward changes the shared time acceleration for every player",
+    !!(ffSnap && ffSnap.warpReq >= 10),
+    ffSnap ? `warpReq ${ffSnap.warpReq}` : "no shuttle_state");
+  await guest.emit("launch_speed", { speed: 3 }, false);
+  await new Promise((resolve) => setTimeout(resolve, 120));
+  const launchSpeedUpdate = guest.events
+    .filter((entry) => entry[0] === "mission_update" && entry[1] && entry[1].action === "launch_speed")
+    .map((entry) => entry[1])
+    .pop();
+  check("launch fast forward is shared with every player",
+    !!(launchSpeedUpdate && launchSpeedUpdate.mission && launchSpeedUpdate.mission.launchSpeed === 3),
+    launchSpeedUpdate ? `speed ${launchSpeedUpdate.mission && launchSpeedUpdate.mission.launchSpeed}` : "no launch_speed update");
+  const stepDocking = await guest.emit("mission_skip_step", {});
+  check("step skip jumps launch straight to ISS docking",
+    !!(stepDocking && stepDocking[0] && stepDocking[0].accepted && stepDocking[0].phase === "docking"),
+    stepDocking && stepDocking[0] ? `${stepDocking[0].accepted} ${stepDocking[0].phase || stepDocking[0].reason}` : "no response");
   const guestIsAuthorized = guestPlayer.role === "commander" && guestPlayer.id === created[0].hostId;
   guest.emit("space_reset", {}, false);
   guest.emit("mission_design_sync", {

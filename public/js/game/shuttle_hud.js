@@ -25,7 +25,7 @@
   const PHASE_TAG = { briefing: "BRIEFING", prelaunch: "COUNTDOWN", ascent: "LAUNCH", insertion: "ORBIT PUSH", payload: "SATELLITE", deorbit: "RETURN PREP", entry: "RE-ENTRY", approach: "LANDING", rollout: "RUNWAY STOP", debrief: "DEBRIEF" };
   // keys per seat and phase — shown on the DATA page for your own seats only
   const KEYS = {
-    all: [["DRAG", "look around"], ["WHEEL", "zoom"], ["RMB", "hold: scope (sky view)"], ["F", "recenter camera"], ["C", "camera view"], [", / .", "time slower / faster"], ["/", "crew chat"], ["V", "mic on/off"], ["F3", "this page"]],
+    all: [["DRAG", "look around"], ["WHEEL", "zoom"], ["RMB", "hold: scope (sky view)"], ["F", "recenter camera"], ["C", "camera view"], [", / .", "time slower / faster"], ["/", "crew chat"], ["V", "hold to talk"], ["F3", "this page"]],
     cdr: { briefing: [["ENTER", "start countdown"]], orbit: [["W / S", "nose down / up"], ["A / D", "roll left / right"], ["Q / E", "turn left / right"], ["H", "steady hold"]],
       entry: [["A / D", "tilt wings left / right"], ["W / S", "nose up/down (if auto off)"]], approach: [["W / S", "glide steeper / gentler (holds when released)"], ["A / D", "tilt wings left / right"]],
       rollout: [["W", "lower the nose"], ["Q / E", "steer wheels"], ["SPACE", "brakes"]], any: [["ESC", "pause / checkpoints"]] },
@@ -70,12 +70,14 @@
   #shuttle-hud .tl .lb{position:absolute;top:0;transform:translateX(-50%);font-size:10px;color:var(--dim);white-space:nowrap}
   #shuttle-hud .tl .lb.d{color:var(--ink)} #shuttle-hud .tl .lb.n{color:var(--blue)} #shuttle-hud .tl .lb.lo{top:28px}
   #shuttle-hud .tl .mk{position:absolute;top:22px;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:var(--ink);box-shadow:0 0 8px var(--ink)}
-  #shuttle-hud .tag{display:flex;align-items:stretch;border:1px solid var(--line);background:var(--void)}
+  #shuttle-hud .tag{display:flex;align-items:stretch;flex-wrap:wrap;justify-content:center;border:1px solid var(--line);background:var(--void)}
   #shuttle-hud .tag b{background:var(--ink);color:#000;font-weight:400;padding:3px 10px}
   #shuttle-hud .tag span{padding:3px 10px;white-space:nowrap} #shuttle-hud .tag .w{color:var(--blue)}
   #shuttle-hud .tag .ff{display:none;align-items:center;padding:3px 8px;border:0;border-left:1px solid var(--line);background:rgba(103,232,249,0.12);color:#67e8f9;font-family:inherit;font-size:9px;font-weight:800;letter-spacing:.06em;cursor:pointer}
   #shuttle-hud .tag .ff:hover{background:rgba(103,232,249,0.24)}
   #shuttle-hud .tag .ff:disabled{opacity:.55;cursor:default}
+  #shuttle-hud .tag .ff.skip{background:rgba(251,191,36,0.14);color:#fbbf24;border-left-color:rgba(251,191,36,0.55)}
+  #shuttle-hud .tag .ff.skip:hover{background:rgba(251,191,36,0.26)}
   #shuttle-hud .prompt{position:absolute;left:50%;bottom:58px;transform:translateX(-50%);width:min(760px,92vw);background:var(--void);border-left:3px solid var(--ink);padding:9px 14px 9px 12px}
   #shuttle-hud .prompt .l1{font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #shuttle-hud .prompt .l1 .k{display:inline-block;border:1px solid var(--ink);padding:0 6px;margin:0 2px;line-height:1.25}
@@ -159,7 +161,7 @@
       if (!document.getElementById("shuttle-hud-css")) { const st = document.createElement("style"); st.nonce = window.__lunaspisCspNonce || ""; st.id = "shuttle-hud-css"; st.textContent = CSS; document.head.appendChild(st); }
       const root = document.createElement("div"); root.id = "shuttle-hud"; this.root = root;
       root.innerHTML = `
-        <div class="top"><div class="tl" id="sh-tl"></div><div class="tag"><b id="sh-id">SHUTTLE</b><span id="sh-phase"></span><span id="sh-met"></span><span id="sh-warp" class="w"></span><button type="button" id="sh-ff" class="ff" title="Set maximum time acceleration">FAST FORWARD</button></div></div>
+        <div class="top"><div class="tl" id="sh-tl"></div><div class="tag"><b id="sh-id">SHUTTLE</b><span id="sh-phase"></span><span id="sh-met"></span><span id="sh-warp" class="w"></span><button type="button" id="sh-ff" class="ff" title="Set maximum time acceleration for the whole crew">FAST FORWARD</button><button type="button" id="sh-skip" class="ff skip" title="Skip to the next ISS mission step (host/commander or crew vote)">SKIP STEP</button></div></div>
         <div class="kb" id="sh-kb"></div>
         <div class="steer" id="sh-steer"></div>
         <div class="banner" id="sh-banner">PRACTICE MODE — QUICK START</div>
@@ -194,6 +196,7 @@
       ci.addEventListener("blur", () => { this.el("sh-chat").style.display = "none"; this.el("sh-log").style.visibility = ""; });
       this.el("sh-data").addEventListener("click", (e) => { const b = e.target.closest("button[data-cmd]"); if (b) { b.blur(); this.onCommand(b.dataset.cmd, b.dataset.arg); } });
       this.el("sh-ff").addEventListener("click", () => { this.el("sh-ff").blur(); this.onCommand("FAST_FORWARD"); });
+      this.el("sh-skip").addEventListener("click", () => { this.el("sh-skip").blur(); this.onCommand("SKIP_STEP"); });
       this.controlOpen = true;
       this.el("sh-control-toggle").addEventListener("click", () => {
         this.controlOpen = !this.controlOpen;
@@ -497,6 +500,12 @@
         ff.style.display = canFastForward ? "inline-flex" : "none";
         ff.disabled = !canFastForward || (Number(sn.warp) || 1) >= warpMax;
         ff.textContent = (Number(sn.warp) || 1) >= warpMax ? `FAST ${warpMax}×` : `FAST FORWARD ${warpMax}×`;
+      }
+      const skip = this.el("sh-skip");
+      if (skip) {
+        const canSkip = !!sn.handoffAtOrbit && !sn.failure && !sn.result && ["briefing", "prelaunch", "ascent", "insertion"].includes(sn.phase);
+        skip.style.display = canSkip ? "inline-flex" : "none";
+        skip.textContent = "SKIP TO ISS DOCKING ⏭";
       }
       this._timeline(sn);
       this.el("sh-banner").style.display = sn.integrity !== "normal" ? "block" : "none";

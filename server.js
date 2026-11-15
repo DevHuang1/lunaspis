@@ -1148,6 +1148,7 @@ function createMissionState(scenarioId = "cubesat_101", difficultyId = "engineer
     dockLocked: false,
     boarded: {}, // socketId -> timestamp
     skipVotes: {}, // socketId -> true (launch cutscene skip readiness)
+    launchSpeed: 1, // 1x | 3x shared launch cinematic speed
     launchedBy: null,
     dockedBy: null,
     launchPollAt: 0,
@@ -1243,6 +1244,7 @@ function serializeMission(mission, room = null) {
     dockLocked: !!m.dockLocked,
     boarded: Object.keys(m.boarded || {}),
     skipVotes: Object.keys(m.skipVotes || {}),
+    launchSpeed: m.launchSpeed === 3 ? 3 : 1,
     launchedBy: m.launchedBy || null,
     dockedBy: m.dockedBy || null,
     dockingPilotId: m.dockingPilotId || null,
@@ -1649,9 +1651,17 @@ function enterRoomDockingPhase(room, triggeredById) {
   const now = Date.now();
   room.mission.phase = "docking";
   room.mission.skipVotes = {};
+  room.mission.launchSpeed = 1;
   room.mission.phaseStartedAt = now;
   room.mission.updatedAt = now;
   room.shuttleInputs = {};
+  room.shuttleHandedOff = true;
+  if (room.shuttleMission) {
+    // A deliberate step-skip may hand off before orbit verification. Halt the
+    // flight model so it cannot keep advancing in the background.
+    room.shuttleMission.warpReq = 1;
+    room.shuttleMission.paused = true;
+  }
   room.systems.dockingPilotId = resolveDockingPilotId(room);
   room.mission.dockingPilotId = room.systems.dockingPilotId;
   room.systems.dockingState = {
@@ -1670,6 +1680,32 @@ function enterRoomDockingPhase(room, triggeredById) {
   broadcastMissionUpdate(room, {
     action: "phase",
     playerId: triggeredById || null
+  });
+  return true;
+}
+
+// A step-skip can also finish docking without a hand-flown soft capture. This
+// is the same authoritative terminal state used by space_dock_complete.
+function completeRoomDocking(room, dockedById) {
+  if (!room || !room.mission) return false;
+  if (room.mission.phase !== "launch" && room.mission.phase !== "docking") return false;
+  const now = Date.now();
+  room.mission.phase = "station";
+  room.mission.dockedBy = dockedById || null;
+  room.mission.skipVotes = {};
+  room.mission.phaseStartedAt = now;
+  room.mission.updatedAt = now;
+  for (const pid in room.players) {
+    if (getTeamForRole(room.players[pid].role) !== "ground") {
+      room.mission.boarded[pid] = room.mission.boarded[pid] || now;
+    }
+  }
+  room.systems.docking = { range: 0, velocity: 0, alignment: 0, latchesLocked: true };
+  const player = roomPlayerById(room, dockedById);
+  broadcastMissionUpdate(room, {
+    action: "docked",
+    playerId: dockedById || null,
+    playerName: player ? player.name : null
   });
   return true;
 }
@@ -3768,6 +3804,7 @@ io.on("connection", (socket) => {
     }
     room.mission.phase = "launch";
     room.mission.skipVotes = {};
+    room.mission.launchSpeed = 1;
     room.mission.launchedBy = launchedById || null;
     room.systems.dockingState = null;
     room.systems.dockingPilotId = resolveDockingPilotId(room);
@@ -4084,6 +4121,77 @@ io.on("connection", (socket) => {
     }
   });
 
+  // Shared launch-cinematic speed. Any Flight Crew member (or the host) can
+  // toggle 1x/3x for everyone, so one player's fast-forward never desyncs the
+  // crew or leaves the rest of the room watching at normal speed.
+  socket.on("launch_speed", (data = {}) => {
+    data = asObject(data);
+    if (!currentRoomId || !rooms[currentRoomId]) return;
+    const room = rooms[currentRoomId];
+    const p = room.players[socket.id];
+    if (!p || !room.mission || room.mission.phase !== "launch" || room.status !== "playing") return;
+    if (getTeamForRole(p.role) === "ground" && socket.id !== room.hostId) return;
+    const speed = Number(data.speed) === 3 ? 3 : 1;
+    if (room.mission.launchSpeed === speed) return;
+    room.mission.launchSpeed = speed;
+    room.mission.updatedAt = Date.now();
+    broadcastMissionUpdate(room, {
+      action: "launch_speed",
+      playerId: socket.id,
+      playerName: p.name,
+      speed
+    });
+  });
+
+  // Step-skip: advance the shared main mission to its next phase. The first
+  // press from a non-authority player records a crew vote; the host/commander
+  // (or a majority) advances immediately. This is what lets the crew jump from
+  // launch straight to ISS docking without waiting for the Shuttle orbit gate.
+  socket.on("mission_skip_step", (data = {}, callback) => {
+    data = asObject(data);
+    const reply = (r) => { if (typeof callback === "function") callback(r); };
+    const room = currentRoomId && rooms[currentRoomId];
+    const p = room && room.players[socket.id];
+    if (!room || !room.mission || !p || room.status !== "playing") return reply({ accepted: false, reason: "Not in an active mission" });
+    const phase = room.mission.phase;
+    if (phase === "station") return reply({ accepted: false, reason: "No next mission step to skip" });
+    if (!["gantry", "launch", "docking"].includes(phase)) return reply({ accepted: false, reason: "No next mission step to skip" });
+
+    const flightIds = getFlightCrewIds(room);
+    const activePilotId = phase === "docking" ? resolveDockingPilotId(room) : null;
+    const isAuthority = flightIds.length <= 1 ||
+      socket.id === room.hostId ||
+      socket.id === activePilotId ||
+      normalizeRoleId(p.role) === "commander";
+
+    if (!isAuthority) {
+      room.mission.skipVotes = room.mission.skipVotes || {};
+      room.mission.skipVotes[socket.id] = true;
+      const needed = Math.max(1, Math.ceil(Object.keys(room.players).length / 2));
+      const votes = Object.keys(room.mission.skipVotes).filter((id) => room.players[id]).length;
+      if (votes < needed) {
+        room.mission.updatedAt = Date.now();
+        broadcastMissionUpdate(room, {
+          action: "skip_vote",
+          playerId: socket.id,
+          playerName: p.name
+        });
+        return reply({ accepted: true, pending: true, votes, needed, phase });
+      }
+    }
+
+    room.mission.skipVotes = {};
+    if (phase === "gantry") {
+      if (!triggerRoomLaunch(room, socket.id, p.name)) return reply({ accepted: false, reason: "Launch could not be started" });
+    } else if (phase === "launch") {
+      room.shuttleHandedOff = true;
+      if (!enterRoomDockingPhase(room, socket.id)) return reply({ accepted: false, reason: "Docking is already active" });
+    } else if (phase === "docking") {
+      if (!completeRoomDocking(room, socket.id)) return reply({ accepted: false, reason: "The station is already active" });
+    }
+    reply({ accepted: true, phase: room.mission.phase });
+  });
+
   socket.on("launch_skip_vote", () => {
     if (!currentRoomId || !rooms[currentRoomId]) return;
     const room = rooms[currentRoomId];
@@ -4135,7 +4243,8 @@ io.on("connection", (socket) => {
       const elapsedMs = Date.now() - (room.mission.phaseStartedAt || 0);
       // Do not trust a client-supplied "the cutscene ended" flag. The server
       // uses its own launch clock, the crew count, or host/commander authority.
-      const isNaturalOrAuthority = elapsedMs >= 26000 || flightIds.length <= 1 || socket.id === room.hostId || normalizeRoleId(p.role) === "commander";
+      const cutsceneMs = Math.ceil(26000 / (room.mission.launchSpeed === 3 ? 3 : 1));
+      const isNaturalOrAuthority = elapsedMs >= cutsceneMs || flightIds.length <= 1 || socket.id === room.hostId || normalizeRoleId(p.role) === "commander";
       if (isNaturalOrAuthority) {
         enterRoomDockingPhase(room, socket.id);
       } else {
@@ -4287,23 +4396,7 @@ io.on("connection", (socket) => {
       return;
     }
 
-    const now = Date.now();
-    room.mission.phase = "station";
-    room.mission.dockedBy = socket.id;
-    room.mission.phaseStartedAt = now;
-    room.mission.updatedAt = now;
-    for (const pid in room.players) {
-      if (getTeamForRole(room.players[pid].role) !== "ground") {
-        room.mission.boarded[pid] = room.mission.boarded[pid] || now;
-      }
-    }
-    room.systems.docking = { range: 0, velocity: 0, alignment: 0, latchesLocked: true };
-
-    broadcastMissionUpdate(room, {
-      action: "docked",
-      playerId: socket.id,
-      playerName: p.name
-    });
+    completeRoomDocking(room, socket.id);
   });
 
   // 5c. Shared crew reset back to the launch pad. This aborts any in-flight

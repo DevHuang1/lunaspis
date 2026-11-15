@@ -2091,6 +2091,7 @@
       // Dynamic animated elements
       this.stationEntries = {}; // stationId -> workstation materials and fault state
       this.moonLanding = null;
+      this._moonSceneSaved = null;
       this.sunFlare = null;
       this.stationInteractionGroup = null;
       this.issInteriorModelGroup = null;
@@ -3902,27 +3903,78 @@
 
     toggleMoonLandingScene(forceState) {
       const next = typeof forceState === "boolean" ? forceState : !this.isMoonLandingActive;
+      if (next === this.isMoonLandingActive) return this.isMoonLandingActive;
       this.isMoonLandingActive = next;
+
+      const sc = window.spaceCenter;
+      if (next) {
+        // The lunar set is mounted at the origin, below the launch complex and
+        // station geometry. Remember every visibility flag we touch so closing
+        // [K] restores the exact previous context (ground, orbit or interior).
+        this._moonSceneSaved = {
+          issVisible: window.issGroup ? window.issGroup.visible : null,
+          earthVisible: window.photorealisticEarth && window.photorealisticEarth.group
+            ? window.photorealisticEarth.group.visible : null,
+          crewVisible: window.localCrew && window.localCrew.group ? window.localCrew.group.visible : null,
+          interiorVisible: this.group ? this.group.visible : null,
+          interiorModelVisible: this.issInteriorModelGroup ? this.issInteriorModelGroup.visible : null,
+          groundSuspended: !!(
+            sc &&
+            typeof sc.suspendGroundPresentation === "function" &&
+            sc.suspendGroundPresentation()
+          )
+        };
+      }
+
       this._suppressExteriorLights(!next && this.isInteriorActive);
 
       if (this.moonLanding && this.moonLanding.root) {
         this.moonLanding.root.visible = next;
       }
-      if (this.group) {
-        this.group.visible = !next && this.isInteriorActive;
-      }
-      if (window.issGroup) {
-        window.issGroup.visible = !next && !this.isInteriorActive;
-      }
-      if (window.photorealisticEarth && window.photorealisticEarth.group) {
-        window.photorealisticEarth.group.visible = !next;
-      }
-      if (window.localCrew && window.localCrew.group) {
-        window.localCrew.group.visible = !next;
-      }
 
-      if (this.issInteriorModelGroup) {
-        this.issInteriorModelGroup.visible = Boolean(this.issInteriorModel && this.isInteriorActive && !next);
+      if (next) {
+        document.body.classList.add("lunar-scene-active");
+        if (this.group) this.group.visible = false;
+        if (this.issInteriorModelGroup) this.issInteriorModelGroup.visible = false;
+        if (window.issGroup) window.issGroup.visible = false;
+        if (window.photorealisticEarth && window.photorealisticEarth.group) {
+          window.photorealisticEarth.group.visible = false;
+        }
+        if (window.localCrew && window.localCrew.group) {
+          window.localCrew.group.visible = false;
+        }
+      } else {
+        document.body.classList.remove("lunar-scene-active");
+        const saved = this._moonSceneSaved;
+        this._moonSceneSaved = null;
+        if (this.group) {
+          this.group.visible = saved && saved.interiorVisible !== null
+            ? saved.interiorVisible
+            : this.isInteriorActive;
+        }
+        if (this.issInteriorModelGroup) {
+          this.issInteriorModelGroup.visible = saved && saved.interiorModelVisible !== null
+            ? saved.interiorModelVisible
+            : Boolean(this.issInteriorModel && this.isInteriorActive);
+        }
+        if (window.issGroup) {
+          window.issGroup.visible = saved && saved.issVisible !== null
+            ? saved.issVisible
+            : !this.isInteriorActive;
+        }
+        if (window.photorealisticEarth && window.photorealisticEarth.group) {
+          window.photorealisticEarth.group.visible = saved && saved.earthVisible !== null
+            ? saved.earthVisible
+            : true;
+        }
+        if (window.localCrew && window.localCrew.group) {
+          window.localCrew.group.visible = saved && saved.crewVisible !== null
+            ? saved.crewVisible
+            : true;
+        }
+        if (saved && saved.groundSuspended && sc && typeof sc.resumeGroundPresentation === "function") {
+          sc.resumeGroundPresentation();
+        }
       }
 
       const titleEl = document.getElementById("ship-room-title");
@@ -4002,6 +4054,7 @@
     }
 
     show() {
+      if (this.isMoonLandingActive) this.toggleMoonLandingScene(false);
       this.isInteriorActive = true;
       this.isMoonLandingActive = false;
       this._suppressExteriorLights(true);
@@ -4024,6 +4077,7 @@
     }
 
     hide() {
+      if (this.isMoonLandingActive) this.toggleMoonLandingScene(false);
       this.isInteriorActive = false;
       this.closeLargeMap();
       this._suppressExteriorLights(false);

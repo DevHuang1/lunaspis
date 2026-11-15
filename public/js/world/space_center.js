@@ -112,6 +112,7 @@
       this._lccGmatMissionId = null;
 
       // Ground atmosphere / lighting state
+      this._groundPresentationSaved = null;
       this.savedFog = null;
       this.savedBackground = null;
       this._savedCamNear = null;
@@ -919,7 +920,7 @@
         return;
       }
 
-      // Unspecified target floor (general toggle via [G] or [E])
+      // Unspecified target floor (general toggle via [E])
       if (atGround) {
         // From Ground: ride up to Gantry Level to board the spacecraft!
         this.elevatorTargetY = cfg.gantry !== undefined ? cfg.gantry : 44.0;
@@ -2450,7 +2451,7 @@
         ctx.fillText(labelText, 128, 72);
         ctx.fillStyle = "#94a3b8";
         ctx.font = "16px Arial";
-        ctx.fillText("[E] / [G] CALL & RIDE", 128, 104);
+        ctx.fillText("[E] CALL & RIDE", 128, 104);
         const tex = new THREE.CanvasTexture(canvas);
         const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.65, 0.35), new THREE.MeshBasicMaterial({ map: tex, transparent: true }));
         sign.position.set(0, -0.32, 0.08);
@@ -5620,7 +5621,7 @@
       }
       if (window.gameplay && typeof window.gameplay.showToast === "function") {
         window.gameplay.showToast(isGround
-          ? "RETURNED TO EARTH CONTROL ROOM · CONSOLE [C]"
+          ? "RETURNED TO EARTH CONTROL ROOM · CONSOLE [F2]"
           : "RETURNED TO THE LAUNCH TOWER · BOARD THE SPACESHIP WHEN READY");
       }
       this._renderGroundHUD();
@@ -6047,7 +6048,7 @@
             return;
           }
 
-          if (e.code === "KeyC" && isGround) {
+          if (e.code === "KeyF2" && isGround) {
             e.preventDefault();
             this.toggleLccConsole();
             return;
@@ -6060,7 +6061,7 @@
             const pos = (window.localCrew && window.localCrew.group) ? window.localCrew.group.position : (this.camera ? this.camera.position : null);
             const isNearPad = pos && Math.abs(pos.x) < 70 && Math.abs(pos.z) < 90;
 
-            // When at Pad 39A, [3], [T], or [G] take you up to the Tower Top Deck or Gantry!
+            // When at Pad 39A, [3] or [T] take you up to the Tower Top Deck or Gantry!
             if (e.code === "Digit3" || e.code === "Numpad3" || (isNearPad && e.code === "KeyT")) {
               e.preventDefault();
               this._handleElevatorKey(3);
@@ -6087,11 +6088,6 @@
               this.exitSiteTour();
               return;
             }
-            if (e.code === "KeyG") {
-              e.preventDefault();
-              this._handleElevatorKey(3);
-              return;
-            }
             if (e.code === "KeyE") {
               if (this.lccDoors && this._isNearLccDoor()) {
                 e.preventDefault();
@@ -6112,7 +6108,7 @@
                 return;
               }
             }
-            if (e.code === "KeyM") {
+            if (e.code === "KeyF4") {
               e.preventDefault();
               if (window.gameplay && typeof window.gameplay.openMissionPlannerFromGround === "function") {
                 window.gameplay.openMissionPlannerFromGround();
@@ -6179,17 +6175,6 @@
             return;
           }
 
-          if (e.code === "KeyG") {
-            e.preventDefault();
-            const pos = (window.localCrew && window.localCrew.group) ? window.localCrew.group.position : (this.camera ? this.camera.position : null);
-            if (pos && pos.y < 35.0) {
-              this._handleElevatorKey(3);
-            } else {
-              this._handleElevatorKey();
-            }
-            return;
-          }
-
           if (e.code === "KeyT" && !this.siteTourActive) {
             e.preventDefault();
             const pos = (window.localCrew && window.localCrew.group) ? window.localCrew.group.position : (this.camera ? this.camera.position : null);
@@ -6234,7 +6219,7 @@
             }
           }
 
-          if (e.code === "KeyM") {
+          if (e.code === "KeyF4") {
             e.preventDefault();
             if (window.gameplay && typeof window.gameplay.openMissionPlannerFromGround === "function") {
               window.gameplay.openMissionPlannerFromGround();
@@ -6535,7 +6520,7 @@
           statusColor = "#60a5fa";
         } else if (this.missionPhase === "gantry") {
           if (pollActive) {
-            statusText = "ALL ASTRONAUTS ABOARD · GIVE FINAL LIFTOFF OK IN CONTROL CONSOLE [C]";
+            statusText = "ALL ASTRONAUTS ABOARD · GIVE FINAL LIFTOFF OK IN CONTROL CONSOLE [F2]";
             statusColor = "#fbbf24";
           } else {
             const crewLabel = crewState.crewTotal > 0
@@ -6544,19 +6529,19 @@
             const launchStatus = crewState.allAboard
               ? "WAITING FOR FLIGHT CREW REQUEST"
               : "WAITING FOR ALL ASTRONAUTS TO BOARD";
-            statusText = `EARTH CONTROL · ${roleMeta.short} · ${crewLabel} · ${launchStatus} · OPS CONSOLE [C]`;
+            statusText = `EARTH CONTROL · ${roleMeta.short} · ${crewLabel} · ${launchStatus} · OPS CONSOLE [F2]`;
             statusColor = gs.goNoGoLaunch ? "#86efac" : "#93c5fd";
           }
         } else if (this.missionPhase === "launch") {
-          statusText = "ROCKET CLIMBING LIVE · WATCH LIFTOFF STATS · CONSOLE [C]";
+          statusText = "ROCKET CLIMBING LIVE · WATCH LIFTOFF STATS · CONSOLE [F2]";
           statusColor = "#fca5a5";
         } else if (this.missionPhase === "docking") {
           statusText = gs.dockingClearance
-            ? "DOCKING IN PROGRESS · PATH CLEARED · CONSOLE [C]"
-            : "APPROACHING STATION · APPROVE DOCKING [C]";
+            ? "DOCKING IN PROGRESS · PATH CLEARED · CONSOLE [F2]"
+            : "APPROACHING STATION · APPROVE DOCKING [F2]";
           statusColor = gs.dockingClearance ? "#86efac" : "#fbbf24";
         } else {
-          statusText = "IN SPACE · HELP STATION CREW & DOWNLINK DATA · CONSOLE [C]";
+          statusText = "IN SPACE · HELP STATION CREW & DOWNLINK DATA · CONSOLE [F2]";
           statusColor = "#86efac";
         }
       } else if (this.isLaunching) {
@@ -6571,7 +6556,7 @@
         statusText = "LAUNCH PAD · REACH TOWER TOP: PRESS [3] OR [T] · BRIDGE LEVEL: PRESS [2]";
         statusColor = "#38bdf8";
       } else if (isAtTop && !step2Done) {
-        statusText = "LAUNCH PAD · TOWER TOP (88m) · TAKE ELEVATOR [G/E] DOWN TO BOARDING LEVEL";
+        statusText = "LAUNCH PAD · TOWER TOP (88m) · TAKE ELEVATOR [E] DOWN TO BOARDING LEVEL";
         statusColor = "#facc15";
       } else if (!step1Done) {
         distance = this._distanceToGuidancePoint(-25.9, -6.3);
@@ -6692,6 +6677,45 @@
       }
     }
 
+    // Full-screen inspection scenes (ISS showcase, lunar touchdown) are built at
+    // the world origin, while the launch complex sits tens of metres above it.
+    // Hide the ground presentation and its HUD so an orbit scene cannot open
+    // inside the pad, the FSS or the terrain, then restore it exactly on exit.
+    suspendGroundPresentation() {
+      if (!this.isGroundMode || this._groundPresentationSaved) return false;
+      const THREE = window.THREE;
+      const scene = this.scene;
+      this._groundPresentationSaved = {
+        groupVisible: this.group ? this.group.visible : false,
+        hudDisplay: this.hudOverlay ? this.hudOverlay.style.display : "",
+        lccConsoleOpen: !!this.lccConsoleOpen,
+        background: scene ? scene.background : null,
+        fog: scene ? scene.fog : null
+      };
+      if (this.group) this.group.visible = false;
+      if (this.hudOverlay) this.hudOverlay.style.display = "none";
+      if (this.lccConsoleOpen) this.openLccConsole(false);
+      if (scene) {
+        scene.background = new THREE.Color(0x02050d);
+        scene.fog = null;
+      }
+      return true;
+    }
+
+    resumeGroundPresentation() {
+      const saved = this._groundPresentationSaved;
+      if (!saved) return false;
+      this._groundPresentationSaved = null;
+      if (this.group) this.group.visible = saved.groupVisible;
+      if (this.hudOverlay) this.hudOverlay.style.display = saved.hudDisplay || "flex";
+      if (this.scene) {
+        this.scene.background = saved.background;
+        this.scene.fog = saved.fog;
+      }
+      if (saved.lccConsoleOpen) this.openLccConsole(true);
+      return true;
+    }
+
     _syncGroundPresentationMode() {
       if (!document.body) return;
       const driving = !!(this.openCar && this.openCar.isDriving);
@@ -6751,18 +6775,18 @@
                 ${touchUI ? tourExitLabel : `${tourExitLabel} [T]`}
               </button>
               <button type="button" id="btn-sc-elv-act" class="sc-hud-btn sc-btn-elv">
-                ${guidance.isAtGround ? (touchUI ? "🗼 TO TOP DECK" : "🗼 TO TOP DECK [3/T]") : (guidance.isAtTop ? (touchUI ? "🛗 TO GROUND" : "🛗 TO GROUND [1]") : (touchUI ? "🛗 ELEVATOR" : "🛗 ELEVATOR [G/E]"))}
+                ${guidance.isAtGround ? (touchUI ? "🗼 TO TOP DECK" : "🗼 TO TOP DECK [3/T]") : (guidance.isAtTop ? (touchUI ? "🛗 TO GROUND" : "🛗 TO GROUND [1]") : (touchUI ? "🛗 ELEVATOR" : "🛗 ELEVATOR [E]"))}
               </button>
             ` : guidance.isGround ? `
               <button type="button" id="btn-sc-lcc-console" class="sc-hud-btn ${this.lccConsoleOpen ? "sc-btn-launch" : "sc-btn-term"}">
-                ${this.lccConsoleOpen ? "CLOSE OPS [C]" : (guidance.pollActive ? "GIVE LIFTOFF OK [C]" : (guidance.insideLcc ? "OPS CONSOLE [C]" : "REMOTE OPS [C]"))}
+                ${this.lccConsoleOpen ? "CLOSE OPS [F2]" : (guidance.pollActive ? "GIVE LIFTOFF OK [F2]" : (guidance.insideLcc ? "OPS CONSOLE [F2]" : "REMOTE OPS [F2]"))}
               </button>
               <button type="button" id="btn-sc-elv-act" class="sc-hud-btn sc-btn-elv" style="display:${guidance.nearElevator ? "inline-flex" : "none"};">
-                ${guidance.isAtGround ? (touchUI ? "🗼 TO TOP DECK" : "🗼 TO TOP DECK [3/T]") : (guidance.isAtTop ? (touchUI ? "🛗 TO GROUND" : "🛗 TO GROUND [1]") : "🛗 ELEVATOR [G/E]")}
+                ${guidance.isAtGround ? (touchUI ? "🗼 TO TOP DECK" : "🗼 TO TOP DECK [3/T]") : (guidance.isAtTop ? (touchUI ? "🛗 TO GROUND" : "🛗 TO GROUND [1]") : "🛗 ELEVATOR [E]")}
               </button>
             ` : `
               <button type="button" id="btn-sc-elv-act" class="sc-hud-btn sc-btn-elv" style="display:${guidance.nearElevator || guidance.isAtGround ? "inline-flex" : "none"};">
-                ${guidance.isAtGround ? (touchUI ? "🗼 TO TOP DECK" : "🗼 TO TOP DECK [3/T]") : (guidance.isAtTop ? (touchUI ? "🛗 TO GROUND" : "🛗 TO GROUND [1]") : "🛗 ELEVATOR [G/E]")}
+                ${guidance.isAtGround ? (touchUI ? "🗼 TO TOP DECK" : "🗼 TO TOP DECK [3/T]") : (guidance.isAtTop ? (touchUI ? "🛗 TO GROUND" : "🛗 TO GROUND [1]") : "🛗 ELEVATOR [E]")}
               </button>
               <button type="button" id="btn-sc-launch" class="sc-hud-btn sc-btn-launch" style="display:${guidance.canLaunchNow ? "inline-flex" : "none"};">
                 ${guidance.hasOnlineGround ? (touchUI ? "REQUEST GO" : "REQUEST GO [L]") : (touchUI ? "LAUNCH" : "LAUNCH [L]")}
@@ -6815,7 +6839,7 @@
                 </button>
               `}
               <button type="button" id="btn-sc-mission-plan" class="sc-hud-btn sc-btn-plan">
-                ${touchUI ? "DESIGN" : "DESIGN [M]"}
+                ${touchUI ? "DESIGN" : "DESIGN [F4]"}
               </button>
               <button type="button" id="btn-sc-mdl-desk" class="sc-hud-btn sc-btn-mdl">
                 SUMMARY DESK
@@ -7114,8 +7138,8 @@
       const btnLcc = this.hudOverlay.querySelector("#btn-sc-lcc-console");
       if (btnLcc) {
         btnLcc.textContent = this.lccConsoleOpen
-          ? "CLOSE OPS [C]"
-          : (guidance.pollActive ? "GIVE LIFTOFF OK [C]" : (guidance.insideLcc ? "OPS CONSOLE [C]" : "REMOTE OPS [C]"));
+          ? "CLOSE OPS [F2]"
+          : (guidance.pollActive ? "GIVE LIFTOFF OK [F2]" : (guidance.insideLcc ? "OPS CONSOLE [F2]" : "REMOTE OPS [F2]"));
       }
 
       const stepsRow = this.hudOverlay.querySelector("#sc-guidance-steps");
@@ -7239,6 +7263,18 @@
       if (button) {
         button.disabled = !canForecast || !!this._lccGmatRequest;
         button.textContent = this._lccGmatRequest ? "Calculating…" : "Calculate coast with GMAT";
+      }
+      const ffButton = this.lccConsoleOverlay.querySelector("#btn-lcc-ff");
+      if (ffButton) {
+        ffButton.disabled = !live;
+        ffButton.textContent = live && snapshot.warp > 1 ? `FAST FORWARD · ${snapshot.warp}×` : "FAST FORWARD";
+      }
+      const skipButton = this.lccConsoleOverlay.querySelector("#btn-lcc-skip-step");
+      if (skipButton) {
+        const labels = { gantry: "SKIP STEP · LAUNCH", launch: "SKIP STEP · ISS DOCKING", docking: "SKIP STEP · STATION" };
+        const label = labels[this.missionPhase];
+        skipButton.style.display = label ? "inline-flex" : "none";
+        skipButton.textContent = label || "SKIP STEP";
       }
       const result = this._lccGmatResult;
       const resultMatches = result && snapshot && result.missionId === snapshot.missionId;
@@ -7440,6 +7476,34 @@
       }
     }
 
+    _requestShuttleFastForward() {
+      const net = window.netManager;
+      if (!net || !net.connected || typeof net.sendCommand !== "function") return;
+      net.sendCommand("FAST_FORWARD").then((r) => {
+        if (r && r.accepted) {
+          if (window.gameplay && typeof window.gameplay.showToast === "function") {
+            window.gameplay.showToast(`FAST FORWARD · ${r.max ? `${r.max}× TIME` : "MAX TIME"}`);
+          }
+        } else if (window.gameplay && typeof window.gameplay.showToast === "function") {
+          window.gameplay.showToast((r && r.reason) || "Fast forward is not available right now");
+        }
+        this._syncLccConsoleLive();
+      });
+    }
+
+    _requestMissionSkipStep() {
+      const net = window.netManager;
+      if (!net || typeof net.requestMissionSkipStep !== "function") return;
+      net.requestMissionSkipStep().then((r) => {
+        if (window.gameplay && typeof window.gameplay.showToast === "function") {
+          if (!r || r.accepted === false) window.gameplay.showToast((r && r.reason) || "Step skip is not available");
+          else if (r.pending) window.gameplay.showToast(`SKIP VOTE ${r.votes}/${r.needed} — waiting for the crew`);
+          else window.gameplay.showToast(`SKIP STEP · ${String(r.phase || "next step").replace(/_/g, " ").toUpperCase()}`);
+        }
+        this._syncLccConsoleLive();
+      });
+    }
+
     _renderLccConsole() {
       if (!this.lccConsoleOverlay || !this.lccConsoleOpen) return;
       const crewState = this._crewAboardState();
@@ -7521,9 +7585,9 @@
             <button type="button" class="ground-action-btn" id="btn-lcc-video" style="border-color:rgba(74,222,128,0.55);color:#bbf7d0;">${(window.videoLink && window.videoLink.enabled) ? "3D LINK ON" : "START 3D LINK"}</button>
             <button type="button" class="ground-action-btn" id="btn-lcc-comms" style="border-color:rgba(56,189,248,0.65);color:#7dd3fc;">CREW COMMS</button>
             <button type="button" class="ground-action-btn" id="btn-lcc-open-viz">3D PATH VIEW [U]</button>
-            <button type="button" class="ground-action-btn" id="btn-lcc-open-planner">MISSION PLAN [M]</button>
+            <button type="button" class="ground-action-btn" id="btn-lcc-open-planner">MISSION PLAN [F4]</button>
             <button type="button" class="ground-action-btn" id="btn-lcc-cml-review" style="border-color:rgba(251,191,36,0.55);color:#fde68a;">FRESH-EYES REVIEW</button>
-            <button type="button" class="ground-action-btn" id="btn-lcc-close">CLOSE [C]</button>
+            <button type="button" class="ground-action-btn" id="btn-lcc-close">CLOSE [F2]</button>
           </div>
         </div>
 
@@ -7558,6 +7622,10 @@
             </div>
             <button type="button" class="ground-action-btn" id="btn-lcc-gmat" disabled>Calculate coast with GMAT</button>
             <div id="lcc-gmat-result" role="status" style="font-size:12px;color:#b9cbd6;line-height:1.5;">GMAT forecast is available above 150 km with engines off. It estimates a 120-second coast.</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+              <button type="button" class="ground-action-btn" id="btn-lcc-ff" style="border-color:rgba(103,232,249,0.55);color:#a5f3fc;">FAST FORWARD</button>
+              <button type="button" class="ground-action-btn" id="btn-lcc-skip-step" style="border-color:rgba(251,191,36,0.55);color:#fde68a;">SKIP STEP</button>
+            </div>
           </div>
 
           <div class="ground-lcc-card${roleId === "flight_director" ? " is-role-focus" : ""}">
@@ -7618,6 +7686,10 @@
       if (btnClose) btnClose.addEventListener("click", () => this.openLccConsole(false));
       const btnGmat = this.lccConsoleOverlay.querySelector("#btn-lcc-gmat");
       if (btnGmat) btnGmat.addEventListener("click", () => this._requestLccGmatForecast());
+      const btnLccFf = this.lccConsoleOverlay.querySelector("#btn-lcc-ff");
+      if (btnLccFf) btnLccFf.addEventListener("click", () => this._requestShuttleFastForward());
+      const btnLccSkip = this.lccConsoleOverlay.querySelector("#btn-lcc-skip-step");
+      if (btnLccSkip) btnLccSkip.addEventListener("click", () => this._requestMissionSkipStep());
       const btnLccComms = this.lccConsoleOverlay.querySelector("#btn-lcc-comms");
       if (btnLccComms) btnLccComms.addEventListener("click", () => {
         if (window.crewComms && typeof window.crewComms.openPanel === "function") {
@@ -8163,7 +8235,7 @@
       this.isLaunching = false;
       this.launchTime = 0.0;
       document.body.classList.add("ground-mode-active");
-      document.body.classList.remove("interior-active", "launch-active", "docking-active", "iss-showcase-active", "solar-system-active");
+      document.body.classList.remove("interior-active", "launch-active", "docking-active", "iss-showcase-active", "lunar-scene-active", "solar-system-active");
       this._syncSpaceGamesLock();
       this.autoLaunchRemaining = null;
       if (this.stackGroup) {
@@ -8383,7 +8455,7 @@
         this._renderGroundHUD();
         if (this.lccConsoleOpen) this._renderLccConsole();
         if (window.gameplay && typeof window.gameplay.showToast === "function") {
-          window.gameplay.showToast("LIFTOFF AT LAUNCH PAD · WATCH ROCKET CLIMB · CONTROL CONSOLE [C]");
+          window.gameplay.showToast("LIFTOFF AT LAUNCH PAD · WATCH ROCKET CLIMB · CONTROL CONSOLE [F2]");
         }
         return;
       }
@@ -8446,7 +8518,7 @@
         this._renderGroundHUD();
         if (this.lccConsoleOpen) this._renderLccConsole();
         if (window.gameplay && typeof window.gameplay.showToast === "function") {
-          window.gameplay.showToast("APPROACHING STATION · APPROVE SAFE DOCKING IN CONTROL CONSOLE [C]");
+          window.gameplay.showToast("APPROACHING STATION · APPROVE SAFE DOCKING IN CONTROL CONSOLE [F2]");
         }
         return;
       }
@@ -8525,7 +8597,7 @@
         this._renderGroundHUD();
         if (this.lccConsoleOpen) this._renderLccConsole();
         if (firstEntry && window.gameplay && typeof window.gameplay.showToast === "function") {
-          window.gameplay.showToast("CREW DOCKED AT SPACE STATION · HELP TEAM FROM CONTROL CONSOLE [C]");
+          window.gameplay.showToast("CREW DOCKED AT SPACE STATION · HELP TEAM FROM CONTROL CONSOLE [F2]");
         }
         return;
       }
@@ -8762,7 +8834,7 @@
             // Cab arrived after being called by a player waiting at the call station
             if (window.gameplay && typeof window.gameplay.showToast === "function") {
               const floorLabel = arrivedTop ? "TOWER TOP (88m)" : (arrivedGantry ? "GANTRY LEVEL (44m)" : "PAD GROUND LEVEL");
-              window.gameplay.showToast(`🛗 ELEVATOR ARRIVED AT ${floorLabel} — Press [E] or [G] to ride`);
+              window.gameplay.showToast(`🛗 ELEVATOR ARRIVED AT ${floorLabel} — Press [E] to ride`);
             }
           }
 

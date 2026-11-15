@@ -3751,6 +3751,12 @@ body.shuttle-mode-active #modal-station-systems {
   color: var(--ui-text);
 }
 
+.hub-callout-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
 .hud-task-list-body {
   gap: 6px;
   padding: 9px 11px 10px;

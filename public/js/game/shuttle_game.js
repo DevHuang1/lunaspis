@@ -13,7 +13,7 @@
   const WARP_STEPS = [1, 2, 4, 10, 25, 50, 100];
   const FLIGHT_KEYS = new Set(["KeyW", "KeyS", "KeyA", "KeyD", "KeyQ", "KeyE", "KeyZ", "KeyX", "KeyI", "KeyK", "KeyJ", "KeyL", "KeyU", "KeyO", "Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
   const KEY_COMMANDS = { KeyB: "AUTHORIZE_BURN", KeyY: "BAY", KeyP: "PAYLOAD_POWER", KeyN: "PAYLOAD_GO", KeyR: "RELEASE_PAYLOAD", KeyH: "DAP_HOLD",
-    KeyT: "COAST_TO_TIG", KeyM: "TOGGLE_AOA_ASSIST", KeyG: "DEPLOY_GEAR", Comma: "WARP-", Period: "WARP+", KeyC: "CAM", KeyF: "RECENTRE", KeyV: "MIC", Escape: "PAUSE" };
+    KeyT: "COAST_TO_TIG", KeyM: "TOGGLE_AOA_ASSIST", KeyG: "DEPLOY_GEAR", Comma: "WARP-", Period: "WARP+", KeyC: "CAM", KeyF: "RECENTRE", Escape: "PAUSE" };
 
   const game = {
     isActive: false, net: null, view: null, hud: null, keys: {}, sbPos: 0, listeners: [], titleMission: null, _camBound: false,
@@ -172,10 +172,18 @@
           return this._send("SET_WARP", { factor: n });
         }
         case "FAST_FORWARD": {
-          const sn = this.net.snapshot;
-          const max = sn && Number(sn.warpMax) > 0 ? Number(sn.warpMax) : 25;
-          if (this.hud) this.hud.toast(`FAST FORWARD · ${max}× TIME`);
-          return this._send("SET_WARP", { factor: max });
+          if (this.hud) this.hud.toast("FAST FORWARD · MAX TIME");
+          return this._send("FAST_FORWARD");
+        }
+        case "SKIP_STEP": {
+          if (!this.net || typeof this.net.requestMissionSkipStep !== "function") return { accepted: false, reason: "Skip unavailable" };
+          const r = await this.net.requestMissionSkipStep();
+          if (this.hud) {
+            if (!r || r.accepted === false) this.hud.toast((r && r.reason) || "Skip unavailable");
+            else if (r.pending) this.hud.toast(`SKIP VOTE ${r.votes}/${r.needed} — waiting for crew`);
+            else this.hud.toast(`SKIP STEP · ${String(r.phase || "next step").replace(/_/g, " ").toUpperCase()}`);
+          }
+          return r;
         }
         case "RETRY_CHECKPOINT": this.sbPos = 0; return this._send("RETRY_CHECKPOINT", { name: arg });
         default: return this._send(cmd);

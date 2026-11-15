@@ -563,13 +563,24 @@
       this.ffBtnEl = this.overlayEl.querySelector("#btn-ff-launch");
       if (this.ffBtnEl) {
         this.ffBtnEl.addEventListener("click", () => {
-          this.fastForward = !this.fastForward;
-          this.ffBtnEl.textContent = this.fastForward ? "NORMAL SPEED" : "FAST FORWARD 3×";
-          this.ffBtnEl.style.borderColor = this.fastForward ? "rgba(250,204,21,0.75)" : "rgba(103,232,249,0.5)";
-          this.ffBtnEl.style.color = this.fastForward ? "#facc15" : "#67e8f9";
+          const next = !this.fastForward;
+          const nm = window.netManager;
+          this.setFastForward(next);
+          if (nm && nm.connected && nm.roomId && typeof nm.setLaunchSpeed === "function") {
+            nm.setLaunchSpeed(next ? 3 : 1);
+          }
         });
       }
       this.updateCrewStatus();
+    }
+
+    setFastForward(on) {
+      const next = !!on;
+      if (this.fastForward !== next) this.fastForward = next;
+      if (!this.ffBtnEl) return;
+      this.ffBtnEl.textContent = this.fastForward ? "NORMAL SPEED" : "FAST FORWARD 3×";
+      this.ffBtnEl.style.borderColor = this.fastForward ? "rgba(250,204,21,0.75)" : "rgba(103,232,249,0.5)";
+      this.ffBtnEl.style.color = this.fastForward ? "#facc15" : "#67e8f9";
     }
 
     updateCrewStatus(missionOverride) {
@@ -577,6 +588,9 @@
       const nm = window.netManager;
       const players = nm && nm.roomState && Array.isArray(nm.roomState.players) ? nm.roomState.players : [];
       const mission = missionOverride || (nm && typeof nm.getMission === "function" ? nm.getMission() : null) || {};
+      // The launch cinematic speed is room-wide: every client renders the same
+      // 1x/3x state, so one player's fast-forward cannot leave the crew behind.
+      this.setFastForward(Number(mission.launchSpeed) === 3);
       const normalize = window.InterfellasRoles
         ? window.InterfellasRoles.normalizeRole
         : ((r, f) => String(r || f || "commander").toLowerCase());

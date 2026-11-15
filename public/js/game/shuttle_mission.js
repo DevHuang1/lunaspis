@@ -114,6 +114,12 @@
           if (f > lim.max) { this.warpReq = lim.max; return no(`Time acceleration limited to ${lim.max}× (${lim.why})`); }
           this.warpReq = f; return { accepted: true };
         }
+        case "FAST_FORWARD": {
+          if (this.paused || this.phase === "briefing") return no("Mission is not running");
+          const lim = this._warpLimit();
+          this.warpReq = lim.max;
+          return { accepted: true, max: lim.max };
+        }
         case "EXIT": this.exited = true; this.paused = true; this._emit("EXITED"); return ok("Mission exited — no result recorded.");
         case "RESTART": this.reset(); return ok("Fresh mission.");
         case "RETRY_CHECKPOINT": {
@@ -596,7 +602,7 @@
       const st = this.st, out = ["PAUSE", "EXIT", "RESTART"];
       if (Object.keys(this.checkpoints).length) out.push("RETRY_CHECKPOINT");
       if (this.failure || this.result) return out;
-      out.push("SET_CONTROL_INPUT", "SET_WARP");
+      out.push("SET_CONTROL_INPUT", "SET_WARP", "FAST_FORWARD");
       switch (this.phase) {
         case "briefing": out.push("START"); break;
         case "insertion": if (this.obj.oms2 !== "done") out.push("AUTHORIZE_BURN"); break;
@@ -839,7 +845,7 @@
     },
     commandRole: {
       START: "cdr", PAUSE: "cdr", RETRY_CHECKPOINT: "cdr", RESTART: "cdr", DAP_HOLD: "cdr",
-      AUTHORIZE_BURN: "plt", COAST_TO_TIG: "plt", SET_WARP: "all", TOGGLE_AOA_ASSIST: "plt", DEPLOY_GEAR: "plt",
+      AUTHORIZE_BURN: "plt", COAST_TO_TIG: "plt", SET_WARP: "all", FAST_FORWARD: "all", TOGGLE_AOA_ASSIST: "plt", DEPLOY_GEAR: "plt",
       OPEN_BAY: "ms1", CLOSE_BAY: "ms1", RELEASE_PAYLOAD: "ms1",
       PAYLOAD_POWER: "ms2", PAYLOAD_GO: "ms2",
     },
