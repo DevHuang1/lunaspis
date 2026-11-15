@@ -3728,9 +3728,14 @@
         `);
       });
 
+      // Floorplan is north-up in world X/Z. Three.js yaw 0 faces +Z (down on
+      // the map) and positive yaw turns toward +X (right), so the SVG
+      // clockwise rotation is 180 - heading. Using 180 + heading mirrors the
+      // marker left/right.
       const localMarkerSvg = includeLocal
         ? `
-          <g data-local-marker transform="translate(${px.toFixed(2)} ${pz.toFixed(2)}) rotate(${(((heading * 180) / Math.PI) + 180).toFixed(1)})${options.tracking ? " scale(0.45)" : ""}">
+          <g data-local-marker transform="translate(${px.toFixed(2)} ${pz.toFixed(2)}) rotate(${(180 - ((heading * 180) / Math.PI)).toFixed(1)})${options.tracking ? " scale(0.7)" : ""}">
+            ${options.tracking ? `<circle r="2.7" fill="rgba(103,232,249,0.16)" stroke="rgba(103,232,249,0.5)" stroke-width="0.18" />` : ""}
             <path d="M 0 -2.3 L 1.7 1.9 L 0 1.1 L -1.7 1.9 Z" fill="#f8fafc" stroke="#050810" stroke-width="0.2" />
           </g>
         `
