@@ -62,10 +62,11 @@
 
   // Minimum spacing between repeats of the same sound (ms).
   const GAP = {
-    uiHover: 60, uiClick: 22, uiSlider: 38, typeKey: 26, key: 20, footstep: 105,
+    uiHover: 60, uiClick: 22, uiSlider: 38, typeKey: 26, key: 20, footstep: 75,
     thrusterBurst: 70, rcsPuff: 110, deny: 130, uiNotify: 110, pop: 80,
     airlock: 160, dockingLatch: 300, dockingLock: 300, stagingSeparation: 300,
     radioOpen: 80, radioClose: 80, laser: 45, scan: 200,
+    carStart: 400, gearShift: 180, exhaustPop: 120,
   };
   const DECORATIVE = new Set(["uiHover", "uiSlider", "typeKey", "footstep", "thrusterBurst", "rcsPuff", "key"]);
 
@@ -381,16 +382,53 @@
     },
 
     footstep(e, o, t) {
-      const r = jit(0.1);
-      const side = o.step ? 0.15 : -0.15;
-      if (o.surface === "ground") {
-        e.noise({ t, dur: 0.1, filter: "lowpass", f: 1300 * r, vol: 0.16, a: 0.002, bus: "sfx", pan: side });
-        e.noise({ t, dur: 0.035, filter: "highpass", f: 3200, vol: 0.05, a: 0.001, bus: "sfx", pan: side });
-        e.thump({ t, f: 115 * r, f2: 70, dur: 0.08, vol: 0.12, bus: "sfx", pan: side });
+      const r = jit(0.08);
+      const isRight = !!o.step;
+      const isRun = !!(o.running || o.sprint);
+      const pan = o.pan != null ? o.pan : (isRight ? 0.16 : -0.16);
+      const footPitch = isRight ? 1.05 : 0.95;
+      const runMul = isRun ? 1.35 : 1.0;
+      const surface = o.surface || "metal";
+
+      if (surface === "ground" || surface === "concrete") {
+        // Pad 39A concrete deck, asphalt road, crawlerway
+        const f1 = (isRun ? 125 : 105) * r * footPitch;
+        const f2 = (isRun ? 58 : 50) * r;
+        e.thump({ t, f: f1, f2, dur: isRun ? 0.09 : 0.075, vol: 0.15 * runMul, bus: "sfx", pan });
+        e.noise({ t, dur: isRun ? 0.09 : 0.065, filter: "lowpass", f: 1200 * r, vol: 0.14 * runMul, a: 0.002, bus: "sfx", pan });
+        e.noise({ t, dur: 0.03, filter: "highpass", f: 2800 * r, vol: (isRun ? 0.07 : 0.04) * runMul, a: 0.001, bus: "sfx", pan });
+        if (isRun) {
+          // Sneaker / boot friction scuff when pushing off
+          e.noise({ t: t + 0.015, dur: 0.045, filter: "bandpass", f: 1900 * r, q: 1.5, vol: 0.05, a: 0.002, bus: "sfx", pan });
+        }
+      } else if (surface === "indoor" || surface === "lcc") {
+        // LCC control room floor, indoor facility
+        const f1 = (isRun ? 140 : 120) * r * footPitch;
+        const f2 = (isRun ? 68 : 60) * r;
+        e.thump({ t, f: f1, f2, dur: 0.07, vol: 0.13 * runMul, bus: "sfx", pan });
+        e.noise({ t, dur: 0.04, filter: "bandpass", f: 1500 * r, q: 1.2, vol: 0.07 * runMul, a: 0.002, bus: "sfx", pan });
+        if (isRun) {
+          e.noise({ t: t + 0.01, dur: 0.03, filter: "highpass", f: 2400, vol: 0.04, a: 0.001, bus: "sfx", pan });
+        }
+      } else if (surface === "gravel" || surface === "dirt") {
+        // Outer terrain, dirt, loose gravel
+        const f1 = (isRun ? 110 : 95) * r * footPitch;
+        e.thump({ t, f: f1, f2: 45, dur: 0.08, vol: 0.12 * runMul, bus: "sfx", pan });
+        e.noise({ t, dur: isRun ? 0.12 : 0.09, filter: "bandpass", f: 1600 * r, q: 1.0, vol: 0.18 * runMul, a: 0.003, bus: "sfx", pan });
+        e.noise({ t: t + 0.015, dur: 0.05, filter: "highpass", f: 3400 * r, vol: 0.09 * runMul, a: 0.001, bus: "sfx", pan });
       } else {
-        e.thump({ t, f: 155 * r, f2: 90, dur: 0.075, vol: 0.18, bus: "sfx", pan: side });
-        e.tone({ t, f: 720 * r, f2: 560 * r, dur: 0.1, vol: 0.045, a: 0.001, bus: "sfx", pan: side, send: 0.12 });
-        e.noise({ t, dur: 0.02, filter: "bandpass", f: 2000 * r, q: 1, vol: 0.05, a: 0.001, bus: "sfx", pan: side });
+        // Metal: catwalk, gantry, launch tower, boarding bridge, ISS station module floor
+        const f1 = (isRun ? 175 : 150) * r * footPitch;
+        const f2 = (isRun ? 95 : 82) * r;
+        e.thump({ t, f: f1, f2, dur: isRun ? 0.085 : 0.07, vol: 0.16 * runMul, bus: "sfx", pan });
+        // Hollow metallic deck clank/ring
+        const ringF = (isRun ? 680 : 620) * r * footPitch;
+        e.tone({ t, f: ringF, f2: ringF * 0.78, dur: isRun ? 0.09 : 0.075, vol: 0.04 * runMul, a: 0.001, bus: "sfx", pan, send: 0.12 });
+        e.noise({ t, dur: 0.03, filter: "bandpass", f: 2400 * r, q: 1.4, vol: 0.06 * runMul, a: 0.001, bus: "sfx", pan });
+        if (isRun) {
+          // Extra metallic grate tap on run impact
+          e.metal({ t, f: 260 * r, dur: 0.08, vol: 0.05, bus: "sfx", pan, send: 0.1 });
+        }
       }
     },
 
@@ -400,6 +438,30 @@
       const down = o.down !== false;
       e.tone({ t, f: (down ? 170 : 130) * r, f2: (down ? 95 : 80) * r, dur: down ? 0.07 : 0.05, vol: down ? 0.22 : 0.1, a: 0.004, bus: "sfx" });
       e.noise({ t, dur: down ? 0.03 : 0.02, vol: down ? 0.12 : 0.05, filter: "lowpass", f: 1500 * r, q: 0.8, a: 0.001, bus: "sfx" });
+    },
+
+    carStart(e, o, t) {
+      // Starter motor crank
+      e.tone({ t, f: 180, f2: 240, dur: 0.32, vol: 0.16, type: "sawtooth", lp: 600, bus: "sfx" });
+      e.noise({ t, dur: 0.35, filter: "bandpass", f: 900, q: 2, vol: 0.08, bus: "sfx" });
+      // Ignition catch & rev flare
+      e.thump({ t: t + 0.26, f: 140, f2: 60, dur: 0.45, vol: 0.32, bus: "sfx" });
+      e.tone({ t: t + 0.26, f: 220, f2: 120, dur: 0.4, vol: 0.22, type: "sawtooth", lp: 1200, bus: "sfx" });
+    },
+
+    gearShift(e, o, t) {
+      // Transmission mechanical shift linkage
+      e.tone({ t, f: 540, f2: 280, dur: 0.05, vol: 0.08, type: "sine", bus: "sfx" });
+      e.noise({ t, dur: 0.04, filter: "highpass", f: 2600, vol: 0.07, bus: "sfx" });
+      // Quick exhaust shift burble
+      e.thump({ t: t + 0.02, f: 120, f2: 50, dur: 0.09, vol: 0.18, bus: "sfx" });
+    },
+
+    exhaustPop(e, o, t) {
+      const r = jit(0.15);
+      const vol = (o.vol || 0.35) * r;
+      e.thump({ t, f: 160 * r, f2: 45, dur: 0.07, vol: vol * 0.7, bus: "sfx" });
+      e.noise({ t, dur: 0.05, filter: "bandpass", f: 1400 * r, q: 1.8, vol, bus: "sfx" });
     },
   };
   SOUNDS.stageSep = SOUNDS.stagingSeparation;
@@ -942,6 +1004,280 @@
       r.nodes.forEach((n) => { try { n.stop(t + f * 1.6 + 0.2); } catch (e) { /* already stopped */ } });
     }
 
+    // ---------------------------------------------------- V12 car engine ---
+    isCarEngineRunning() {
+      return !!(this._v12 && this._v12.active);
+    }
+
+    startCarEngine(options) {
+      if (this._v12 && this._v12.active) return;
+      if (!this._ready()) return;
+      const c = this.ctx;
+      const t = c.currentTime;
+      const nodes = [];
+
+      // Initial engine starter / ignition rev flare
+      this.play("carStart", { at: t });
+
+      const mix = c.createGain();
+      const attack = c.createGain();
+      const release = c.createGain();
+      attack.gain.setValueAtTime(0.0001, t);
+      // Fade in smoothly over 0.22s
+      attack.gain.linearRampToValueAtTime(1.0, t + 0.22);
+      mix.connect(attack);
+      attack.connect(release);
+      this._route(release, { bus: "sfx", send: 0.10 });
+
+      // 1. Dual Cylinder Banks (V12 two 6-cylinder banks at 60 deg)
+      // Fundamental firing frequency F0 = RPM / 60 * 6 = RPM / 10 Hz
+      const osc1 = c.createOscillator();
+      osc1.type = "sawtooth";
+      osc1.frequency.setValueAtTime(92, t);
+
+      const osc2 = c.createOscillator();
+      osc2.type = "sawtooth";
+      osc2.frequency.setValueAtTime(92.4, t);
+
+      const bankGain = c.createGain();
+      bankGain.gain.setValueAtTime(0.18, t);
+      osc1.connect(bankGain);
+      osc2.connect(bankGain);
+
+      const exhaustFilter = c.createBiquadFilter();
+      exhaustFilter.type = "lowpass";
+      exhaustFilter.frequency.setValueAtTime(550, t);
+      exhaustFilter.Q.setValueAtTime(1.8, t);
+      bankGain.connect(exhaustFilter);
+      exhaustFilter.connect(mix);
+
+      // 2. Sub-Harmonic Crank Thump (0.5 * F0)
+      const subOsc = c.createOscillator();
+      subOsc.type = "sine";
+      subOsc.frequency.setValueAtTime(46, t);
+      const subGain = c.createGain();
+      subGain.gain.setValueAtTime(0.20, t);
+      subOsc.connect(subGain);
+      subGain.connect(mix);
+
+      // 3. High-Order V12 Exotic Howl (2.0 * F0 & 3.0 * F0 resonant peak)
+      const howlOsc = c.createOscillator();
+      howlOsc.type = "triangle";
+      howlOsc.frequency.setValueAtTime(184, t);
+      const howlFilter = c.createBiquadFilter();
+      howlFilter.type = "bandpass";
+      howlFilter.frequency.setValueAtTime(1100, t);
+      howlFilter.Q.setValueAtTime(2.6, t);
+      const howlGain = c.createGain();
+      howlGain.gain.setValueAtTime(0.04, t);
+      howlOsc.connect(howlFilter);
+      howlFilter.connect(howlGain);
+      howlGain.connect(mix);
+
+      // 4. Induction Air Roar (Throttle air rush)
+      const intakeSrc = this.loopingNoise("pink");
+      const intakeFilter = c.createBiquadFilter();
+      intakeFilter.type = "bandpass";
+      intakeFilter.frequency.setValueAtTime(750, t);
+      intakeFilter.Q.setValueAtTime(1.1, t);
+      const intakeGain = c.createGain();
+      intakeGain.gain.setValueAtTime(0.001, t);
+      intakeSrc.connect(intakeFilter);
+      intakeFilter.connect(intakeGain);
+      intakeGain.connect(mix);
+      intakeSrc.start(t, rnd(0, 3));
+      nodes.push(intakeSrc);
+
+      // 5. Supercharger / High-speed Mechanical Whine (4.2 * F0)
+      const whineOsc = c.createOscillator();
+      whineOsc.type = "sine";
+      whineOsc.frequency.setValueAtTime(386, t);
+      const whineGain = c.createGain();
+      whineGain.gain.setValueAtTime(0.005, t);
+      whineOsc.connect(whineGain);
+      whineGain.connect(mix);
+
+      // 6. Tire Drift Screech / Slide
+      const tireSrc = this.loopingNoise("white");
+      const tireFilter = c.createBiquadFilter();
+      tireFilter.type = "bandpass";
+      tireFilter.frequency.setValueAtTime(1850, t);
+      tireFilter.Q.setValueAtTime(3.4, t);
+      const tireGain = c.createGain();
+      tireGain.gain.setValueAtTime(0.0, t);
+      tireSrc.connect(tireFilter);
+      tireFilter.connect(tireGain);
+      tireGain.connect(mix);
+      tireSrc.start(t, rnd(0, 3));
+      nodes.push(tireSrc);
+
+      // Start all oscillators
+      [osc1, osc2, subOsc, howlOsc, whineOsc].forEach((o) => {
+        o.start(t);
+        nodes.push(o);
+      });
+
+      this._v12 = {
+        active: true,
+        release,
+        nodes,
+        osc1,
+        osc2,
+        subOsc,
+        howlOsc,
+        whineOsc,
+        exhaustFilter,
+        howlFilter,
+        howlGain,
+        subGain,
+        intakeGain,
+        intakeFilter,
+        whineGain,
+        tireGain,
+        rpm: 920,
+        gear: 1,
+        lastGear: 1,
+        lastPopAt: 0,
+        lastThrottle: 0
+      };
+    }
+
+    updateCarEngine(opts) {
+      const v12 = this._v12;
+      if (!v12 || !v12.active || !this.ctx) return;
+      opts = opts || {};
+      const c = this.ctx;
+      const t = c.currentTime;
+      const delta = clamp(opts.delta || 0.016, 0.001, 0.05);
+      const speed = opts.speed || 0;
+      const throttleInput = opts.throttle || 0;
+      const boosting = !!opts.boosting;
+      const drifting = !!opts.drifting;
+      const braking = !!opts.braking;
+
+      const speedAbs = Math.abs(speed);
+      const speedKmh = speedAbs * 3.6;
+      const isReverse = speed < -0.3 || (speedAbs < 0.3 && throttleInput < -0.05);
+      const gas = Math.max(0, isReverse ? -throttleInput : throttleInput);
+
+      // 5-Speed High-Performance V12 Gearbox Simulation
+      let gear = 1;
+      let minKmh = 0;
+      let maxKmh = 22;
+      let minRpm = 920;
+      let maxRpm = 7200;
+
+      if (isReverse) {
+        gear = 0;
+        minKmh = 0;
+        maxKmh = 24;
+        minRpm = 920;
+        maxRpm = 5600;
+      } else if (speedKmh < 22) {
+        gear = 1; minKmh = 0; maxKmh = 22; minRpm = 920; maxRpm = 7200;
+      } else if (speedKmh < 42) {
+        gear = 2; minKmh = 20; maxKmh = 42; minRpm = 3800; maxRpm = 7400;
+      } else if (speedKmh < 64) {
+        gear = 3; minKmh = 40; maxKmh = 64; minRpm = 4200; maxRpm = 7800;
+      } else if (speedKmh < 86) {
+        gear = 4; minKmh = 62; maxKmh = 86; minRpm = 4800; maxRpm = 8200;
+      } else {
+        gear = 5; minKmh = 84; maxKmh = 112; minRpm = 5400; maxRpm = boosting ? 9300 : 8800;
+      }
+
+      // Calculate Target RPM
+      let targetRpm = 920;
+      if (speedKmh < 1.0 && gas > 0.05) {
+        // Free-revving in neutral/stationary with gas
+        targetRpm = 920 + gas * (boosting ? 8200 : 6800);
+      } else {
+        const span = Math.max(1, maxKmh - minKmh);
+        const progress = clamp((speedKmh - minKmh) / span, 0, 1);
+        targetRpm = minRpm + progress * (maxRpm - minRpm);
+        if (gas > 0.15) {
+          targetRpm += gas * 450;
+        }
+      }
+
+      // Shift detection: pop on upshift
+      const now = performance.now();
+      if (gear > 0 && v12.lastGear > 0 && gear !== v12.lastGear && speedKmh > 10) {
+        if (now - v12.lastPopAt > 280) {
+          v12.lastPopAt = now;
+          this.play("gearShift", { at: t });
+        }
+      }
+      v12.lastGear = gear;
+
+      // Exhaust overrun pops on throttle lift-off at high RPM
+      if (v12.rpm > 4500 && gas < 0.08 && v12.lastThrottle > 0.5) {
+        if (now - v12.lastPopAt > 220) {
+          v12.lastPopAt = now;
+          this.play("exhaustPop", { at: t, vol: 0.45 });
+        }
+      }
+      v12.lastThrottle = gas;
+
+      // Engine rev inertia
+      const revSpeed = targetRpm > v12.rpm ? (boosting ? 11.5 : 8.5) : 4.6;
+      v12.rpm += (targetRpm - v12.rpm) * Math.min(1, delta * revSpeed);
+      v12.rpm = clamp(v12.rpm, 880, 9500);
+
+      const rpm = v12.rpm;
+      const f0 = rpm / 10; // Fundamental firing frequency (Hz)
+
+      // Audio parameter smoothing via Web Audio
+      const tc = 0.035;
+      v12.osc1.frequency.setTargetAtTime(f0, t, tc);
+      v12.osc2.frequency.setTargetAtTime(f0 * 1.004, t, tc);
+      v12.subOsc.frequency.setTargetAtTime(f0 * 0.5, t, tc);
+      v12.howlOsc.frequency.setTargetAtTime(f0 * 2.0, t, tc);
+      v12.whineOsc.frequency.setTargetAtTime(f0 * 4.2, t, tc);
+
+      // Exhaust cutoff sweep
+      const exhaustCutoff = 480 + (rpm / 8800) * 3800 + gas * 450;
+      v12.exhaustFilter.frequency.setTargetAtTime(clamp(exhaustCutoff, 200, 12000), t, tc);
+
+      // V12 High Howl Resonance
+      const howlFreq = 900 + (rpm / 8800) * 2400;
+      v12.howlFilter.frequency.setTargetAtTime(clamp(howlFreq, 600, 7500), t, tc);
+      const howlVol = 0.03 + Math.pow(rpm / 9000, 2.0) * 0.32 * (0.55 + gas * 0.45);
+      v12.howlGain.gain.setTargetAtTime(howlVol, t, tc);
+
+      // Low end sub thump (richer at idle, tightens at high revs)
+      const subVol = 0.24 * (1 - (rpm / 9500) * 0.35);
+      v12.subGain.gain.setTargetAtTime(subVol, t, tc);
+
+      // Induction throttle roar
+      const intakeVol = (gas * 0.22 + (boosting ? 0.12 : 0)) * (0.35 + (rpm / 9000) * 0.65);
+      v12.intakeGain.gain.setTargetAtTime(intakeVol, t, tc);
+      v12.intakeFilter.frequency.setTargetAtTime(650 + gas * 800 + (rpm / 9000) * 600, t, tc);
+
+      // Boost whine
+      const whineVol = boosting ? (0.08 + (rpm / 9000) * 0.09) : 0.005;
+      v12.whineGain.gain.setTargetAtTime(whineVol, t, 0.04);
+
+      // Tire drift / skid screech
+      const tireVol = drifting
+        ? Math.min(0.28, 0.08 + (speedKmh / 50) * 0.20)
+        : (braking && speedKmh > 18 ? 0.09 : 0.0);
+      v12.tireGain.gain.setTargetAtTime(tireVol, t, 0.03);
+    }
+
+    stopCarEngine(fade) {
+      const v12 = this._v12;
+      if (!v12 || !this.ctx) return;
+      this._v12 = null;
+      const f = fade == null ? 0.4 : fade;
+      const t = this.ctx.currentTime;
+      try {
+        v12.release.gain.setTargetAtTime(0, t, Math.max(0.04, f / 3.5));
+        v12.nodes.forEach((n) => {
+          try { n.stop(t + f + 0.1); } catch (e) {}
+        });
+      } catch (e) {}
+    }
+
     // ------------------------------------------------------- ambience -------
     _startAmbience() {
       if (!this.ctx || this._amb) return;
@@ -1237,6 +1573,7 @@
     playVictory() { this.play("victory"); }
     playDefeat() { this.play("defeat"); }
     playMissionStart() { this.play("missionStart"); }
+    playFootstep(o) { return this.play("footstep", o); }
   }
 
   SpaceAudioEngine.SOUNDS = SOUNDS;

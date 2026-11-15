@@ -1407,7 +1407,9 @@
       if (typeof window.setCameraYawPitch === "function") {
         window.setCameraYawPitch(this.yaw, 0.03);
       }
-      if (window.spaceAudio && typeof window.spaceAudio.playClick === "function") {
+      if (window.spaceAudio && typeof window.spaceAudio.startCarEngine === "function") {
+        window.spaceAudio.startCarEngine();
+      } else if (window.spaceAudio && typeof window.spaceAudio.playClick === "function") {
         window.spaceAudio.playClick();
       }
       if (window.gameplay && typeof window.gameplay.showToast === "function") {
@@ -1453,7 +1455,9 @@
       if (typeof window.setCameraYawPitch === "function") {
         window.setCameraYawPitch(this.yaw, 0.02);
       }
-      if (window.spaceAudio && typeof window.spaceAudio.playClick === "function") {
+      if (window.spaceAudio && typeof window.spaceAudio.stopCarEngine === "function") {
+        window.spaceAudio.stopCarEngine(0.45);
+      } else if (window.spaceAudio && typeof window.spaceAudio.playClick === "function") {
         window.spaceAudio.playClick();
       }
       if (window.gameplay && typeof window.gameplay.showToast === "function") {
@@ -1470,6 +1474,9 @@
      */
     forceExit() {
       if (!this.isDriving) return;
+      if (window.spaceAudio && typeof window.spaceAudio.stopCarEngine === "function") {
+        window.spaceAudio.stopCarEngine(0.3);
+      }
       this.isDriving = false;
       this.speed = 0;
       this.steer = 0;
@@ -1722,12 +1729,26 @@
 
       this._syncLocalCrewPose();
       this._updateDriverAnimation(delta);
+
+      if (window.spaceAudio && typeof window.spaceAudio.updateCarEngine === "function") {
+        window.spaceAudio.updateCarEngine({
+          speed: this.speed,
+          throttle: this.throttleInput,
+          boosting: this.boosting,
+          drifting: this.drifting,
+          braking: braking,
+          delta: delta
+        });
+      }
     }
 
     _idle(delta) {
       this.boosting = false;
       this.drifting = false;
       this.lateralSpeed = 0;
+      if (window.spaceAudio && typeof window.spaceAudio.isCarEngineRunning === "function" && window.spaceAudio.isCarEngineRunning()) {
+        window.spaceAudio.stopCarEngine(0.3);
+      }
       const terrain = window.SpaceCenterModules && window.SpaceCenterModules.terrain;
       if (terrain && this.group) {
         const targetY = terrain.getSurfaceHeightAt(
@@ -1982,11 +2003,20 @@
       if (this.speedEl) this.speedEl.textContent = String(kmh);
       if (this.mphEl) this.mphEl.textContent = `${Math.round(kmh * 0.621371)} MPH`;
       if (this.gearEl) {
-        const gear = this.speed < -0.4 || (Math.abs(this.speed) < 0.4 && throttle < -0.05)
-          ? "R"
-          : (Math.abs(this.speed) < 0.4 && Math.abs(throttle) < 0.05 ? "N" : "D");
+        let gear = "N";
+        if (this.speed < -0.4 || (Math.abs(this.speed) < 0.4 && throttle < -0.05)) {
+          gear = "R";
+        } else if (Math.abs(this.speed) < 0.4 && Math.abs(throttle) < 0.05) {
+          gear = "N";
+        } else {
+          if (kmh < 22) gear = "1";
+          else if (kmh < 42) gear = "2";
+          else if (kmh < 64) gear = "3";
+          else if (kmh < 86) gear = "4";
+          else gear = "5";
+        }
         this.gearEl.textContent = gear;
-        this.gearEl.classList.toggle("is-drive", gear === "D");
+        this.gearEl.classList.toggle("is-drive", gear !== "R" && gear !== "N");
         this.gearEl.classList.toggle("is-reverse", gear === "R");
       }
       const throttlePct = Math.round(this.displayThrottle * 100);
