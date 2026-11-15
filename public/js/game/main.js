@@ -258,6 +258,32 @@
   const ZERO_G_HOVER_Y = 0.32;
   const zeroGVelocity = { x: 0, z: 0 };
 
+  // Locomotion footstep SFX tracking
+  let localFootstepTimer = 0;
+  let localFootstepSide = false;
+  let localFootstepMoving = false;
+
+  function getLocomotionSurface(pos) {
+    if (window.spaceCenter && window.spaceCenter.isGroundMode) {
+      if (!pos) return "ground";
+      // Elevated on launch tower / gantry / mobile launcher deck / boarding bridge
+      if (pos.y > 11.5) {
+        return "metal";
+      }
+      // Inside Launch Control Center (LCC)
+      if (Math.hypot(pos.x - (-203), pos.z - 185) < 38) {
+        return "indoor";
+      }
+      // Outer terrain / gravel off-pad
+      const distFromPad = Math.hypot(pos.x, pos.z);
+      if (distFromPad > 120 && Math.hypot(pos.x - (-203), pos.z - 185) > 50) {
+        return "gravel";
+      }
+      return "ground";
+    }
+    return "metal";
+  }
+
   function isISSInteriorViewActive() {
     const interior = window.shipInterior;
     return !!(
@@ -4118,10 +4144,40 @@
       currentPos.copy(proposedPos);
     }
 
+    const actuallyMoving = Math.hypot(currentPos.x - previousX, currentPos.z - previousZ) > 0.0001;
+
     // Update SpaceShip skeletal animations ('idle' / 'walk' / zero-g float)
     if (localCrew.rig && typeof localCrew.rig.updateAnimation === "function") {
-      const actuallyMoving = Math.hypot(currentPos.x - previousX, currentPos.z - previousZ) > 0.0001;
       localCrew.rig.updateAnimation(delta, actuallyMoving, localCrew.isEva, !localCrew.isEva, null, isZeroG, isSprinting);
+    }
+
+    // Footstep sound effects while walking and running (grounded locomotion)
+    const isDrivingCar = !!(window.spaceCenterCar && window.spaceCenterCar.isDriving);
+    const isCrewBoarded = !!(window.spaceCenter && window.spaceCenter.isGroundMode && window.spaceCenter.crewBoarded);
+    const canFootstep = actuallyMoving && !isZeroG && !isDrivingCar && !isCrewBoarded;
+
+    if (canFootstep) {
+      const stepInterval = isSprinting ? 0.26 : (localCrew.isEva ? 0.55 : 0.38);
+      if (!localFootstepMoving) {
+        localFootstepMoving = true;
+        localFootstepTimer = stepInterval * 0.75;
+      }
+      localFootstepTimer += delta;
+      if (localFootstepTimer >= stepInterval) {
+        localFootstepTimer -= stepInterval;
+        localFootstepSide = !localFootstepSide;
+        if (window.spaceAudio && typeof window.spaceAudio.play === "function") {
+          window.spaceAudio.play("footstep", {
+            surface: getLocomotionSurface(currentPos),
+            step: localFootstepSide,
+            running: isSprinting,
+            vol: isSprinting ? 0.95 : 0.70
+          });
+        }
+      }
+    } else {
+      localFootstepMoving = false;
+      localFootstepTimer = 0;
     }
 
     // Send coordinate update to network
@@ -4600,6 +4656,33 @@
               // is briefly held/extrapolated ahead of its last packet.
               const isMoving = !!(rp.lastMoveAt && (performance.now() - rp.lastMoveAt) < 300);
               rp.rig.updateAnimation(delta, isMoving, rp.isEva, !rp.isEva, null, isISSInteriorViewActive() && !rp.isEva, !!rp.isSprinting);
+
+              // Positional 3D footsteps for nearby crewmates
+              const rpZeroG = isISSInteriorViewActive() && !rp.isEva;
+              if (isMoving && !rpZeroG && camera && rp.mesh) {
+                const rpInterval = rp.isSprinting ? 0.26 : 0.38;
+                rp._stepTimer = (rp._stepTimer || (rpInterval * 0.75)) + delta;
+                if (rp._stepTimer >= rpInterval) {
+                  rp._stepTimer -= rpInterval;
+                  rp._stepSide = !rp._stepSide;
+                  const dist = camera.position.distanceTo(rp.mesh.position);
+                  if (dist < 24 && window.spaceAudio && typeof window.spaceAudio.play === "function") {
+                    const falloff = Math.max(0, 1 - (dist / 24));
+                    const rel = new THREE.Vector3().subVectors(rp.mesh.position, camera.position);
+                    const camRight = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+                    const pan = Math.max(-0.85, Math.min(0.85, rel.dot(camRight) / 10));
+                    window.spaceAudio.play("footstep", {
+                      surface: getLocomotionSurface(rp.mesh.position),
+                      step: rp._stepSide,
+                      running: !!rp.isSprinting,
+                      pan,
+                      vol: (rp.isSprinting ? 0.45 : 0.32) * falloff * falloff
+                    });
+                  }
+                }
+              } else {
+                rp._stepTimer = 0;
+              }
             }
             if (rp.rig && typeof rp.rig.playEmote === "function" && rp.emoteSerial && rp.lastEmoteSerial !== rp.emoteSerial) {
               rp.lastEmoteSerial = rp.emoteSerial;
