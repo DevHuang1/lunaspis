@@ -15,6 +15,7 @@ const { ShuttleMission, CREW: SHUTTLE_CREW } = require("./public/js/game/shuttle
 const { ArtemisMission, DUTIES: ARTEMIS_DUTIES, COMMAND_DUTY: ARTEMIS_COMMAND_DUTY } = require("./public/js/game/artemis_mission.js");
 const gmatForecast = require("./server/gmat_forecast");
 const planetSeeds = require("./public/data/gmat-planet-seeds.json");
+const coverageRoom = require("./server/coverage_room.js");
 
 const SHUTTLE_SNAPSHOT_HZ = 15;
 const SHUTTLE_TEST_HOOKS = process.env.SHUTTLE_TEST === "1";
@@ -565,6 +566,20 @@ app.get("/api/rooms", async (req, res) => {
   }
 });
 
+// CubeSat coverage: SGP4 library (satellite.js, MIT) served from node_modules;
+// a clean 404 if the optional dependency is not installed.
+app.get("/vendor/satellite.min.js", (req, res) => {
+  const file = path.join(__dirname, "node_modules", "satellite.js", "dist", "satellite.min.js");
+  try {
+    if (fs.existsSync(file)) return res.type("application/javascript").send(fs.readFileSync(file));
+  } catch (err) {
+    console.error("[COVERAGE] Could not read satellite.js:", err.message);
+  }
+  res.status(404).type("application/javascript").send("/* satellite.js not installed: Real Satellite mode unavailable */");
+});
+// CubeSat coverage: CelesTrak GP / SatNOGS station proxy with caching and an error budget.
+require("./server/coverage_data.js")(app);
+
 // Fallback route to serve index.html for client-side navigation. Unknown API
 // routes get a JSON 404 instead of the app shell.
 app.use((req, res, next) => {
@@ -617,6 +632,8 @@ const GROUND_ACTION_ROLES = {
 };
 const MAX_PLAYERS = 6;
 const GAME_MODE = "coop";
+const ACTIVITIES = ["shuttle", "coverage"];
+const FLIGHTS = ["deploy", "iss"];
 const SUIT_COLORS = ["#c9f04b", "#63e6a8", "#ff6b6b", "#7dd3fc", "#8a8194", "#efeee7"];
 
 function getTeamForRole(roleId) {
@@ -639,7 +656,7 @@ function roomPlayerById(room, playerId) {
 // Shared mission-design patches may be sent by any crewmate (trade studies),
 // but only the host can change the scenario/difficulty, and only in the lobby.
 function applyRoomDesignPatch(room, socket, rawPatch) {
-  if (!room) return null;
+  if (!room || room.activity === "coverage") return null;
   const patch = sanitizeDesignPatch(rawPatch);
   if (!patch) return null;
 
@@ -1655,6 +1672,10 @@ function createNewRoom(roomId, hostId, isPublic = true, opsMode = "iss_expeditio
     id: roomId,
     hostId: hostId,
     mode: GAME_MODE,
+    activity: "shuttle",
+    flight: "deploy",
+    coverage: null,
+    lastCovClock: 0,
     maxPlayers: MAX_PLAYERS,
     status: "lobby", // 'lobby' or 'playing'
     isPublic: !!isPublic,
@@ -1868,6 +1889,12 @@ function mergedShuttleInputs(room) {
   return inp;
 }
 
+function sendCoverageState(room, socket) {
+  if (!room || !room.coverage) return;
+  const state = coverageRoom.publicState(room.coverage, room);
+  (socket || io.to(room.id)).emit("coverage_state", state);
+}
+
 function sendShuttleSnapshot(room) {
   if (!room || !room.shuttleMission) return null;
   const sn = room.shuttleMission.snapshot();
@@ -2024,6 +2051,25 @@ setInterval(() => {
     }
 
     if (room.status !== "playing" || playerCount === 0) continue;
+
+    // CubeSat coverage runs on its own clock and never advances station systems.
+    if (room.coverage) {
+      if (!room.lastCovClock || now - room.lastCovClock >= 1000) {
+        room.lastCovClock = now;
+        const cov = room.coverage;
+        io.to(roomId).emit("coverage_clock", {
+          revision: cov.revision,
+          clock: { simT: coverageRoom.clockNow(cov, now), wallRef: now, rate: cov.clock.rate, paused: cov.clock.paused },
+          serverNow: now
+        });
+      }
+      if (!room.lastDbFlushAt || now - room.lastDbFlushAt >= 5000) {
+        room.lastDbFlushAt = now;
+        scheduleRoomSave(room, false);
+      }
+      continue;
+    }
+
     if (!room.lastDbFlushAt || now - room.lastDbFlushAt >= 5000) {
       room.lastDbFlushAt = now;
       scheduleRoomSave(room, false);
@@ -2195,6 +2241,9 @@ function serializeRoom(room) {
     id: room.id,
     hostId: room.hostId,
     mode: room.mode || GAME_MODE,
+    activity: room.activity || "shuttle",
+    flight: room.flight || "deploy",
+    editorId: room.coverage ? room.coverage.editorId : null,
     maxPlayers: room.maxPlayers || MAX_PLAYERS,
     status: room.status,
     isSolo: !!room.isSolo,
@@ -2413,6 +2462,8 @@ io.on("connection", (socket) => {
     const isSolo = data.solo === true;
     const isPublic = isSolo ? false : data.isPublic !== false;
     const room = createNewRoom(roomId, socket.id, isPublic, opsMode);
+    room.activity = ACTIVITIES.includes(data.activity) ? data.activity : "shuttle";
+    room.flight = FLIGHTS.includes(data.flight) ? data.flight : "deploy";
     room.isSolo = isSolo;
     room.hostUserId = socket.userId;
     room.creatorIp = creatorIp;
@@ -2676,6 +2727,10 @@ io.on("connection", (socket) => {
       room.artemisDuties = assignArtemisDuties(room);
       room.artemisMission.duties = artemisDutyPayload(room);
       sendArtemisSnapshot(room);
+    }
+    if (room.status === "playing" && room.coverage) {
+      socket.emit("game_started", { roomId: targetCode, mode: "coverage", rejoin: true });
+      sendCoverageState(room, socket);
     }
   }
 
@@ -3134,6 +3189,51 @@ io.on("connection", (socket) => {
     broadcastRoomUpdate(room);
   });
 
+  // 3e. Host picks the activity in the lobby (Shuttle crew or CubeSat coverage).
+  socket.on("set_activity", (data = {}, callback) => {
+    data = asObject(data);
+    const room = currentRoomId && rooms[currentRoomId];
+    const reply = (r) => { if (typeof callback === "function") callback(r); };
+    if (!room) return reply({ success: false, message: "Not in a room" });
+    if (room.hostId !== socket.id) return reply({ success: false, message: "Only the host can change the mission" });
+    if (room.status !== "lobby" || room.coverage || room.shuttleMission || room.artemisMission) {
+      return reply({ success: false, message: "A mission is already running in this room" });
+    }
+    if (!ACTIVITIES.includes(data.activity)) return reply({ success: false, message: "Unknown mission" });
+    room.activity = data.activity;
+    reply({ success: true });
+    broadcastRoomUpdate(room);
+  });
+
+  // 3f. Host picks the Shuttle flight in the lobby (satellite deploy or ISS docking).
+  socket.on("set_flight", (data = {}, callback) => {
+    data = asObject(data);
+    const room = currentRoomId && rooms[currentRoomId];
+    const reply = (r) => { if (typeof callback === "function") callback(r); };
+    if (!room) return reply({ success: false, message: "Not in a room" });
+    if (room.hostId !== socket.id) return reply({ success: false, message: "Only the host can change the flight" });
+    if (room.status !== "lobby") return reply({ success: false, message: "A flight is already running in this room" });
+    if (!FLIGHTS.includes(data.flight)) return reply({ success: false, message: "Unknown flight" });
+    room.flight = data.flight;
+    reply({ success: true });
+    broadcastRoomUpdate(room);
+  });
+
+  // 3g. CubeSat coverage: scenario / pins / clock / editor hand-over / forecast hash.
+  socket.on("coverage_request", (data = {}, callback) => {
+    data = asObject(data);
+    const room = currentRoomId && rooms[currentRoomId];
+    const reply = (r) => { if (typeof callback === "function") callback(r); };
+    if (!room || !room.coverage || !room.players[socket.id]) return reply({ accepted: false, reason: "No coverage session" });
+    if (data.type === "SYNC") { sendCoverageState(room, socket); return reply({ accepted: true }); }
+    const result = coverageRoom.applyRequest(room.coverage, room, socket.id, data);
+    reply({ accepted: result.accepted, reason: result.reason || null, revision: room.coverage.revision });
+    if (result.accepted && result.changed) {
+      sendCoverageState(room);
+      if (result.changed === "editor") broadcastRoomUpdate(room);
+    }
+  });
+
   // 4. Host starts the game
   socket.on("start_game", async (data = {}) => {
     data = asObject(data);
@@ -3153,6 +3253,22 @@ io.on("connection", (socket) => {
     if (room.specialistCoastTimer) {
       clearTimeout(room.specialistCoastTimer);
       room.specialistCoastTimer = null;
+    }
+
+    // CubeSat coverage is a separate activity: the server owns the scenario,
+    // simulation clock and edit rights; the operational mission state is unused.
+    if (room.activity === "coverage") {
+      room.status = "playing";
+      room.mission = null;
+      room.shuttleMission = null;
+      room.artemisMission = null;
+      if (!room.coverage) room.coverage = coverageRoom.createCoverageState(socket.id);
+      console.log(`[COVERAGE] CubeSat session started in room ${currentRoomId}`);
+      await db.upsertGameRoom(currentRoomId, room.hostUserId || room.hostId, "playing").catch(() => {});
+      broadcastRoomUpdate(room);
+      io.to(currentRoomId).emit("game_started", { roomId: currentRoomId, mode: "coverage" });
+      sendCoverageState(room);
+      return;
     }
 
     if (data.randomizeRoles) {
@@ -4943,6 +5059,11 @@ io.on("connection", (socket) => {
       });
     }
 
+    if (room.coverage) {
+      coverageRoom.onPlayerLeft(room.coverage, room);
+      sendCoverageState(room);
+    }
+
     const remainingIds = Object.keys(room.players);
     if (remainingIds.length === 0) {
       if (isDisconnect) {
@@ -4978,6 +5099,8 @@ io.on("connection", (socket) => {
         room.artemisSurfaceInputs = {};
         room.artemisDuties = null;
         room.artemisResultRecorded = false;
+        room.coverage = null;
+        room.lastCovClock = 0;
         room.systems.dockingPilotId = null;
         room.systems.dockingState = null;
         await saveRoomSnapshotNow(room).catch(() => {});

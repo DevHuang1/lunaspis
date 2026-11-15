@@ -38,6 +38,15 @@ body { background: #000; }
 .os-bar { display: flex; height: 4px; width: min(260px, 40vw); gap: 1px; }
 .os-bar i { flex: 1; background: var(--os-rose); } .os-bar i.d { background: var(--os-blue); }
 
+/* ------------------------------------------------------------------ mission picker */
+.os-seg { display: flex; border: 1px solid var(--os-line); width: fit-content; max-width: 100%; flex-wrap: wrap; }
+.os-seg button { background: transparent; color: var(--os-ink); border: 0; padding: 6px 14px; font-size: 13px; cursor: pointer; }
+.os-seg button + button { border-left: 1px solid var(--os-line); }
+.os-seg button[aria-checked="true"] { background: var(--os-ink); color: #000; }
+.os-seg button:focus-visible { outline: 1px solid var(--os-blue); outline-offset: 2px; }
+#lobby-activity button { background: transparent; color: var(--os-ink); border: 1px solid var(--os-line); padding: 3px 8px; margin-left: 4px; cursor: pointer; font: inherit; }
+#lobby-activity button[aria-pressed="true"] { background: var(--os-ink); color: #000; }
+
 /* ------------------------------------------------------------------ sections */
 .os-sec { border-left: 3px solid var(--os-ink); padding-left: 14px; }
 .os-sec h3 { margin: 0 0 10px; font-weight: 400; font-size: 14px; color: var(--os-ink); }

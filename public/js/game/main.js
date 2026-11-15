@@ -1420,6 +1420,31 @@
     // It remains reachable with ?shuttle=1 for direct launch-to-landing practice.
     const standaloneShuttleMode = /[?&]shuttle=1/.test(window.location.search);
 
+    // Title-screen activity picker: Shuttle/Station expedition or CubeSat coverage.
+    let selectedActivity = "shuttle";
+    let selectedFlight = "deploy";
+    try {
+      if (localStorage.getItem("interfellas_flight") === "iss") selectedFlight = "iss";
+      if (localStorage.getItem("interfellas_activity") === "coverage") selectedActivity = "coverage";
+    } catch (e) { /* storage blocked */ }
+    const applyActivity = (activity) => {
+      selectedActivity = activity === "coverage" ? "coverage" : "shuttle";
+      try { localStorage.setItem("interfellas_activity", selectedActivity); } catch (e) { /* storage blocked */ }
+      document.querySelectorAll("[data-activity]").forEach((btn) => {
+        btn.setAttribute("aria-pressed", String(btn.getAttribute("data-activity") === selectedActivity));
+      });
+      const quickLabel = document.querySelector("#btn-quick-play span");
+      if (quickLabel) quickLabel.textContent = selectedActivity === "coverage" ? "START COVERAGE" : "INITIATE";
+      if (btnHost) btnHost.textContent = selectedActivity === "coverage" ? "HOST COVERAGE" : "HOST EXPEDITION";
+    };
+    document.querySelectorAll("[data-activity]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        applyActivity(btn.getAttribute("data-activity"));
+        if (window.spaceAudio) window.spaceAudio.playClick();
+      });
+    });
+    applyActivity(selectedActivity);
+
     const lobbyRoomCode = document.getElementById("lobby-room-code");
     const btnCopyLink = document.getElementById("btn-copy-invite");
     const btnStartMission = document.getElementById("btn-start-mission");
@@ -1469,7 +1494,9 @@
         window.netManager.createRoom(name, color, null, {
           explicitRole: false,
           isPublic: false,
-          opsMode: standaloneShuttleMode ? "shuttle_flight" : "iss_expedition"
+          opsMode: standaloneShuttleMode ? "shuttle_flight" : "iss_expedition",
+          activity: selectedActivity,
+          flight: selectedFlight
         });
       });
     }
@@ -1494,7 +1521,9 @@
         const color = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.color)
           || (currentAstronaut ? currentAstronaut.suit_color : "#c9f04b");
         window.netManager.startSolo(name, color, null, {
-          opsMode: standaloneShuttleMode ? "shuttle_flight" : "iss_expedition"
+          opsMode: standaloneShuttleMode ? "shuttle_flight" : "iss_expedition",
+          activity: selectedActivity,
+          flight: selectedFlight
         });
       });
     }
@@ -1548,6 +1577,7 @@
       );
       syncSpaceGamesLock();
       if (window.artemisGame && window.artemisGame.isActive) stopArtemisFlight(true);
+      if (window.coverageGame && window.coverageGame.isActive) stopCoverageFlight(true);
 
       if (window.shuttleGame && window.shuttleGame.isActive && typeof window.shuttleGame.exit === "function") {
         window.shuttleGame.exit();
@@ -1659,6 +1689,35 @@
       if (!window.artemisGame || !window.artemisGame.isActive) return;
       window.artemisGame.exit(silent);
       document.body.classList.remove("artemis-mode-active");
+    }
+
+    function startCoverageFlight() {
+      if (!window.coverageGame || window.coverageGame.isActive) return;
+      cleanupGameWorldForLobby();
+      isGameStarted = true;
+      window.isGameStarted = true;
+      document.body.classList.add("game-active", "coverage-mode-active");
+      syncSpaceGamesLock();
+      if (screenGame) screenGame.style.display = "none";
+      const resBar = document.getElementById("lunaspis-resource-meters");
+      if (resBar) resBar.style.display = "none";
+      const briefing = document.getElementById("mission-briefing-overlay");
+      if (briefing) briefing.style.display = "none";
+      window.coverageGame.start({
+        renderer,
+        net: window.netManager,
+        onLeave: leaveCurrentRoom
+      });
+      console.log("[Coverage] CubeSat session client active");
+    }
+
+    function stopCoverageFlight(silent) {
+      if (!window.coverageGame || !window.coverageGame.isActive) {
+        document.body.classList.remove("coverage-mode-active");
+        return;
+      }
+      window.coverageGame.exit(silent);
+      document.body.classList.remove("coverage-mode-active");
     }
 
     function isLocalGroundCrew() {
@@ -2626,6 +2685,9 @@
       if (window.shuttleGame && window.shuttleGame.isActive) {
         window.shuttleGame.onRoomUpdate(data);
       }
+      if (window.coverageGame && window.coverageGame.isActive) {
+        window.coverageGame.onRoomUpdate(data);
+      }
       const hudRoom = document.getElementById("hud-room-code");
       if (hudRoom) {
         if (data.isSolo) {
@@ -2788,6 +2850,11 @@
       screenMenu.style.display = "none";
       screenLobby.style.display = "none";
       preloadGroundCrewModels(data && data.players);
+
+      if (data && data.mode === "coverage") {
+        startCoverageFlight();
+        return;
+      }
 
       const mission = (data && data.mission)
         || (window.netManager.roomState && window.netManager.roomState.mission)
@@ -3127,11 +3194,44 @@
     if (!cards) return;
 
     const opsMode = (mission && mission.opsMode === "shuttle_flight") ? "shuttle_flight" : "iss_expedition";
+    const roomActivity = window.netManager && window.netManager.roomState && window.netManager.roomState.activity === "coverage"
+      ? "coverage"
+      : "shuttle";
     const status = window.netManager && window.netManager.roomState
       ? window.netManager.roomState.status
       : "lobby";
     const isHost = !!(window.netManager && window.netManager.isHost);
     const canSelect = isHost && status === "lobby";
+
+    if (roomActivity === "coverage") {
+      if (selectedLabel) selectedLabel.textContent = "CUBESAT · CONTACT COVERAGE";
+      if (hint) {
+        hint.textContent = canSelect ? "HOST PICKS" : "HOST'S PICK";
+        hint.style.color = canSelect ? "#67e8f9" : "#9aa4ae";
+      }
+      if (difficultyContainer) difficultyContainer.style.display = "none";
+      if (missionTip) missionTip.style.display = "none";
+      if (difficultyHint) difficultyHint.style.display = "none";
+      if (modeBar) modeBar.style.display = "none";
+      cards.classList.remove("mission-pick-grid", "is-lobby");
+      cards.innerHTML = `
+        <div class="shuttle-mode-card">
+          <div class="shuttle-mode-card-title">CUBESAT · CONTACT COVERAGE</div>
+          <div class="shuttle-mode-card-desc">ORBIT → GROUND STATIONS → PASS PREDICTIONS</div>
+          <div class="shuttle-mode-seats">
+            <div><strong>HOST</strong> · EDIT SCENARIO · CLOCK · EDITOR HAND-OVER</div>
+            <div><strong>CREW</strong> · FOLLOW THE TIMELINE · COMPARE FORECASTS</div>
+            <div><strong>REAL SAT</strong> · LIVE CELESTRAK ELEMENTS WHEN AVAILABLE</div>
+            <div><strong>SANDBOX</strong> · CUSTOM ORBIT · STATIONS · HORIZON</div>
+          </div>
+        </div>
+      `;
+      const btnStartCoverage = document.getElementById("btn-start-mission");
+      if (btnStartCoverage && isHost && status === "lobby") btnStartCoverage.textContent = "START COVERAGE →";
+      else if (btnStartCoverage && status === "playing") btnStartCoverage.textContent = "JOIN COVERAGE →";
+      return;
+    }
+    if (modeBar) modeBar.style.display = "";
 
     if (modeBar) {
       modeBar.querySelectorAll("[data-ops-mode]").forEach((btn) => {
@@ -5237,9 +5337,14 @@
     if (document.hidden) return;
     if (window.netManager && window.netManager.socket && window.netManager.connected) {
       const pingStart = performance.now();
-      window.netManager.socket.timeout(3000).emit("client_ping", Date.now(), (err) => {
+      window.netManager.socket.timeout(3000).emit("client_ping", Date.now(), (err, serverNow) => {
         if (err) return;
         const rtt = Math.max(1, Math.round(performance.now() - pingStart));
+        // Keep an NTP-style estimate of the server clock for shared missions
+        // (the CubeSat coverage timeline is authored in server time).
+        if (typeof serverNow === "number") {
+          window.netManager.serverOffsetMs = serverNow + rtt / 2 - Date.now();
+        }
         // Display a rolling median rather than a single ack. This prevents one
         // long frame / GC pause from making the latency pill look permanently
         // red when the network itself is healthy.
@@ -5270,6 +5375,11 @@
     const delta = Math.min(clock.getDelta(), 0.05);
     const elapsed = clock.getElapsedTime();
     updateGamepad(delta);
+
+    if (window.coverageGame && window.coverageGame.isActive) {
+      window.coverageGame.frame(delta);
+      return;
+    }
 
     if (window.artemisGame && window.artemisGame.isActive) {
       window.artemisGame.frame(delta);

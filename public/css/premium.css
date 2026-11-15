@@ -4452,6 +4452,19 @@ body.shuttle-mode-active #crew-comms-toggle {
   color: var(--ui-text, #f5f3ec);
 }
 
+/* Mission activity selector (Shuttle / CubeSat coverage) */
+.title-util-btn[aria-pressed="true"] {
+  border-color: var(--ui-accent, #67e8f9);
+  background: rgba(103, 232, 249, 0.12);
+  color: var(--ui-text, #f5f3ec);
+}
+.title-activity-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
 .lobby-role-select {
   appearance: none;
   max-width: 100%;

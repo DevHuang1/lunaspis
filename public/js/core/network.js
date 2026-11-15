@@ -254,6 +254,8 @@
       this.mission = null;
       this.snapshot = null;
       this.artemisSnapshot = null;
+      this.coverageState = null;
+      this.serverOffsetMs = 0;
       this.lastArtemisResult = null;
       this.remotePlayers = {}; // id -> { id, name, color, role, targetPos, curPos, targetYaw, curYaw, mesh, isEva }
       this.lastSendTime = 0;
@@ -678,6 +680,18 @@
         this.emitEvent("shuttle_command_log", log);
       });
 
+      // CubeSat coverage channel (the server owns scenario, clock and edit rights;
+      // every client computes its forecast locally from the same scenario).
+      this.socket.on("coverage_state", (st) => {
+        this.packetsReceivedThisSec++;
+        this.coverageState = st;
+        this.emitEvent("coverage_state", st);
+      });
+      this.socket.on("coverage_clock", (c) => {
+        if (this.coverageState && c && c.revision !== this.coverageState.revision) return;
+        this.emitEvent("coverage_clock", c);
+      });
+
       this.socket.on("player_moved", (data) => {
         const rp = this.remotePlayers[data.id];
         if (!rp) return;
@@ -915,7 +929,9 @@
         explicitRole: explicit,
         team: this.localPlayer.team,
         isPublic: opts.isPublic !== false,
-        opsMode: opts.opsMode || undefined
+        opsMode: opts.opsMode || undefined,
+        activity: opts.activity || undefined,
+        flight: opts.flight || undefined
       });
     }
 
@@ -979,9 +995,35 @@
         isPublic: false,
         opsMode: opts.opsMode || "iss_expedition",
         scenarioId: opts.scenarioId || undefined,
-        difficultyId: opts.difficultyId || undefined
+        difficultyId: opts.difficultyId || undefined,
+        activity: opts.activity || undefined,
+        flight: opts.flight || undefined
       });
     }
+
+    setActivity(activity) {
+      return new Promise((resolve) => {
+        if (!this.connected) return resolve({ success: false, message: "Not connected" });
+        this.socket.emit("set_activity", { activity }, (r) => resolve(r || { success: false }));
+      });
+    }
+
+    setFlight(flight) {
+      return new Promise((resolve) => {
+        if (!this.connected) return resolve({ success: false, message: "Not connected" });
+        this.socket.emit("set_flight", { flight }, (r) => resolve(r || { success: false }));
+      });
+    }
+
+    // CubeSat coverage: SET_SCENARIO / SET_PINS / CLOCK / SET_EDITOR / HASH / SYNC
+    coverageRequest(type, payload) {
+      return new Promise((resolve) => {
+        if (!this.connected) return resolve({ accepted: false, reason: "Not connected" });
+        this.socket.emit("coverage_request", Object.assign({ type }, payload || {}), (r) => resolve(r || { accepted: false, reason: "No reply" }));
+      });
+    }
+
+    serverNow() { return Date.now() + (this.serverOffsetMs || 0); }
 
     sendEmote(emoteId) {
       if (!this.connected || !this.roomId) return;
@@ -1011,6 +1053,7 @@
       this.mission = null;
       this.snapshot = null;
       this.snapshot = null;
+      this.coverageState = null;
       this.isHost = false;
       this.isSoloRoom = false;
       this.remotePlayers = {};

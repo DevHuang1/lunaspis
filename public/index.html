@@ -316,6 +316,11 @@
         <input type="text" id="input-player-name" class="title-callsign-input" placeholder="Alex" maxlength="16" />
       </div>
 
+      <div class="title-activity-row" role="group" aria-label="Mission activity">
+        <button type="button" class="title-util-btn" id="btn-activity-shuttle" data-activity="shuttle" aria-pressed="true" title="Space Shuttle launch, ISS docking and station operations">SHUTTLE / STATION</button>
+        <button type="button" class="title-util-btn" id="btn-activity-coverage" data-activity="coverage" aria-pressed="false" title="CubeSat contact coverage: orbit, ground stations and pass predictions">CUBESAT COVERAGE</button>
+      </div>
+
       <div class="title-cta-row">
         <button class="btn-title-primary" id="btn-quick-play" title="Start a solo mission — Shuttle launch, ISS docking and station ops"><span>INITIATE</span><b class="btn-keycap">&#8629;</b></button>
         <button class="btn-title-secondary" id="btn-host-game" title="Create a multiplayer team room and get a code to share">HOST EXPEDITION</button>
@@ -1181,6 +1186,14 @@
   <script src="js/game/shuttle_sfx.js?v=6.1.9"></script>
   <script src="js/game/shuttle_hud.js?v=6.1.9"></script>
   <script src="js/game/shuttle_game.js?v=6.1.9"></script>
+
+  <!-- CubeSat Contact Coverage (server-authoritative scenario, client-side forecast) -->
+  <script src="js/world/earth_globe.js?v=8.1.0"></script>
+  <script src="vendor/satellite.min.js?v=6.0.0" onerror="console.warn('[Coverage] SGP4 library not found: Real Satellite mode disabled')"></script>
+  <script src="js/coverage/coverage_core.js?v=8.1.0"></script>
+  <script src="js/coverage/coverage_view.js?v=8.1.0"></script>
+  <script src="js/coverage/coverage_hud.js?v=8.1.0"></script>
+  <script src="js/coverage/coverage_game.js?v=8.1.0"></script>
 
   <!-- Artemis Lunar Expedition (server-authoritative training mission) -->
   <script src="js/game/artemis_simulation.js?v=6.1.9"></script>
