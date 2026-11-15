@@ -1024,10 +1024,11 @@
       const { XPF, XJ, href } = FINAL;
       hRef = href(rw.x);
       const slope = (href(rw.x + 25) - href(rw.x - 25)) / 50;
-      if (h > 15) {
+      if (!st_.flare && h > 15) {
         mode = rw.x < XPF ? "FINAL" : rw.x < XJ ? "PREFLARE" : "SHALLOW";
         gammaCmd = Math.atan(slope) + clamp((hRef - h) / (rw.x < XPF ? 1500 : 250), -0.12, 0.12);
       } else {
+        st_.flare = true;
         mode = "FLARE";
         gammaCmd = -Math.asin(clamp(Math.max(0.6, h * 0.1) / Math.max(V_, 1), 0, 0.3));
       }
