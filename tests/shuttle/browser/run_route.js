@@ -48,10 +48,21 @@ app.use(express.static(path.join(root, 'public')));
       const result = await page.evaluate(sn => {
         view.camPos=null;
         view.update(sn, {}, 1/60);view.render();
-        const active=[];for(const scene of [view.near,view.far])scene.traverse(o=>{if(o.isLine&&o.visible&&o.renderOrder===30)active.push(o.geometry.drawRange.count)});
-        return {phase:sn.phase,time:sn.simTime,active};
+        const trajectoryLines = [];
+        let sceneLineCount = 0;
+        for (const scene of [view.near, view.far]) {
+          scene.traverse(object => {
+            if (object.isLine && object.visible) {
+              sceneLineCount++;
+              if (object.renderOrder === 30) trajectoryLines.push(object.geometry.drawRange.count);
+            }
+          });
+        }
+        return { phase: sn.phase, time: sn.simTime, trajectoryLines, sceneLineCount, aim: view.aimBody };
       }, sn);
-      assert.equal(result.active.length, 1); assert.ok(result.active[0] >= 3922);
+      assert.deepEqual(result.trajectoryLines, []);
+      assert.ok(result.sceneLineCount > 0, 'launch-complex wires remain in the scene');
+      assert.ok(result.aim.length === 3 && result.aim.every(Number.isFinite), 'steering aim remains available');
       await page.screenshot({path:path.join(OUT, `flight-${sn.phase}-${Math.round(sn.simTime)}.png`)});
       console.log(JSON.stringify(result));
     }
@@ -93,15 +104,16 @@ app.use(express.static(path.join(root, 'public')));
         if(!pts.every(p=>Number.isFinite(p.x+p.y+p.z)))throw Error('invalid route');
         maxMs=Math.max(maxMs,performance.now()-t);
       }
-      view.showRibbon=false;view._updateRibbon(sn,sn.vehicle.r,sn.vehicle.q,view.camPos,th);
-      if(view.ribbonNear.visible)throw Error('visibility toggle');
-      view.showRibbon=true;view._updateRibbon({...sn,phase:'debrief'},sn.vehicle.r,sn.vehicle.q,view.camPos,th);
-      if(view.ribbonNear.visible)throw Error('debrief visibility');
+      view._updateRouteAim(sn, sn.vehicle.r, sn.vehicle.q, th);
+      if (!view.aimBody.every(Number.isFinite)) throw Error('invalid steering aim');
+      if (view.ribbonNear) throw Error('trajectory line allocated');
+      view._updateRouteAim({ ...sn, phase: 'debrief' }, sn.vehicle.r, sn.vehicle.q, th);
       if(maxAnchorStep>0.01)throw Error('route jumps between distant branches');
       return {singleSpline:true,anchored:true,continuousTangents:true,fixedEndpoints:true,independentOfNose:true,orbitMinutes:10,maxUpdateMs:maxMs,maxAnchorStep};
     },manual);
     console.log(JSON.stringify(regression));
     assert.deepEqual(errors, []);
-    console.log('PASS complete mission route, one spline, smooth rerouting, ten-minute stability, no browser/shader errors');
+    await page.evaluate(() => view.dispose());
+    console.log('PASS no Shuttle trajectory lines, scene wires and steering retained, smooth rerouting, ten-minute stability, disposal, no browser/shader errors');
   } finally { if(browser)await browser.close(); server.close(); }
 })().catch(e=>{console.error(e);process.exitCode=1});
