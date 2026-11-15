@@ -16,13 +16,14 @@
   const f0 = (x) => (ok(x) ? x.toFixed(0) : "--");
   const f1 = (x) => (ok(x) ? x.toFixed(1) : "--");
   const f2 = (x) => (ok(x) ? x.toFixed(2) : "--");
+  const f3 = (x) => (ok(x) ? x.toFixed(3) : "--");
   const deg = (r) => (ok(r) ? (r / DEG).toFixed(1) + "°" : "--");
   const LR = (r) => (ok(r) ? (r >= 0 ? "R " : "L ") + Math.abs(r / DEG).toFixed(0) + "°" : "--");
   const met = (t) => { if (!ok(t)) return "--:--:--"; const s = Math.floor(Math.abs(t)); return (t < 0 ? "-" : "+") + [Math.floor(s / 3600), Math.floor(s / 60) % 60, s % 60].map((n) => String(n).padStart(2, "0")).join(":"); };
   const esc = (x) => String(x == null ? "" : x).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const SEAT = { cdr: "CDR", plt: "PLT", ms1: "MS1", ms2: "MS2", all: "ALL" };
   const PHASES = ["briefing", "prelaunch", "ascent", "insertion", "payload", "deorbit", "entry", "approach", "rollout", "debrief"];
-  const PHASE_TAG = { briefing: "BRIEFING", prelaunch: "PRELAUNCH", ascent: "ASCENT", insertion: "INSERTION", payload: "PAYLOAD.OPS", deorbit: "DEORBIT.PREP", entry: "ENTRY", approach: "APPROACH", rollout: "ROLLOUT", debrief: "DEBRIEF" };
+  const PHASE_TAG = { briefing: "BRIEFING", prelaunch: "PRELAUNCH", ascent: "ASCENT", insertion: "INSERTION", docking: "PROX.OPS", payload: "PAYLOAD.OPS", deorbit: "DEORBIT.PREP", entry: "ENTRY", approach: "APPROACH", rollout: "ROLLOUT", debrief: "DEBRIEF" };
   // keys per seat and phase — shown on the DATA page for your own seats only
   const KEYS = {
     all: [["DRAG", "look around"], ["WHEEL", "zoom"], ["RMB", "hold: scope (sky view)"], ["F", "recentre camera"], ["C", "camera view"], ["/", "crew chat"], ["V", "mic on/off"], ["F3", "this page"]],
@@ -34,7 +35,7 @@
     ms1: { orbit: [["Y", "payload bay doors"], ["R", "release satellite"], ["I / K", "translate up / down"], ["J / L", "translate left / right"], ["U / O", "translate fwd / aft"]] },
     ms2: { orbit: [["P", "satellite power"], ["N", "GO for deploy"]] },
   };
-  const keyGroup = (ph) => (["insertion", "payload", "deorbit"].includes(ph) ? "orbit" : ph === "prelaunch" ? "ascent" : ph);
+  const keyGroup = (ph) => (["insertion", "payload", "deorbit", "docking"].includes(ph) ? "orbit" : ph === "prelaunch" ? "ascent" : ph);
   const CMDS = [["START", "START THE COUNT", "ENTER"], ["AUTHORIZE_BURN", "AUTHORIZE BURN", "B"], ["COAST_TO_TIG", "SKIP TO BURN", "T"], ["BAY", "BAY DOORS", "Y"], ["PAYLOAD_POWER", "SATELLITE POWER", "P"],
     ["PAYLOAD_GO", "GO FOR DEPLOY", "N"], ["DAP_HOLD", "ATTITUDE HOLD", "H"], ["RELEASE_PAYLOAD", "RELEASE SATELLITE", "R"], ["TOGGLE_AOA_ASSIST", "AOA ASSIST", "M"], ["DEPLOY_GEAR", "LANDING GEAR", "G"],
     ["WARP-", "TIME SLOWER", ","], ["WARP+", "TIME FASTER", "."], ["PAUSE", "PAUSE", "ESC"], ["TOUCH", "TOUCH CONTROLS", ""], ["COMMS", "COMMS SETTINGS", ""], ["LEAVE", "LEAVE FLIGHT", ""]];
@@ -56,27 +57,36 @@
     ["DEPLOY", (sn, o) => o.release === "done", 400], ["DEORBIT", (sn, o) => o.deorbit_burn === "done", 6000], ["ENTRY", (sn, o) => o.entry_interface === "done", 1900],
     ["TAEM", (sn, o) => o.taem_gate === "done", 1600], ["TOUCHDOWN", (sn, o) => o.touchdown === "done", 400], ["WHEELS STOP", (sn, o) => o.wheels_stop === "done", 60],
   ];
+  const MILESTONES_ALL = MILESTONES;
+  const ISS_MILESTONES = MILESTONES.slice(0, 6).concat([
+    ["ALIGNED", (sn, o) => o.dock_att === "done", 300], ["30 M", (sn, o) => o.dock_close === "done", 900], ["DOCKED", (sn, o) => o.docked === "done", 400],
+  ]);
 
   const CSS = `
   #shuttle-hud{--ink:#ede8dd;--dim:#8e897f;--line:rgba(237,232,221,.78);--blue:#5cc2ec;--rose:#c9576a;--void:rgba(0,0,0,.74);
     position:fixed;inset:0;z-index:4000;pointer-events:none;color:var(--ink);font:13px/1.45 "Share Tech Mono",ui-monospace,Menlo,Consolas,monospace;letter-spacing:.02em;text-transform:uppercase}
   #shuttle-hud *{box-sizing:border-box}
   #shuttle-hud .top{position:absolute;left:50%;top:12px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none}
-  #shuttle-hud .tl{position:relative;width:min(640px,80vw);height:34px}
-  #shuttle-hud .tl .ln{position:absolute;left:0;right:0;top:22px;height:1px;background:rgba(237,232,221,.35)}
-  #shuttle-hud .tl .ln i{position:absolute;left:0;top:0;height:1px;background:var(--ink)}
-  #shuttle-hud .tl .ev{position:absolute;top:22px;transform:translate(-50%,-50%);width:7px;height:7px;border-radius:50%;border:1px solid var(--ink);background:#000}
+  #shuttle-hud .tl{position:relative;width:min(920px,86vw);height:58px}
+  #shuttle-hud .tl .ln{position:absolute;left:0;right:0;top:30px;height:2px;background:rgba(237,232,221,.35)}
+  #shuttle-hud .tl .ln i{position:absolute;left:0;top:0;height:2px;background:var(--ink)}
+  #shuttle-hud .tl .ev{position:absolute;top:31px;transform:translate(-50%,-50%);width:11px;height:11px;border-radius:50%;border:1.5px solid var(--ink);background:#000}
   #shuttle-hud .tl .ev.d{background:var(--ink)} #shuttle-hud .tl .ev.n{border-color:var(--blue);box-shadow:0 0 6px var(--blue)}
-  #shuttle-hud .tl .lb{position:absolute;top:0;transform:translateX(-50%);font-size:10px;color:var(--dim);white-space:nowrap}
-  #shuttle-hud .tl .lb.d{color:var(--ink)} #shuttle-hud .tl .lb.n{color:var(--blue)} #shuttle-hud .tl .lb.lo{top:28px}
-  #shuttle-hud .tl .mk{position:absolute;top:22px;transform:translate(-50%,-50%);width:9px;height:9px;border-radius:50%;background:var(--ink);box-shadow:0 0 8px var(--ink)}
-  #shuttle-hud .tag{display:flex;align-items:stretch;border:1px solid var(--line);background:var(--void)}
-  #shuttle-hud .tag b{background:var(--ink);color:#000;font-weight:400;padding:3px 10px}
-  #shuttle-hud .tag span{padding:3px 10px;white-space:nowrap} #shuttle-hud .tag .w{color:var(--blue)}
+  #shuttle-hud .tl .lb{position:absolute;top:0;transform:translateX(-50%);font-size:14px;color:var(--dim);white-space:nowrap}
+  #shuttle-hud .tl .lb.d{color:var(--ink)} #shuttle-hud .tl .lb.n{color:var(--blue)} #shuttle-hud .tl .lb.lo{top:38px}
+  #shuttle-hud .tl .mk{position:absolute;top:31px;transform:translate(-50%,-50%);width:14px;height:14px;border-radius:50%;background:var(--ink);box-shadow:0 0 8px var(--ink)}
+  #shuttle-hud .tag{display:flex;align-items:stretch;border:1px solid var(--line);background:var(--void);font-size:20px;margin-top:8px}
+  #shuttle-hud .tag b{background:var(--ink);color:#000;font-weight:400;padding:6px 16px}
+  #shuttle-hud .tag span{padding:6px 16px;white-space:nowrap}
+  @media (max-width:700px){#shuttle-hud .tag{font-size:15px} #shuttle-hud .tag b,#shuttle-hud .tag span{padding:4px 9px} #shuttle-hud .tl .lb{font-size:11px}} #shuttle-hud .tag .w{color:var(--blue)}
   #shuttle-hud .prompt{position:absolute;left:50%;bottom:58px;transform:translateX(-50%);width:min(760px,92vw);background:var(--void);border-left:3px solid var(--ink);padding:9px 14px 9px 12px}
   #shuttle-hud .prompt .l1{font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #shuttle-hud .prompt .l1 .k{display:inline-block;border:1px solid var(--ink);padding:0 6px;margin:0 2px;line-height:1.25}
   #shuttle-hud .prompt .l2{color:var(--dim);font-size:12px;margin-top:2px;text-transform:none;letter-spacing:0}
+  #shuttle-hud .prompt .legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;padding-top:7px;border-top:1px solid rgba(237,232,221,.2)}
+  #shuttle-hud .prompt .legend span{display:inline-flex;align-items:center;gap:7px;color:var(--dim);font-size:12px;letter-spacing:.04em;text-transform:uppercase}
+  #shuttle-hud .prompt .legend kbd{font:inherit;color:var(--ink);border:1px solid var(--line);padding:1px 6px;line-height:1.3;min-width:12px;text-align:center}
+  #shuttle-hud .prompt .status{color:var(--dim);font-size:12px;margin-top:3px;text-transform:none;letter-spacing:0}
   #shuttle-hud .prompt .who{color:var(--blue)} #shuttle-hud .prompt.wait{border-left-color:var(--dim)} #shuttle-hud .prompt.wait .l1{color:var(--dim)}
   #shuttle-hud .prompt.alert{border-left-color:var(--rose)} #shuttle-hud .prompt.alert .who{color:var(--rose)}
   #shuttle-hud .cur{display:inline-block;width:.6em;height:1em;background:var(--ink);vertical-align:-2px;margin-left:4px;animation:oscur 1s steps(2) infinite}
@@ -88,13 +98,13 @@
   #shuttle-hud .kb .k{position:absolute;height:calc(var(--ku) - 4px);width:calc(var(--ku) - 4px);border:1px solid var(--ink);background:rgba(0,0,0,.72);color:var(--ink);font-size:13px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 0 var(--ink);transform:translateY(-2px)}
   #shuttle-hud .kb .k.w{color:#000;background:var(--ink)}
   @media (max-width:900px){#shuttle-hud .kb{--ku:22px}}
-  #shuttle-hud .log{position:absolute;left:18px;top:62px;width:min(520px,60vw);font-size:12px;text-transform:none;letter-spacing:0}
+  #shuttle-hud .log{position:absolute;left:18px;top:140px;width:min(520px,60vw);font-size:12px;text-transform:none;letter-spacing:0}
   #shuttle-hud .log div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 0 4px #000,0 0 2px #000;transition:opacity 1.2s}
   #shuttle-hud .log .t{color:var(--dim)} #shuttle-hud .log .bad{color:var(--rose)} #shuttle-hud .log .me{color:var(--blue)}
-  #shuttle-hud .chat{position:absolute;left:18px;top:62px;width:min(520px,60vw);display:none;pointer-events:auto;background:var(--void);border:1px solid var(--line)}
+  #shuttle-hud .chat{position:absolute;left:18px;top:140px;width:min(520px,60vw);display:none;pointer-events:auto;background:var(--void);border:1px solid var(--line)}
   #shuttle-hud .chat input{width:100%;background:transparent;border:0;outline:0;color:var(--ink);font:inherit;padding:5px 8px;text-transform:none}
   #shuttle-hud .hint{position:absolute;right:18px;bottom:16px;color:var(--dim);font-size:11px;text-shadow:0 0 3px #000}
-  #shuttle-hud .toast{position:absolute;left:50%;top:18px;transform:translateX(-50%);display:none;background:var(--void);border:1px solid var(--rose);color:var(--ink);padding:5px 12px;text-transform:none;letter-spacing:0}
+  #shuttle-hud .toast{position:absolute;left:50%;top:140px;transform:translateX(-50%);display:none;background:var(--void);border:1px solid var(--rose);color:var(--ink);padding:5px 12px;text-transform:none;letter-spacing:0}
   #shuttle-hud .banner{position:absolute;right:18px;top:16px;display:none;border:1px solid var(--rose);color:var(--rose);background:var(--void);padding:3px 10px}
   #shuttle-hud .scope{position:absolute;inset:0;display:none;align-items:center;justify-content:center}
   #shuttle-hud .scope i{position:absolute;width:min(62vh,62vw);height:min(62vh,62vw);border:1px solid var(--line);border-radius:50%}
@@ -190,7 +200,8 @@
 
     // ------------------------------------------------------------------ windows
     _win(title, right, crumb, page, body, progress) {
-      const bar = progress ? `<div class="bar">${PHASES.slice(1, 9).map((p, i) => `<i class="${i < progress ? "d" : ""}"></i>`).join("")}</div>` : "";
+      const ph = this._phases || PHASES;
+      const bar = progress ? `<div class="bar">${ph.slice(1, ph.length - 1).map((p, i) => `<i class="${i < progress ? "d" : ""}"></i>`).join("")}</div>` : "";
       return `<div class="wh"><b>${esc(title)}</b><span>${esc(right)}</span></div><div class="crumb"><span>${esc(crumb)}</span><span>${esc(page)}</span></div>
         <div class="wb">${body}</div><div class="wf">${bar}</div>`;
     }
@@ -214,11 +225,18 @@
         return `<li class="${mine ? "me" : ""}">${SEAT[r]}  ${esc(c.name || "--")}${c.name && !c.filled ? " (covering)" : ""}${mine ? "  ◂ you" : ""}<br><span class="done" style="text-transform:none">${esc(info[r].duty)}</span></li>`;
       }).join("");
       const cdr = roles.includes("cdr");
+      const pad = sn.pad || { aboard: [] }, aboard = new Set(pad.aboard || []), room = (this.room && this.room.players) || [];
+      const waiting = room.filter((p) => !aboard.has(p.id)).map((p) => p.name);
+      const boardRows = room.length ? this._sec("BOARDING", `<ul>${room.map((p) => `<li>${aboard.has(p.id) ? '<span class="done">ABOARD</span>' : '<span class="cur"></span>WALKING'}  ${esc(p.name)}</li>`).join("")}</ul>`) : "";
+      const startHtml = waiting.length ? `<span class="done">Waiting for ${esc(waiting.join(", "))} to walk the access arm and board</span><span class="cur"></span><br><br>`
+        : cdr ? this._btn("START", "Start the count  [Enter]") : '<span class="done">Waiting for the Commander to start the count</span><span class="cur"></span><br><br>';
       this.showModal("briefing", "MISSION.BRIEF", "STS_OS//MISSION//BRIEFING", `
-        <div class="txt"><p>Satellite deployment and return to KSC runway 15. A fictional Shuttle-era flight with simplified physics.</p>
-        <p>Ascent is automatic: look around with the mouse. In orbit each seat has its own job, and the prompt at the bottom of the screen always says what to do next and who does it. Entry and landing are flown by hand.</p></div>
-        ${this._sec("CREW", `<ul>${seats}</ul>`)}
-        <div style="margin-top:16px">${cdr ? this._btn("START", "Start the count  [Enter]") : '<span class="done">Waiting for the Commander to start the count</span><span class="cur"></span><br><br>'}${this._btn("LEAVE", "Leave flight")}</div>`);
+        <div class="txt">${sn.variant === "iss" ? `<p>ISS docking. Launch northeast into the station's 51.6° orbit; the two days of rendezvous burns are skipped and the flight resumes 250 m in front of the station. A fictional Shuttle-era flight with simplified physics.</p>
+        <p>Ascent is automatic. Then open the bay, turn the docking ring toward the station with the nose up, and translate in slowly: contact at 0.03–0.15 m/s, within 0.30 m of the axis and 4° of alignment. The flight ends at docking. Press C for the docking-ring camera.</p>`
+        : `<p>Satellite deployment and return to KSC runway 15. A fictional Shuttle-era flight with simplified physics.</p>
+        <p>Ascent is automatic: look around with the mouse. In orbit each seat has its own job, and the prompt at the bottom of the screen always says what to do next and who does it. Entry and landing are flown by hand.</p>`}</div>
+        ${this._sec("CREW", `<ul>${seats}</ul>`)}${boardRows}
+        <div style="margin-top:16px">${startHtml}${this._btn("LEAVE", "Leave flight")}</div>`);
     }
     failureCard(sn) {
       const f = sn.failure, cks = sn.checkpoints.slice().reverse();
@@ -230,7 +248,7 @@
     pauseCard(sn) {
       const cks = sn.checkpoints.slice().reverse();
       this.showModal("pause", "PAUSED", "STS_OS//MISSION//PAUSED", `
-        <div class="txt"><p>The Commander paused the flight.</p></div>
+        <div class="txt"><p>${sn.phase === "briefing" ? "The Commander paused boarding." : "The Commander paused the flight."}</p></div>
         <div>${this._btn("PAUSE", "Resume  [Esc]")}</div>
         <div>${cks.map((c) => this._btn("RETRY_CHECKPOINT", "Restart from " + c, c)).join("")}</div>
         <div>${this._btn("RESTART", "New mission")}${this._btn("LEAVE", "Leave flight")}</div>`);
@@ -241,8 +259,10 @@
       this.showModal("debrief", r.success ? "MISSION.COMPLETE" : "MISSION.RESULT", "STS_OS//MISSION//DEBRIEF", `
         <div class="txt"><p class="${r.success ? "me" : "bad"}">${esc(r.summary)}</p></div>
         <div class="wb" style="padding:0;margin-bottom:14px">
-        ${this._sec("TOUCHDOWN", this._rows([["Sink rate", f2(td.sink) + " m/s"], ["Groundspeed", f0(td.gs) + " m/s"], ["Past threshold", f0(td.x) + " m"], ["Off centreline", f1(td.y) + " m"], ["Stopped at", f0(r.stopX) + " m"]]))}
-        ${this._sec("FLIGHT", this._rows([["Retries", String(r.retries)], ["Max entry load", f2(r.maxG) + " g"], ["Peak heating", f0(r.maxHeat) + " W/cm²"], ["OMS Δv", f0(r.dvOMS) + " m/s"], ["Tasks", `${done}/${sn.objectives.length}`]]))}
+        ${r.docking ? this._sec("CONTACT", this._rows([["Closing rate", f3(r.docking.closing) + " m/s"], ["Offset from axis", f2(r.docking.lateral) + " m"], ["Misalignment", f1(r.docking.misalignDeg) + "°"], ["Roll from nose-up", f1(r.docking.rollDeg) + "°"], ["Rotation rate", f2(r.docking.rateDeg) + "°/s"]]))
+          + this._sec("FLIGHT", this._rows([["Retries", String(r.retries)], ["OMS Δv", f0(r.dvOMS) + " m/s"], ["RCS Δv", f1(r.dvRCS) + " m/s"], ["RCS left", f0(r.rcsLeft) + " kg"], ["Tasks", `${done}/${sn.objectives.length}`]]))
+        : this._sec("TOUCHDOWN", this._rows([["Sink rate", f2(td.sink) + " m/s"], ["Groundspeed", f0(td.gs) + " m/s"], ["Past threshold", f0(td.x) + " m"], ["Off centreline", f1(td.y) + " m"], ["Stopped at", f0(r.stopX) + " m"]]))
+          + this._sec("FLIGHT", this._rows([["Retries", String(r.retries)], ["Max entry load", f2(r.maxG) + " g"], ["Peak heating", f0(r.maxHeat) + " W/cm²"], ["OMS Δv", f0(r.dvOMS) + " m/s"], ["Tasks", `${done}/${sn.objectives.length}`]]))}
         </div>
         ${r.failures.length ? `<div class="txt"><p>${r.failures.map((x) => `${esc(x.phase)}: ${esc(x.reason)}`).join("<br>")}</p></div>` : ""}
         <div>${this._btn("RESTART", "Fly again")}${this._btn("LEAVE", "Leave flight")}</div>`);
@@ -253,6 +273,7 @@
       const t = sn.telemetry, g = sn.guidance, ph = sn.phase, v = sn.vehicle, roles = extra.roles || [];
       const tel = [["Altitude", t.altitudeM > 20000 ? f1(t.altitudeM / 1000) + " km" : f0(t.altitudeM) + " m"], ["Air speed", f0(t.airspeedMps) + " m/s"], ["Mach", f2(t.mach)]];
       if (v.regime !== "ground") tel.push(["Orbital speed", f0(t.inertialSpeedMps) + " m/s"]);
+      if (ph === "docking" && g.dock) { const k = g.dock; tel.push(["Range to port", f1(k.axial) + " m"], ["Closing rate", f3(k.closing) + " m/s"], ["Target closing", f2(k.closeTarget) + " m/s"], ["Offset from axis", f2(k.lateral) + " m"], ["Misalignment", f1(k.misalignDeg) + "°"], ["Roll from nose-up", f1(k.rollDeg) + "°"], ["Rotation rate", f2(k.rateDeg) + "°/s"]); }
       if (["prelaunch", "ascent", "insertion", "payload", "deorbit"].includes(ph)) {
         tel.push(["Vertical speed", f0(t.verticalSpeedMps) + " m/s"]);
         tel.push(["Apoapsis", t.bound ? f1(t.apoapsisAltitudeM / 1000) + " km" : "--"], ["Periapsis", t.periapsisAltitudeM < 0 ? "below surface" : f1(t.periapsisAltitudeM / 1000) + " km"], ["Inclination", deg(t.inclinationRad)]);
@@ -292,6 +313,22 @@
     }
 
     // ------------------------------------------------------------------ the prompt
+    // pre-flight boarding on the gantry (pad_walk.js)
+    _walkPrompt(w) {
+      // one line saying what to do, a status line only when there is news, and a key legend laid out as
+      // key-action pairs (same key chip everywhere) instead of a run-on sentence
+      let l1, cls = "";
+      if (w.tour) l1 = `<span class="who">SITE TOUR &gt;</span> ${esc(w.tour)} — walk around, or jump to another area<span class="cur"></span>`;
+      else if (w.step === "arm") l1 = `<span class="who">BOARDING &gt;</span> walk to the yellow ring: access-arm control<span class="cur"></span>`;
+      else if (w.step === "swing") { l1 = `<span class="who">BOARDING &gt;</span> access arm swinging to the orbiter…`; cls = "wait"; }
+      else l1 = `<span class="who">BOARDING &gt;</span> cross the access arm to the cyan ring at the crew hatch<span class="cur"></span>`;
+      const status = w.reject ? esc(w.reject) : (w.aboard.length ? `Aboard: ${w.aboard.map(esc).join(", ")}` : "");
+      const keys = w.tour
+        ? [["W A S D", "Walk"], ["Shift", "Run"], ["Drag", "Look"], ["Wheel", "Zoom"], ["1–6", "Fast travel"], ["T", "Back to gantry"]]
+        : [["W A S D", "Walk"], ["Shift", "Run"], ["Drag", "Look"], ["Wheel", "Zoom"], ["V", "Mic"], ["1–6", "Gestures"], ["T", "Site tour"]];
+      const legend = `<div class="legend">${keys.map(([k, a]) => `<span><kbd>${esc(k)}</kbd>${esc(a)}</span>`).join("")}</div>`;
+      return { l1, l2: (status ? `<div class="status">${status}</div>` : "") + legend, cls };
+    }
     _prompt(sn, roles) {
       const n = (sn.guidance && sn.guidance.next) || { seat: "all", key: "", text: "", detail: "" };
       const mine = n.seat === "all" || roles.includes(n.seat);
@@ -314,6 +351,7 @@
     }
     _timeline(sn) {
       const o = {}; for (const ob of sn.objectives) o[ob.id] = ob.status;
+      const MILESTONES = sn.variant === "iss" ? ISS_MILESTONES : MILESTONES_ALL;
       const done = MILESTONES.map((m) => !!m[1](sn, o));
       let next = done.indexOf(false); if (next < 0) next = MILESTONES.length;
       // remember when each milestone was reached (sim time) to place the marker inside the current segment
@@ -388,10 +426,13 @@
     update(sn, dt, extra) {
       this.t += dt; extra = extra || {};
       const roles = extra.roles || [];
-      const pi = PHASES.indexOf(sn.phase); this._page = `P.${String(pi).padStart(3, "0")}`; this._prog = Math.max(0, pi - 1);
+      this._phases = sn.phases || PHASES;
+      const pi = this._phases.indexOf(sn.phase); this._page = `P.${String(pi).padStart(3, "0")}`; this._prog = Math.max(0, pi - 1);
       if (sn.failure) { if (this.modalKind !== "failure") this.failureCard(sn); }
       else if (sn.result) { if (this.modalKind !== "debrief") this.debriefCard(sn); }
-      else if (sn.phase === "briefing") { const key = JSON.stringify([sn.crew, roles]); if (this.modalKind !== "briefing" || this._briefKey !== key) { this._briefKey = key; this.briefing(sn, roles); } }
+      else if (sn.paused && (sn.phase !== "briefing" || extra.walk)) { if (this.modalKind !== "pause") this.pauseCard(sn); }   // also on the gantry
+      else if (sn.phase === "briefing" && extra.walk) { if (this.modalKind) this.hideModal(); }
+      else if (sn.phase === "briefing") { const key = JSON.stringify([sn.crew, roles, sn.pad, this.room && this.room.players && this.room.players.map((p) => p.id + p.name)]); if (this.modalKind !== "briefing" || this._briefKey !== key) { this._briefKey = key; this.briefing(sn, roles); } }
       else if (sn.paused) { if (this.modalKind !== "pause") this.pauseCard(sn); }
       else if (this.modalKind) this.hideModal();
       this._keyboard(extra.keys);   // every frame: pressed keys must appear instantly
@@ -404,7 +445,7 @@
       this._set("sh-warp", sn.warp > 1 ? `${sn.warp}×` : "");
       this._timeline(sn);
       this.el("sh-banner").style.display = sn.integrity !== "normal" ? "block" : "none";
-      const p = this._prompt(sn, roles);
+      const p = extra.walk ? this._walkPrompt(extra.walk) : this._prompt(sn, roles);
       this.el("sh-prompt").className = "prompt " + p.cls;
       this.el("sh-prompt").style.display = this.modalKind || this.dataOpen || !p.l1 ? "none" : "";
       this._set("sh-l1", p.l1); this._set("sh-l2", p.l2);

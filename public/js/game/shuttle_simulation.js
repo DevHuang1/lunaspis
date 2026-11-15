@@ -38,6 +38,9 @@
     ssmeFvac: 2.09e6, ssmeIspVac: 452.3, ssmeAe: 4.17, ssmeCount: 3,
     omsF: 2 * 26700, omsIsp: 313,
     rcsTransAccel: 0.08, rcsIsp: 280,                 // m/s^2 at nominal orbiter mass
+    // ISS docking (fictionalised): orbiter docking system ring in the forward bay (body frame, metres)
+    // and the station's forward docking port (PMA-2 tip) along its +V axis from the model origin
+    odsBody: [0, 5.6, 6.3], issPortV: 21.0,
     rcsAngAccel: 1.2 * DEG, rcsMaxRate: 3.0 * DEG, holdMaxRate: 1.5 * DEG,
     S: 249.9,                                          // m^2 reference area
     stackCdA: 0.35 * 120,                              // m^2 launch stack drag area
@@ -342,7 +345,7 @@
       maxQ: 0,
     };
     const pad = SITES.pad, B = enuBasis(pad.lat, pad.lon);
-    st.r = ecefToEci(llhToEcef(pad.lat, pad.lon, 34.1), st.theta0);    // orbiter origin: SRB aft skirts on the MLP deck (12.8 m)
+    st.r = ecefToEci(llhToEcef(pad.lat, pad.lon, 41.1), st.theta0);    // orbiter origin: SRB aft skirts on the MLP deck (19.8 m, KSC scene / pad_layout.js)
     st.v = earthRateVel(st.r);
     // stack on pad: nose up, orbiter on the north side of the ET -> orbiter dorsal (+Y) points north
     st.q = qFromNoseUp(ecefToEci(B.U, st.theta0), ecefToEci(B.N, st.theta0));
@@ -352,7 +355,7 @@
 
   function vehicleMass(st) {
     const m = st.mass;
-    let total = m.orbiterInert + m.oms + m.rcs + (st.cfg.payload ? m.payload : 0);
+    let total = m.orbiterInert + m.oms + m.rcs + (st.cfg.payload ? m.payload : 0) + (m.cargo || 0);
     if (st.cfg.et) total += V.etInert + m.et;
     if (st.cfg.srb) total += 2 * V.srbInert + m.srbL + m.srbR;
     return total;
@@ -428,6 +431,8 @@
     };
   }
 
+  // ascent shaping (tuned so the nose stays within a few degrees of the flight path; see docs/progress.md)
+  const ASCENT_GUID = { kickRate: 0.55, kickDeg: 6, alphaUp: 13, alphaDn: 5, hTarget: 125e3, hdotGain: 0.012, rollHeadsUpT: 345 };
   // ---------------------------------------------------------------- ascent guidance (automatic)
   // Pitch/roll program + closed-loop second stage. Attitude order: the target attitude is built from
   // the commanded thrust direction (nose) and the heads-down dorsal direction in the launch plane;
@@ -442,18 +447,20 @@
     const down = ecefToEci(downEcef, gmst(st));
     let el;                                   // thrust elevation above local horizontal
     const va = airVel(st.r, st.v), van = norm(va);
+    const G = st.ascent.guid || ASCENT_GUID;
+    const velElOf = (vv) => Math.atan2(dot(vv, up), Math.max(1, norm(sub(vv, scl(up, dot(vv, up))))));
     if (tl < 7) el = 90 * DEG;
     else if (st.cfg.srb) {
       // pitch-over kick then near-zero-alpha gravity turn (load relief), bounded below
-      const kick = 90 * DEG - clamp((tl - 7) * 0.55, 0, 6) * DEG;
-      const velEl = Math.atan2(dot(va, up), Math.max(1, norm(sub(va, scl(up, dot(va, up))))));
+      const kick = 90 * DEG - clamp((tl - 7) * G.kickRate, 0, G.kickDeg) * DEG;
+      const velEl = velElOf(va);
       el = tl < 18 ? kick : Math.min(kick, velEl - 1.2 * DEG);
     } else {
       // closed loop: drive altitude toward hTarget, shape vertical speed, and let horizontal
       // acceleration build orbital speed. sin(el) = (a_up_cmd + g - v_h^2/r) / a_thrust
-      const hT = st.ascent.hTarget, alt = d.altitudeM;
+      const hT = G.hTarget, alt = d.altitudeM;
       const vUp = dot(st.v, up), vh = norm(sub(st.v, scl(up, vUp)));
-      const hdotCmd = clamp(0.012 * (hT - alt), -60, 900);
+      const hdotCmd = clamp(G.hdotGain * (hT - alt), -60, 900);
       const aUp = 0.06 * (hdotCmd - vUp);
       const g = MU / (norm(st.r) ** 2), cen = vh * vh / norm(st.r);
       const aT = Math.max(1, st.lastThrustAccel || 10);
@@ -461,11 +468,17 @@
       // when the altitude overshot the target late in second stage): flying level is enough, the
       // small vertical-speed error washes out before MECO
       el = Math.asin(clamp((aUp + g - cen) / aT, -0.02, 0.97));
+      // keep the nose close to the flight path (no nose-down dip after SRB separation, no 30 deg pitch-up
+      // later): the closed-loop demand is bounded to a band around the inertial flight-path angle
+      const fpa = velElOf(st.v);
+      el = clamp(el, fpa - G.alphaDn * DEG, fpa + G.alphaUp * DEG);
     }
     const nose = add(scl(up, Math.sin(el)), scl(down, Math.cos(el)));
-    // heads-down: dorsal toward the downrange/underside of the launch plane after the roll program
+    // heads-down: dorsal toward the downrange/underside of the launch plane after the roll program;
+    // late in second stage the real orbiter rolled to heads-up (TDRS line of sight, flown from 1998)
     const headsDown = add(scl(up, -Math.cos(el)), scl(down, Math.sin(el)));
-    let qCmd = qFromNoseUp(nose, headsDown);
+    const headsUp = scl(headsDown, -1);
+    let qCmd = qFromNoseUp(nose, !st.cfg.srb && tl >= G.rollHeadsUpT ? headsUp : headsDown);
     if (tl < 7) qCmd = st.q;  // tower clear before rolling
     st.q = qToward(st.q, qCmd, 5.0 * DEG * dt);
   }
@@ -526,9 +539,9 @@
         st.cfg.srb = false; st.eng.srb = false; st.log.srbSepT = st.t;
         const ax = qAxes(st.q);
         for (const side of [1, -1]) {
-          const off = add(scl(ax.x, side * 6.6), scl(ax.y, -5.25));
+          const off = add(add(scl(ax.x, side * 6.6), scl(ax.y, -5.25)), scl(ax.z, 2.52));   // same offsets the view draws them at (no jump)
           st.debris.push({ id: side > 0 ? "SRB_L" : "SRB_R", kind: "srb", r: add(st.r, off), v: addS(addS(st.v, ax.x, side * 4), ax.y, -2),
-                           q: st.q.slice(), cdA: 40, mass: V.srbInert + 1000, w: scl(ax.x, 0), spin: side * 0.6 * DEG });
+                           q: st.q.slice(), cdA: 40, mass: V.srbInert + 1000, w: scl(ax.x, 0), spin: side * 0.6 * DEG, bornT: st.t });
         }
         st.mass.srbL = st.mass.srbR = 0;
         ev.push({ type: "STAGE_SEPARATED", stage: "SRB" });
@@ -546,7 +559,9 @@
     if (!st.eng.ssme && st.cfg.et && st.log.mecoT !== null && st.t - st.log.mecoT >= 18) {
       st.cfg.et = false; st.log.etSepT = st.t;
       const ax = qAxes(st.q);
-      st.debris.push({ id: "ET", kind: "et", r: addS(st.r, ax.y, -5.25), v: st.v.slice(), q: st.q.slice(), cdA: 300, mass: V.etInert + st.mass.et, spin: 0.25 * DEG });
+      // spawned exactly where the attached tank was drawn (view ET_OFF = [0, -5.25, 12.4]); it used to appear
+      // 12.4 m aft, which looked like a cut. It then drifts away and tumbles slowly as it falls.
+      st.debris.push({ id: "ET", kind: "et", r: addS(addS(st.r, ax.y, -5.25), ax.z, 12.4), v: addS(st.v.slice(), ax.y, -0.3), q: st.q.slice(), cdA: 300, mass: V.etInert + st.mass.et, spin: 0.25 * DEG, bornT: st.t });
       st.v = addS(st.v, ax.y, 1.2);          // automatic separation translation (-Z in NASA axes)
       st.mass.rcs -= 30;
       st.mass.et = 0;
@@ -650,6 +665,46 @@
     }
   }
 
+  // ---------------------------------------------------------------- ISS docking (variant "iss")
+  // The station flies an LVLH-fixed attitude tail-first ("-XVV", which the real ISS also flew): model +Z
+  // (its forward end, PMA-2 port) points along -V, +Y zenith (R), +X = -orbit normal. The orbiter comes up
+  // from behind on the -V-bar, so the station is AHEAD of it, and docks with its dorsal ring facing +V
+  // (toward the station), nose zenith. `axis` = the port's outward direction (station -> approaching orbiter).
+  function stationFrame(r, v) {
+    const R = unit(r), H = unit(cross(r, v)), Vv = cross(H, R);
+    return { R, H, V: Vv, Z: scl(Vv, -1), X: scl(H, -1) };     // Z/X: station model axes (+Y = R)
+  }
+  function dockGeometry(st) {
+    const s = st.iss; if (!s) return null;
+    const F = stationFrame(s.r, s.v), axis = F.Z;
+    const nOrb = norm(cross(s.r, s.v)) / (norm(s.r) ** 2);          // station rotation rate (orbit rate) about H
+    const portOff = scl(axis, V.issPortV), P = add(s.r, portOff), vP = add(s.v, scl(cross(F.H, portOff), nOrb));
+    const lever = qrot(st.q, V.odsBody), D = add(st.r, lever), vD = add(st.v, qrot(st.q, cross(st.w, V.odsBody)));
+    // relative velocity as seen from the station's own rotating frame (LVLH, rate nOrb about H): co-orbital
+    // bodies 250 m apart have ~0.3 m/s inertial relative velocity but no motion relative to each other here
+    const rel = sub(D, P), axial = dot(rel, axis), latV = sub(rel, scl(axis, axial));
+    const vRel = sub(sub(vD, vP), scl(cross(F.H, rel), nOrb));
+    const dorsal = qrot(st.q, [0, 1, 0]), nose = qrot(st.q, [0, 0, 1]);
+    const misalign = Math.acos(clamp(dot(dorsal, scl(axis, -1)), -1, 1));
+    const nProj = sub(nose, scl(axis, dot(nose, axis))), nn = norm(nProj);
+    const rollErr = nn > 1e-6 ? Math.acos(clamp(dot(scl(nProj, 1 / nn), F.R), -1, 1)) : Math.PI;
+    return { P, D, axis, F, rel, axial, lateral: norm(latV), latV, vRel, closing: -dot(vRel, axis), latRate: norm(sub(vRel, scl(axis, dot(vRel, axis)))),
+             range: norm(rel), misalign, rollErr, wRel: norm(sub(st.w, orbitRateBody(st))),
+             target: qFromNoseUp(F.R, scl(axis, -1)) };                // docking attitude: nose zenith, bay toward the station
+  }
+  function stepStation(st, dt, ev) {
+    const s = st.iss; if (!s || s.docked) return;
+    const res = rk4(s.r, s.v, dt, (r) => gravity(r));
+    s.r = res.r; s.v = res.v;
+    const g = dockGeometry(st), prev = s.axial;
+    s.axial = g.axial; s.range = g.range; s.closing = g.closing; s.lateral = g.lateral;
+    // contact: the orbiter's docking ring reaches the port plane (evaluated once, at the crossing)
+    if (prev !== undefined && prev > 0 && g.axial <= 0 && !s.contact) {
+      s.contact = { closing: g.closing, lateral: g.lateral, misalign: g.misalign, rollErr: g.rollErr, wRel: g.wRel, latRate: g.latRate, t: st.t };
+      ev.push(Object.assign({ type: "DOCK_CONTACT" }, s.contact));
+    }
+  }
+
   function stepPayload(st, dt, ev) {
     const p = st.payload;
     if (p.power && !p.ready && st.cfg.payload) {
@@ -700,6 +755,9 @@
       const gdot = f.lastGamma === undefined ? 0 : (gam - f.lastGamma) / Math.max(dt, 1e-3); f.lastGamma = gam;
       const aRate = clamp(2.6 * (f.gammaHold - gam) - 1.1 * gdot, -6 * DEG, 6 * DEG);
       f.alpha = clamp(f.alpha + aRate * dt, -4 * DEG, 24 * DEG);
+      // tail-strike protection below 30 m: the flight computer will not pitch the nose past 13.5 deg
+      // (tail clearance ~15 deg), however hard the pilot pulls in the flare
+      if (hr < 30) { const thMax = 13.5 * DEG; if (gam + f.alpha * Math.cos(f.sigma) > thMax) f.alpha = Math.max(-4 * DEG, (thMax - gam) / Math.max(0.5, Math.cos(f.sigma))); }
       f.theta = gam + f.alpha * Math.cos(f.sigma);
     }
     // speed brake (approach), gear (one-way, 4 s deployment)
@@ -764,6 +822,9 @@
   function stepDebris(st, dt) {
     for (let i = st.debris.length - 1; i >= 0; i--) {
       const b = st.debris[i];
+      // bodies created this step were spawned from the orbiter's already-advanced state; advancing them again
+      // put the ET 130 m (one orbital step) ahead of where it was drawn attached
+      if (b.bornT === st.t) continue;
       const res = rk4(b.r, b.v, dt, (r, v) => {
         const alt = norm(r) - RE; let a = gravity(r);
         if (alt < ATMO_TOP) { const va = airVel(r, v), at = atmosphere(alt); a = addS(a, unit(va), -0.5 * at.rho * dot(va, va) * b.cdA / b.mass); }
@@ -782,7 +843,7 @@
     switch (st.regime) {
       case "pad": st.v = earthRateVel(st.r); st.r = rotZ(st.r, OMEGA_E * dt); st.q = qnorm(qmul([Math.cos(OMEGA_E * dt / 2), 0, 0, Math.sin(OMEGA_E * dt / 2)], st.q)); break;
       case "ascent": stepAscent(st, dt, ev); break;
-      case "orbit": stepOrbit(st, dt, input, ev); stepPayload(st, dt, ev); break;
+      case "orbit": stepOrbit(st, dt, input, ev); stepPayload(st, dt, ev); stepStation(st, dt, ev); break;
       case "atmo": stepAtmo(st, dt, input, ev); break;
       case "ground": stepGround(st, dt, input, ev); break;
       default: break;
@@ -1130,8 +1191,9 @@
     gmst, ecefToEci, eciToEcef, llhToEcef, ecefToLL, enuBasis, airVel, earthRateVel, greatCircle,
     toRunway, fromRunway, rwyVecToEci, eciVecToRwy, atmosphere, aeroCoeffs, alphaSchedule,
     attitudeFromAero, aeroFromAttitude, elements, keplerPropagate, timeToRadius, timeToApoapsis,
-    createState, clone, vehicleMass, derive, step, ignite, enterAtmo, lvlh, orbitRateBody, pointAlt,
+    ASCENT_GUID, createState, clone, vehicleMass, derive, step, ignite, enterAtmo, lvlh, orbitRateBody, pointAlt,
     predictEntry, solveBank, planDeorbit, findOpportunity, rk4, gravity, aeroAccel, srbProfile,
+    stationFrame, dockGeometry, stepStation,
   };
   root.ShuttleSim = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;

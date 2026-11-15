@@ -248,6 +248,15 @@ app.get("/api/rooms", async (req, res) => {
   }
 });
 
+// CubeSat coverage: SGP4 library (satellite.js, MIT) served from node_modules; a clean 404 if not installed
+app.get("/vendor/satellite.min.js", (req, res) => {
+  const f = path.join(__dirname, "node_modules", "satellite.js", "dist", "satellite.min.js");
+  if (fs.existsSync(f)) return res.type("application/javascript").sendFile(f);
+  res.status(404).type("application/javascript").send("/* satellite.js not installed: Real Satellite mode unavailable */");
+});
+// CubeSat coverage: CelesTrak GP / SatNOGS station proxy with caching and an error budget
+require("./server/coverage_data.js")(app);
+
 // Fallback route to serve index.html for any unhandled GET request
 app.use((req, res, next) => {
   if (req.method === "GET") {
@@ -269,6 +278,15 @@ const GAME_MODE = "shuttle-coop";
 const SUIT_COLORS = ["#ef4444", "#3b82f6", "#10b981", "#f59e0b"];
 const SNAPSHOT_HZ = 15;
 const TEST_HOOKS = process.env.SHUTTLE_TEST === "1";   // accelerated stepping for automated playtests only
+// CubeSat Contact Coverage: a second, separate activity. The server owns scenario + clock + edit rights only.
+const coverageRoom = require("./server/coverage_room.js");
+const ACTIVITIES = ["shuttle", "coverage"];
+const FLIGHTS = ["deploy", "iss"];      // Shuttle flight: satellite deploy + landing, or ISS docking
+// Pre-flight boarding on LC-39A: everyone walks the gantry access arm to the crew hatch (pad_layout.js)
+const PadLayout = require("./public/js/game/pad_layout.js");
+function newPadState() { return { arm: false, armAt: 0, aboard: {} }; }
+function padAboardIds(room) { return room.pad ? Object.keys(room.pad.aboard).filter((id) => room.players[id]) : []; }
+function crewNotAboard(room) { return room.pad ? Object.keys(room.players).filter((id) => !room.pad.aboard[id]) : []; }
 
 const rooms = {};
 
@@ -279,9 +297,9 @@ function generateRoomCode() {
   return rooms[code] ? generateRoomCode() : code;
 }
 
-function createNewRoom(roomId, hostId, isPublic = true) {
+function createNewRoom(roomId, hostId, isPublic = true, activity = "shuttle") {
   return {
-    id: roomId, hostId, mode: GAME_MODE, maxPlayers: MAX_PLAYERS, status: "lobby", isPublic: !!isPublic,
+    id: roomId, hostId, mode: GAME_MODE, activity: ACTIVITIES.includes(activity) ? activity : "shuttle", flight: "deploy", coverage: null, maxPlayers: MAX_PLAYERS, status: "lobby", isPublic: !!isPublic,
     createdAt: Date.now(), players: {}, mission: null, inputs: {}, lastTick: 0, lastSnap: 0,
     testFreeze: false, resultRecorded: false, chatHistory: []
   };
@@ -317,7 +335,8 @@ function crewAssignments(room) {
 
 function serializeRoom(room) {
   return {
-    id: room.id, hostId: room.hostId, mode: room.mode, maxPlayers: room.maxPlayers, status: room.status,
+    id: room.id, hostId: room.hostId, mode: room.mode, activity: room.activity, flight: room.flight || "deploy", maxPlayers: room.maxPlayers, status: room.status,
+    editorId: room.coverage ? room.coverage.editorId : null,
     players: Object.values(room.players), crew: crewAssignments(room), roleInfo: CREW.info
   };
 }
@@ -335,10 +354,17 @@ function mergedInputs(room) {
   return inp;
 }
 
+function sendCoverageState(room, socket) {
+  if (!room.coverage) return;
+  const st = coverageRoom.publicState(room.coverage, room);
+  (socket || io.to(room.id)).emit("coverage_state", st);
+}
+
 function sendSnapshot(room) {
   if (!room.mission) return;
   const sn = room.mission.snapshot();
   sn.crew = crewAssignments(room);
+  sn.pad = room.pad ? { arm: room.pad.arm, aboard: padAboardIds(room) } : { arm: true, aboard: Object.keys(room.players) };
   io.to(room.id).emit("shuttle_state", sn);
   return sn;
 }
@@ -363,6 +389,10 @@ setInterval(() => {
     const room = rooms[roomId];
     const playerCount = Object.keys(room.players).length;
     if (playerCount === 0 && now - room.createdAt > 1800000) { delete rooms[roomId]; continue; }
+    if (room.coverage && playerCount > 0 && now - (room.lastCovClock || 0) >= 1000) {
+      room.lastCovClock = now;
+      const c = room.coverage; io.to(roomId).emit("coverage_clock", { revision: c.revision, clock: { simT: coverageRoom.clockNow(c, now), wallRef: now, rate: c.clock.rate, paused: c.clock.paused }, serverNow: now });
+    }
     if (!room.mission) continue;
     if (playerCount === 0) continue;      // nobody aboard: hold the simulation
     const dt = room.lastTick ? (now - room.lastTick) / 1000 : 0;
@@ -406,7 +436,8 @@ io.on("connection", (socket) => {
   // Host creates a room (private "solo" rooms are the same thing with one crew member)
   socket.on("create_room", async (data = {}, callback) => {
     const roomId = generateRoomCode();
-    const room = createNewRoom(roomId, socket.id, data.isPublic !== false);
+    const room = createNewRoom(roomId, socket.id, data.isPublic !== false, data.activity);
+    if (FLIGHTS.includes(data.flight)) room.flight = data.flight;
     rooms[roomId] = room;
     currentRoomId = roomId;
     socket.join(roomId);
@@ -443,11 +474,12 @@ io.on("connection", (socket) => {
     console.log(`[ROOM] ${player.name} joined ${targetCode} as ${player.role} (${Object.keys(room.players).length}/${MAX_PLAYERS})`);
     await db.getOrCreateUser(socket.userId, player.name, player.color, player.role);
     await db.upsertRoomMember(targetCode, socket.userId, socket.id, player);
-    const payload = { success: true, roomId: targetCode, hostId: room.hostId, player, room: serializeRoom(room), inFlight: !!room.mission };
+    const payload = { success: true, roomId: targetCode, hostId: room.hostId, player, room: serializeRoom(room), inFlight: !!(room.mission || room.coverage) };
     if (typeof callback === "function") callback(payload);
     socket.emit("room_joined", payload);
     broadcastRoomUpdate(room);
     if (room.mission) { socket.emit("game_started", { roomId: targetCode, mode: GAME_MODE, rejoin: true }); sendSnapshot(room); }
+    else if (room.coverage) { socket.emit("game_started", { roomId: targetCode, mode: "coverage", rejoin: true }); sendCoverageState(room, socket); }
   });
 
   // Lobby: name / colour / crew seat (seats are unique)
@@ -479,13 +511,64 @@ io.on("connection", (socket) => {
     if (!currentRoomId || !rooms[currentRoomId]) return;
     const room = rooms[currentRoomId];
     if (room.hostId !== socket.id) return;
-    room.mission = new ShuttleMission();
+    if (room.activity === "coverage") {
+      room.mission = null;
+      if (!room.coverage) room.coverage = coverageRoom.createCoverageState(socket.id);
+      room.status = "playing";
+      console.log(`[GAME] CubeSat coverage session started in room ${currentRoomId}`);
+      await db.upsertGameRoom(currentRoomId, room.hostId, "playing");
+      io.to(currentRoomId).emit("game_started", { roomId: currentRoomId, mode: "coverage" });
+      broadcastRoomUpdate(room);
+      sendCoverageState(room);
+      return;
+    }
+    room.mission = new ShuttleMission({ variant: room.flight });
+    room.pad = newPadState();
+    for (const pid in room.players) room.players[pid].padPos = null;
     room.status = "playing"; room.inputs = {}; room.lastTick = Date.now(); room.resultRecorded = false; room.testFreeze = false;
     console.log(`[GAME] Shuttle mission ${room.mission.missionId} started in room ${currentRoomId}`);
     await db.upsertGameRoom(currentRoomId, room.hostId, "playing");
     for (const pid in room.players) { const p = room.players[pid]; if (p.userId) db.incrementUserStats(p.userId, { gamesPlayed: 1 }); }
     io.to(currentRoomId).emit("game_started", { roomId: currentRoomId, mode: GAME_MODE, missionId: room.mission.missionId });
     sendSnapshot(room);
+  });
+
+  // Host picks the activity in the lobby (Shuttle crew or CubeSat coverage)
+  socket.on("set_activity", (data = {}, callback) => {
+    const room = currentRoomId && rooms[currentRoomId];
+    const reply = (r) => { if (typeof callback === "function") callback(r); };
+    if (!room) return reply({ success: false, message: "Not in a room" });
+    if (room.hostId !== socket.id) return reply({ success: false, message: "Only the host can change the mission" });
+    if (room.mission || room.coverage) return reply({ success: false, message: "A mission is already running in this room" });
+    if (room.id === "ORBIT1") return reply({ success: false, message: "The public room is for the Shuttle crew" });
+    if (!ACTIVITIES.includes(data.activity)) return reply({ success: false, message: "Unknown mission" });
+    room.activity = data.activity;
+    reply({ success: true });
+    broadcastRoomUpdate(room);
+  });
+
+  // Host picks the Shuttle flight in the lobby (satellite deploy or ISS docking)
+  socket.on("set_flight", (data = {}, callback) => {
+    const room = currentRoomId && rooms[currentRoomId];
+    const reply = (r) => { if (typeof callback === "function") callback(r); };
+    if (!room) return reply({ success: false, message: "Not in a room" });
+    if (room.hostId !== socket.id) return reply({ success: false, message: "Only the host can change the flight" });
+    if (room.mission) return reply({ success: false, message: "A flight is already running in this room" });
+    if (!FLIGHTS.includes(data.flight)) return reply({ success: false, message: "Unknown flight" });
+    room.flight = data.flight;
+    reply({ success: true });
+    broadcastRoomUpdate(room);
+  });
+
+  // CubeSat coverage: scenario / markers / clock / editor hand-over / forecast hash
+  socket.on("coverage_request", (data = {}, callback) => {
+    const room = currentRoomId && rooms[currentRoomId];
+    const reply = (r) => { if (typeof callback === "function") callback(r); };
+    if (!room || !room.coverage || !room.players[socket.id]) return reply({ accepted: false, reason: "No coverage session" });
+    if (data.type === "SYNC") { sendCoverageState(room, socket); return reply({ accepted: true }); }
+    const r = coverageRoom.applyRequest(room.coverage, room, socket.id, data);
+    reply({ accepted: r.accepted, reason: r.reason || null, revision: room.coverage.revision });
+    if (r.accepted && r.changed) { sendCoverageState(room); if (r.changed === "editor") broadcastRoomUpdate(room); }
   });
 
   // Semantic mission commands, authorised by crew seat
@@ -503,13 +586,55 @@ io.on("connection", (socket) => {
       return reply(r);
     }
     let r;
-    if (type === "RESTART") { room.mission = new ShuttleMission(); room.resultRecorded = false; room.status = "playing"; r = { accepted: true }; }
+    const waiting = type === "START" ? crewNotAboard(room) : [];
+    if (waiting.length) {
+      r = { accepted: false, reason: `Waiting for ${waiting.map((id) => room.players[id].name).join(", ")} to board the orbiter` };
+      return reply(r);
+    }
+    if (type === "RESTART") { room.mission = new ShuttleMission({ variant: room.flight }); room.resultRecorded = false; room.status = "playing"; r = { accepted: true }; }
     else r = room.mission.command(type, data.args || {});
     reply(r);
     const p = room.players[socket.id];
     io.to(room.id).emit("shuttle_command_log", { by: p.name, seat, type, accepted: r.accepted, reason: r.reason || null });
     const ev = room.mission.drainEvents();
     if (ev.length) io.to(room.id).emit("shuttle_events", ev.filter((e) => e.type !== "COMMAND_ACCEPTED"));
+    sendSnapshot(room);
+  });
+
+  // Boarding walk: positions on the gantry are relayed to the crew (proximity voice + astronaut rigs)
+  socket.on("pad_pos", (data = {}) => {
+    const room = currentRoomId && rooms[currentRoomId];
+    if (!room || !room.pad || !room.players[socket.id] || !Array.isArray(data.pos) || data.pos.length !== 3) return;
+    const pos = data.pos.map(Number);
+    if (!pos.every((n) => Number.isFinite(n) && Math.abs(n) < 5000)) return;
+    const p = room.players[socket.id];
+    p.padPos = pos;
+    const emote = typeof data.emote === "string" && /^[a-z_]{2,12}$/.test(data.emote) ? data.emote : null;
+    const out = { id: socket.id, pos, yaw: Number.isFinite(+data.yaw) ? +data.yaw : 0, moving: data.moving === 2 ? 2 : !!data.moving, emote };   // 2 = running
+    socket.to(room.id).emit("pad_moved", out);   // not volatile: long-polling clients would lose most updates
+  });
+  // ARM: swing the access arm across (any crew member at the control console). BOARD: enter at the hatch.
+  socket.on("pad_action", (data = {}, callback) => {
+    const reply = (r) => { if (typeof callback === "function") callback(r); };
+    const room = currentRoomId && rooms[currentRoomId];
+    if (!room || !room.pad || !room.mission || !room.players[socket.id]) return reply({ accepted: false, reason: "Not on the pad" });
+    if (room.mission.phase !== "briefing") return reply({ accepted: false, reason: "The count has started" });
+    const p = room.players[socket.id], slack = PadLayout.RADIUS.serverSlack;
+    // the request carries the walker's position (also kept from pad_pos); it must be a standable spot
+    if (Array.isArray(data.pos) && data.pos.length === 3 && data.pos.every((n) => Number.isFinite(+n)) && PadLayout.floorAt(data.pos.map(Number), PadLayout.ARM.extended) !== null) p.padPos = data.pos.map(Number);
+    const pos = p.padPos;
+    let r;
+    if (data.type === "ARM") {
+      if (room.pad.arm) r = { accepted: true };
+      else if (!pos || !PadLayout.nearConsole(pos, slack)) r = { accepted: false, reason: "Walk to the access-arm control first" };
+      else { room.pad.arm = true; room.pad.armAt = Date.now(); r = { accepted: true }; io.to(room.id).emit("shuttle_command_log", { by: p.name, seat: null, type: "ACCESS_ARM_EXTEND", accepted: true, reason: null }); }
+    } else if (data.type === "BOARD") {
+      const swing = (PadLayout.ARM.retracted - PadLayout.ARM.extended) / PadLayout.ARM.swingRate * 1000 - 500;
+      if (!room.pad.arm || Date.now() - room.pad.armAt < swing) r = { accepted: false, reason: "The access arm is not locked to the orbiter yet" };
+      else if (!pos || !PadLayout.nearHatch(pos, slack)) r = { accepted: false, reason: "Walk across the access arm to the crew hatch" };
+      else { room.pad.aboard[socket.id] = true; r = { accepted: true }; io.to(room.id).emit("shuttle_command_log", { by: p.name, seat: null, type: "BOARDED", accepted: true, reason: null }); }
+    } else r = { accepted: false, reason: "Unknown pad action" };
+    reply(r);
     sendSnapshot(room);
   });
 
@@ -530,6 +655,19 @@ io.on("connection", (socket) => {
       const room = currentRoomId && rooms[currentRoomId];
       if (!room || !room.mission) return typeof callback === "function" && callback(null);
       if (data.op === "freeze") room.testFreeze = !!data.on;
+      if (data.op === "dock_place" && room.mission.st.iss) {
+        // test only: aligned in DAP HOLD, doors open, on the docking axis at the given distance, closing slowly
+        const S = require("./public/js/game/shuttle_simulation.js"), m = room.mission;
+        m.applyFixture("dock_place", (mm) => {
+          const st = mm.st; st.bay.doors = 1; st.bay.cmd = 0; st.dap.mode = "HOLD"; st.q = S.dockGeometry(st).target; st.w = S.orbitRateBody(st); st.dap.holdRel = null;
+          const g = S.dockGeometry(st), ax = Math.max(0.2, Number(data.axial) || 20);
+          st.r = S.vec.add(st.r, S.vec.sub(S.vec.add(g.P, S.vec.scl(g.axis, ax)), g.D));
+          const n = S.vec.norm(S.vec.cross(st.iss.r, st.iss.v)) / S.vec.norm(st.iss.r) ** 2;
+          st.v = S.vec.add(S.vec.add(st.iss.v, S.vec.scl(S.vec.cross(g.F.H, S.vec.sub(st.r, st.iss.r)), n)), S.vec.scl(g.axis, -(Number(data.closing) || 0.07)));
+          st.iss.axial = undefined; mm.prev = { r: st.r.slice(), q: st.q.slice() };
+        });
+      }
+      if (data.op === "board_all" && room.pad) { room.pad.arm = true; room.pad.armAt = 0; for (const id in room.players) room.pad.aboard[id] = true; }
       if (data.op === "preset") {
         // test only: a scripted pilot flies the server mission to the named phase, in 200 ms slices so
         // the socket keeps breathing; the ack is sent when the phase is reached
@@ -592,7 +730,8 @@ io.on("connection", (socket) => {
         await db.upsertGameRoom(leavingRoomId, room.players[remaining[0]].userId || remaining[0], room.status);
       }
     }
-    if (Object.keys(room.players).length === 0) { room.mission = null; room.status = "lobby"; }
+    if (room.coverage) { coverageRoom.onPlayerLeft(room.coverage, room); sendCoverageState(room); }
+    if (Object.keys(room.players).length === 0) { room.mission = null; room.coverage = null; room.status = "lobby"; }
     broadcastRoomUpdate(room);
     socket.to(leavingRoomId).emit("player_left", { id: socket.id, name: p.name, role: p.role });
   }

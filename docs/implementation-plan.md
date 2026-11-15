@@ -1,5 +1,7 @@
 # Implementation plan
 
+**Additional mission:** [Artemis implementation plan](#artemis-implementation-plan--draft-2026-11-14), researched 2026-11-14. This is a new planning request, not permission to implement.
+
 **2026-11-14 navigation:** the Shuttle plan below is historical; current implemented behavior is recorded in [progress](progress.md). The additional [CubeSat coverage plan](#cubesat-coverage-implementation-plan--draft-2026-11-14) is a new planning request, not authorization to execute the older Shuttle implementation prompt again.
 
 **DRAFT — updated 2026-11-13 with confirmed control requirements and proposed scenario defaults. No gameplay implementation has begun.**
@@ -130,39 +132,82 @@ Update docs/progress.md with actual changes, commands/results, observed playthro
 
 ## CubeSat coverage implementation plan — DRAFT 2026-11-14
 
-Planning only. Implement after the user asks to proceed. Scope and variable definitions are in the [CubeSat specification](mission-spec.md#cubesat-contact-coverage-mission--draft-2026-11-14). Preserve the current co-op Shuttle and unrelated uncommitted changes. Do not restore removed activities from the historical audit.
+**Superseded the same day by [cubesat-coverage-plan.md](cubesat-coverage-plan.md)**, which covers both confirmed modes (Sandbox and Real Satellite). The earlier C1–C3 single-mode sequence is in git history and is folded into the new milestones.
 
-### Existing implementation to reuse
+Milestones (details, acceptance criteria and checks are in the plan's §6–§7):
 
-Source inspected 2026-11-14, without running/revalidating Shuttle gameplay:
+| # | Milestone | Depends on |
+|---|---|---|
+| C1 | DOM-free core: scenario/validation, UTC GMST, circular propagator, look angles, pass search with grazing detection, union statistics, X/Y compare, phase return | — |
+| C2 | Mission choice in title/lobby, `room.activity`, coverage room state, editor ownership, shared clock, cleanup. Shuttle loop untouched | C1 |
+| C3 | Shared `earth_globe.js` (Shuttle view switched, screenshot-checked), coverage globe, clock, NOW, NEXT PASSES, timeline, playback | C2 |
+| C4 | X/Y markers, compare panel, return-to-X countdown, orbit numbering, replay from start | C3 |
+| C5 | Scenario editor, validation, onboarding, empty/error states, table view | C3 |
+| C6 | Results, A/B comparison, save/load/export | C4, C5 |
+| C7 | Real data layer: satellite.js (D1), CelesTrak GP proxy/cache/error budget, SatNOGS catalog, bundled snapshots (D2), data age | C1, C2 |
+| C8 | Real mode UX: satellite picker, source/age display, station catalog picker, Copy to Sandbox, element refresh | C6, C7 |
+| C9 | Performance, 2–4 client session, full playtests in both modes, Shuttle regressions, progress evidence | all |
 
-- `public/js/game/shuttle_simulation.js` exports SI constants, `elements`, `keplerPropagate`, ECI/ECEF transforms, spherical station coordinates, ENU basis and vector helpers. These already own the needed orbit/frame mathematics. Validate supported circular-orbit cases and reuse; do not reuse Shuttle ascent/entry approximations to predict CubeSat coverage.
-- Its `gmst` helper advances a supplied `theta0`; it is not a full UTC-to-sidereal-time initializer. For the proposed first model initialize orbit orientation Earth-relative at the stated epoch, or explicitly add/test a UTC orientation conversion if inertial elements are introduced. Never advertise real satellite predictions using the current fixed scenario orientation.
-- `public/js/world/shuttle_view.js` contains reusable Earth assets/render conventions, but its class also owns Shuttle scenery/cameras. Reuse assets and narrowly fitting view helpers, not a complete Shuttle scene for a standalone coverage map. Prefer a small focused coverage view over a speculative rendering framework.
-- `main.js`, `core/network.js` and `server.js` now own co-op crew flow. Add a separate mission entry. Recommended default if used in crew rooms: shared scenario and simulation clock, host-owned configuration/time controls, independent local cameras. Reuse room authority; do not assign Shuttle flight seats to station tasks without a gameplay need. This co-op default is a proposal, not a user-selected new requirement.
+Planning only. Implementation begins when the user sends the prompt in the plan's §11. Do not run the older Shuttle implementation prompt above again.
 
-### C1 — Contact calculation and complete prediction data
+## Artemis implementation plan — DRAFT 2026-11-14
 
-Outcome: configure one circular orbit and a station list; obtain available stations at any time plus chronological access windows over a chosen interval. Add a small coverage module owning visibility/pass search/statistics, using existing orbital math. It must run without DOM or rendering. Validate all finite inputs/ranges; bound station counts/horizon for responsive calculation and, if networked, validate on the authoritative side.
+Plan only; no application implementation authorized by the current request. Read the [Artemis specification](mission-spec.md#artemis-lunar-expedition--draft-2026-11-14) and its dated NASA sources. Deliver one complete astronaut expedition, not just a landing vignette. Preserve existing Shuttle changes and the two-mode CubeSat work; do not implement both lander-provider routes by default.
 
-Acceptance: Earth occultation and minimum elevation work; overlapping contacts are retained; active versus future passes are distinct; returned intervals include start/end, peak, and clipping flags; network coverage uses interval union; empty/disabled station lists return valid zero coverage and a full-window gap. Preserve stable station IDs when names/positions change.
+### Repository evidence and ownership
 
-Proof: overhead, horizon/mask boundary, opposite-side-of-Earth, equatorial/polar/retrograde, date-line wrapping and finite-input cases; independent analytic circular-period check; short/grazing passes; compare against a finer reference calculation; same results at different playback speeds. Main risk: frame/sign errors and missed short passes. Relative complexity: medium.
+Inspected at `5925567e06fba35afedcee29829d850ab6e46c35` on `shuttle-coop-mission`, 2026-11-14. Existing documentation edits and untracked CubeSat plan were present. No revalidation of prior gameplay results was performed.
 
-### C2 — End-to-end player coverage mission
+- `server.js` imports `ShuttleMission`/`CREW`, fixes `GAME_MODE` to `shuttle-coop`, and constructs/restarts that class directly. Reuse server authority, room snapshots and semantic command checks. Extend mission selection at these actual ownership points; if CubeSat routing has landed by implementation time, extend it instead of adding a competing selector. Separate per-mission result/role logic; no need for a plugin framework.
+- `public/js/game/main.js` owns current menu/lobby/controller handoff; `core/network.js` transports room commands. Keep one mission clock/authority, mission-specific input bindings, epoch/revision checks and complete late-join snapshots. New Artemis state must track two independent vessels while the crew is split.
+- `shuttle_simulation.js` supplies useful pure vector/quaternion helpers, time conventions and Earth-frame calculations. Its gravity/propagator are Earth-only and vehicle data is Shuttle-specific. Build a small cislunar simulation owner; extract shared math only when reused and regression-tested, without disturbing Shuttle guidance to fit Orion.
+- `shuttle_view.js` renders a Moon at fixed direction `moonDir` and 384,400 km. This is decorative sky context, not an ephemeris or a lunar landing world. Reuse loader/render techniques and suitable textures; replace the Artemis scene's celestial geometry and add local terrain/collisions. Do not claim existing Moon art proves a flyable surface exists.
+- Inspected asset filenames include Shuttle stages, generic spacecraft and planets; no verified SLS/Orion/HLS flight-ready asset set was established. Inspect geometry, scale, sockets and licenses before claiming reuse. Generic meshes can be clearly labelled development proxies, not historically accurate final vehicles. Never stretch a Shuttle into an SLS or reuse its collision shape as a lander.
 
-Outcome: mission entry → scenario setup → map/globe and pass timeline → X/Y inspection → next revolution → summary. Files likely affected: menu wiring plus a focused CubeSat controller/HUD/view; room routing only as required by the chosen shared-session scope. Add no launch or satellite-deployment prerequisite.
+Likely focused additions (names are proposals): `artemis_simulation.js` for dynamics/vehicles, `artemis_mission.js` for phase/crew/checkpoint rules, `artemis_game.js` plus HUD adapter for inputs/snapshots, and `artemis_view.js` for vehicles/terrain. A small scenario data bundle owns dated assumptions/ephemeris/terrain references. Do not split further without a real ownership need. Reuse any suitable shared Earth view introduced by CubeSat work.
 
-Acceptance: clicking/scrubbing X/Y produces matching position/contact lists; contact lines never cross Earth; next-pass table matches timeline; countdown to X is distinct from next ground-station pass; Earth rotation continues across revolutions. Playback/pause/jump/restart leave no stale actors/listeners or wrong mission state. Give accessible labelled inputs and a text/table alternative to globe-only selection.
+### A0 — Freeze the concept and prove a feasible reference expedition
 
-Proof: real browser run with multiple overlapping stations, a blackout and two complete revolutions; compare forecast timestamps with live status changes, including accelerated playback; inspect X/Y/revolution labels, contacts and list sorting; smoke-test the existing Shuttle entry/co-op flow. If sharing a room, two clients must agree on scenario revision/time/results and reject unauthorized edits. Main risk: confusing rendered map positions with simulation frames, and accidentally altering Shuttle routing. Relative complexity: medium.
+**Outcome:** an inspectable mission brief/trajectory, not yet a game. Adopt the recommended Blue Moon-style concept or the user-selected alternative; recheck NASA changes, freeze source date, select one training epoch/site and one coherent stack/upper-stage assumption. Identify missing assets and inspect available ones before installation/download work.
 
-### C3 — Variable experiments, comparison and completion
+**Work:** derive/validate transfer, capture, rendezvous, descent/ascent and return opportunities against finite vehicle budgets; prepare bounded Earth/Moon/Sun data and a local terrain product; label unavailable performance numbers as training assumptions. Establish reference states and numeric tolerances with an independent calculation/tool, not only the future game implementation. Document any new tool/dependency need and ask for required setup permission only after identifying it.
 
-Outcome: player changes the specified inputs, saves A/B scenarios and sees how station counts, passes and gaps change. Preset should yield useful contacts during a demonstration; determine the result by calculation, never hardcode station order. Offer a geographically spread hypothetical station preset and custom placement. A scored station-budget challenge is optional later polish.
+**Acceptance/proof:** full trajectory reaches the chosen site and returns with stated reserves; stage/propulsion ownership is coherent; ephemeris/time/frame and terrain conventions are explicit; lander can arrest descent and launch its return mass. Source review rejects obsolete NRHO/Gateway assumptions and provider mixing. Main risk: unknown future vehicle data and infeasible invented budgets. Complexity: high; resolve this before production visuals.
 
-Acceptance: increasing a station's elevation mask cannot create new geometric access in the same scenario; disabling a station cannot increase network coverage; increasing playback speed cannot alter predictions. A/B retains each configuration and reports its own horizon. UTC epoch changes with Earth-relative starting orientation only shift timestamps in this ideal model; avoid pretending every input changes geometry. All pass/summary results explain finite-horizon and geometry-only limits.
+### A1 — Playable lunar landing and recovery segment
 
-Proof: focused invariant tests plus observed browser edits to altitude, inclination, track orientation, start phase, station placement and elevation masks. Exercise zero contacts, overlapping windows, window-boundary passes, reset and repeated mission switching. Final gate: demonstrate the user's X → Y → next stations → next revolution questions with computed results and at least one meaningful A/B comparison. Update progress with exact checks and remaining verification limits. Main risk: misleading repeat/contact language and statistics. Relative complexity: low–medium after C1/C2.
+**Outcome:** from a labelled pre-descent practice checkpoint, two crew undock, descend, manually land, perform one short surface task, ascend and rejoin Orion. This is an internal development segment, never a claim of full mission completion.
 
-No implementation begun for C1–C3. RF budgets, data downlink scheduling, real station availability, TLE/SGP4 integration, perturbations and constellations are deferred; do not add them to finish the core question.
+**Systems:** cislunar/local simulation, two-vessel mission state, lander collision/terrain, active docking, minimal HUD and crew commands. Initial orbit/terrain fixtures are marked practice; they must use A0-feasible states. Provide reserve/abort cues and checkpoint retry.
+
+**Acceptance/proof:** correct inputs land; no/wrong inputs produce different trajectories and possible failure. Touchdown depends on legs/terrain and speed; final docking depends on full relative state. EVA pressure/crew rules cannot be bypassed. Unit/reference checks for lunar gravity, thrust/mass/fuel, local transforms, contact envelope, docking roll/velocity and snapshot restore; observe the practice loop in a browser. Complexity: high, focused on the core new gameplay.
+
+### A2 — Complete rough launch-to-splashdown loop
+
+**Outcome:** connect launch → Earth orbit → trans-lunar injection → cruise/capture → A1 lunar segment → departure/return → Orion entry/parachutes/splashdown/debrief. Include the planned short EVA sequences before declaring content complete. Continue to A3/A4; a polished launch alone is not delivery.
+
+**Systems:** SLS/Orion vehicle states, guided finite burns, phase guards, resource budgets, cruise acceleration and event stopping, capsule entry model, save/restart. Use prepositioned lander logistics as a verified scenario initial condition. Automatic launch remains simulated; no elapsed-time orbit/capture flags.
+
+**Acceptance/proof:** one uninterrupted normal mission with all crew/samples tracked; no resource resets or state discontinuities; rejected out-of-order staging/docking/entry commands; accelerated coast gives equivalent event states within documented tolerances. Compare independent reference burn/encounter/return cases, test frame-change position AND velocity, verify mission failure/success exactly once, and observe browser launch-through-splashdown. Complexity: very high, largest mission integration work.
+
+### A3 — Surface operations, co-op and recovery reliability
+
+**Outcome:** all four players have useful phase-specific duties; two descend, two remain with Orion, and everyone reunites. Solo mode can cover duties without changing crew physics. The bounded EVA objectives, pressure/resource checks, samples, failures and save/resume are reliable and understandable.
+
+**Systems:** room ownership/role transitions, full vessel/crew/surface inventory snapshots, site lighting/walking/collisions, guidance and mission audio, lifecycle cleanup. Integrate existing comms without confusing social voice with physical telemetry connectivity.
+
+**Acceptance/proof:** two-client then four-client tests for command ownership, simultaneous commands, disconnect/rejoin, host/controller reassignment and retry agreement. Prevent a player controlling both mutually exclusive vessel stations or transferring while undocked; preserve legitimate solo role switching. Exercise unsafe landing, missed rendezvous, EVA reserve exhaustion and one safe abort-return; verify no duplicate vehicles/samples on repeated retries. Human test measures useful work and idle periods for the orbital crew. Complexity: high; do not wait until final release to discover split-vehicle authority problems.
+
+### A4 — Accuracy, assets and completion verification
+
+**Outcome:** an end-to-end educational mission whose vehicle appearance, terrain and dynamics meet the declared accuracy level. Replace development proxies with verified mission assets or explicitly report the remaining art limitation. Do not market unfinished proxies as accurate replicas.
+
+**Acceptance:** dated architecture and assumptions visible in briefing/reference notes; correct body scale/orientation and lighting; state-driven staging/doors/gear/engine visuals; no impossible Moon aerodynamics or Shuttle-style Orion landing. UI provides units, controls, assists, objective/failure/retry state and accessible text alternatives. A full human-paced successful flight, a separate failure/recovery run and a co-op split/reunion are observed. Scripted tests alone cannot establish flyability.
+
+**Proof:** reference trajectory comparisons and step-size convergence; weak/coarse ephemeris interpolation cannot move touchdown/encounters beyond declared tolerances; 30/60/120 rendered FPS invariance; fast-coast event accuracy; persistent-save round trip; frame-switch/camera stability over Earth–Moon distance; terrain/collision agreement at the selected site; PC performance and input focus tests. Regress Shuttle and any implemented CubeSat modes after mission routing/shared-math edits. Report actual tested hardware, runtime gaps, numerical error and assumptions. Complexity: high; prioritize correctness/flyability over cinematic polish.
+
+### Final completion rule and handoff
+
+Done means a crew can launch from Earth, complete a physically consistent lunar landing and surface tasks, ascend/rejoin, and return alive to an acceptable Orion splashdown, with meaningful player control, finite resources, failure explanations and working save/retry. All required phases must be playable and verified; not merely reachable via test fixtures. Do not implement unsupported professional-level emergencies, both provider concepts, every logistics launch or a lunar base to satisfy this gate.
+
+When the user authorizes implementation, execute A0–A4 as internal reviewable milestones, updating progress with evidence rather than stopping after scaffolding. Resolve final provider/art selection before dependent implementation. If reference data is unavailable, specify and approve an explicitly hypothetical training parameter set rather than fabricate NASA values. Report any blocked verification and do not claim completion while the final gate is unobserved.

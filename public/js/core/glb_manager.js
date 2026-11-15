@@ -128,6 +128,351 @@
     }
   };
 
+  // Crew expressions. The GLB rigs ship with idle / walk / look_around / wave
+  // clips; every expression layers a procedural arm/hand gesture on top of the
+  // skeletal clip so the crew actually talk with their hands, plus a floating
+  // emoji bubble so astronauts can communicate non-verbally.
+  const EMOTE_DEFS = [
+    { id: "wave", icon: "WAV", label: "Wave", clip: "wave", duration: 2.6, gesture: "wave" },
+    { id: "salute", icon: "SAL", label: "Salute", clip: "idle", duration: 2.4, gesture: "salute" },
+    { id: "dance", icon: "DNC", label: "Dance", clip: "idle", duration: 3.8, procedural: "dance", gesture: "dance" },
+    { id: "laugh", icon: "LGH", label: "Laugh", clip: "idle", duration: 2.8, procedural: "laugh", gesture: "laugh" },
+    { id: "look", icon: "OBS", label: "Look", clip: "look_around", duration: 3.0, gesture: "look" },
+    { id: "heart", icon: "ACK", label: "Roger", clip: "idle", duration: 3.0, procedural: "heart", gesture: "heart" }
+  ];
+  const EMOTE_BY_ID = {};
+  EMOTE_DEFS.forEach((def) => { EMOTE_BY_ID[def.id] = def; });
+  window.ASTRONAUT_EMOTES = EMOTE_DEFS;
+
+  function createEmoteBubble() {
+    const canvas = document.createElement("canvas");
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext("2d");
+    const texture = new window.THREE.CanvasTexture(canvas);
+    texture.minFilter = window.THREE.LinearFilter;
+    texture.magFilter = window.THREE.LinearFilter;
+
+    const sprite = new window.THREE.Sprite(
+      new window.THREE.SpriteMaterial({
+        map: texture,
+        transparent: true,
+        depthTest: true,
+        depthWrite: false,
+        opacity: 0
+      })
+    );
+    sprite.visible = false;
+    sprite.scale.set(0.8, 0.8, 1);
+    sprite.position.set(0, 2.85, 0);
+    return { sprite, canvas, ctx, texture };
+  }
+
+  function drawEmoteBubble(bubble, def) {
+    // Interfellas: the STS_OS label style (os_plate.js) when loaded, so emotes match the nameplates and HUD
+    if (window.OsPlate && window.OsPlate.drawEmote) { window.OsPlate.drawEmote(bubble, def); bubble.texture.needsUpdate = true; return; }
+    const { ctx, canvas, texture } = bubble;
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    ctx.save();
+
+    // Soft navy speech bubble with a small tail.
+    const glow = ctx.createRadialGradient(w / 2, h * 0.44, 12, w / 2, h * 0.44, h * 0.46);
+    glow.addColorStop(0, "rgba(14, 24, 40, 0.97)");
+    glow.addColorStop(0.72, "rgba(8, 15, 27, 0.95)");
+    glow.addColorStop(1, "rgba(8, 15, 27, 0)");
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(w / 2, h * 0.44, h * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = "rgba(103, 232, 249, 0.9)";
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.arc(w / 2, h * 0.44, h * 0.36, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.fillStyle = "rgba(8, 15, 27, 0.95)";
+    ctx.beginPath();
+    ctx.moveTo(w * 0.42, h * 0.76);
+    ctx.lineTo(w * 0.5, h * 0.97);
+    ctx.lineTo(w * 0.58, h * 0.76);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "rgba(103, 232, 249, 0.5)";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = "108px 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif";
+    ctx.fillText(def.icon, w / 2, h * 0.41);
+
+    ctx.font = "800 19px 'SF Mono', Monaco, Consolas, monospace";
+    ctx.fillStyle = "rgba(236, 231, 220, 0.96)";
+    ctx.fillText(def.label.toUpperCase(), w / 2, h * 0.7);
+
+    ctx.restore();
+    texture.needsUpdate = true;
+  }
+
+  // -------------------------------------------------------------------------
+  // Procedural crew gesture posing
+  //
+  // The astronaut GLB has a full humanoid skeleton (upperarm / forearm / hand
+  // and finger bones). Emotes therefore solve a small two-bone IK chain for
+  // each arm every frame, so hands genuinely reach the head, cover the visor,
+  // salute, wave, etc. instead of relying only on whole-body bobbing.
+  // -------------------------------------------------------------------------
+  const EMOTE_SIDES = [
+    { key: "left", upper: "upperarm_L", fore: "forearm_L", hand: "hand_L", palmSign: 1 },
+    { key: "right", upper: "upperarm_R", fore: "forearm_R", hand: "hand_R", palmSign: -1 }
+  ];
+
+  function bindEmoteBones(rig, model) {
+    const bones = {};
+    model.traverse((obj) => {
+      if (!obj.name) return;
+      if (/^(hips|spine|spine1|chest|neck|head|shoulder_[LR]|upperarm_[LR]|forearm_[LR]|hand_[LR])$/.test(obj.name)) {
+        bones[obj.name] = obj;
+      }
+    });
+    rig.bones = bones;
+    rig.model = model;
+    rig.modelScale = 1;
+    const worldScale = new window.THREE.Vector3();
+    model.getWorldScale(worldScale);
+    if (worldScale.x > 0.0001) rig.modelScale = worldScale.x;
+  }
+
+  // Returns hand targets/elbow poles/palm orientation in character-local space.
+  // Offsets are relative to the head bone, which keeps every gesture locked to
+  // the astronaut's head even while the body bobs and sways.
+  function buildEmoteGesturePose(gesture, t) {
+    const v = (x, y, z) => new window.THREE.Vector3(x, y, z);
+
+    switch (gesture) {
+      case "wave": {
+        const wave = Math.sin(t * 8.5) * 0.085;
+        return {
+          frame: "model",
+          right: {
+            offset: v(-0.30 + wave, 0.25 + Math.sin(t * 4.2) * 0.015, 0.10),
+            pole: v(-1.0, -0.45, 0.05),
+            finger: v(0, 1, 0),
+            palm: v(0, 0, 1)
+          }
+        };
+      }
+
+      case "salute":
+        return {
+          frame: "head",
+          right: {
+            offset: v(-0.175, 0.115, 0.135),
+            pole: v(-1.0, -0.45, 0.3),
+            finger: v(1.0, 0.20, 0.0),
+            palm: v(0, -1, 0)
+          }
+        };
+
+      case "look": {
+        const scan = Math.sin(t * 1.5) * 0.055;
+        return {
+          frame: "head",
+          right: {
+            offset: v(-0.10 + scan, 0.135, 0.215),
+            pole: v(-1.0, -0.55, 0.35),
+            finger: v(1.0, 0.12, 0.0),
+            palm: v(0, -1, 0)
+          }
+        };
+      }
+
+      case "laugh": {
+        // Both gloved hands pressed over the visor while the shoulders shake.
+        const shake = Math.sin(t * 16.0);
+        const bounce = Math.abs(shake) * 0.014;
+        return {
+          frame: "head",
+          left: {
+            offset: v(0.105 + shake * 0.006, 0.035 + bounce, 0.185),
+            pole: v(1.0, -0.65, 0.15),
+            finger: v(-0.28, 1.0, 0.05),
+            palm: v(0, 0, -1)
+          },
+          right: {
+            offset: v(-0.105 + shake * 0.006, 0.035 - bounce, 0.185),
+            pole: v(-1.0, -0.65, 0.15),
+            finger: v(0.28, 1.0, 0.05),
+            palm: v(0, 0, -1)
+          }
+        };
+      }
+
+      case "dance": {
+        const pump = Math.sin(t * 6.5);
+        return {
+          frame: "model",
+          left: {
+            offset: v(0.30, 0.25 + pump * 0.12, 0.11),
+            pole: v(1.0, 0.10, 0.25),
+            finger: v(0.15, 1.0, 0.0),
+            palm: v(0, 0, 1)
+          },
+          right: {
+            offset: v(-0.30, 0.25 - pump * 0.12, 0.11),
+            pole: v(-1.0, 0.10, 0.25),
+            finger: v(-0.15, 1.0, 0.0),
+            palm: v(0, 0, 1)
+          }
+        };
+      }
+
+      case "heart": {
+        // Both hands meet above the helmet, palms facing each other, elbows
+        // rounded out so the arms read as a heart symbol.
+        const pulse = Math.sin(t * 3.0) * 0.008;
+        return {
+          frame: "model",
+          left: {
+            offset: v(0.035, 0.30 + pulse, 0.16),
+            pole: v(1.0, 0.18, 0.4),
+            finger: v(0.10, 1.0, 0.03),
+            palm: v(-1.0, 0.0, 0.0)
+          },
+          right: {
+            offset: v(-0.035, 0.30 + pulse, 0.16),
+            pole: v(-1.0, 0.18, 0.4),
+            finger: v(-0.10, 1.0, 0.03),
+            palm: v(1.0, 0.0, 0.0)
+          }
+        };
+      }
+
+      default:
+        return null;
+    }
+  }
+
+  // Rotates a limb bone so its child joint points at the supplied world target.
+  function aimEmoteBone(bone, child, target, weight) {
+    const T = window.THREE;
+    const bonePos = bone.getWorldPosition(new T.Vector3());
+    const childPos = child.getWorldPosition(new T.Vector3());
+    const currentDir = childPos.sub(bonePos);
+    const targetDir = target.clone().sub(bonePos);
+    if (currentDir.lengthSq() < 1e-8 || targetDir.lengthSq() < 1e-8) return;
+
+    currentDir.normalize();
+    targetDir.normalize();
+
+    const worldQuat = bone.getWorldQuaternion(new T.Quaternion());
+    const deltaQuat = new T.Quaternion().setFromUnitVectors(currentDir, targetDir);
+    const targetWorldQuat = deltaQuat.multiply(worldQuat);
+    const parentWorldQuat = bone.parent.getWorldQuaternion(new T.Quaternion());
+    const targetLocalQuat = parentWorldQuat.invert().multiply(targetWorldQuat);
+
+    if (weight >= 0.999) bone.quaternion.copy(targetLocalQuat);
+    else bone.quaternion.slerp(targetLocalQuat, weight);
+    bone.updateWorldMatrix(false, true);
+  }
+
+  // Orients the wrist using a finger direction + palm normal so hands face the
+  // right way (palms toward the visor for laugh, palms together for heart, ...).
+  function aimEmoteHand(hand, targetWorldQuat, weight) {
+    const T = window.THREE;
+    const parentWorldQuat = hand.parent.getWorldQuaternion(new T.Quaternion());
+    const targetLocalQuat = parentWorldQuat.invert().multiply(targetWorldQuat);
+    if (weight >= 0.999) hand.quaternion.copy(targetLocalQuat);
+    else hand.quaternion.slerp(targetLocalQuat, weight);
+    hand.updateWorldMatrix(false, true);
+  }
+
+  function applyEmoteHandPose(rig, elapsed, def, weight) {
+    const T = window.THREE;
+    if (!rig || !rig.bones || !rig.model || !rig.modelContainer) return;
+    if (!def || !def.gesture || weight <= 0.002) return;
+
+    const bones = rig.bones;
+    if (!bones.head) return;
+
+    const pose = buildEmoteGesturePose(def.gesture, elapsed);
+    if (!pose) return;
+
+    rig.root.updateMatrixWorld(true);
+
+    const headPos = bones.head.getWorldPosition(new T.Vector3());
+    const headQuat = bones.head.getWorldQuaternion(new T.Quaternion());
+    const modelQuat = rig.modelContainer.getWorldQuaternion(new T.Quaternion());
+    const frameQuat = pose.frame === "head" ? headQuat : modelQuat;
+    const scale = rig.modelScale || 1;
+
+    for (let i = 0; i < EMOTE_SIDES.length; i++) {
+      const side = EMOTE_SIDES[i];
+      const spec = pose[side.key];
+      if (!spec) continue;
+
+      const upper = bones[side.upper];
+      const fore = bones[side.fore];
+      const hand = bones[side.hand];
+      if (!upper || !fore || !hand) continue;
+
+      // World-space wrist target, offset from the animated head position.
+      const target = headPos.clone()
+        .add(spec.offset.clone().multiplyScalar(scale).applyQuaternion(frameQuat));
+
+      const shoulderPos = upper.getWorldPosition(new T.Vector3());
+      const elbowPos = fore.getWorldPosition(new T.Vector3());
+      const wristPos = hand.getWorldPosition(new T.Vector3());
+      const upperLen = shoulderPos.distanceTo(elbowPos);
+      const foreLen = elbowPos.distanceTo(wristPos);
+      if (upperLen < 1e-4 || foreLen < 1e-4) continue;
+
+      const toTarget = target.clone().sub(shoulderPos);
+      let dist = toTarget.length();
+      if (dist < 1e-4) continue;
+
+      const minReach = Math.abs(upperLen - foreLen) * 0.98;
+      const maxReach = (upperLen + foreLen) * 0.995;
+      dist = Math.max(minReach, Math.min(maxReach, dist));
+      toTarget.normalize();
+      target.copy(shoulderPos).addScaledVector(toTarget, dist);
+
+      // Law-of-cosines elbow placement around a body-relative pole vector.
+      const along = (upperLen * upperLen - foreLen * foreLen + dist * dist) / (2 * dist);
+      const out = Math.sqrt(Math.max(0, upperLen * upperLen - along * along));
+      const poleDir = spec.pole.clone().applyQuaternion(modelQuat);
+      poleDir.addScaledVector(toTarget, -poleDir.dot(toTarget));
+      if (poleDir.lengthSq() < 1e-8) poleDir.set(0, -1, 0);
+      poleDir.normalize();
+
+      const elbowTarget = shoulderPos.clone()
+        .addScaledVector(toTarget, along)
+        .addScaledVector(poleDir, out);
+
+      aimEmoteBone(upper, fore, elbowTarget, weight);
+      aimEmoteBone(fore, hand, target, weight);
+
+      // Wrist orientation: fingers along +Y, palm normal along local +X.
+      const fingerDir = spec.finger.clone().applyQuaternion(frameQuat).normalize();
+      let palmNormal = spec.palm.clone().applyQuaternion(frameQuat);
+      palmNormal.addScaledVector(fingerDir, -palmNormal.dot(fingerDir));
+      if (palmNormal.lengthSq() < 1e-8) {
+        palmNormal = new T.Vector3(0, 0, side.palmSign).applyQuaternion(frameQuat);
+      }
+      palmNormal.normalize().multiplyScalar(side.palmSign);
+
+      const zAxis = new T.Vector3().crossVectors(palmNormal, fingerDir).normalize();
+      const xAxis = new T.Vector3().crossVectors(fingerDir, zAxis).normalize();
+      const handMatrix = new T.Matrix4().makeBasis(xAxis, fingerDir, zAxis);
+      const handWorldQuat = new T.Quaternion().setFromRotationMatrix(handMatrix);
+      aimEmoteHand(hand, handWorldQuat, weight);
+    }
+  }
+
   let sharedShadowTex = null;
   function getGroundShadowTexture() {
     if (sharedShadowTex) return sharedShadowTex;
@@ -574,6 +919,10 @@
       nameBadge.position.set(0, 2.18, 0);
       root.add(nameBadge);
 
+      // Floating emote bubble (hidden until the crewmate expresses themselves)
+      const emoteBubble = createEmoteBubble();
+      root.add(emoteBubble.sprite);
+
       // Mock groups for backwards compatibility
       const headGroup = new window.THREE.Group();
       headGroup.position.set(0, 1.55, 0);
@@ -614,24 +963,75 @@
         walkTime: 0.0,
         currentModelId: null,
         currentColor: suitHexColor,
+        emoteBubble,
+        emote: null,
+
+        playEmote: (emoteId) => {
+          const def = EMOTE_BY_ID[emoteId];
+          if (!def) return false;
+
+          rig.emote = { def, elapsed: 0 };
+          drawEmoteBubble(emoteBubble, def);
+          emoteBubble.sprite.visible = true;
+          emoteBubble.sprite.material.opacity = 0;
+          emoteBubble.sprite.scale.set(0.5 * (emoteBubble.sx || 1), 0.5 * (emoteBubble.sy || 1), 1);
+
+          // Restart the matching skeletal clip immediately (if it is loaded).
+          const act = def.clip ? rig.actions[def.clip] : null;
+          if (act) {
+            const prev = rig.activeClipName ? rig.actions[rig.activeClipName] : null;
+            if (prev && prev !== act) prev.fadeOut(0.16);
+            act.reset();
+            act.timeScale = def.clipSpeed || 1;
+            act.fadeIn(0.16).play();
+            rig.activeClipName = def.clip;
+          }
+          return true;
+        },
+
+        cancelEmote: () => {
+          rig.emote = null;
+          emoteBubble.sprite.visible = false;
+          emoteBubble.sprite.material.opacity = 0;
+          if (rig.mixer && rig.actions) {
+            Object.keys(rig.actions).forEach((clipName) => {
+              const act = rig.actions[clipName];
+              if (act && typeof act.timeScale === "number") act.timeScale = 1;
+            });
+          }
+        },
 
         /**
          * SpaceShip animation clip switcher & procedural fallback update.
          */
         updateAnimation: (delta, isMoving = false, isEva = false, isGrounded = true, customAction = null) => {
+          if (rig.emote) {
+            rig.emote.elapsed += delta;
+            if (rig.emote.elapsed >= rig.emote.def.duration) {
+              rig.cancelEmote();
+            }
+          }
+
+          const emoteClip = rig.emote && rig.emote.def.clip ? rig.emote.def.clip : null;
+          const emoteSpeed = rig.emote && rig.emote.def.clipSpeed ? rig.emote.def.clipSpeed : 1;
+
           if (rig.mixer) {
-            const desiredClip = customAction || (isMoving ? "walk" : "idle");
+            const desiredClip = customAction || emoteClip || (isMoving ? "walk" : "idle");
             if (rig.actions[desiredClip] && rig.activeClipName !== desiredClip) {
               const nextAct = rig.actions[desiredClip];
               const prevAct = rig.activeClipName ? rig.actions[rig.activeClipName] : null;
               if (prevAct && prevAct !== nextAct) {
                 prevAct.fadeOut(0.22);
               }
-              nextAct.reset().fadeIn(0.22).play();
+              nextAct.reset();
+              nextAct.timeScale = 1;
+              nextAct.fadeIn(0.22).play();
               rig.activeClipName = desiredClip;
             }
-            if (rig.activeClipName === "walk" && rig.actions["walk"]) {
+            if (rig.activeClipName === "walk" && rig.actions["walk"] && !emoteClip) {
               rig.actions["walk"].timeScale = isEva ? 0.75 : 1.15;
+            } else if (emoteClip && rig.actions[emoteClip]) {
+              rig.actions[emoteClip].timeScale = emoteSpeed;
             }
             rig.mixer.update(delta);
             modelContainer.position.y = 0;
@@ -651,6 +1051,38 @@
               modelContainer.rotation.x = 0;
               modelContainer.rotation.z = Math.sin(rig.walkTime * 0.7) * 0.01;
             }
+          }
+
+          // Emote body language & floating expression bubble
+          if (rig.emote) {
+            const t = rig.emote.elapsed;
+            const def = rig.emote.def;
+            const fadeIn = Math.min(1, t / 0.15);
+            const fadeOut = Math.min(1, Math.max(0, (def.duration - t) / 0.38));
+            const alpha = Math.min(fadeIn, fadeOut);
+
+            if (def.procedural === "dance") {
+              modelContainer.position.y += Math.abs(Math.sin(t * 9.0)) * 0.085;
+              modelContainer.rotation.z += Math.sin(t * 6.2) * 0.2;
+              modelContainer.rotation.x += Math.sin(t * 4.4) * 0.05;
+            } else if (def.procedural === "laugh") {
+              modelContainer.position.y += Math.abs(Math.sin(t * 17.0)) * 0.03;
+              modelContainer.rotation.x += Math.sin(t * 19.0) * 0.05;
+              modelContainer.rotation.z += Math.sin(t * 8.5) * 0.025;
+            } else if (def.procedural === "heart") {
+              modelContainer.position.y += Math.sin(t * 3.0) * 0.018;
+              modelContainer.rotation.z += Math.sin(t * 1.8) * 0.045;
+            }
+
+            // Layer the hand/arm IK gesture on top of the animated body.
+            applyEmoteHandPose(rig, t, def, alpha);
+
+            const sprite = emoteBubble.sprite;
+            const pop = 0.5 + 0.5 * Math.min(1, t / 0.16);
+            sprite.visible = !rig.emoteBubbleHidden;
+            sprite.material.opacity = alpha;
+            sprite.scale.set(pop * (emoteBubble.sx || 1), pop * (emoteBubble.sy || 1), 1);
+            sprite.position.y = (emoteBubble.baseY || 2.85) + Math.sin(t * 3.2) * 0.035;
           }
         },
 
@@ -707,6 +1139,7 @@
             }
             modelContainer.add(model);
             rig.loadedGLB = model;
+            bindEmoteBones(rig, model);
 
             // Bind skeletal animation clips ('idle', 'walk', 'look_around', 'wave')
             rig.actions = {};
@@ -1024,6 +1457,15 @@
       }
     }
 
+    _escapeHtml(value) {
+      return String(value == null ? "" : value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
     _renderHangarCatalog(filterCategory = "all") {
       const container = document.getElementById("hangar-catalog-list");
       if (!container) return;
@@ -1043,11 +1485,11 @@
         card.dataset.id = item.id;
         card.innerHTML = `
           <div class="hangar-card-header">
-            <span class="hangar-card-badge">${(item.category || (isCustom ? "CUSTOM" : "3D")).toUpperCase()}</span>
-            <span class="hangar-card-role">${item.role ? item.role.toUpperCase() : (isCustom ? "UPLOAD" : "ASSET")}</span>
+            <span class="hangar-card-badge">${this._escapeHtml((item.category || (isCustom ? "CUSTOM" : "3D")).toUpperCase())}</span>
+            <span class="hangar-card-role">${this._escapeHtml(item.role ? item.role.toUpperCase() : (isCustom ? "UPLOAD" : "ASSET"))}</span>
           </div>
-          <div class="hangar-card-title">${item.name}</div>
-          <div class="hangar-card-desc">${(item.description || "Custom 3D model asset.").slice(0, 78)}...</div>
+          <div class="hangar-card-title">${this._escapeHtml(item.name)}</div>
+          <div class="hangar-card-desc">${this._escapeHtml((item.description || "Custom 3D model asset.").slice(0, 78))}...</div>
         `;
         card.addEventListener("click", () => this.selectHangarModel(item.id));
         container.appendChild(card);
@@ -1144,10 +1586,10 @@
 
               <div style="margin-top:auto;display:flex;flex-direction:column;gap:8px;">
                 <button class="btn-primary" id="hangar-btn-equip" style="width:100%;font-size:12px;padding:12px;">
-                  🚀 EQUIP AS MY ASTRONAUT AVATAR
+                  EQUIP AS MY ASTRONAUT AVATAR
                 </button>
                 <button class="btn-secondary" id="hangar-btn-spawn" style="width:100%;font-size:12px;padding:10px;">
-                  🛰️ SPAWN IN SPACE ORBIT
+                  SPAWN IN SPACE ORBIT
                 </button>
               </div>
             </div>
@@ -1198,19 +1640,36 @@
 
         if (this.hangarCurrentModel.category !== "astronauts") {
           if (window.showActionToast) {
-            window.showActionToast(`ℹ️ ${this.hangarCurrentModel.name} is a spacecraft/object. Use 'SPAWN IN SPACE ORBIT' or press [U] to board!`);
+            window.showActionToast(`${this.hangarCurrentModel.name} is a spacecraft/object. Use 'SPAWN IN SPACE ORBIT' or press [U] to board.`);
           }
           return;
         }
 
         this.selectedAvatarModelId = this.hangarCurrentModel.id;
 
+        const preservedRoleRaw =
+          (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.role) ||
+          (window.localCrew && window.localCrew.role) ||
+          this.hangarCurrentModel.role ||
+          "commander";
+        const preservedRole = window.InterfellasRoles
+          ? window.InterfellasRoles.normalizeRole(preservedRoleRaw, "commander")
+          : preservedRoleRaw;
+
         if (window.localCrew && window.localCrew.group && window.buildLocalAstronaut) {
-          window.buildLocalAstronaut(this.hangarColorTest, this.hangarCurrentModel.role || "commander", this.hangarCurrentModel.id);
+          window.buildLocalAstronaut(this.hangarColorTest, preservedRole, this.hangarCurrentModel.id);
         }
 
         if (window.netManager && window.netManager.customizeAstronaut) {
-          window.netManager.customizeAstronaut(null, this.hangarColorTest, this.hangarCurrentModel.role);
+          window.netManager.customizeAstronaut(
+            null,
+            this.hangarColorTest,
+            preservedRole,
+            undefined,
+            this.hangarCurrentModel.id,
+            "crew",
+            { explicitRole: !!(window.netManager && window.netManager.explicitRoleSelected) }
+          );
         }
 
         if (window.showActionToast) {

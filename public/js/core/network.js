@@ -34,6 +34,8 @@
       this.snapshot = null;
       this.snapshotAt = 0;
       this.pingMs = 0;
+      this.serverOffsetMs = 0;   // serverNow ≈ Date.now() + serverOffsetMs (from ping round trips)
+      this.coverageState = null;
       this.callbacks = {};
     }
 
@@ -57,6 +59,7 @@
           if (/^[A-Z0-9]{4,8}$/.test(roomFromUrl)) this.emitEvent("auto_join_url", roomFromUrl);
         }
         if (!this._pingTimer) this._pingTimer = setInterval(() => this.ping(), 2000);
+        [50, 400, 900].forEach((ms) => setTimeout(() => this.ping(), ms));   // quick first clock-offset samples
       });
 
       this.socket.on("user_synced", (profile) => {
@@ -113,12 +116,26 @@
       this.socket.on("shuttle_state", (sn) => { this.snapshot = sn; this.snapshotAt = performance.now(); this.emitEvent("shuttle_state", sn); });
       this.socket.on("shuttle_events", (ev) => this.emitEvent("shuttle_events", ev));
       this.socket.on("shuttle_command_log", (log) => this.emitEvent("shuttle_command_log", log));
+      this.socket.on("pad_moved", (d) => this.emitEvent("pad_moved", d));
+
+      // CubeSat coverage channel (server owns scenario, clock and edit rights; clients compute forecasts)
+      this.socket.on("coverage_state", (st) => { this.coverageState = st; this.emitEvent("coverage_state", st); });
+      this.socket.on("coverage_clock", (c) => this.emitEvent("coverage_clock", c));
     }
 
     ping() {
       if (!this.connected) return;
       const t0 = performance.now();
-      this.socket.emit("client_ping", Date.now(), () => { this.pingMs = performance.now() - t0; });
+      const w0 = Date.now();
+      this.socket.emit("client_ping", w0, (serverNow) => {
+        this.pingMs = performance.now() - t0;
+        if (typeof serverNow === "number") {
+          // NTP-style: a reply delayed by a busy frame inflates the round trip, so trust the fastest recent sample
+          const rtt = Date.now() - w0, est = serverNow + rtt / 2 - Date.now();
+          (this._offs = this._offs || []).push({ rtt, est }); if (this._offs.length > 12) this._offs.shift();
+          this.serverOffsetMs = this._offs.reduce((b, x) => (x.rtt < b.rtt ? x : b)).est;
+        }
+      });
     }
 
     syncUser(playerName, suitColor) {
@@ -131,7 +148,7 @@
     createRoom(playerName, opts) {
       opts = opts || {};
       this._setName(playerName);
-      this.socket.emit("create_room", { userId: this.userId, playerName: this.localPlayer.name, suitColor: this.localPlayer.color, role: opts.role || "cdr", isPublic: opts.isPublic !== false });
+      this.socket.emit("create_room", { userId: this.userId, playerName: this.localPlayer.name, suitColor: this.localPlayer.color, role: opts.role || "cdr", isPublic: opts.isPublic !== false, activity: opts.activity || "shuttle", flight: opts.flight || "deploy" });
     }
 
     joinRoom(roomId, playerName) {
@@ -145,7 +162,7 @@
         this.socket.emit("leave_room");
       }
       if (window.voiceManager) for (const peerId in window.voiceManager.peers) window.voiceManager.cleanupPeer(peerId);
-      this.roomId = null; this.roomState = null; this.isHost = false; this.remotePlayers = {}; this.snapshot = null;
+      this.roomId = null; this.roomState = null; this.isHost = false; this.remotePlayers = {}; this.snapshot = null; this.coverageState = null;
     }
 
     customize(fields) {
@@ -158,6 +175,21 @@
     }
 
     startGame() { if (this.isHost) this.socket.emit("start_game"); }
+
+    setFlight(flight) {
+      return new Promise((resolve) => this.socket.emit("set_flight", { flight }, (r) => resolve(r || { success: false })));
+    }
+    setActivity(activity) {
+      return new Promise((resolve) => this.socket.emit("set_activity", { activity }, (r) => resolve(r || { success: false })));
+    }
+    // CubeSat coverage: SET_SCENARIO / SET_MARKERS / CLOCK / SET_EDITOR / HASH / SYNC → { accepted, reason }
+    coverageRequest(type, payload) {
+      return new Promise((resolve) => {
+        if (!this.connected) return resolve({ accepted: false, reason: "Not connected" });
+        this.socket.emit("coverage_request", Object.assign({ type }, payload || {}), (r) => resolve(r || { accepted: false, reason: "No reply" }));
+      });
+    }
+    serverNow() { return Date.now() + this.serverOffsetMs; }
 
     sendChat(text) {
       if (!this.connected || !this.roomId || !text || !text.trim()) return;
@@ -178,6 +210,17 @@
       return new Promise((resolve) => this.socket.emit("shuttle_input", axes, () => resolve(true)));
     }
     // Automated playtests only (server started with SHUTTLE_TEST=1)
+    // pre-flight boarding walk (pad_walk.js)
+    sendPadPos(pos, yaw, moving, emote) {
+      if (!this.socket || !this.roomId) return;
+      // not volatile: over HTTP long-polling most volatile packets are dropped, and the server validates
+      // boarding against the last position it received (10 Hz, a few dozen bytes)
+      this.socket.emit("pad_pos", emote ? { pos, yaw, moving, emote } : { pos, yaw, moving });
+    }
+    padAction(type, pos) {
+      if (!this.socket || !this.roomId) return Promise.resolve({ accepted: false, reason: "Not connected" });
+      return new Promise((resolve) => this.socket.emit("pad_action", { type, pos }, (r) => resolve(r || { accepted: false, reason: "No reply" })));
+    }
     testOp(data) { return new Promise((resolve) => this.socket.emit("shuttle_test", data, (r) => resolve(r))); }
 
     myRoles() {

@@ -51,15 +51,16 @@
         if (!pts.has(e.pointerId) || !this.view || !this.isActive) return;
         const p = pts.get(e.pointerId);
         const k = this.view.scope && this.view.scope.on ? this.view.scope.fov / 60 : 1;   // finer aim when zoomed
-        if (pts.size === 1) this.view.orbitCamera(-(e.clientX - p.x) * 0.006 * k, (e.clientY - p.y) * 0.005 * k);
+        if (pts.size === 1 && this.walk && this.walk.active) this.walk.look(e.clientX - p.x, e.clientY - p.y);
+        else if (pts.size === 1) this.view.orbitCamera(-(e.clientX - p.x) * 0.006 * k, (e.clientY - p.y) * 0.005 * k);
         else if (pts.size === 2) {
           const other = [...pts.entries()].find(([id]) => id !== e.pointerId)[1];
           const d0 = Math.hypot(p.x - other.x, p.y - other.y), d1 = Math.hypot(e.clientX - other.x, e.clientY - other.y);
-          if (d0 > 0 && d1 > 0) this.view.zoomCamera(d0 / d1);
+          if (d0 > 0 && d1 > 0) { if (this.walk && this.walk.active) this.walk.zoom(d0 / d1); else this.view.zoomCamera(d0 / d1); }
         }
         pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
       });
-      canvas.addEventListener("wheel", (e) => { if (!this.isActive || !this.view) return; e.preventDefault(); if (this.view.scope && this.view.scope.on) this.view.scopeZoom(e.deltaY > 0 ? 1.15 : 1 / 1.15); else this.view.zoomCamera(e.deltaY > 0 ? 1.12 : 1 / 1.12); }, { passive: false });
+      canvas.addEventListener("wheel", (e) => { if (!this.isActive || !this.view) return; e.preventDefault(); if (this.walk && this.walk.active) { this.walk.zoom(e.deltaY > 0 ? 1.12 : 1 / 1.12); return; } if (this.view.scope && this.view.scope.on) this.view.scopeZoom(e.deltaY > 0 ? 1.15 : 1 / 1.15); else this.view.zoomCamera(e.deltaY > 0 ? 1.12 : 1 / 1.12); }, { passive: false });
     },
 
     // ---------------------------------------------------------------- flight lifecycle
@@ -69,6 +70,8 @@
       this.isActive = true; this.keys = {}; this.sbPos = 0; this.snapA = null; this.snapB = null; this.snapBuf = []; this.lastSent = null; this.lastSendT = 0;
       this.view.autoRecentre = true; this.view.recentre(); this.view.camMode = "follow";
       this.hud = new window.ShuttleHud((cmd, arg) => this.command(cmd, arg), { crew: CREW });
+      this.hud.room = this.net.roomState;
+      this.walk = window.PadWalk ? new window.PadWalk(this.view, this.net) : null;
       this._on(window, "keydown", (e) => this._key(e, true), true);
       this._on(window, "keyup", (e) => this._key(e, false), true);
       this._on(window, "blur", () => { this.keys = {}; if (this.hud) this.hud.clearTouch(); });
@@ -96,6 +99,8 @@
       for (const [t, type, fn, cap] of this.listeners) t.removeEventListener(type, fn, cap);
       this.listeners = [];
       if (this.net && this._netHandlers) for (const k of Object.keys(this._netHandlers)) this.net.off(k, this._netHandlers[k]);
+      if (this.walk) this.walk.stop();
+      this.walk = null; this.walkState = null;
       if (this.hud) this.hud.dispose();
       this.hud = null; this.keys = {}; this.isActive = false; this.snapA = this.snapB = null;
       if (this.view) { this.view.autoRecentre = false; this.view.recentre(); this.view.camMode = "follow"; }
@@ -143,7 +148,11 @@
       if (FLIGHT_KEYS.has(e.code) || e.code === "Escape" || e.code === "F3" || e.code === "Tab") e.preventDefault();
       if (down && !e.repeat) {
         const sn = this.net && this.net.snapshot;
-        if (e.code === "F3" || e.code === "Tab") { if (this.hud) this.hud.toggleData(); }
+        const em = /^Digit([1-6])$/.exec(e.code), walking = this.walk && this.walk.active;
+        if (walking && e.code === "KeyT") { const msg = this.walk.toggleTour(); if (msg && this.hud) this.hud.toast(msg); }
+        else if (em && walking && this.walk.tour !== null) { const lbl = this.walk.tourGo(+em[1] - 1); if (lbl && this.hud) this.hud.toast(lbl); }
+        else if (em && walking) { const d = this.walk.emote(+em[1] - 1); if (d && this.hud) this.hud.toast(d.label); }
+        else if (e.code === "F3" || e.code === "Tab") { if (this.hud) this.hud.toggleData(); }
         else if (e.code === "Enter") { if (sn && sn.phase === "briefing" && tag !== "BUTTON") this.command("START"); }
         else if (e.code === "Slash" && this.hud) this.hud.focusChat();
         else if (KEY_COMMANDS[e.code]) this.command(KEY_COMMANDS[e.code]);
@@ -157,7 +166,7 @@
       const k = this.keys, sn = this.net && this.net.snapshot, ph = sn ? sn.phase : "briefing", t = this.hud ? this.hud.touchInput() : {};
       const ax = (pos, neg) => (k[pos] ? 1 : 0) - (k[neg] ? 1 : 0);
       const inp = { pitch: 0, yaw: 0, roll: 0, tx: 0, ty: 0, tz: 0, sb: this.sbPos, brake: 0 };
-      if (ph === "payload" || ph === "deorbit" || ph === "insertion") {
+      if (ph === "payload" || ph === "deorbit" || ph === "insertion" || ph === "docking") {
         inp.pitch = ax("KeyS", "KeyW"); inp.roll = ax("KeyD", "KeyA"); inp.yaw = ax("KeyE", "KeyQ");   // A/D roll, Q/E yaw (rudder)
         inp.ty = ax("KeyI", "KeyK"); inp.tx = ax("KeyJ", "KeyL"); inp.tz = ax("KeyU", "KeyO");
       } else if (ph === "entry") {
@@ -223,6 +232,7 @@
       const out = Object.assign({}, c, { simTime: a.simTime + dS * u, vehicle });
       const prevDeb = {}; (a.debris || []).forEach((b) => { prevDeb[b.id] = b; });
       out.debris = (c.debris || []).map((b) => { const p = prevDeb[b.id]; return p ? Object.assign({}, b, { r: lerp(p.r, b.r, u), q: slerp(p.q, b.q, u) }) : b; });
+      if (a.iss && c.iss) out.iss = Object.assign({}, c.iss, { r: lerp(a.iss.r, c.iss.r, u), v: lerp(a.iss.v, c.iss.v, Math.min(u, 1)) });
       if (a.payload && c.payload && a.payload.r && c.payload.r) out.payload = Object.assign({}, c.payload, { r: lerp(a.payload.r, c.payload.r, u), q: slerp(a.payload.q, c.payload.q, u) });
       return out;
     },
@@ -233,10 +243,21 @@
       this.input = this._axes(Math.min(rawDt, 0.1));
       this._sendInput(false);
       const sn = this._renderSnapshot();
+      // pre-flight boarding: walk the gantry until this crew member is aboard (then the normal flow)
+      const me = this.net.socketId, padSt = sn && sn.pad;
+      const walking = !!(sn && this.walk && this.walk.available && sn.phase === "briefing" && sn.vehicle.regime === "pad" && padSt && !(padSt.aboard || []).includes(me));
+      if (walking && !this.walk.active) this.walk.start();
+      if (!walking && this.walk && this.walk.active) this.walk.stop();
+      // paused on the gantry: the astronaut stands still behind the pause card (camera still renders)
+      this.walkState = walking ? this.walk.update(rawDt, sn, sn.paused ? {} : this.keys) : null;
+      if (!walking && window.voiceManager && window.voiceManager.updateProximity) {   // aboard: one cabin, everyone at full volume
+        const cabin = {}; for (const id of Object.keys(this.net.remotePlayers || {})) cabin[id] = { curPos: [0, 0, 0] };
+        window.voiceManager.updateProximity({ x: 0, y: 0, z: 0 }, 0, cabin);
+      }
       if (sn) { this.view.update(sn, this.input, rawDt); }
       else if (this.titleMission) this.view.update(this.titleMission.snapshot(), {}, rawDt);
       this.view.render();
-      if (this.hud && sn) this.hud.update(sn, rawDt, { assets: this.view.assetStatus, roles: this.myRoles(), crew: sn.crew, me: this.net.socketId, comms: window.crewComms ? window.crewComms.state() : "N/A", ping: this.net.pingMs, fps: this._fps, scope: this.view.scope, keys: this.keys, anchors: this.view.steerAnchors(), aim: this.view.aimBody || null });
+      if (this.hud && sn) this.hud.update(sn, rawDt, { assets: this.view.assetStatus, roles: this.myRoles(), crew: sn.crew, me: this.net.socketId, comms: window.crewComms ? window.crewComms.state() : "N/A", ping: this.net.pingMs, fps: this._fps, scope: this.view.scope, keys: this.keys, anchors: this.view.steerAnchors(), aim: this.view.aimBody || null, walk: this.walkState });
       if (window.shuttleSfx && sn) window.shuttleSfx.update(sn, this.input, rawDt);
     },
   };
@@ -257,6 +278,9 @@
       freeze: async (on) => { const r = await game.net.testOp({ op: "freeze", on }); return !!r; },
       preset: async (phase) => { const r = await game.net.testOp({ op: "preset", phase }); game.snapBuf = []; return r; },
       keys: () => Object.keys(game.keys).filter((k) => game.keys[k]),
+      dockPlace: async (axial, closing) => { const r = await game.net.testOp({ op: "dock_place", axial, closing }); game.snapBuf = []; return r; },
+      boardAll: async () => { const r = await game.net.testOp({ op: "board_all" }); return !!r; },
+      walk: () => (game.walk && game.walk.active ? { pos: game.walk.pos.slice(), yaw: game.walk.yaw, arm: game.view.ksc && game.view.ksc.armAngle, state: game.walkState } : null),
     };
   }
   window.shuttleGame = game;

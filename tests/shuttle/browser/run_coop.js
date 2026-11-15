@@ -1,4 +1,4 @@
-// Co-op playtest: four browser clients (CDR, PLT, MS1, MS2) in one crew room. Each client decides
+// Co-op playtest (CREW_N clients, default 4): browser clients (CDR, PLT, MS1, MS2) in one crew room. Each client decides
 // from its own copy of the server snapshot but only presses keys that belong to ITS seat (real key
 // events). The CDR client advances the server's fixed-step simulation (test hook) after every
 // client's held inputs have been acknowledged by the server.
@@ -20,7 +20,7 @@ async function client(browser, name, big) {
     await page.route(/^https?:\/\/(?!localhost|127\.0\.0\.1).*/, (r) => r.abort());
     await page.route('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js', (r) => r.fulfill({ status: 200, contentType: 'application/javascript', body: THREE_SRC }));
   }
-  await page.goto(`${BASE}/?shuttletest=1`, { waitUntil: 'load', timeout: 120000 });
+  await page.goto(`${BASE}/?shuttletest=1`, { waitUntil: 'load', timeout: 300000 });
   await page.waitForTimeout(2500);
   await page.waitForSelector('#input-player-name', { timeout: 120000 }); await page.evaluate((n) => { document.getElementById('input-player-name').value = n; }, name);
   return { page, logs, name, held: new Set(), roles: [] };
@@ -35,7 +35,7 @@ async function client(browser, name, big) {
   const code = (await cdr.page.textContent('#lobby-room-code')).trim();
   log(`room ${code}`);
   const crew = [cdr];
-  for (const n of ['Reyes', 'Okafor', 'Lindqvist']) {
+  for (const n of ['Reyes', 'Okafor', 'Lindqvist'].slice(0, Math.max(0, Number(process.env.CREW_N || 4) - 1))) {
     log(`joining ${n}…`);
     const c = await client(browser, n, false);
     log(`  page loaded for ${n}`);
@@ -45,17 +45,51 @@ async function client(browser, name, big) {
     crew.push(c);
   }
   await cdr.page.waitForTimeout(800);
-  await cdr.page.screenshot({ path: `${OUT}/01_lobby_cdr.png` });
-  await crew[2].page.screenshot({ path: `${OUT}/01b_lobby_ms1.png` });
+  await cdr.page.screenshot({ timeout: 150000, path: `${OUT}/01_lobby_cdr.png` });
+  await crew[Math.min(2, crew.length - 1)].page.screenshot({ timeout: 150000, path: `${OUT}/01b_lobby_ms1.png` });
   // a seat conflict must be refused: MS1 tries to take the Pilot seat
-  await crew[2].page.evaluate(() => document.querySelector('#lobby-roles-list .lobby-role-card[data-role="plt"]').click());
-  await crew[2].page.waitForTimeout(600);
+  await crew[Math.min(2, crew.length - 1)].page.evaluate(() => document.querySelector('#lobby-roles-list .lobby-role-card[data-role="plt"]').click());
+  await crew[Math.min(2, crew.length - 1)].page.waitForTimeout(600);
   log('lobby ready; launching');
   await cdr.page.evaluate(() => document.getElementById('btn-start-mission').click());
   for (const c of crew) await c.page.waitForFunction(() => window.shuttleGame && window.shuttleGame.isActive && window.netManager.snapshot && window.netManager.snapshot.crew, null, { timeout: 180000, polling: 500 });
   for (const c of crew) c.roles = await c.page.evaluate(() => window.__shuttleTest.roles());
   log('seats: ' + crew.map((c) => `${c.name}=${c.roles.join('+')}`).join(', '));
-  await crew[1].page.screenshot({ path: `${OUT}/02_briefing_plt.png` });
+  // ---- boarding on LC-39A: everyone starts on the gantry deck; START waits for the whole crew
+  await cdr.page.waitForTimeout(3000);
+  const walking = [];
+  for (const c of crew) walking.push(!!(await c.page.evaluate(() => window.__shuttleTest.walk())));
+  log('walking on the gantry: ' + crew.map((c, i) => `${c.name}=${walking[i]}`).join(', '));
+  const early = await cdr.page.evaluate(() => window.netManager.sendCommand('START'));
+  log('CDR START before boarding → ' + JSON.stringify(early));
+  // the Commander walks to the access-arm control; the Pilot must see the Commander's astronaut move
+  const cdrId = await cdr.page.evaluate(() => window.netManager.socketId);
+  const seen0 = await crew[1].page.evaluate((id) => { const r = window.shuttleGame.walk && window.shuttleGame.walk.remote[id]; return r ? r.pos.slice() : null; }, cdrId);
+  const goTo = async (c, tx, tz, rad) => {
+    for (let i = 0; i < 160; i++) {
+      const w = await c.page.evaluate(() => window.__shuttleTest.walk()); if (!w) return null;
+      const dx = tx - w.pos[0], dz = tz - w.pos[2]; if (Math.hypot(dx, dz) < rad) return w;
+      await c.page.evaluate(([dx, dz]) => { window.shuttleGame.walk.camYaw = Math.atan2(dx, dz); }, [dx, dz]);
+      await c.page.keyboard.down('w'); await c.page.waitForTimeout(Math.max(200, Math.min(1500, Math.hypot(dx, dz) * 600))); await c.page.keyboard.up('w'); await c.page.waitForTimeout(150);
+    }
+    return null;
+  };
+  await goTo(cdr, 27.5, -1.5, 0.6); const atC = await goTo(cdr, 25.9, -2.9, 1.3);
+  await cdr.page.waitForTimeout(2500);
+  const seen1 = await crew[1].page.evaluate((id) => { const r = window.shuttleGame.walk && window.shuttleGame.walk.remote[id]; const rig = window.shuttleGame.walk && window.shuttleGame.walk.rigs[id]; return r ? { pos: r.pos.slice(), rigVisible: !!(rig && rig.root.visible) } : null; }, cdrId);
+  const vm = await crew[1].page.evaluate(() => { const v = window.voiceManager; return v ? { lastProx: v.lastProximityUpdateAt > 0 } : null; });
+  const armState = await crew[Math.min(3, crew.length - 1)].page.evaluate(() => window.netManager.snapshot.pad);
+  log(`CDR at the arm control: ${!!atC}; PLT sees CDR ${JSON.stringify(seen0)} → ${JSON.stringify(seen1)}; proximity voice updated on PLT: ${JSON.stringify(vm)}; MS2 sees pad ${JSON.stringify(armState)}`);
+  await crew[1].page.screenshot({ timeout: 150000, path: `${OUT}/02a_gantry_plt.png` });
+  await cdr.page.waitForTimeout(3500);
+  await goTo(cdr, 24.0, -2.0, 0.5); await goTo(cdr, 8.5, -2.0, 1.2);
+  await cdr.page.waitForTimeout(2500);
+  const afterCdr = await cdr.page.evaluate(() => window.netManager.snapshot.pad);
+  log('after the Commander crossed the arm: ' + JSON.stringify(afterCdr));
+  await crew[1].page.screenshot({ timeout: 150000, path: `${OUT}/02b_gantry_after_cdr_plt.png` });
+  await cdr.page.evaluate(() => window.__shuttleTest.boardAll());   // the other three board (test shortcut)
+  await cdr.page.waitForTimeout(2000);
+  await crew[1].page.screenshot({ timeout: 150000, path: `${OUT}/02_briefing_plt.png` });
   // non-owner command must be refused by the server: the Pilot tries to start the count
   const refused = await crew[1].page.evaluate(() => window.netManager.sendCommand('START'));
   log('PLT sends START → ' + JSON.stringify(refused));
@@ -71,8 +105,8 @@ async function client(browser, name, big) {
     const s = outs[0].sn;
     if (s.phase !== lastPhase) {
       log(`[${((Date.now() - t0) / 1000).toFixed(0)}s wall | sim ${s.t.toFixed(0)}s] phase → ${s.phase}`);
-      if (shots[s.phase]) { await cdr.page.waitForTimeout(600); await cdr.page.screenshot({ path: `${OUT}/${shots[s.phase]}_cdr.png` }); }
-      if (s.phase === 'payload') await crew[2].page.screenshot({ path: `${OUT}/s_payload_ms1.png` });
+      if (shots[s.phase]) { await cdr.page.waitForTimeout(600); await cdr.page.screenshot({ timeout: 150000, path: `${OUT}/${shots[s.phase]}_cdr.png` }); }
+      if (s.phase === 'payload') await crew[Math.min(2, crew.length - 1)].page.screenshot({ timeout: 150000, path: `${OUT}/s_payload_ms1.png` });
       lastPhase = s.phase;
     }
     if (s.msg && s.msg.text !== lastMsg) { lastMsg = s.msg.text; log(`   > ${s.msg.text}`); }
@@ -86,14 +120,14 @@ async function client(browser, name, big) {
       await c.page.evaluate(() => window.__shuttleTest.flushInput());
     }
     await cdr.page.evaluate((sec) => window.__shuttleTest.stepSim(sec), outs[0].step);
-    if (s.phase === 'payload' && !shots.bayDone && (s.doors || 0) >= 1) { shots.bayDone = 1; await crew[2].page.keyboard.press('KeyC'); await crew[2].page.waitForTimeout(800); await crew[2].page.screenshot({ path: `${OUT}/s_bay_ms1.png` }); await crew[2].page.keyboard.press('KeyC'); await crew[2].page.keyboard.press('KeyC'); }
-    if (s.phase === 'ascent' && !shots.look && s.met > 60) { shots.look = 1; const p = crew[1].page; await p.mouse.move(320, 180); await p.mouse.down(); await p.mouse.move(470, 140, { steps: 6 }); await p.mouse.up(); await p.waitForTimeout(700); await p.screenshot({ path: `${OUT}/s_ascent_freelook_plt.png` }); }
+    if (s.phase === 'payload' && !shots.bayDone && (s.doors || 0) >= 1) { shots.bayDone = 1; await crew[Math.min(2, crew.length - 1)].page.keyboard.press('KeyC'); await crew[Math.min(2, crew.length - 1)].page.waitForTimeout(800); await crew[Math.min(2, crew.length - 1)].page.screenshot({ timeout: 150000, path: `${OUT}/s_bay_ms1.png` }); await crew[Math.min(2, crew.length - 1)].page.keyboard.press('KeyC'); await crew[Math.min(2, crew.length - 1)].page.keyboard.press('KeyC'); }
+    if (s.phase === 'ascent' && !shots.look && s.met > 60) { shots.look = 1; const p = crew[1].page; await p.mouse.move(320, 180); await p.mouse.down(); await p.mouse.move(470, 140, { steps: 6 }); await p.mouse.up(); await p.waitForTimeout(700); await p.screenshot({ timeout: 150000, path: `${OUT}/s_ascent_freelook_plt.png` }); }
     it++;
   }
   log('key presses by seat: ' + JSON.stringify(pressCount));
   await cdr.page.waitForTimeout(1200);
-  await cdr.page.screenshot({ path: `${OUT}/99_debrief_cdr.png` });
-  await crew[3].page.screenshot({ path: `${OUT}/99_debrief_ms2.png` });
+  await cdr.page.screenshot({ timeout: 150000, path: `${OUT}/99_debrief_cdr.png` });
+  await crew[Math.min(3, crew.length - 1)].page.screenshot({ timeout: 150000, path: `${OUT}/99_debrief_ms2.png` });
   for (const c of crew) log(`${c.name} page errors: ${JSON.stringify(c.logs.slice(0, 5))}`);
   fs.writeFileSync(`${OUT}/log.txt`, lines.join('\n'));
   await browser.close();

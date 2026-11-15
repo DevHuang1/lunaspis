@@ -112,16 +112,64 @@
         case "UI": this._tone(1200, 0.04, "sine", 0.06); break;
       }
     }
-    // "creamy" keyboard: a soft, round thock — low sine thump + short dark noise burst, slight random pitch
+    // "Creamy" keyboard: lubed linear switches in a gasket-mounted board with thick PBT caps. Each press is
+    // rendered once into a buffer (several random variants, so repeats never sound identical):
+    //   bottom-out = a tight, dry tick (keycap edge, 2-6 kHz, <1 ms) + a short damped "clack" mode
+    //   (~1.2 kHz, plate/cap) + a round low-mid body (~450 Hz, case, ~10 ms) + a soft sub thump (~170 Hz);
+    //   no spring ping, no long ring. Release = a lighter, higher top-out tick. Big keys (Space/Enter/Shift)
+    //   are deeper and a touch longer (stabilisers).
+    _keyBuffers() {
+      if (this.keyBufs) return this.keyBufs;
+      const sr = this.ctx.sampleRate, mk = (kind) => { const d = synthKey(sr, kind, Math.random); const b = this.ctx.createBuffer(1, d.length, sr); b.getChannelData(0).set(d); return b; };
+      this.keyBufs = {};
+      for (const kind of ["down", "up", "bigDown", "bigUp"]) this.keyBufs[kind] = Array.from({ length: 6 }, () => mk(kind));
+      return this.keyBufs;
+    }
     key(down, code) {
       if (!this._ctx()) return;
-      const c = this.ctx, t = c.currentTime, r = 0.92 + Math.random() * 0.16;
-      const o = c.createOscillator(), g = c.createGain(); o.type = "sine";
-      o.frequency.setValueAtTime((down ? 170 : 130) * r, t); o.frequency.exponentialRampToValueAtTime((down ? 95 : 80) * r, t + 0.05);
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(down ? 0.22 : 0.1, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + (down ? 0.07 : 0.05));
-      o.connect(g); g.connect(this.bus); o.start(t); o.stop(t + 0.1);
-      this._burst(down ? 0.03 : 0.02, down ? 0.12 : 0.05, 1500 * r, 0.8, "lowpass");
+      const big = /^(Space|Enter|NumpadEnter|ShiftLeft|ShiftRight|Backspace|Tab)$/.test(code || "");
+      const set = this._keyBuffers()[(big ? "big" : "") + (down ? "Down" : "Up").replace(/^./, (c) => big ? c : c.toLowerCase())];
+      const c = this.ctx, src = c.createBufferSource(), g = c.createGain(), t = c.currentTime;
+      src.buffer = set[(Math.random() * set.length) | 0];
+      src.playbackRate.value = 0.97 + Math.random() * 0.06;
+      g.gain.value = (down ? 0.55 : 0.32) * (0.9 + Math.random() * 0.2);
+      src.connect(g); g.connect(this.bus); src.start(t);
     }
   }
+
+  // DOM-free key-click synthesis (also used by tools/key_click_preview.js to render a listening sample)
+  function synthKey(sr, kind, rnd) {
+    rnd = rnd || Math.random;
+    const big = kind.startsWith("big"), down = /down/i.test(kind), j = (x, p) => x * (1 + (rnd() * 2 - 1) * p);
+    const dur = down ? (big ? 0.085 : 0.06) : 0.04, n = Math.ceil(sr * dur), out = new Float32Array(n);
+    // modes: [freq Hz, decay s, amplitude]
+    const modes = down
+      ? (big ? [[j(330, 0.04), 0.016, 0.55], [j(980, 0.05), 0.0065, 0.5], [j(140, 0.05), 0.02, 0.26], [j(2300, 0.06), 0.0022, 0.26]]
+             : [[j(450, 0.05), 0.0095, 0.48], [j(1250, 0.05), 0.0052, 0.62], [j(175, 0.05), 0.012, 0.2], [j(2700, 0.06), 0.0022, 0.34]])
+      : (big ? [[j(620, 0.05), 0.006, 0.4], [j(1500, 0.05), 0.003, 0.35]] : [[j(780, 0.05), 0.0045, 0.38], [j(1850, 0.05), 0.0025, 0.42]]);
+    const ph = modes.map(() => rnd() * 0.3);
+    // dry transient: band-limited noise, ~0.7 ms decay (two one-pole filters = crude 2-6 kHz band)
+    let lp = 0, hp = 0, prev = 0;
+    const tickAmp = down ? 0.95 : 0.65, tickTau = down ? 0.0008 : 0.0006, aLP = Math.exp(-2 * Math.PI * 5000 / sr), aHP = Math.exp(-2 * Math.PI * 1800 / sr);
+    // cream texture: a little darker noise riding on the body, a few ms
+    let tx = 0; const aTx = Math.exp(-2 * Math.PI * 1100 / sr), txTau = down ? 0.004 : 0.0025;
+    for (let i = 0; i < n; i++) {
+      const t = i / sr, att = Math.min(1, t / 0.00035);               // 0.35 ms attack: crisp but not a hard digital edge
+      let y = 0;
+      for (let m = 0; m < modes.length; m++) { const [f, tau, a] = modes[m]; y += a * Math.exp(-t / tau) * Math.sin(2 * Math.PI * f * t + ph[m]); }
+      const w = rnd() * 2 - 1;
+      lp = aLP * lp + (1 - aLP) * w; hp = aHP * (hp + lp - prev); prev = lp;
+      y += tickAmp * Math.exp(-t / tickTau) * hp * 3;
+      tx = aTx * tx + (1 - aTx) * w; y += 0.35 * Math.exp(-t / txTau) * tx;
+      out[i] = y * att;
+    }
+    // gentle soft-clip and fade-out tail, then normalise to a fixed peak
+    let pk = 0;
+    for (let i = 0; i < n; i++) { const fade = Math.min(1, (n - i) / (sr * 0.006)); out[i] = Math.tanh(out[i] * 1.2) * fade; pk = Math.max(pk, Math.abs(out[i])); }
+    const k = (down ? 0.9 : 0.6) / (pk || 1);
+    for (let i = 0; i < n; i++) out[i] *= k;
+    return out;
+  }
+  window.ShuttleSfxSynth = { synthKey };
   window.shuttleSfx = new ShuttleSfx();
 })();

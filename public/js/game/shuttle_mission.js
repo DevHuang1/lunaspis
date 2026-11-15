@@ -12,6 +12,11 @@
   const DEG = S.DEG, DT = 1 / 60;
 
   const PHASES = ["briefing", "prelaunch", "ascent", "insertion", "payload", "deorbit", "entry", "approach", "rollout", "debrief"];
+  // ISS docking flight (variant "iss"): same launch, 51.6° orbit, documented skip of the rendezvous
+  // phasing, then a hand-flown -V-bar approach (station ahead); the mission ends at soft capture (no interior).
+  const ISS_PHASES = ["briefing", "prelaunch", "ascent", "insertion", "docking", "debrief"];
+  const DOCK = { start: 250, closeMin: 0.03, closeMax: 0.15, lateral: 0.30, misalignDeg: 4, rollDeg: 10, rateDeg: 0.2, lostRange: 2000 };
+  const ISS_AZIMUTH = 44.9 * Math.PI / 180;      // thrust heading for a 51.6° orbit from LC-39A (sweep: 51.5°)
   const OBJECTIVES = [
     ["liftoff", "ascent", "Liftoff (automatic)"], ["srb_sep", "ascent", "SRB separation (automatic)"],
     ["meco", "ascent", "MECO on target energy (automatic)"], ["et_sep", "ascent", "External tank separation (automatic)"],
@@ -27,9 +32,16 @@
     ["gear", "approach", "Deploy landing gear"], ["touchdown", "approach", "Touchdown on the runway inside limits"],
     ["wheels_stop", "rollout", "Steer and brake to wheels stop"],
   ];
-  // every flown phase can be accelerated (user request); hand-flown phases are capped so inputs stay controllable
-  const WARP_LIMIT = { briefing: 1, prelaunch: 4, ascent: 8, insertion: 100, payload: 20, deorbit: 100, entry: 8, approach: 4, rollout: 4, debrief: 1 };
-  const CHECKPOINTS = ["pad", "orbit", "payload", "entry", "approach"];
+  // up to 100× in every flying phase (user direction 2026-11-15); landing (approach + rollout) is capped at 4×
+  const WARP_LIMIT = { briefing: 1, prelaunch: 100, ascent: 100, insertion: 100, docking: 100, payload: 100, deorbit: 100, entry: 100, approach: 4, rollout: 4, debrief: 1 };
+  const CHECKPOINTS = ["pad", "orbit", "prox", "payload", "entry", "approach"];
+  const ISS_OBJECTIVES = OBJECTIVES.filter(([, ph]) => ph === "ascent" || ph === "insertion").concat([
+    ["dock_doors", "docking", "Open payload bay doors (docking system exposed)"],
+    ["dock_rates", "docking", "Null rotation rates / engage attitude hold"],
+    ["dock_att", "docking", "Docking attitude: bay toward the station, nose up (±4°)"],
+    ["dock_close", "docking", "Close to 30 m on the docking axis"],
+    ["docked", "docking", "Soft capture: closing 0.03–0.15 m/s, offset < 0.30 m, misalignment < 4°"],
+  ]);
 
   class ShuttleMission {
     constructor(opts) {
@@ -43,8 +55,17 @@
       this.missionId = `STS-T${String(this.serial).padStart(2, "0")}-${Date.now().toString(36).slice(-4)}`;
       this.revision = 0; this.eventSeq = 0;
       this.phase = "briefing";
+      this.variant = this.opts.variant === "iss" ? "iss" : "deploy";
+      this.objList = this.variant === "iss" ? ISS_OBJECTIVES : OBJECTIVES;
+      this.phases = this.variant === "iss" ? ISS_PHASES : PHASES;
       this.st = S.createState(this.opts.state || {});
-      this.obj = {}; OBJECTIVES.forEach(([id]) => (this.obj[id] = "pending"));
+      if (this.variant === "iss" && !this.opts.state) {
+        // no satellite: an equal-mass logistics carrier rides in the bay; northeast launch to 51.6°
+        this.st.cfg.payload = false; this.st.mass.cargo = this.st.mass.payload; this.st.mass.payload = 0;
+        this.st.ascent.azimuth = ISS_AZIMUTH;
+        this.st.ascent.guid = Object.assign({}, S.ASCENT_GUID, { hTarget: 165e3 });   // lofted: less Earth-rotation help on a 45° heading
+      }
+      this.obj = {}; this.objList.forEach(([id]) => (this.obj[id] = "pending"));
       this.failure = null; this.result = null; this.exited = false; this.paused = false;
       this.warpReq = 1; this.warp = 1; this.acc = 0;
       this.input = { pitch: 0, yaw: 0, roll: 0, tx: 0, ty: 0, tz: 0, sb: 0, brake: 0 };
@@ -53,7 +74,7 @@
       this.plan = null; this.touchdown = null; this.integrity = "normal";
       this.assistLog = { alphaAssistOffT: 0, holdUsed: false, warpUsedMax: 1 };
       this.prev = { r: this.st.r.slice(), q: this.st.q.slice() };
-      this._say("Training mission loaded: deploy one satellite in LEO and return to KSC runway 15.", "info");
+      this._say(this.variant === "iss" ? "Training mission loaded: launch to the station's 51.6° orbit and dock at the forward port." : "Training mission loaded: deploy one satellite in LEO and return to KSC runway 15.", "info");
       return this;
     }
 
@@ -123,7 +144,7 @@
       switch (type) {
         case "AUTHORIZE_BURN": return this._authorizeBurn();
         case "OPEN_BAY":
-          if (!["payload", "insertion"].includes(this.phase) || st.regime !== "orbit") return no("Bay doors may only be opened in orbit (after ET separation)");
+          if (!["payload", "insertion", "docking"].includes(this.phase) || st.regime !== "orbit") return no("Bay doors may only be opened in orbit (after ET separation)");
           if (this.phase === "insertion" && this.obj.orbit_valid !== "done") return no("Verify a stable orbit before opening the bay");
           if (st.bay.doors >= 1) return no("Doors already open");
           st.bay.cmd = 1; return ok("Payload bay doors opening (≈45 s).");
@@ -165,6 +186,10 @@
         }
         case "COAST_TO_TIG": return this._coastToTig();
         case "TOGGLE_AOA_ASSIST":
+          if (this.phase === "approach" || this.phase === "rollout") {
+            st.flight.landAssist = st.flight.landAssist === false;
+            return ok(st.flight.landAssist ? "Landing assist ON: hands off and it flies the guide; any input takes over until you let go." : "Landing assist OFF: you fly the glide, bank and speed brake.");
+          }
           if (this.phase !== "entry") return no("AoA assistance is selectable during entry only");
           st.flight.alphaAssist = !st.flight.alphaAssist;
           return ok(st.flight.alphaAssist ? "AoA assist ON: holding the scheduled angle of attack." : "AoA assist OFF: pitch input commands angle of attack.");
@@ -229,7 +254,7 @@
         st.burn = { kind: "OMS2", tig: st.t + tApo - dur / 2, dvTarget: dv, dvDone: 0, active: false, authorized: true, complete: false, dur };
         st.dap.mode = "AUTO";
         this._done("oms2");
-        this._say(`OMS-2 authorized: Δv ${dv.toFixed(1)} m/s at apoapsis, TIG in ${(tApo - dur / 2).toFixed(0)} s. Autopilot will orient prograde and fire. Time acceleration allowed until TIG-60 s.`, "info");
+        this._say(`OMS-2 authorized: Δv ${dv.toFixed(1)} m/s at apoapsis, TIG in ${(tApo - dur / 2).toFixed(0)} s. Autopilot will orient prograde and fire. Time acceleration up to 100× is allowed.`, "info");
         return { accepted: true };
       }
       if (this.phase === "deorbit") {
@@ -251,6 +276,7 @@
 
     _coastToTig() {
       const st = this.st;
+      if (this.phase === "insertion") return this._coastToOms2();
       if (this.phase !== "deorbit") return { accepted: false, reason: "Coast is available after payload deployment" };
       if (st.burn && st.burn.authorized) return { accepted: false, reason: "Burn already authorized" };
       if (!this.plan || st.t > this.plan.tig + 60) { this._planDeorbit(); if (!this.plan) return { accepted: false, reason: "No landing opportunity found" }; }
@@ -273,6 +299,26 @@
       return { accepted: true };
     }
 
+    // insertion: skip the coast up to apoapsis, to 60 s before the authorized OMS-2 burn (two-body; the
+    // coast stays above the drag-free altitude). The autopilot keeps the nose on the direction of travel.
+    _coastToOms2() {
+      const st = this.st;
+      if (!st.burn) return { accepted: false, reason: "Authorize the OMS-2 burn first [B]" };
+      if (st.burn.complete || st.burn.active) return { accepted: false, reason: "The burn has already started" };
+      const dtc = st.burn.tig - 60 - st.t;
+      if (dtc <= 1) return { accepted: false, reason: "Already within a minute of the burn" };
+      const L0 = S.lvlh(st.r, st.v), rel = S.quat.qmul(S.quat.qconj(L0.q), st.q);
+      const s = S.keplerPropagate(st.r, st.v, dtc);
+      st.r = s.r; st.v = s.v; st.t += dtc;
+      st.q = S.quat.qmul(S.lvlh(st.r, st.v).q, rel); st.w = S.orbitRateBody(st);
+      if (st.dap.mode === "AUTO") st.autoAttitude = S.quat.qFromNoseUp(unit(st.v), unit(st.r));
+      st.debris = [];
+      this.prev = { r: st.r.slice(), q: st.q.slice() };
+      this._emit("COAST", { dt: dtc });
+      this._say(`Coasted ${(dtc / 60).toFixed(1)} min up to apoapsis. OMS-2 in 60 s — automatic.`, "info");
+      return { accepted: true };
+    }
+
     _planDeorbit() {
       const st = this.st, rn = norm(st.r), rp = S.RE + 30e3;
       const a = (rn + rp) / 2, vA = Math.sqrt(S.MU * (2 / rn - 1 / a)), dv = Math.sqrt(S.MU / rn) - vA;
@@ -286,18 +332,10 @@
 
     // ------------------------------------------------------------------ warp limits
     _warpLimit() {
-      const st = this.st, base = WARP_LIMIT[this.phase] || 1;
-      let max = base, why = `${this.phase} phase`;
-      if (st.burn && st.burn.active) return { max: 4, why: "engine burn in progress" };
-      if (st.burn && st.burn.authorized && !st.burn.complete && st.burn.tig - st.t < 60) return { max: 4, why: "burn within 60 s" };
-      if (this.phase === "payload" && st.payload.released && this.obj.deploy_verified !== "done") return { max: 4, why: "release/separation in progress" };
-      if (this.phase === "deorbit" && this.obj.deorbit_burn === "done") {
-        const alt = norm(st.r) - S.RE;
-        if (alt < 140e3) return { max: 8, why: "approaching entry interface" };
-      }
-      if (this.phase === "deorbit" && this.plan && !(st.burn && st.burn.authorized) && this.plan.tig - st.t < 120) max = Math.min(max, 4), why = "near TIG";
-      if (this.phase === "insertion" && !(st.burn && st.burn.authorized)) max = Math.min(max, 10), why = "insertion burn not authorized";
-      if (this.phase === "insertion" && st.burn && st.burn.complete) max = 10, why = "orbit verification";
+      // the simulation still integrates every fixed step at any warp (physics, burns and contacts are unchanged);
+      // only the landing is capped, because the crew flies it by hand
+      const max = WARP_LIMIT[this.phase] || 1;
+      const why = (this.phase === "approach" || this.phase === "rollout") ? "landing" : `${this.phase} phase`;
       return { max, why };
     }
 
@@ -334,8 +372,14 @@
         this.countdown -= DT;
         if (this.countdown <= 6.6 && st.regime === "pad") { S.ignite(st); this._emit("SSME_START"); this._say("Main engine start…", "info"); }
       }
+      // after ET separation the autopilot turns the nose onto the direction of travel (heads-up) and keeps it
+      // there until the hand-over, so the nose sits on the coast line instead of holding the MECO attitude
+      // (13° above the path, growing to 25° as the orbit carried the line away from a fixed nose)
+      const burning = st.burn && st.burn.authorized && !st.burn.complete;
+      if (this.phase === "insertion" && st.regime === "orbit" && st.dap.mode === "AUTO" && !burning && st.log.etSepT !== null && st.t - st.log.etSepT > 8)
+        st.autoAttitude = S.quat.qFromNoseUp(unit(st.v), unit(st.r));
       // burn scheduling (guided): attitude owned by the autopilot, ignition at TIG
-      if (st.burn && st.burn.authorized && !st.burn.complete) {
+      if (burning) {
         const b = st.burn, vh = unit(st.v), up = unit(st.r);
         if (b.kind === "OMS2") st.autoAttitude = S.quat.qFromNoseUp(vh, up);
         else st.autoAttitude = S.quat.qFromNoseUp(scl(vh, -1), S.quat.qrot(st.q, [0, 1, 0]));
@@ -352,12 +396,12 @@
     _inputForPhase() {
       const i = this.input, z = { pitch: 0, yaw: 0, roll: 0, tx: 0, ty: 0, tz: 0, sb: this.input.sb, brake: 0 };
       switch (this.phase) {
-        case "payload": case "deorbit": case "insertion":
+        case "payload": case "deorbit": case "insertion": case "docking":
           if (this.st.dap.mode === "AUTO") return z;
           return { pitch: i.pitch, yaw: i.yaw, roll: i.roll, tx: i.tx, ty: i.ty, tz: i.tz };
         case "entry": return { pitch: this.st.flight.alphaAssist ? 0 : i.pitch, roll: i.roll };
-        case "approach": return { pitch: i.pitch, roll: i.roll, sb: i.sb };
-        case "rollout": return { pitch: i.pitch, roll: i.roll, brake: i.brake, sb: i.sb };
+        case "approach": return this._landingAssist(i);
+        case "rollout": return this._rolloutAssist(i);
         default: return z;
       }
     }
@@ -393,6 +437,7 @@
         case "NOSE_GEAR_TOUCHDOWN": this._say("Nose gear touchdown. Brakes available.", "info"); break;
         case "GROUND_FAIL": this._fail(e.reason); break;
         case "WHEELS_STOP": this._done("wheels_stop"); this._complete(); break;
+        case "DOCK_CONTACT": this._dockContact(e); break;
       }
     }
 
@@ -428,8 +473,10 @@
               this._emit("ORBIT_VERIFIED", { peri: el.periapsisAlt, apo: el.apoapsisAlt });
               st.dap.mode = "FREE";
               // handover transient: the DAP releases with residual rates the pilot must null
-              st.w = add(S.orbitRateBody(st), [0.45 * DEG, -0.40 * DEG, 0.70 * DEG]);
+              // a gentle drift (≈0.1°/s), not a tumble: players found the old 0.9°/s hand-over spin wild
+              st.w = add(S.orbitRateBody(st), [0.05 * DEG, -0.04 * DEG, 0.07 * DEG]);
               st.burn = null;
+              if (this.variant === "iss") { this._beginProxOps(el); break; }
               this._setPhase("payload");
               this._saveCheckpoint("orbit");
               this._say(`Orbit verified ${(el.periapsisAlt / 1e3).toFixed(0)} × ${(el.apoapsisAlt / 1e3).toFixed(0)} km. Attitude control handed to you (DAP FREE, residual rates). Tasks: open bay, power satellite, null rates, align, release, separate.`, "info");
@@ -484,6 +531,7 @@
         }
         case "entry": this._entryLogic(); break;
         case "approach": this._approachLogic(); break;
+        case "docking": this._dockingLogic(); break;
         case "rollout": break;
       }
     }
@@ -545,10 +593,41 @@
       }
     }
 
+    // Landing assist (default ON, M toggles): whenever the crew is hands-off for a second, the flight computer
+    // flies the guide itself — glide angle, bank and speed brake follow the same cues the prompt gives, the
+    // flare comes from the cue's flare mode, and the gear goes down by 120 m if nobody lowered it. Any
+    // pitch / bank / speed-brake input takes over that axis until it has been released for a second.
+    _landingAssist(i) {
+      const st = this.st, f = st.flight, a = this.guid.appr, t = st.t, out = { pitch: i.pitch, roll: i.roll, sb: i.sb };
+      const la = this._la || (this._la = { pitch: -1e9, roll: -1e9, sbT: -1e9, sb: i.sb, brake: -1e9 });
+      if (i.pitch) la.pitch = t; if (i.roll) la.roll = t;
+      if (i.sb !== la.sb) { la.sb = i.sb; la.sbT = t; }
+      if (f.landAssist === false || !a) return out;
+      if (!i.pitch && t - la.pitch > 1.0 && f.gammaHold !== undefined && f.gammaHold !== null) out.pitch = clamp((a.gammaCmd - f.gammaHold) / (0.5 * DEG), -1, 1);
+      if (!i.roll && t - la.roll > 1.0) out.roll = clamp((a.bankCue - f.sigma) / (6 * DEG), -1, 1);
+      if (t - la.sbT > 3.0) out.sb = a.sbCue;
+      this.assistLog.landAssist = true;
+      return out;
+    }
+    // rollout part of the landing assist: lowers the nose gently, holds the centreline, brakes once the nose is down
+    _rolloutAssist(i) {
+      const st = this.st, g = st.ground, t = st.t, out = { pitch: i.pitch, roll: i.roll, brake: i.brake, sb: i.sb };
+      const la = this._la || (this._la = { pitch: -1e9, roll: -1e9, sbT: -1e9, sb: i.sb, brake: -1e9 });
+      if (la.brake === undefined) la.brake = -1e9;
+      if (i.pitch) la.pitch = t; if (i.roll) la.roll = t; if (i.brake) la.brake = t;
+      if (st.flight.landAssist === false || !g) return out;
+      if (!i.pitch && t - la.pitch > 1.0 && !g.noseDown) out.pitch = -0.5;                       // ≈ -1.5°/s: well inside the 6.5°/s slapdown limit
+      if (!i.roll && t - la.roll > 1.0) { const want = -Math.atan(g.y / 150); out.roll = clamp((want - g.psi) / (1 * DEG), -1, 1); }
+      if (!i.brake && t - la.brake > 1.0 && g.noseDown) out.brake = 1;
+      return out;
+    }
     _approachLogic() {
       const st = this.st;
       this.guid.appr = S.approachGuidance(st, this.guid.side);
       const d = S.derive(st);
+      if (st.flight.landAssist !== false && !st.flight.gearCmd && d.altitudeM - S.SITES.runway.h < 120 && d.eas <= 165) {
+        st.flight.gearCmd = true; this._done("gear"); this._emit("GEAR_DEPLOY"); this._say("Landing assist lowered the gear (120 m).", "info");
+      }
       if (d.altitudeM < 80) {
         const td = S.touchdownCheck(st);
         if (td) {
@@ -560,6 +639,62 @@
         }
       }
       if (d.altitudeM < -5) this._fail("Ground impact.");
+    }
+
+    // ---- ISS: documented skip from orbit insertion to proximity operations
+    _beginProxOps(el) {
+      const st = this.st;
+      this._saveCheckpoint("orbit");
+      // Rendezvous phasing (about two days of OMS/RCS burns on a real flight) is skipped: the station is
+      // placed on the orbiter's own orbit, 250 m (+ its port offset) AHEAD of it, so the orbiter starts
+      // behind it on the -V-bar with no relative drift, looking at it along its direction of travel.
+      // Both bodies then fly two-body gravity.
+      const dock = S.V.issPortV + S.V.odsBody[1] + DOCK.start;
+      const ahead = S.keplerPropagate(st.r, st.v, dock / norm(st.v));
+      st.iss = { r: ahead.r, v: ahead.v, docked: false };
+      this._setPhase("docking");
+      this._saveCheckpoint("prox");
+      this._say(`Orbit verified ${(el.periapsisAlt / 1e3).toFixed(0)} × ${(el.apoapsisAlt / 1e3).toFixed(0)} km, inclination ${(Math.acos(S.vec.cross(st.r, st.v)[2] / norm(S.vec.cross(st.r, st.v))) / DEG).toFixed(1)}°. RENDEZVOUS SKIPPED (simplified): the station is ${DOCK.start} m ahead of you on your orbit, flying tail-first so its docking port faces you. Open the bay, pitch up so the bay faces the station (nose away from Earth), then translate in slowly.`, "info");
+    }
+    _dockingLogic() {
+      const st = this.st, g = S.dockGeometry(st); if (!g) return;
+      this.guid.dock = g;
+      if (st.bay.doors >= 1) this._done("dock_doors");
+      if (g.wRel <= 0.15 * DEG || st.dap.mode === "HOLD") this._done("dock_rates");
+      if (g.misalign <= DOCK.misalignDeg * DEG && g.rollErr <= DOCK.rollDeg * DEG) this._done("dock_att");
+      if (g.axial <= 30 && g.lateral <= 3) this._done("dock_close");
+      if (g.range > DOCK.lostRange) this._fail(`Lost the station: range ${(g.range / 1000).toFixed(1)} km. Keep the closing rate small and correct drift early.`, { quantity: "range" });
+      if (st.mass.rcs <= 0) this._fail("RCS propellant exhausted before docking.");
+    }
+    _dockContact(c) {
+      const st = this.st, bad = [];
+      if (st.bay.doors < 0.999) bad.push("payload bay doors not open — the docking ring was still inside the bay");
+      if (c.lateral > 3) bad.push(`missed the port by ${c.lateral.toFixed(1)} m and struck the station`);
+      else if (c.lateral > DOCK.lateral) bad.push(`offset ${c.lateral.toFixed(2)} m (limit ${DOCK.lateral.toFixed(2)} m)`);
+      if (c.closing > DOCK.closeMax) bad.push(`closing ${c.closing.toFixed(3)} m/s — too fast (limit ${DOCK.closeMax} m/s)`);
+      if (c.closing < DOCK.closeMin) bad.push(`closing ${c.closing.toFixed(3)} m/s — too slow for the capture latches (needs ≥ ${DOCK.closeMin} m/s)`);
+      if (c.misalign > DOCK.misalignDeg * DEG) bad.push(`misaligned ${(c.misalign / DEG).toFixed(1)}° (limit ${DOCK.misalignDeg}°)`);
+      if (c.rollErr > DOCK.rollDeg * DEG) bad.push(`rolled ${(c.rollErr / DEG).toFixed(0)}° off nose-up (limit ${DOCK.rollDeg}°)`);
+      if (c.wRel > DOCK.rateDeg * DEG) bad.push(`still rotating ${(c.wRel / DEG).toFixed(2)}°/s (limit ${DOCK.rateDeg}°/s)`);
+      if (bad.length) return this._fail(`Docking contact outside limits: ${bad.join("; ")}.`, { quantity: "dock", contact: c });
+      st.iss.docked = true;
+      this._done("docked");
+      this._emit("DOCKED", { closing: c.closing, lateral: c.lateral, misalignDeg: c.misalign / DEG });
+      this._completeDock(c);
+    }
+    _completeDock(c) {
+      if (this.result) return;
+      const st = this.st;
+      this.result = {
+        success: this.integrity === "normal", integrity: this.integrity, variant: "iss",
+        summary: this.integrity === "normal" ? "SOFT CAPTURE — docked to the ISS, mission complete" : "REHEARSAL — PRESET STATE (not a valid flight)",
+        docking: { closing: c.closing, lateral: c.lateral, misalignDeg: c.misalign / DEG, rollDeg: c.rollErr / DEG, rateDeg: c.wRel / DEG },
+        maxG: st.log.maxG, maxQ: st.maxQ, dvOMS: st.log.dvOMS, dvRCS: st.log.dvRCS, rcsLeft: st.mass.rcs,
+        retries: this.retries, rejections: this.rejections, failures: this.failures.slice(), assists: Object.assign({}, this.assistLog), met: st.t - (st.launchT || 0),
+      };
+      this._setPhase("debrief");
+      this._emit("MISSION_COMPLETE", { success: this.result.success });
+      this._say(this.result.summary, "info");
     }
 
     _complete() {
@@ -585,11 +720,13 @@
       out.push("SET_CONTROL_INPUT", "SET_WARP");
       switch (this.phase) {
         case "briefing": out.push("START"); break;
-        case "insertion": if (this.obj.oms2 !== "done") out.push("AUTHORIZE_BURN"); break;
+        case "insertion": if (this.obj.oms2 !== "done") out.push("AUTHORIZE_BURN", "COAST_TO_TIG"); break;
         case "payload": out.push("OPEN_BAY", "PAYLOAD_POWER", "PAYLOAD_GO", "DAP_HOLD", "RELEASE_PAYLOAD"); break;
+        case "docking": out.push("OPEN_BAY", "CLOSE_BAY", "DAP_HOLD"); break;
         case "deorbit": out.push("CLOSE_BAY", "COAST_TO_TIG", "DAP_HOLD", "AUTHORIZE_BURN"); break;
         case "entry": out.push("TOGGLE_AOA_ASSIST"); break;
-        case "approach": out.push("DEPLOY_GEAR"); break;
+        case "approach": out.push("DEPLOY_GEAR", "TOGGLE_AOA_ASSIST"); break;
+        case "rollout": out.push("TOGGLE_AOA_ASSIST"); break;
       }
       return out;
     }
@@ -602,19 +739,21 @@
       });
       const lim = this._warpLimit();
       return {
-        schemaVersion: 1, missionId: this.missionId, revision: this.revision, mode: "solo-training", phase: this.phase,
+        schemaVersion: 1, missionId: this.missionId, revision: this.revision, mode: "solo-training", phase: this.phase, variant: this.variant, phases: this.phases,
         simTime: st.t, theta0: st.theta0, met: st.launchT !== undefined && st.launchT !== null ? st.t - st.launchT : null, countdown: this.phase === "prelaunch" ? this.countdown : null,
         paused: this.paused, warp: this.warp, warpReq: this.warpReq, warpMax: lim.max, warpWhy: lim.why, integrity: this.integrity,
         vehicle: { r: st.r, v: st.v, q: st.q, w: st.w, regime: st.regime, cfg: st.cfg, gear: st.flight.gear, gearCmd: st.flight.gearCmd, sb: st.flight.sb,
                    doors: st.bay.doors, doorsCmd: st.bay.cmd, dap: st.dap.mode, alphaAssist: st.flight.alphaAssist, eng: st.eng, ground: st.ground,
+                   thrustAccel: st.regime === "ascent" && (st.eng.ssme || st.eng.srb) ? (st.lastThrustAccel || 0) : 0,
                    prevR: this.prev.r, prevQ: this.prev.q, alpha: this.acc / DT },
         resources: { oms: st.mass.oms, rcs: st.mass.rcs, et: st.mass.et, srb: st.mass.srbL + st.mass.srbR, payloadKg: st.cfg.payload ? st.mass.payload : 0 },
         payload: { attached: st.cfg.payload, power: p.power, checkout: p.checkout, ready: p.ready, released: p.released, r: p.r, v: p.v, q: p.q,
                    deploy: p.deploy, range: p.range || null, rangeRate: p.rangeRate || null },
         debris: st.debris.map((b) => ({ id: b.id, kind: b.kind, r: b.r, q: b.q })),
+        iss: st.iss ? { r: st.iss.r, v: st.iss.v, docked: !!st.iss.docked, range: st.iss.range || null } : null,
         burn: st.burn ? Object.assign({}, st.burn) : null, plan: this.plan,
         telemetry: tel,
-        objectives: OBJECTIVES.map(([id, phase, label]) => ({ id, phase, label, status: this.obj[id] })),
+        objectives: this.objList.map(([id, phase, label]) => ({ id, phase, label, status: this.obj[id] })),
         guidance: this._guidanceView(d),
         allowedCommands: this.allowedCommands(), failure: this.failure, result: this.result,
         checkpoints: CHECKPOINTS.filter((c) => this.checkpoints[c]), messages: this.messages.slice(-8), retries: this.retries,
@@ -640,6 +779,11 @@
         out.alphaCmd = S.alphaSchedule(d.mach);
       }
       if (this.phase === "approach" && g.appr) out.appr = g.appr;
+      if (this.phase === "docking" && st.iss) {
+        const k = S.dockGeometry(st);
+        out.dock = { range: k.range, axial: k.axial, lateral: k.lateral, closing: k.closing, latRate: k.latRate, misalignDeg: k.misalign / DEG, rollDeg: k.rollErr / DEG,
+          rateDeg: k.wRel / DEG, closeTarget: this._dockClosingTarget(k.axial), limits: DOCK };
+      }
       out.next = this._nextStep(d, out);
       out.path = this._refPath(d, out);
       if (this.phase === "rollout" && st.ground) out.rollout = { x: st.ground.x, y: st.ground.y, V: st.ground.V, noseDown: st.ground.noseDown, remaining: S.RWY.length - st.ground.x };
@@ -670,6 +814,7 @@
     if (ph === "payload" && st.payload.released && this.obj.deploy_verified !== "done") return { frame: "dir", dir: scl(S.quat.qAxes(st.q).y, -1), len: 60, what: "move" };
     if (ph === "deorbit" && st.bay.doors <= 0 && !(st.burn && st.burn.complete)) return { frame: "dir", dir: scl(unit(st.v), -1), len: 70, what: "nose" };
     if (ph === "insertion" && st.burn && !st.burn.complete) return { frame: "dir", dir: unit(st.v), len: 70, what: "nose" };
+    if (ph === "docking" && st.iss) { const k = S.dockGeometry(st); return { frame: "dir", dir: unit(sub(k.P, k.D)), len: Math.max(5, Math.min(300, k.range)), what: "move" }; }
     return null;
   };
 
@@ -742,21 +887,60 @@
         if (this._retroErr() > 5 * DEG) {
           const tgt = S.quat.qrot(S.quat.qconj(st.q), scl(unit(st.v), -1)), ang = Math.acos(clamp(tgt[2], -1, 1)), h = Math.hypot(tgt[0], tgt[1]) || 1;
           const rot = [-tgt[1] / h * ang, tgt[0] / h * ang, 0];      // axis = z × target (no roll needed)
-          const r = holdCue(rot, "Nose pointing backwards along the orbit (retrograde)", 5);
+          const r = holdCue(rot, "Nose pointing backwards along the orbit (retrograde) — the deorbit burn fires against the direction of travel to slow down; after the burn the autopilot turns the nose forward for entry", 5);
           return r;
         }
         if (this._relRate() > 0.18 * DEG) return step("cdr", "", "Hands off — let it settle", `Nose is retrograde; attitude hold is stopping the rotation (${(this._relRate() / DEG).toFixed(2)}°/s, needs < 0.20)`);
         return step("plt", "B", "Authorize the DEORBIT burn", "Nose is retrograde and steady");
       }
+      case "docking": return this._dockStep(gv, holdCue, step);
       case "entry": return step("cdr", "A/D", gv.reverseCue ? `REVERSE — roll ${gv.bankCmd >= 0 ? "RIGHT [D]" : "LEFT [A]"}` : `Hold bank ${Math.abs((gv.bankCmd || 0) / DEG).toFixed(0)}° ${gv.bankCmd >= 0 ? "right" : "left"}`, "Bank steers the lift: more bank = drop faster and shorter");
       case "approach": {
         const a = gv.appr;
-        if (a && a.gearCue && !st.flight.gearCmd) return step("plt", "G", "Landing gear DOWN", "");
-        return step("cdr", "W/S A/D", a && (a.mode === "FLARE" || a.mode === "PREFLARE") ? "FLARE — shallow the glide with [S]" : "Follow the yellow line: glide [W/S], bank [A/D]", "W/S set the glide angle and it holds when you let go · Pilot: speed brake X open / Z close if fast");
+        if (a && a.gearCue && !st.flight.gearCmd) return step("plt", "G", "Landing gear DOWN", st.flight.landAssist !== false ? "Landing assist lowers it at 120 m if nobody does" : "");
+        if (st.flight.landAssist !== false) return step("cdr", "", a && (a.mode === "FLARE" || a.mode === "PREFLARE") ? "Landing assist flaring — hands off" : "Landing assist is flying the guide line — hands off, or fly it yourself",
+          "Any W/S, A/D or speed-brake input takes over that control until you let go · M turns the assist off");
+        return step("cdr", "W/S A/D", a && (a.mode === "FLARE" || a.mode === "PREFLARE") ? "FLARE — shallow the glide with [S]" : "Follow the guide line: glide [W/S], bank [A/D]", "W/S set the glide angle and it holds when you let go · Pilot: speed brake X open / Z close if fast");
       }
-      case "rollout": return step("cdr", "Space", st.ground && st.ground.noseDown ? "Brake [Space] and steer with Q/E to the centreline" : "Lower the nose [W]", "");
+      case "rollout":
+        if (st.flight.landAssist !== false) return step("cdr", "", st.ground && st.ground.noseDown ? "Landing assist braking on the centreline — hands off" : "Landing assist lowering the nose — hands off", "Any input takes over until you let go · M turns the assist off");
+        return step("cdr", "Space", st.ground && st.ground.noseDown ? "Brake [Space] and steer with Q/E to the centreline" : "Lower the nose [W]", "");
       default: return step("all", "", "", "");
     }
+  };
+
+  // closing-rate schedule for the approach: ~0.4 m/s far out, 0.06 m/s in the last metres
+  ShuttleMission.prototype._dockClosingTarget = function (axial) { return clamp(0.035 + 0.0016 * Math.max(0, axial), 0.06, 0.4); };
+  // ISS approach cues: bay doors, rates/hold, docking attitude, then one translation axis at a time
+  // (body axes: X left [J/L], Y dorsal = toward the station [I/K], Z nose = up [U/O]).
+  ShuttleMission.prototype._dockStep = function (gv, holdCue, step) {
+    const st = this.st, k = S.dockGeometry(st), lim = DOCK;
+    if (st.bay.doors < 0.999) return st.bay.cmd > 0 ? step("ms1", "", `Bay doors opening ${(st.bay.doors * 100).toFixed(0)}%`, "The docking ring sits in the forward bay") : step("ms1", "Y", "Open the payload bay doors", "Exposes the docking system (and the radiators)");
+    if (k.misalign > 2.5 * DEG || k.rollErr > 6 * DEG || st.dap.mode !== "HOLD") {
+      const r = holdCue(this._rotTo(k.target), "Docking attitude: payload bay facing the station ahead, nose pointing up (away from Earth)", 3);
+      if (r.key !== "" || st.dap.mode !== "HOLD") return r;
+    }
+    // translation, in body axes: where the port is relative to the docking ring, and how fast it moves
+    // lateral offset of the port from the docking axis (true perpendicular offset, not body-frame position, so a
+    // small misalignment over 200 m does not read as metres of offset), split onto the orbiter's X and Z axes
+    const ax = S.quat.qAxes(st.q), portLat = scl(k.latV, -1), vLat = sub(k.vRel, scl(k.axis, dot(k.vRel, k.axis)));   // ring velocity across the axis
+    const target = this._dockClosingTarget(k.axial), close = k.closing;
+    const latCmd = (bodyAx, axis) => {
+      const e = dot(portLat, bodyAx), v = dot(vLat, bodyAx), m = Math.abs(e);
+      const want = m < 0.08 ? 0 : Math.sign(e) * Math.min(0.08, 0.015 + 0.03 * m);
+      return { err: want - v, axis, e };
+    };
+    const cx = latCmd(ax.x, 0), cz = latCmd(ax.z, 2);
+    const why = `range ${k.axial.toFixed(1)} m · closing ${close.toFixed(2)} (target ${target.toFixed(2)}) m/s · offset ${k.lateral.toFixed(2)} m`;
+    const lat = [cx, cz].sort((a, b) => Math.abs(b.err) - Math.abs(a.err))[0];
+    if (Math.abs(lat.err) > 0.012) {
+      const pos = lat.err > 0, key = lat.axis === 0 ? (pos ? "J" : "L") : (pos ? "U" : "O"), dirTxt = lat.axis === 0 ? (pos ? "LEFT" : "RIGHT") : (pos ? "toward the NOSE" : "toward the TAIL");
+      return step("ms1", key, `Tap [${key}] — slide ${dirTxt}: the port is ${Math.abs(lat.e).toFixed(2)} m off the docking axis`, why);
+    }
+    if (close < target - Math.max(0.02, target * 0.25)) return step("ms1", "I", `Hold [I] — close in toward the station`, why);
+    if (close > target + Math.max(0.02, target * 0.25)) return step("ms1", "K", `Tap [K] — slow the approach`, why);
+    if (k.axial < 2) return step("ms1", "", "Hands off — contact in a moment", why);
+    return step("ms1", "", "On the approach corridor — hands off", why + " · PLT can speed up time with [.]");
   };
 
   function fmtT(t) { const s = Math.max(0, Math.floor(t)); return `${Math.floor(s / 3600)}:${String(Math.floor(s / 60) % 60).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`; }
@@ -780,7 +964,7 @@
     axisRole: { pitch: "cdr", yaw: "cdr", roll: "cdr", brake: "cdr", tx: "ms1", ty: "ms1", tz: "ms1", sb: "plt" },
   };
 
-  const api = { ShuttleMission, PHASES, OBJECTIVES, CHECKPOINTS, WARP_LIMIT, DT, fmtT, CREW };
+  const api = { ShuttleMission, PHASES, ISS_PHASES, OBJECTIVES, ISS_OBJECTIVES, CHECKPOINTS, WARP_LIMIT, DT, DOCK, fmtT, CREW };
   root.ShuttleMissionLib = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

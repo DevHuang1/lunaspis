@@ -71,10 +71,13 @@ function brain(variant) {
     case 'approach': {
       const a = g.appr; out.step = t.altitudeM < 120 ? 0.05 : 0.1;
       if (!a || v.approach === 'none') { out.step = 0.5; break; }
-      let pc = a.pitchCue;
-      if (v.approach === 'noflare' && (a.mode === 'PREFLARE' || a.mode === 'FLARE' || a.mode === 'SHALLOW')) pc = -19 * DEG + t.angleOfAttackRad;
-      hold(key(pc - t.pitchRad, 0.6 * DEG), 'KeyS', 'KeyW');
-      hold(key(a.bankCue - t.bankRad, 1 * DEG), 'KeyD', 'KeyA');
+      // W/S set the glide angle and it holds when released (round 3): steer the held glide angle to the cue,
+      // as the node prompt-pilot does (tests/shuttle/run_checks.js)
+      let gc = a.gammaCmd;
+      if (v.approach === 'noflare' && (a.mode === 'PREFLARE' || a.mode === 'FLARE' || a.mode === 'SHALLOW')) gc = -19 * DEG;
+      const gNow = t.gammaHoldRad === null || t.gammaHoldRad === undefined ? t.flightPathRad : t.gammaHoldRad;
+      hold(key(gc - gNow, 0.5 * DEG), 'KeyS', 'KeyW');
+      hold(key(a.bankCue - t.bankRad, 2 * DEG), 'KeyD', 'KeyA');
       hold(key(a.sbCue - veh.sb, 0.06), 'KeyX', 'KeyZ');
       if (a.gearCue && v.approach !== 'nogear') once('gear', 'KeyG');
       break;
@@ -131,6 +134,8 @@ async function openShuttle(opts) {
   await h.page.fill('#input-player-name', (opts && opts.name) || 'Voss');
   await h.page.click('#btn-solo-flight');
   await h.page.waitForTimeout(4000);
+  // the crew starts on the LC-39A gantry; the boarding walk has its own test (run_coop.js), so board here
+  if (!(opts && opts.walk)) { await h.page.evaluate(() => window.__shuttleTest.boardAll()); await h.page.waitForTimeout(800); }
   // harness owns simulated time: real-time frames render but do not advance the sim between bot decisions
   await h.page.evaluate(() => window.__shuttleTest.freeze(true));
   return h;

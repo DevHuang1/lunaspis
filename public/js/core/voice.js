@@ -5,10 +5,11 @@
  * Zero-NAT, 100% firewall-traversing WebSocket audio relay for multiplayer crew comms:
  * - Always-On Comms: Crew members can hear each other at ALL times across the entire station.
  * - Dynamic Proximity Acoustics:
- *     * Near (0-3m): Full 100% volume, rich 18kHz wideband response + vocal presence boost,
+ *     * Near (<=2m): Full 100% volume, wideband response + vocal presence boost,
  *       and directional stereo panning (sounds like standing right next to you).
- *     * Far (15m+): Gently settles to 70% volume (never muted!) with helmet comms warmth (3.8kHz).
- *     * Closed CBM Hatch: Subtle acoustic muffling (2.2kHz) through pressurized doors.
+ *     * Far (>=22m): Settles to ~38% volume (never fully muted) with a strongly
+ *       muffled 1.6kHz intercom response.
+ *     * Closed CBM Hatch: Acoustic muffling (1kHz) through pressurized doors.
  * - Cockpit Audio Settings: Device selector, live VU meter, sensitivity, deafen & per-player volumes.
  * - Ultra-low latency (~30ms) scheduled Web Audio playback.
  */
@@ -21,15 +22,17 @@
   const SAMPLES_PER_CHUNK = Math.round((TARGET_SAMPLE_RATE * CHUNK_DURATION_MS) / 1000); // 1600 samples = 3.2 KB
 
   const PROXIMITY_CONFIG = {
-    nearDistance: 2.5,     // Distance (m) where volume is 100% and presence is maximized
-    farDistance: 26.0,     // Distance (m) where volume settles to comfortable 70% station intercom
+    nearDistance: 2.0,     // Distance (m) where volume is 100% and presence is maximized
+    farDistance: 22.0,     // Distance (m) where volume settles to the far intercom level
     nearGain: 1.00,        // 100% volume when standing close
-    farGain: 0.70,         // 70% volume when far away (NEVER drops to zero!)
-    nearFilterFreq: 18000, // Full crisp presence when close
-    farFilterFreq: 3800,   // Warm spacecraft intercom acoustic response when far
-    occludedFreq: 2200,    // Muffled frequency through closed CBM hatch
-    occludedGainMult: 0.85 // 85% volume through closed door (clear and intelligible)
+    farGain: 0.38,         // 38% volume when far away (still audible, but clearly distant)
+    nearFilterFreq: 20000, // Full crisp presence when close
+    farFilterFreq: 1600,   // Strongly muffled spacecraft intercom response when far
+    occludedFreq: 1000,    // Heavily muffled frequency through a closed CBM hatch
+    occludedGainMult: 0.55 // 55% volume through closed door
   };
+
+  const VOICE_JITTER_BUFFER_SEC = 0.09;
 
   // Helper: line segment intersection in 2D (XZ plane)
   function lineSegmentsIntersect(p1x, p1z, p2x, p2z, p3x, p3z, p4x, p4z) {
@@ -60,18 +63,29 @@
       this.emergencyMode = false;
       this.pttActive = false;           // Push-to-talk [V]
       this.pttWasMuted = false;
+      this.radioChannelLatched = false;
       this.isDeafened = localStorage.getItem("interfellas_deafen") === "true";
       this.lastError = null;
       this._boundSocket = null;
       this._keysBound = false;
 
       // Tuning Settings
-      this.vadThreshold = parseInt(localStorage.getItem("interfellas_vad_thresh") || "12", 10);
+      const storedVad = localStorage.getItem("interfellas_vad_thresh");
+      // Migrate the old default (12) to the more sensitive default (7) while
+      // preserving values the user explicitly chose.
+      if (storedVad === null || storedVad === "12") {
+        this.vadThreshold = 7;
+        localStorage.setItem("interfellas_vad_thresh", "7");
+      } else {
+        const parsedVad = parseInt(storedVad, 10);
+        this.vadThreshold = Number.isFinite(parsedVad) ? Math.max(5, Math.min(80, parsedVad)) : 7;
+      }
       this.masterVolume = parseFloat(localStorage.getItem("interfellas_master_vol") || "1.0");
       this.playerVolumes = {}; // peerId -> volumeMultiplier (0.0 to 2.0)
 
       // Live VU meter value (0-100)
       this.currentMicLevel = 0;
+      this.lastProximityUpdateAt = 0;
 
       // Peers map: socketId -> { proximityGain, pannerNode, proximityFilter, presenceFilter, nextPlayTime, isSpeaking, speakingTimeout }
       this.peers = {};
@@ -112,6 +126,8 @@
         isMuted: this.isMuted,
         isSpeaking: this.isSpeaking,
         isDeafened: this.isDeafened,
+        isRadio: !!(this.isRadioTransmitting || this.radioChannelLatched),
+        radioChannelLatched: !!this.radioChannelLatched,
         emergencyMode: this.emergencyMode,
         masterVolume: this.masterVolume,
         peerCount: Object.keys(this.peers).length,
@@ -282,12 +298,16 @@
         this.outgoingIndex = 0;
 
         this.processorNode.onaudioprocess = (e) => {
-          if (!this.isEnabled || this.isMuted) return;
+          if (!this.isEnabled || this.isMuted) {
+            this.outgoingIndex = 0;
+            return;
+          }
 
           const input = e.inputBuffer.getChannelData(0);
           const outSamples = Math.floor(input.length / ratio);
 
-          // Stream audio whenever speaking (or when unmuted)
+          // VAD gates transmission to keep mobile data usage reasonable. The
+          // hysteresis + longer hangover below prevent mid-word cut-outs.
           if (!this.isSpeaking) {
             this.outgoingIndex = 0;
             return;
@@ -362,10 +382,16 @@
           return;
         }
 
-        const nowSpeaking = level > this.vadThreshold || this.isRadioTransmitting || this.pttActive;
+        // Hysteresis: start on the configured threshold, keep transmitting
+        // until the level falls well below it. This prevents brief dips
+        // between syllables from clipping the stream.
+        const startThreshold = this.vadThreshold;
+        const stopThreshold = Math.max(3, Math.round(this.vadThreshold * 0.55));
+        const threshold = this.isSpeaking ? stopThreshold : startThreshold;
+        const nowSpeaking = level > threshold || this.isRadioTransmitting || this.pttActive;
 
         if (nowSpeaking) {
-          speakingCooldown = 10; // Hold state for ~500ms to preserve word endings
+          speakingCooldown = 30; // Hold state for ~900ms (30ms VAD tick) to preserve word endings
           if (!this.isSpeaking) {
             this.isSpeaking = true;
             this.broadcastVoiceState();
@@ -378,7 +404,7 @@
           this.broadcastVoiceState();
           this.emitStateChange();
         }
-      }, 50);
+      }, 30);
     }
 
     /**
@@ -495,12 +521,31 @@
       return this.currentMicLevel;
     }
 
+    async toggleRadioChannel(forceState = null) {
+      this.ensureAudioContext();
+      const next = forceState === null ? !this.radioChannelLatched : !!forceState;
+      this.radioChannelLatched = next;
+      this.emergencyMode = next || !!this.isRadioTransmitting;
+
+      if (next && !this.localStream) {
+        await this.startMicrophone();
+      } else if (next && this.isMuted) {
+        this.setMuted(false);
+      }
+
+      this.broadcastVoiceState();
+      this.emitStateChange();
+      this.playQuindarBeep(next);
+      return this.radioChannelLatched;
+    }
+
     broadcastVoiceState() {
       if (!this.socket || !window.netManager) return;
       this.socket.emit("voice_state_update", {
         roomId: window.netManager.roomId,
         isMuted: this.isMuted,
-        isSpeaking: this.isSpeaking
+        isSpeaking: this.isSpeaking,
+        isRadio: !!(this.isRadioTransmitting || this.radioChannelLatched)
       });
     }
 
@@ -552,12 +597,14 @@
         if (peer) {
           peer.isSpeaking = !!data.isSpeaking;
           peer.isMuted = !!data.isMuted;
+          peer.isRadio = !!data.isRadio;
         }
 
         if (window.netManager && window.netManager.remotePlayers && window.netManager.remotePlayers[data.senderId]) {
           const rp = window.netManager.remotePlayers[data.senderId];
           rp.isSpeaking = !!data.isSpeaking;
           rp.isMuted = !!data.isMuted;
+          rp.isRadio = !!data.isRadio;
         }
 
         this.emitStateChange();
@@ -643,6 +690,7 @@
         nextPlayTime: 0,
         isSpeaking: false,
         isMuted: false,
+        isRadio: false,
         speakingTimeout: null
       };
 
@@ -679,12 +727,17 @@
         const len = int16.length;
         if (len === 0) return;
 
-        // Create 16kHz audio buffer
+        // Create 16kHz audio buffer and measure its level. Capture streams
+        // continuously while unmuted, so silence must not light up the UI.
+        let sumSq = 0;
         const audioBuffer = this.audioCtx.createBuffer(1, len, TARGET_SAMPLE_RATE);
         const channelData = audioBuffer.getChannelData(0);
         for (let i = 0; i < len; i++) {
-          channelData[i] = int16[i] / 32768.0;
+          const sample = int16[i] / 32768.0;
+          channelData[i] = sample;
+          sumSq += sample * sample;
         }
+        const isAudible = Math.sqrt(sumSq / len) > 0.02;
 
         const source = this.audioCtx.createBufferSource();
         source.buffer = audioBuffer;
@@ -695,28 +748,34 @@
           source.connect(this.masterGainNode || this.audioCtx.destination);
         }
 
-        // Schedule smooth playback with 25ms anti-jitter buffer (and cap drift)
+        // Schedule smooth playback with a jitter buffer. Reset only when the
+        // stream has genuinely fallen behind or drifted too far ahead; small
+        // late arrivals should play immediately instead of being discarded.
         const now = this.audioCtx.currentTime;
-        if (peer.nextPlayTime < now || peer.nextPlayTime > now + 0.45) {
-          peer.nextPlayTime = now + 0.025;
+        const streamRestarted = !peer.lastChunkAt || (now - peer.lastChunkAt) > 0.5;
+        if (streamRestarted || peer.nextPlayTime < now - 0.15 || peer.nextPlayTime > now + 0.75) {
+          peer.nextPlayTime = now + VOICE_JITTER_BUFFER_SEC;
         }
-        source.start(peer.nextPlayTime);
-        peer.nextPlayTime += audioBuffer.duration;
+        source.start(Math.max(now, peer.nextPlayTime));
+        peer.nextPlayTime = Math.max(now, peer.nextPlayTime) + audioBuffer.duration;
+        peer.lastChunkAt = now;
 
-        // Active speaker indicator
-        peer.isSpeaking = true;
-        if (window.netManager && window.netManager.remotePlayers && window.netManager.remotePlayers[senderId]) {
-          window.netManager.remotePlayers[senderId].isSpeaking = true;
-        }
-
-        clearTimeout(peer.speakingTimeout);
-        peer.speakingTimeout = setTimeout(() => {
-          peer.isSpeaking = false;
+        // Active speaker indicator (only for chunks that actually contain voice)
+        if (isAudible) {
+          peer.isSpeaking = true;
           if (window.netManager && window.netManager.remotePlayers && window.netManager.remotePlayers[senderId]) {
-            window.netManager.remotePlayers[senderId].isSpeaking = false;
+            window.netManager.remotePlayers[senderId].isSpeaking = true;
           }
-          this.emitStateChange();
-        }, 350);
+
+          clearTimeout(peer.speakingTimeout);
+          peer.speakingTimeout = setTimeout(() => {
+            peer.isSpeaking = false;
+            if (window.netManager && window.netManager.remotePlayers && window.netManager.remotePlayers[senderId]) {
+              window.netManager.remotePlayers[senderId].isSpeaking = false;
+            }
+            this.emitStateChange();
+          }, 350);
+        }
 
       } catch (err) {
         console.warn("[VOICE] Error decoding voice chunk:", err);
@@ -771,21 +830,39 @@
 
     /**
      * 3D Proximity & Acoustic Presence Audio Update Loop
-     * - Voice chat is ALWAYS audible (never cuts off, baseline 70% volume at maximum distance)
-     * - Closer proximity smoothly boosts volume to 100%, opens high-frequencies (18kHz),
+     * - Voice chat is ALWAYS audible (baseline ~38% volume at maximum distance)
+     * - Closer proximity boosts volume toward 100%, opens high frequencies,
      *   and enhances direct vocal presence.
      */
     updateProximity(localPos, localYaw = 0, remotePlayers = {}) {
       if (!this.audioCtx) return;
 
+      // Acoustic proximity changes slowly; 12.5 Hz is plenty and avoids
+      // scheduling dozens of AudioParam ramps every rendered frame.
+      const nowMs = performance.now();
+      if (nowMs - this.lastProximityUpdateAt < 80) return;
+      this.lastProximityUpdateAt = nowMs;
+
       const currentTime = this.audioCtx.currentTime;
       const isEmergency = !!this.emergencyMode;
 
-      // In the lobby or pre-launch briefing, all crew members hear each other at 100% full volume
-      const isInLobby = !window.isGameStarted ||
-        !window.netManager ||
+      // In the lobby or pre-launch briefing, all crew members hear each other
+      // at 100% full volume. The server uses "playing" for an active mission.
+      const roomStatus = window.netManager && window.netManager.roomState
+        ? window.netManager.roomState.status
+        : "lobby";
+      const isInLobby = !window.netManager ||
         !window.netManager.roomState ||
-        window.netManager.roomState.status !== "in_progress";
+        roomStatus === "lobby" ||
+        roomStatus === "victory" ||
+        roomStatus === "debrief";
+
+      const localRole = window.netManager && window.netManager.localPlayer ? window.netManager.localPlayer.role : "commander";
+      const localTeam = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.team)
+        || (window.InterfellasRoles && typeof window.InterfellasRoles.getTeamForRole === "function"
+          ? window.InterfellasRoles.getTeamForRole(localRole)
+          : "crew");
+      const localRadioOpen = !!(this.isRadioTransmitting || this.radioChannelLatched || isEmergency);
 
       for (const peerId in this.peers) {
         const peer = this.peers[peerId];
@@ -793,8 +870,8 @@
 
         const peerVolScale = this.playerVolumes[peerId] !== undefined ? this.playerVolumes[peerId] : 1.0;
 
-        // In lobby: 100% clean full presence
-        if (isInLobby || isEmergency) {
+        // In lobby/victory: 100% clean full presence
+        if (isInLobby) {
           peer.proximityGain.gain.setTargetAtTime(1.0 * peerVolScale, currentTime, 0.04);
           if (peer.proximityFilter) {
             peer.proximityFilter.frequency.setTargetAtTime(PROXIMITY_CONFIG.nearFilterFreq, currentTime, 0.04);
@@ -808,8 +885,52 @@
           continue;
         }
 
-        // In-game 3D Proximity: Calculate real distance
         const rp = remotePlayers[peerId];
+        const remoteRole = rp && rp.role ? rp.role : "commander";
+        const remoteTeam = (rp && rp.team)
+          || (window.InterfellasRoles && typeof window.InterfellasRoles.getTeamForRole === "function"
+            ? window.InterfellasRoles.getTeamForRole(remoteRole)
+            : "crew");
+        const radioLinked = localRadioOpen || !!(peer.isRadio || (rp && rp.isRadio));
+
+        // Zone Isolation between LCC Ground Control and Orbital Flight Crew:
+        // Passive proximity stays zone-local; holding [R] or latching S-Band links Ground <-> Ship.
+        if (localTeam !== remoteTeam) {
+          if (!radioLinked) {
+            peer.proximityGain.gain.setTargetAtTime(0.0, currentTime, 0.04);
+            if (peer.pannerNode) {
+              peer.pannerNode.pan.setTargetAtTime(0.0, currentTime, 0.04);
+            }
+          } else {
+            peer.proximityGain.gain.setTargetAtTime(1.0 * peerVolScale, currentTime, 0.04);
+            if (peer.proximityFilter) {
+              peer.proximityFilter.frequency.setTargetAtTime(4200, currentTime, 0.04);
+            }
+            if (peer.presenceFilter) {
+              peer.presenceFilter.gain.setTargetAtTime(2.5, currentTime, 0.04);
+            }
+            if (peer.pannerNode) {
+              peer.pannerNode.pan.setTargetAtTime(0.0, currentTime, 0.04);
+            }
+          }
+          continue;
+        }
+
+        if (radioLinked) {
+          peer.proximityGain.gain.setTargetAtTime(1.0 * peerVolScale, currentTime, 0.04);
+          if (peer.proximityFilter) {
+            peer.proximityFilter.frequency.setTargetAtTime(PROXIMITY_CONFIG.nearFilterFreq, currentTime, 0.04);
+          }
+          if (peer.presenceFilter) {
+            peer.presenceFilter.gain.setTargetAtTime(1.5, currentTime, 0.04);
+          }
+          if (peer.pannerNode) {
+            peer.pannerNode.pan.setTargetAtTime(0.0, currentTime, 0.04);
+          }
+          continue;
+        }
+
+        // Same-Zone 3D Proximity: Calculate real distance
         let remotePos = null;
 
         if (rp) {
@@ -831,29 +952,24 @@
         const dz = remotePos.z - localPos.z;
         const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-        // Co-op crew: everyone shares the same radio channel, so proximity
-        // controls volume but never gates who can hear whom.
-
-        // Normalize distance factor: 0.0 (near, <=2.5m) to 1.0 (far, >=26m)
+        // Same-zone mates: proximity modulates loudness and filtering smoothly
         const t = Math.max(0, Math.min(1, (dist - PROXIMITY_CONFIG.nearDistance) / (PROXIMITY_CONFIG.farDistance - PROXIMITY_CONFIG.nearDistance)));
+        const curve = Math.pow(t, 0.8);
 
-        // 1. Dynamic Volume Curve: 100% when near -> 70% when far (ALWAYS audible for teammates!)
-        let targetGain = PROXIMITY_CONFIG.nearGain - (t * (PROXIMITY_CONFIG.nearGain - PROXIMITY_CONFIG.farGain));
+        let targetGain = PROXIMITY_CONFIG.nearGain * Math.pow(PROXIMITY_CONFIG.farGain / PROXIMITY_CONFIG.nearGain, curve);
+        let targetFreq = PROXIMITY_CONFIG.nearFilterFreq * Math.pow(PROXIMITY_CONFIG.farFilterFreq / PROXIMITY_CONFIG.nearFilterFreq, curve);
+        let presenceBoost = (1 - t) * 4.0;
 
-        // 2. Frequency Response: 18kHz wideband when near -> 3.8kHz warm helmet intercom when far
-        let targetFreq = PROXIMITY_CONFIG.nearFilterFreq - (t * (PROXIMITY_CONFIG.nearFilterFreq - PROXIMITY_CONFIG.farFilterFreq));
-
-        // 3. Intimacy Presence Boost: +3.0dB peaking boost when standing right next to each other (<3m)
-        let presenceBoost = (1 - t) * 3.0;
-
-        // 4. Airlock CBM Hatch Occlusion: Subtle realistic muffling when talking through closed doors
-        const isDoorOccluded = this.checkCbmDoorOcclusion(localPos, remotePos);
-        if (isDoorOccluded) {
-          targetGain *= PROXIMITY_CONFIG.occludedGainMult; // 85% volume
-          targetFreq = Math.min(targetFreq, PROXIMITY_CONFIG.occludedFreq); // 2.2kHz muffling
+        // Airlock CBM Hatch Occlusion onboard Station
+        const phase = window.netManager && window.netManager.mission ? window.netManager.mission.phase : "gantry";
+        if (localTeam !== "ground" && phase === "station") {
+          const isDoorOccluded = this.checkCbmDoorOcclusion(localPos, remotePos);
+          if (isDoorOccluded) {
+            targetGain *= PROXIMITY_CONFIG.occludedGainMult;
+            targetFreq = Math.min(targetFreq, PROXIMITY_CONFIG.occludedFreq);
+          }
         }
 
-        // Apply master / per-player volume scale
         targetGain *= peerVolScale;
 
         peer.proximityGain.gain.setTargetAtTime(targetGain, currentTime, 0.04);
@@ -864,12 +980,12 @@
           peer.presenceFilter.gain.setTargetAtTime(presenceBoost, currentTime, 0.04);
         }
 
-        // 5. Directional Stereo Panning: Localize teammates in 3D space when nearby
+        // Directional Stereo Panning
         if (peer.pannerNode) {
           if (dist > 0.5 && dist < 16.0) {
             const relX = dx * Math.cos(-localYaw) - dz * Math.sin(-localYaw);
             const relZ = dx * Math.sin(-localYaw) + dz * Math.cos(-localYaw);
-            const panStrength = 1.0 - (dist / 16.0); // Blends smoothly to center as they get further away
+            const panStrength = Math.max(0, 1.0 - (dist / 18.0));
             const rawPan = Math.max(-1, Math.min(1, relX / Math.max(1.5, Math.abs(relX) + Math.abs(relZ))));
             peer.pannerNode.pan.setTargetAtTime(rawPan * panStrength, currentTime, 0.04);
           } else {
@@ -909,13 +1025,19 @@
           }
         }
 
-        // [R] - Station Radio Broadcast (Hold to transmit station-wide)
-        if (e.code === "KeyR" && !e.repeat && this.isEnabled && !(window.dockingSim && window.dockingSim.isActive)) {
+        // [R] - S-Band Space-to-Ground Radio PTT (Hold to bridge Ground <-> Ship)
+        if (e.code === "KeyR" && !e.repeat && !(window.dockingSim && window.dockingSim.isActive)) {
           this.isRadioTransmitting = true;
           this.emergencyMode = true;
           this.pttWasMuted = this.isMuted;
-          if (this.isMuted) this.setMuted(false);
+          if (!this.localStream && !this.isEnabled) {
+            this.startMicrophone().catch(() => {});
+          } else if (this.isMuted) {
+            this.setMuted(false);
+          }
+          this.broadcastVoiceState();
           this.emitStateChange();
+          this.playQuindarBeep(true);
         }
       });
 
@@ -928,10 +1050,11 @@
         }
         if (e.code === "KeyR" && this.isRadioTransmitting) {
           this.isRadioTransmitting = false;
-          this.emergencyMode = false;
-          if (this.pttWasMuted) {
+          this.emergencyMode = !!this.radioChannelLatched;
+          if (this.pttWasMuted && !this.radioChannelLatched) {
             this.setMuted(true);
           }
+          this.broadcastVoiceState();
           this.emitStateChange();
         }
       });

@@ -37,42 +37,10 @@
 
     // ------------------------------------------------------------------ scene construction
     _buildFar() {
-      const loader = new T.TextureLoader();
-      // Team Earth texture (OrbitForge earth.glb, 5400 x 2700) with anisotropic filtering for the grazing
-      // views from orbit, plus a procedural fine-detail layer that fades in within ~2500 km of the camera
-      // so the ground under a low orbit is not a smear of magnified pixels.
-      const aniso = this.renderer && this.renderer.capabilities ? this.renderer.capabilities.getMaxAnisotropy() : 1;
-      const day = loader.load("textures/earth/earth_day_5400.jpg");
-      if (T.sRGBEncoding) day.encoding = T.sRGBEncoding;
-      day.anisotropy = aniso;
-      // city lights on the night side (the repository's NASA-style night map), faded
-      // in across a soft terminator; uSunView is the sun direction in view space, updated per frame
-      const night = loader.load("textures/earth/earth_night_4096.jpg"); if (T.sRGBEncoding) night.encoding = T.sRGBEncoding; night.anisotropy = aniso;
-      const earthMat = new T.MeshPhongMaterial({ map: day, specular: new T.Color(0x223344), shininess: 8, emissive: new T.Color(0xffffff), emissiveMap: night, emissiveIntensity: 1.0 });
-      const detail = this._detailTexture(); detail.anisotropy = aniso;
-      this.earthUniforms = null;
-      earthMat.onBeforeCompile = (sh) => {
-        sh.uniforms.detailMap = { value: detail }; sh.uniforms.uSunView = { value: new T.Vector3(0, 0, 1) };
-        this.earthUniforms = sh.uniforms;
-        sh.fragmentShader = "uniform sampler2D detailMap; uniform vec3 uSunView;\n" + sh.fragmentShader
-          .replace("#include <map_fragment>", `#include <map_fragment>
-          float dKm = length(vViewPosition);
-          float fade = smoothstep(2500.0, 250.0, dKm);
-          vec3 dt = texture2D(detailMap, vUv * vec2(900.0, 450.0)).rgb * texture2D(detailMap, vUv * vec2(170.0, 85.0)).gbr * 2.04;
-          diffuseColor.rgb *= mix(vec3(1.0), dt, fade * 0.55);`)
-          .replace("#include <emissivemap_fragment>", `#include <emissivemap_fragment>
-          float sunlit = dot(normalize(vNormal), normalize(uSunView));
-          float nightK = 1.0 - smoothstep(-0.18, 0.08, sunlit);
-          totalEmissiveRadiance = max(totalEmissiveRadiance - vec3(0.045), 0.0) * 1.25 * nightK * (0.9 + 0.5 * fade);   // drop the map's faint blue land base`);
-      };
-      const earth = new T.Mesh(new T.SphereGeometry(6371, 160, 96), earthMat);
+      // shared Earth (earth_globe.js): day map, night lights, detail layer, clouds, limb glow
+      this.globe = window.EarthGlobe.create(this.renderer);
+      const earth = this.globe.earth;
       this.earth = earth; this.far.add(earth);
-      // thin limb glow (view-dependent, additive) instead of a flat translucent shell
-      const atmo = new T.Mesh(new T.SphereGeometry(6371 * 1.012, 96, 64), new T.ShaderMaterial({
-        uniforms: { c: { value: new T.Color(0x4f9bff) } }, side: T.BackSide, transparent: true, depthWrite: false, blending: T.AdditiveBlending,
-        vertexShader: "varying vec3 vN; varying vec3 vV; void main(){ vec4 mv = modelViewMatrix * vec4(position,1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }",
-        fragmentShader: "uniform vec3 c; varying vec3 vN; varying vec3 vV; void main(){ float d = abs(dot(vN, vV)); float k = pow(1.0 - d, 6.0) * 1.4; gl_FragColor = vec4(c * k, k); }" }));
-      earth.add(atmo);
       // star field (fixed in ECI)
       const g = new T.BufferGeometry(), n = 2500, pos = new Float32Array(n * 3);
       let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
@@ -80,10 +48,7 @@
       g.setAttribute("position", new T.BufferAttribute(pos, 3));
       this.stars = new T.Points(g, new T.PointsMaterial({ color: 0xffffff, size: 1.6, sizeAttenuation: false }));
       this.far.add(this.stars);
-      const clouds = loader.load("textures/earth/earth_clouds_2048.png");   // team RGBA cloud map (2048 x 1024)
-      clouds.anisotropy = aniso;
-      this.clouds = new T.Mesh(new T.SphereGeometry(6371 * 1.004, 160, 96), new T.MeshLambertMaterial({ map: clouds, transparent: true, opacity: 0.9, depthWrite: false }));
-      earth.add(this.clouds);
+      this.clouds = this.globe.clouds;
       this._buildSky();
       this.sunFar = new T.DirectionalLight(0xffffff, 1.35); this.far.add(this.sunFar);
       this.far.add(new T.AmbientLight(0x223344, 0.25));
@@ -161,7 +126,19 @@
       const site = S.SITES, latM = (site.pad.lat + site.runway.lat) / 2, lonM = (site.pad.lon + site.runway.lon) / 2;
       this.groundECEF = S.llhToEcef(latM, lonM, -0.3); this.groundBasis = S.enuBasis(latM, lonM);
       const ground = new T.Group();
-      const land = new T.Mesh(new T.CircleGeometry(60000, 96), new T.MeshLambertMaterial({ color: 0x2e4524 }));
+      const padRel = this._enuOf(S.llhToEcef(site.pad.lat, site.pad.lon, 0));
+      this.padRel = padRel;
+      const useKsc = !!(window.KscScene && window.SpaceCenterManager && window.PadLayout);
+      // land disc; with the detailed KSC a hole is left where the KSC brings its own ground, beach and
+      // ocean (pad-relative x -1252..+2063 m up to this tile's sea, z +-1200 m). The KSC sits at the
+      // true surface height at the pad (padRel[2], about 1.3 m below this flat tangent tile).
+      const landShape = new T.Shape(); landShape.absarc(0, 0, 60000, 0, Math.PI * 2, false);
+      if (useKsc) {
+        const hx0 = padRel[0] - 1252, hx1 = 6500, hz0 = -padRel[1] - 1200, hz1 = -padRel[1] + 1200;   // tile x / z
+        const hole = new T.Path(); hole.moveTo(hx0, -hz0); hole.lineTo(hx0, -hz1); hole.lineTo(hx1, -hz1); hole.lineTo(hx1, -hz0); hole.lineTo(hx0, -hz0);
+        landShape.holes.push(hole);
+      }
+      const land = new T.Mesh(new T.ShapeGeometry(landShape, 96), new T.MeshLambertMaterial({ color: useKsc ? 0x1b3212 : 0x2e4524 }));
       land.rotation.x = -Math.PI / 2; ground.add(land);
       const sea = new T.Mesh(new T.PlaneGeometry(60000, 120000), new T.MeshLambertMaterial({ color: 0x0f3550, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
       sea.rotation.x = -Math.PI / 2; sea.position.set(36500, 1.5, 0); ground.add(sea);    // ocean east of the pad (coastline ≈2 km east of LC-39A)
@@ -184,10 +161,21 @@
       // hardstand mound, launch mount + mobile launcher, 108 m fixed service structure, three
       // lightning masts with catenary wires, water tower and propellant farm. Same coordinates
       // (1 unit = 1 m; Godot +X/+Y/+Z map to this tile's east/up/south).
-      const pad = this._buildLaunchComplex();
-      const padRel = this._enuOf(S.llhToEcef(site.pad.lat, site.pad.lon, 0));
-      pad.position.set(padRel[0], 0, -padRel[1]); ground.add(pad);
-      this._buildVAB(ground);
+      // The team's detailed KSC (remote-main space_center builders, ksc_scene.js) replaces the earlier
+      // LC-39A + VAB; the earlier builders stay as a fallback if those scripts are missing.
+      if (useKsc) {
+        try {
+          this.ksc = window.KscScene.build(this.renderer);
+          this.ksc.group.position.set(padRel[0], padRel[2], -padRel[1]); ground.add(this.ksc.group);
+          // walkers (astronauts on the gantry) live in the same pad frame
+          this.padFrame = new T.Group(); this.ksc.group.add(this.padFrame);
+        } catch (e) { console.warn("[ShuttleView] detailed KSC failed, using the simple pad:", e); this.ksc = null; }
+      }
+      if (!this.ksc) {
+        const pad = this._buildLaunchComplex();
+        pad.position.set(padRel[0], 0, -padRel[1]); ground.add(pad);
+        this._buildVAB(ground);
+      }
       this.groundGroup = ground; this.near.add(ground);
     }
     _buildLaunchComplex() {
@@ -261,26 +249,7 @@
         lane.position.set(mid[0] + Math.cos(ang) * off, 0.15, mid[1] - Math.sin(ang) * off); lane.rotation.z = ang; ground.add(lane);
       }
     }
-    // tileable grey noise (~1) used to break up magnified texels of the Earth map at close range
-    _detailTexture() {
-      const n = 256, c = document.createElement("canvas"); c.width = c.height = n; const x = c.getContext("2d"), img = x.createImageData(n, n);
-      let seed = 11; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-      const g = []; const G = 16; for (let i = 0; i < G * G; i++) g.push(rnd());
-      const val = (u, v, f) => { const X = u * f, Y = v * f, x0 = Math.floor(X), y0 = Math.floor(Y), fx = X - x0, fy = Y - y0, s = (t) => t * t * (3 - 2 * t);
-        const at = (i, j) => g[((i % f + f) % f) * G + ((j % f + f) % f)]; const a = at(x0, y0), b = at(x0 + 1, y0), c2 = at(x0, y0 + 1), d = at(x0 + 1, y0 + 1);
-        return a + (b - a) * s(fx) + (c2 - a) * s(fy) + (a - b - c2 + d) * s(fx) * s(fy); };
-      for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
-        const u = i / n, v = j / n, k = 0.5 * val(u, v, 4) + 0.3 * val(u, v, 8) + 0.2 * val(u, v, 16);
-        const r = 0.78 + 0.44 * k, o = (j * n + i) * 4; img.data[o] = img.data[o + 1] = img.data[o + 2] = Math.max(0, Math.min(255, r * 180)); img.data[o + 3] = 255;
-      }
-      x.putImageData(img, 0, 0);
-      const t = new T.CanvasTexture(c); t.wrapS = t.wrapT = T.RepeatWrapping; return t;
-    }
-    // ------------------------------------------------------------------ guidance ribbon
-    // A yellow band that always starts AT the orbiter, leaves along the direction it is actually
-    // going (or pointing, for orbit attitude tasks) and bends onto the reference path, so a
-    // deviation shows as a visible curve. Near scene (metres) for approach/rollout/orbit, far
-    // scene (km) for the long entry track.
+    // ------------------------------------------------------------------ planned mission route
     _buildRibbons() {
       const geometry = new T.BufferGeometry();
       geometry.setAttribute("position", new T.BufferAttribute(new Float32Array(32768 * 3), 3));
@@ -349,6 +318,12 @@
       const c = proj(rV);
       return { c, left: proj(vec.add(rV, vec.scl(ax.x, off))), right: proj(vec.add(rV, vec.scl(ax.x, -off))), up: proj(vec.add(rV, vec.scl(ax.y, off))), down: proj(vec.add(rV, vec.scl(ax.y, -off))),
         nose: proj(vec.add(rV, vec.scl(ax.z, off))) };
+    }
+    // pad frame (KSC group: +X east, +Y up, +Z south, origin pad centre on the ground) -> ECI metres
+    padToEci(p, th) {
+      const B = this.groundBasis, r = this.padRel, x = r[0] + p[0], y = r[2] + p[1], n = r[1] - p[2];
+      const e = S.vec.add(this.groundECEF, S.vec.add(S.vec.add(S.vec.scl(B.E, x), S.vec.scl(B.N, n)), S.vec.scl(B.U, y)));
+      return S.ecefToEci(e, th);
     }
     _enuOf(ecef) { const d = S.vec.sub(ecef, this.groundECEF), B = this.groundBasis; return [S.vec.dot(d, B.E), S.vec.dot(d, B.N), S.vec.dot(d, B.U)]; }
     // Layered exhaust plume (replaces the old single translucent cone):
@@ -435,7 +410,7 @@
         parent.remove(old); parent.add(inst); this.objs[key] = inst;
         if (after) after(inst, entry);
       });
-      swap("orbiter", "assets/Orbiter_V2.glb", null, {}, (inst, entry) => {
+      swap("orbiter", "assets/Orbiter_V1.glb", null, {}, (inst, entry) => {
         this.assetStatus.orbiter = "ok";
         this.orbMixer = new T.AnimationMixer(inst); this.mixers.push(this.orbMixer); this.orbActions = {};
         (entry.gltf.animations || []).forEach((clip) => { const a = this.orbMixer.clipAction(clip); a.clampWhenFinished = true; a.setLoop(T.LoopOnce, 0); a.play(); a.paused = true; a.time = 0; a.weight = 0; this.orbActions[clip.name] = a; });
@@ -509,6 +484,7 @@
     update(sn, input, dt) {
       if (this.disposed) return;
       const v = sn.vehicle, cfg = v.cfg;
+      this._lastSn = sn;
       // interpolate between the last two fixed steps for smooth rendering
       const a = Math.max(0, Math.min(1, v.alpha || 0));
       const rV = v.prevR ? S.vec.add(v.prevR, S.vec.scl(S.vec.sub(v.r, v.prevR), a)) : v.r;
@@ -530,6 +506,9 @@
         this.objs.sat.position.copy(toR(S.vec.sub(sn.payload.r, cam))); this.objs.sat.quaternion.copy(qToR(sn.payload.q || qV));
       } else this.objs.sat.visible = satAttached;
       if (this.satAction && this.satDur) this.satAction.time = (sn.payload.deploy || 0) * this.satDur;
+      // ISS docking flight: the station (LVLH attitude: model +Z along track, +Y zenith) and the
+      // orbiter docking system in the forward bay
+      this._updateStation(sn, cam);
       // debris bodies
       const seen = {};
       for (const b of sn.debris) {
@@ -559,6 +538,7 @@
         const m = new T.Matrix4().makeBasis(toR(E), toR(U), toR(N).multiplyScalar(-1));
         this.groundGroup.quaternion.setFromRotationMatrix(m);
       }
+      if (this.ksc && this.groundGroup.visible) this.ksc.update(dt, this.kscMarkers);
       this._lastRV = rV; this._lastQV = qV; this._lastV = sn.vehicle.v; this._lastRegime = sn.vehicle.regime;
       this._updateRibbon(sn, rV, qV, cam, th);
       // Earth (far scene, km) and lights
@@ -574,7 +554,7 @@
       }
       if (this.sunModel) this.sunModel.position.copy(toR(S.vec.scl(SUN_ECI, 6.0e5)));
       const sunR = toR(SUN_ECI);
-      if (this.earthUniforms) this.earthUniforms.uSunView.value.copy(sunR).applyQuaternion(this.farCam.quaternion.clone().invert()).normalize();
+      this.globe.setSunView(sunR.clone().applyQuaternion(this.farCam.quaternion.clone().invert()));
       this.sunFar.position.copy(sunR.clone().multiplyScalar(1e5).add(this.earth.position)); this.sunFar.target = this.earth;
       this.sunNear.position.copy(sunR.clone().multiplyScalar(1000)); this.sunNear.target.position.set(0, 0, 0);
       // sky colour by altitude (simple)
@@ -605,6 +585,46 @@
       for (const mx of this.mixers) mx.update(0);
     }
 
+    _updateStation(sn, cam) {
+      const iss = sn.iss;
+      if (sn.variant === "iss" && !this.ods) this._buildOds();
+      if (this.ods) this.ods.visible = sn.variant === "iss";
+      if (!iss) { if (this.objs.iss) this.objs.iss.visible = false; return; }
+      if (!this.objs.iss) this._loadStation();
+      const F = S.stationFrame(iss.r, iss.v), q = S.quat.qFromNoseUp(F.Z, F.R);   // tail-first (-XVV), see sim
+      const o = this.objs.iss, d = S.vec.sub(iss.r, cam);
+      o.visible = S.vec.norm(d) < 60000;
+      o.position.copy(toR(d)); o.quaternion.copy(qToR(q));
+      this.stationQ = q;
+    }
+    _loadStation() {
+      const g = new T.Group(); g.name = "ISS"; this.near.add(g); this.objs.iss = g;
+      // placeholder: module stack along +Z, truss along X, until the GLB arrives
+      const mat = new T.MeshStandardMaterial({ color: 0xd8dde3, roughness: 0.6, metalness: 0.3 });
+      const stack = new T.Mesh(new T.CylinderGeometry(2.1, 2.1, 52, 16), mat); stack.rotation.x = Math.PI / 2; g.add(stack);
+      const truss = new T.Mesh(new T.BoxGeometry(108, 2, 2), mat); truss.position.y = 5; g.add(truss);
+      const pma = new T.Mesh(new T.CylinderGeometry(1.0, 1.3, 2.4, 16), mat); pma.rotation.x = Math.PI / 2; pma.position.z = S.V.issPortV - 1.2; g.add(pma);
+      this.assetStatus.iss = "loading";
+      const gm = window.glbManager, url = "models/iss/ISS_stationary_opt.glb";
+      if (!gm) { this.assetStatus.iss = "placeholder"; return; }
+      gm.loadGLB(url).then(() => {
+        if (this.disposed) return;
+        const inst = gm.instantiateModel(url, { castShadow: false, receiveShadow: false });
+        while (g.children.length) g.remove(g.children[0]);
+        g.add(inst); this.assetStatus.iss = "ok";
+      }).catch(() => { this.assetStatus.iss = "failed (placeholder shown)"; });
+    }
+    _buildOds() {
+      // Orbiter Docking System: external airlock + androgynous docking ring in the forward bay (fictionalised size)
+      const g = new T.Group(), O = S.V.odsBody;
+      const grey = new T.MeshStandardMaterial({ color: 0xc9ced4, roughness: 0.5, metalness: 0.4 }), dark = new T.MeshStandardMaterial({ color: 0x3a4048, roughness: 0.6, metalness: 0.5 });
+      const lock = new T.Mesh(new T.CylinderGeometry(0.95, 0.95, 2.4, 20), grey); lock.position.set(O[0], O[1] - 1.7, O[2]); g.add(lock);
+      const ring = new T.Mesh(new T.TorusGeometry(0.8, 0.12, 10, 28), dark); ring.rotation.x = Math.PI / 2; ring.position.set(O[0], O[1] - 0.1, O[2]); g.add(ring);
+      const collar = new T.Mesh(new T.CylinderGeometry(0.8, 0.95, 0.5, 20), grey); collar.position.set(O[0], O[1] - 0.35, O[2]); g.add(collar);
+      for (let i = 0; i < 3; i++) { const p = new T.Mesh(new T.BoxGeometry(0.2, 0.35, 0.12), dark); const a = i * 2 * Math.PI / 3; p.position.set(O[0] + Math.cos(a) * 0.7, O[1] + 0.12, O[2] + Math.sin(a) * 0.7); p.rotation.y = -a; g.add(p); }
+      this.ods = g; this.vehicle.add(g);
+    }
+
     // Follow camera with free look (open-world vehicle style): the rig stays centred on the
     // vehicle and follows it; drag/swipe looks around it, the wheel zooms, and after a few
     // idle seconds the view eases back behind the vehicle. "bay" and "fixed" are extra views.
@@ -617,7 +637,12 @@
       if (!this.dragging && fl.idle > 4 && this.autoRecentre !== false) { const k = Math.min(1, dt * 1.5); fl.yaw -= fl.yaw * k; fl.pitch -= fl.pitch * k; }
       let eye = null, look = r, camUp = up;
       const th = S.gmst({ theta0: sn.theta0 }, sn.simTime);
-      if (this.camMode === "fixed") {
+      // pad walk: third-person astronaut camera given in the pad frame by PadWalk
+      if (this.walkCam && v.regime === "pad" && this.padRel) {
+        eye = this.padToEci(this.walkCam.eye, th); look = this.padToEci(this.walkCam.look, th);
+        camUp = S.ecefToEci(this.groundBasis.U, th);
+      }
+      if (!eye && this.camMode === "fixed") {
         if (v.regime === "pad" || (v.regime === "ascent" && sn.telemetry.altitudeM < 15000)) {
           const pad = S.SITES.pad, B = S.enuBasis(pad.lat, pad.lon);
           eye = S.ecefToEci(S.vec.add(S.llhToEcef(pad.lat, pad.lon, 2), S.vec.add(S.vec.scl(B.E, -900), S.vec.scl(B.N, -700))), th);
@@ -625,6 +650,11 @@
         } else if ((v.regime === "atmo" && sn.telemetry.altitudeM < 3000) || v.regime === "ground") {
           eye = S.fromRunway({ theta0: sn.theta0, t: sn.simTime }, 900, 140, 6);
         }
+      }
+      if (!eye && this.camMode === "dock" && sn.iss) {
+        // centreline camera in the docking ring, looking along the docking axis (dorsal) at the station
+        eye = S.vec.add(r, S.quat.qrot(q, [S.V.odsBody[0], S.V.odsBody[1] + 0.6, S.V.odsBody[2]]));
+        look = S.vec.add(eye, S.vec.scl(ax.y, 60)); camUp = ax.z;
       }
       if (!eye && this.camMode === "bay") {
         eye = S.vec.add(r, S.vec.add(S.vec.scl(ax.y, 34), S.vec.scl(ax.z, -14)));
@@ -660,7 +690,10 @@
       c.lookAt(target); f.lookAt(target);
     }
 
-    cycleCamera() { const i = this.camModes.indexOf(this.camMode); this.camMode = this.camModes[(i + 1) % this.camModes.length]; this.camOrbit = { yaw: 0, pitch: 0, idle: 0 }; return this.camMode; }
+    cycleCamera() {
+      const modes = this._lastSn && this._lastSn.iss ? ["follow", "dock", "bay", "fixed"] : this.camModes;
+      const i = modes.indexOf(this.camMode); this.camMode = modes[(i + 1) % modes.length]; this.camOrbit = { yaw: 0, pitch: 0, idle: 0 }; return this.camMode;
+    }
     orbitCamera(dyaw, dpitch) { this.camOrbit.yaw += dyaw; this.camOrbit.pitch = Math.max(-1.45, Math.min(1.45, this.camOrbit.pitch + dpitch)); this.camOrbit.idle = 0; }
     zoomCamera(factor) { this.zoom = Math.max(0.3, Math.min(8, (this.zoom || 1) * factor)); this.camOrbit.idle = 0; }
     recentre() { this.camOrbit = { yaw: 0, pitch: 0, idle: 0 }; this.zoom = 1; }

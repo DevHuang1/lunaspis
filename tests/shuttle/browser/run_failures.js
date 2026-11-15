@@ -53,6 +53,7 @@ const fs = require('fs');
   log('LIFECYCLE after leave ' + JSON.stringify(lc));
   for (let i = 0; i < 10; i++) {
     await page.click('#btn-solo-flight'); await page.waitForTimeout(1500);
+    await page.evaluate(() => window.__shuttleTest && window.__shuttleTest.boardAll()); await page.waitForTimeout(300);
     await page.keyboard.press('Enter'); await page.waitForTimeout(500);
     if (i % 2) { await page.keyboard.press('Escape'); await page.waitForTimeout(400); await page.click('#sh-card button[data-cmd="LEAVE"]'); }
     else await page.evaluate(() => window.leaveCrewRoom());

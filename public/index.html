@@ -57,7 +57,7 @@
         <section class="os-col">
           <div class="os-sec">
             <h1 class="os-title">INTERFELLAS</h1>
-            <p class="os-text">Fly a Space Shuttle mission as a crew of up to four. Ride the launch, deploy a satellite in orbit, then bring the orbiter home to the runway by hand.</p>
+            <p class="os-text" id="mission-blurb">Fly a Space Shuttle mission as a crew of up to four. Ride the launch, deploy a satellite in orbit, then bring the orbiter home to the runway by hand.</p>
           </div>
           <div class="os-sec">
             <h3>CALLSIGN</h3>
@@ -65,10 +65,21 @@
           </div>
           <div class="os-sec">
             <h3>MISSION</h3>
+            <div class="os-seg" id="mission-picker" role="radiogroup" aria-label="Mission">
+              <button type="button" role="radio" data-activity="shuttle" aria-checked="true">SHUTTLE CREW</button>
+              <button type="button" role="radio" data-activity="coverage" aria-checked="false">CUBESAT COVERAGE</button>
+            </div>
+            <div class="os-seg" id="flight-picker" role="radiogroup" aria-label="Shuttle flight" style="margin-top:8px">
+              <button type="button" role="radio" data-flight="deploy" aria-checked="true">SATELLITE DEPLOY</button>
+              <button type="button" role="radio" data-flight="iss" aria-checked="false">ISS DOCKING</button>
+            </div>
+          </div>
+          <div class="os-sec">
+            <h3>PLAY</h3>
             <ul class="os-menu">
               <li><button id="btn-host-game">CREATE CREW</button><span>host a room and share its code</span></li>
-              <li><button id="btn-solo-flight" title="Private room: you fly every seat">FLY SOLO</button><span>you hold every seat</span></li>
-              <li><button id="btn-quick-play" title="Public room ORBIT1">QUICK CREW</button><span>join the public room</span></li>
+              <li><button id="btn-solo-flight" title="Private room just for you">FLY SOLO</button><span id="solo-hint">you hold every seat</span></li>
+              <li id="li-quick-play"><button id="btn-quick-play" title="Public room ORBIT1">QUICK CREW</button><span>join the public Shuttle room</span></li>
               <li class="os-join"><button id="btn-join-game">JOIN</button><label class="os-input"><span>code</span><input type="text" id="input-join-code" placeholder="ABC123" maxlength="8" /></label></li>
             </ul>
           </div>
@@ -95,6 +106,7 @@
           <span id="lobby-voice-text">ENABLE COMMS</span>
         </button>
         <button id="btn-lobby-audio-settings" class="btn-lobby-voice" style="padding:6px 10px;" title="Comms settings"><span>COMMS</span></button>
+        <div class="lobby-count-text" id="lobby-activity" aria-live="polite"></div>
         <div class="lobby-count-text" id="lobby-player-count">1 / 4 CREW</div>
         <button id="btn-leave-room" class="btn-lobby-voice btn-danger-outline" style="padding:6px 10px;" title="Leave Room"><span>LEAVE</span></button>
       </div>
@@ -104,6 +116,7 @@
       <div class="lobby-players-grid" id="lobby-players-grid"></div>
 
       <div class="lobby-customizer">
+        <div id="lobby-seat-block">
         <div class="customizer-title">CREW SEAT</div>
         <div>
           <div class="lobby-roles-list" id="lobby-roles-list">
@@ -113,6 +126,7 @@
             <div class="lobby-role-card" data-role="ms2"><span>MISSION SPECIALIST 2</span><span class="role-sub">Satellite power, checkout GO</span></div>
           </div>
           <div class="role-sub" id="lobby-role-msg" style="margin-top:6px;">Empty seats are flown by the Commander.</div>
+        </div>
         </div>
 
         <div>
@@ -350,18 +364,37 @@
 
   <!-- Core: audio, GLB loading, network, voice -->
   <script src="js/core/audio_synth.js?v=8.0.0"></script>
-  <script src="js/core/glb_manager.js?v=8.0.0"></script>
-  <script src="js/core/network.js?v=8.0.0"></script>
-  <script src="js/core/voice.js?v=8.0.0"></script>
+  <script src="js/core/glb_manager.js?v=8.5.2"></script>
+  <script src="js/core/network.js?v=8.2.0"></script>
+  <script src="js/core/voice.js?v=8.2.0"></script>
 
   <!-- Shuttle mission: simulation/mission are DOM-free (also run on the server); view/HUD/controller are adapters -->
-  <script src="js/game/shuttle_simulation.js?v=8.0.0"></script>
-  <script src="js/game/shuttle_mission.js?v=8.0.0"></script>
+  <script src="js/game/shuttle_simulation.js?v=8.3.0"></script>
+  <script src="js/game/shuttle_mission.js?v=8.5.1"></script>
+  <script src="js/game/pad_layout.js?v=8.2.0"></script>
+  <script src="js/world/space_center/shared.js?v=8.2.0"></script>
+  <script src="js/world/space_center/environment.js?v=8.2.0"></script>
+  <script src="js/world/space_center/pad.js?v=8.2.0"></script>
+  <script src="js/world/space_center/vab.js?v=8.2.0"></script>
+  <script src="js/world/space_center/lcc.js?v=8.2.0"></script>
+  <script src="js/world/space_center/crawler.js?v=8.2.0"></script>
+  <script src="js/world/space_center/utilities.js?v=8.2.0"></script>
+  <script src="js/world/space_center/site.js?v=8.2.0"></script>
+  <script src="js/world/space_center.js?v=8.2.0"></script>
+  <script src="js/core/os_plate.js?v=8.5.2"></script>
+  <script src="js/world/ksc_scene.js?v=8.5.0"></script>
+  <script src="js/world/earth_globe.js?v=8.1.0"></script>
   <script src="js/world/shuttle_route.js?v=1"></script>
-  <script src="js/world/shuttle_view.js?v=8.3.3"></script>
-  <script src="js/game/shuttle_sfx.js?v=8.0.0"></script>
-  <script src="js/game/shuttle_hud.js?v=8.0.0"></script>
-  <script src="js/game/shuttle_game.js?v=8.0.0"></script>
-  <script src="js/game/main.js?v=8.0.0"></script>
+  <script src="js/world/shuttle_view.js?v=8.3.2"></script>
+  <script src="js/game/shuttle_sfx.js?v=8.3.0"></script>
+  <script src="js/game/shuttle_hud.js?v=8.5.1"></script>
+  <script src="js/game/pad_walk.js?v=8.5.2"></script>
+  <script src="js/game/shuttle_game.js?v=8.5.1"></script>
+  <script src="vendor/satellite.min.js?v=6.0.0" onerror="console.warn('[Coverage] SGP4 library not found: Real Satellite mode disabled')"></script>
+  <script src="js/coverage/coverage_core.js?v=8.1.0"></script>
+  <script src="js/coverage/coverage_view.js?v=8.1.0"></script>
+  <script src="js/coverage/coverage_hud.js?v=8.1.0"></script>
+  <script src="js/coverage/coverage_game.js?v=8.1.0"></script>
+  <script src="js/game/main.js?v=8.2.0"></script>
 </body>
 </html>

@@ -94,7 +94,8 @@
     requestAnimationFrame(animate);
     const dt = clock.getDelta();
     updatePerfPill();
-    if (window.shuttleGame) {
+    if (window.coverageGame && window.coverageGame.isActive) window.coverageGame.frame(dt);
+    else if (window.shuttleGame) {
       if (window.shuttleGame.isActive) window.shuttleGame.frame(dt);
       else window.shuttleGame.renderTitle(dt);
     }
@@ -445,8 +446,43 @@
       if (statTasks) statTasks.textContent = profile.tasks_completed || 0;
     });
 
-    if (btnHost) btnHost.addEventListener("click", () => { soloPending = false; window.netManager.createRoom(nameNow(), { isPublic: true }); });
-    if (btnSolo) btnSolo.addEventListener("click", () => { soloPending = true; window.netManager.createRoom(nameNow(), { isPublic: false }); });
+    // Mission picker (Shuttle crew / CubeSat coverage). Remembered per browser.
+    const BLURB = {
+      shuttle: "Fly a Space Shuttle mission as a crew of up to four. Walk the gantry and board, ride the launch, deploy a satellite in orbit, then bring the orbiter home to the runway by hand.",
+      iss: "Fly a Space Shuttle to the International Space Station as a crew of up to four. Walk the gantry and board, ride the launch into the station's orbit, then dock by hand at the forward port.",
+      coverage: "Put a CubeSat in orbit and watch which ground stations can see it, when the next ones come into view, and where the gaps are. Edit the orbit and stations, or follow a real satellite.",
+    };
+    let activity = "shuttle", flight = "deploy";
+    try { if (localStorage.getItem("interfellas_flight") === "iss") flight = "iss"; } catch (e) { /* storage blocked */ }
+    try { if (localStorage.getItem("interfellas_activity") === "coverage") activity = "coverage"; } catch (e) { /* storage blocked */ }
+    const applyActivity = (a) => {
+      activity = a;
+      try { localStorage.setItem("interfellas_activity", a); } catch (e) { /* storage blocked */ }
+      document.querySelectorAll("#mission-picker [data-activity]").forEach((b) => b.setAttribute("aria-checked", String(b.getAttribute("data-activity") === a)));
+      const blurb = document.getElementById("mission-blurb"); if (blurb) blurb.textContent = a === "shuttle" && flight === "iss" ? BLURB.iss : BLURB[a];
+      const fp = document.getElementById("flight-picker"); if (fp) fp.style.display = a === "shuttle" ? "" : "none";
+      const solo = document.getElementById("solo-hint"); if (solo) solo.textContent = a === "coverage" ? "private session just for you" : "you hold every seat";
+      const quick = document.getElementById("li-quick-play"); if (quick) quick.style.display = a === "coverage" ? "none" : "";
+      if (btnHost) btnHost.textContent = a === "coverage" ? "CREATE ROOM" : "CREATE CREW";
+    };
+    document.querySelectorAll("#mission-picker [data-activity]").forEach((b) => b.addEventListener("click", () => applyActivity(b.getAttribute("data-activity"))));
+    const picker = document.getElementById("mission-picker");
+    if (picker) picker.addEventListener("keydown", (e) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      const next = activity === "shuttle" ? "coverage" : "shuttle"; applyActivity(next);
+      const btn = picker.querySelector(`[data-activity="${next}"]`); if (btn) btn.focus(); e.preventDefault();
+    });
+    const applyFlight = (f) => {
+      flight = f === "iss" ? "iss" : "deploy";
+      try { localStorage.setItem("interfellas_flight", flight); } catch (e) { /* storage blocked */ }
+      document.querySelectorAll("#flight-picker [data-flight]").forEach((b) => b.setAttribute("aria-checked", String(b.getAttribute("data-flight") === flight)));
+      applyActivity(activity);
+    };
+    document.querySelectorAll("#flight-picker [data-flight]").forEach((b) => b.addEventListener("click", () => applyFlight(b.getAttribute("data-flight"))));
+    applyFlight(flight);
+
+    if (btnHost) btnHost.addEventListener("click", () => { soloPending = false; window.netManager.createRoom(nameNow(), { isPublic: true, activity, flight }); });
+    if (btnSolo) btnSolo.addEventListener("click", () => { soloPending = true; window.netManager.createRoom(nameNow(), { isPublic: false, activity, flight }); });
     if (btnQuick) btnQuick.addEventListener("click", () => { soloPending = false; window.netManager.joinRoom("ORBIT1", nameNow()); });
     if (btnJoin) btnJoin.addEventListener("click", () => {
       const code = inputCode ? inputCode.value.trim().toUpperCase() : "";
@@ -464,6 +500,7 @@
 
     function leaveCurrentRoom() {
       if (window.shuttleGame && window.shuttleGame.isActive) window.shuttleGame.exit(true);
+      if (window.coverageGame && window.coverageGame.isActive) window.coverageGame.exit(true);
       window.netManager.leaveRoom();
       if (window.location.search && window.history && window.history.replaceState) window.history.replaceState({}, "", window.location.pathname);
       show("menu");
@@ -497,13 +534,16 @@
     window.netManager.on("room_update", (room) => {
       renderLobby(room);
       if (window.shuttleGame && window.shuttleGame.isActive) window.shuttleGame.onRoomUpdate(room);
+      if (window.coverageGame && window.coverageGame.isActive) window.coverageGame.onRoomUpdate(room);
     });
-    window.netManager.on("game_started", () => {
+    window.netManager.on("game_started", (data) => {
       show("none");
-      if (window.shuttleGame) window.shuttleGame.start({ net: window.netManager, onLeave: leaveCurrentRoom });
+      if (data && data.mode === "coverage") { if (window.coverageGame && !window.coverageGame.isActive) window.coverageGame.start({ net: window.netManager, onLeave: leaveCurrentRoom }); }
+      else if (window.shuttleGame) window.shuttleGame.start({ net: window.netManager, onLeave: leaveCurrentRoom });
     });
     window.netManager.on("disconnected", () => {
       if (window.shuttleGame && window.shuttleGame.isActive) { window.shuttleGame.exit(true); show("menu"); showToast("Connection to the server lost"); }
+      if (window.coverageGame && window.coverageGame.isActive) { window.coverageGame.exit(true); show("menu"); showToast("Connection to the server lost"); }
     });
 
     // lobby chat
@@ -758,11 +798,38 @@
     const grid = document.getElementById("lobby-players-grid");
     const count = document.getElementById("lobby-player-count");
     const btnStart = document.getElementById("btn-start-mission");
-    if (count) count.textContent = `${players.length} / ${room.maxPlayers || 4} CREW`;
-    if (btnStart) { btnStart.style.display = room.hostId === me ? "block" : "none"; btnStart.textContent = room.status === "playing" ? "REJOIN FLIGHT" : "GO TO BRIEFING"; }
+    const isCov = room.activity === "coverage", amHost = room.hostId === me;
+    if (count) count.textContent = `${players.length} / ${room.maxPlayers || 4} ${isCov ? "PLAYERS" : "CREW"}`;
+    const act = document.getElementById("lobby-activity");
+    if (act) {
+      const canSwitch = amHost && room.status !== "playing" && room.id !== "ORBIT1";
+      act.innerHTML = canSwitch
+        ? `MISSION <button type="button" data-act="shuttle" aria-pressed="${!isCov}">SHUTTLE</button><button type="button" data-act="coverage" aria-pressed="${isCov}">CUBESAT</button>`
+        : `MISSION: ${isCov ? "CUBESAT COVERAGE" : "SHUTTLE CREW"}`;
+      const isIss = room.flight === "iss";
+      if (!isCov) act.innerHTML += canSwitch
+        ? ` &nbsp;FLIGHT <button type="button" data-flight="deploy" aria-pressed="${!isIss}">SATELLITE</button><button type="button" data-flight="iss" aria-pressed="${isIss}">ISS DOCKING</button>`
+        : ` · ${isIss ? "ISS DOCKING" : "SATELLITE DEPLOY"}`;
+      act.querySelectorAll("[data-act]").forEach((b) => b.addEventListener("click", async () => { const r = await window.netManager.setActivity(b.getAttribute("data-act")); if (!r.success) showToast(r.message); }));
+      act.querySelectorAll("[data-flight]").forEach((b) => b.addEventListener("click", async () => { const r = await window.netManager.setFlight(b.getAttribute("data-flight")); if (!r.success) showToast(r.message); }));
+    }
+    const seatBlock = document.getElementById("lobby-seat-block"); if (seatBlock) seatBlock.style.display = isCov ? "none" : "";
+    if (btnStart) { btnStart.style.display = amHost ? "block" : "none"; btnStart.textContent = room.status === "playing" ? (isCov ? "REJOIN SESSION" : "REJOIN FLIGHT") : (isCov ? "OPEN COVERAGE LAB" : "GO TO BRIEFING"); }
     const hint = document.getElementById("lobby-hint");
-    if (hint) hint.textContent = room.hostId === me ? "You are the host: launch the crew into the briefing when everyone has a seat." : "Waiting for the host to launch the crew into the briefing.";
-    if (grid) {
+    if (hint) hint.textContent = isCov
+      ? (amHost ? "You are the host: open the coverage lab. You edit the scenario; everyone sees the same orbit and clock with their own camera." : "Waiting for the host to open the coverage lab.")
+      : (amHost ? "You are the host: launch the crew into the briefing when everyone has a seat." : "Waiting for the host to launch the crew into the briefing.");
+    if (grid && isCov) {
+      grid.innerHTML = `<div style="grid-column:1/-1;display:flex;justify-content:space-between;padding:4px 6px;border-bottom:1px solid rgba(255,255,255,.12);font:700 11px ui-monospace,monospace;letter-spacing:1.4px;color:#ece7dc;"><span>COVERAGE SESSION</span><span style="color:#9aa4ae;">${players.length} / ${room.maxPlayers || 4} JOINED</span></div>`;
+      for (const p of players) {
+        const pod = document.createElement("div");
+        pod.className = "lobby-player-pod occupied";
+        pod.style.cssText = "padding:12px 14px;flex-direction:row;justify-content:space-between;gap:8px;min-height:52px;";
+        const tag = p.id === room.hostId ? "HOST · EDITS THE SCENARIO" : "VIEWER · OWN CAMERA";
+        pod.innerHTML = `<div style="display:flex;align-items:center;gap:8px;"><div class="pod-color-indicator" style="width:24px;height:24px;background:${p.color};"></div><div style="text-align:left;"><div class="pod-name" style="font-size:12px;">${escapeHtml(p.name)} ${p.id === me ? '<span style="color:#67e8f9;">(YOU)</span>' : ""}</div><div class="pod-role" style="font-size:10px;color:#9aa4ae;">${tag}</div></div></div>`;
+        grid.appendChild(pod);
+      }
+    } else if (grid) {
       grid.innerHTML = `<div style="grid-column:1/-1;display:flex;justify-content:space-between;padding:4px 6px;border-bottom:1px solid rgba(255,255,255,.12);font:700 11px ui-monospace,monospace;letter-spacing:1.4px;color:#ece7dc;"><span>FLIGHT DECK SEATS</span><span style="color:#9aa4ae;">${players.length} / ${room.maxPlayers || 4} ABOARD</span></div>`;
       for (const seat of ["cdr", "plt", "ms1", "ms2"]) {
         const c = crew[seat] || {}, p = players.find((x) => x.role === seat);

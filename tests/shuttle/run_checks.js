@@ -96,7 +96,8 @@ let ascentInfo = {};
   const e0 = S.elements(m.st.r, m.st.v).energy; m.advanceSim(20);
   check("After ET sep only drag acts (112 km perigee): energy does not increase", S.elements(m.st.r, m.st.v).energy <= e0, `ΔE ${(S.elements(m.st.r, m.st.v).energy - e0).toFixed(1)} J/kg`);
   const r = m.command("SET_WARP", { factor: 100 });
-  check("Warp limited in insertion before burn authorization", !r.accepted, r.reason);
+  check("100× allowed in insertion (user direction: 100× at all times except landing)", r.accepted && m.warpReq === 100, r.reason);
+  m.command("SET_WARP", { factor: 1 });
   ascentInfo.mission = m;
 })();
 
@@ -142,6 +143,7 @@ let full = null;
 const ck = full ? full.checkpoints : {};
 function fromCk(name, variant, opts) {
   const m = new ShuttleMission(); m.checkpoints = ck; m.command("RETRY_CHECKPOINT", { name });
+  m.st.flight.landAssist = false;   // these runs test MANUAL flying and its failure modes; the assist has tests/shuttle/assist_checks.js
   const res = fly(m, createPilot(variant), opts || {});
   return m;
 }
@@ -161,8 +163,10 @@ function fromCk(name, variant, opts) {
   check("No thrust in a 300 km orbit without inputs/burns (energy constant over 20 s)", Math.abs(S.elements(m.st.r, m.st.v).energy - eA) < 1e-3, `ΔE ${(S.elements(m.st.r, m.st.v).energy - eA).toExponential(2)} J/kg`);
   const r1 = m.command("RELEASE_PAYLOAD");
   check("Release rejected with doors closed / unchecked payload", !r1.accepted && /doors/i.test(r1.reason), r1.reason);
+  const w0 = m.st.w.slice(); m.st.w = S.vec.add(S.orbitRateBody(m.st), [0.6 * DEG, -0.4 * DEG, 0.7 * DEG]);   // spin it up (hand-over drift is now gentle)
   const r2 = m.command("DAP_HOLD");
   check("Attitude hold refused while rates are high (player must null rates)", !r2.accepted, r2.reason);
+  m.st.w = w0;
   const r3 = m.command("PAYLOAD_POWER");
   check("Payload power refused before radiators are exposed", !r3.accepted, r3.reason);
   const none = fromCk("orbit", { orbital: "none" }, { maxSim: 1800 });
@@ -265,11 +269,12 @@ const apprRuns = {};
   fly(m3, createPilot());
   check("Fixture/preset run can never award a normal-flight result", m3.result && m3.result.success === false && m3.result.integrity === "rehearsal", m3.result && m3.result.summary);
   const m4 = new ShuttleMission(); m4.command("START"); m4.advanceSim(60);
-  const w = m4.command("SET_WARP", { factor: 50 });
-  check("Ascent warp capped at 8× (every phase can be accelerated, hand-flown ones are capped)", !w.accepted && m4.warpReq === 8, w.reason);
-  (() => { const lim = { entry: 8, approach: 4, rollout: 4 }; const bad = Object.keys(lim).filter((ph) => ShuttleMission.WARP_LIMIT ? ShuttleMission.WARP_LIMIT[ph] !== lim[ph] : false);
-    const M = require("../../public/js/game/shuttle_mission.js"); const got = Object.keys(lim).map((ph) => `${ph}:${M.WARP_LIMIT[ph]}`).join(" ");
-    check("Entry, approach and rollout accept time acceleration", Object.keys(lim).every((ph) => M.WARP_LIMIT[ph] >= lim[ph]), got + (bad.length ? "" : "")); })();
+  const w = m4.command("SET_WARP", { factor: 100 });
+  check("Ascent accepts 100× (every phase up to 100× except landing)", w.accepted && m4.warpReq === 100, w.reason);
+  (() => { const M = require("../../public/js/game/shuttle_mission.js"), W = M.WARP_LIMIT;
+    const fly = ["prelaunch", "ascent", "insertion", "docking", "payload", "deorbit", "entry"];
+    check("Every flying phase allows 100×; landing (approach, rollout) is capped at 4×", fly.every((ph) => W[ph] === 100) && W.approach === 4 && W.rollout === 4,
+      fly.concat(["approach", "rollout"]).map((ph) => `${ph}:${W[ph]}`).join(" ")); })();
 })();
 
 // ---------------- the on-screen NEXT cue alone is enough for the orbital tasks
