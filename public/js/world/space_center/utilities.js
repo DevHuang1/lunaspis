@@ -89,7 +89,7 @@
     site.cyl(g, 5.45, 0.65, cool.x, 16.5, cool.z, yellow, 20, "CoolingCollar");
     // Service ladder & chemical tank beside cooling tower
     site.box(g, 0.6, 16.2, 0.3, cool.x + 5.2, 8.3, cool.z, steel, "CoolingLadder");
-    site.cyl(g, 1.4, 3.6, cool.x - 10, 2.04, cool.z, m("nasa_blue"), 14, "ChemTank");
+    site.cyl(g, 1.4, 3.6, cool.x - 10, 2.04, cool.z, m("ops_blue"), 14, "ChemTank");
     // Elevated pipe rack connecting Cooling Tower toward Generator / Substation
     site.cyl(g, 0.36, 36, cool.x, 4.2, cool.z - 20, white, 10, "CoolingPipeBridge").rotation.x = Math.PI / 2;
     site.label(g, "COOLING TOWER", cool.x - 4, 3.6, cool.z + 9.5, { width: 9, height: 1.6, fontSize: 38 });
@@ -160,7 +160,7 @@
       site.cyl(g, 0.24, 15, px, 7.5, 124, m("trunk"), 8, "PowerPole");
       site.box(g, 0.24, 0.26, 4.8, px, 14.3, 124, m("trunk"), "CrossArm");
       for (const iz of [-1.8, 0, 1.8]) {
-        site.cyl(g, 0.12, 0.42, px, 14.65, 124 + iz, m("nasa_blue"), 6, "Insulator");
+        site.cyl(g, 0.12, 0.42, px, 14.65, 124 + iz, m("ops_blue"), 6, "Insulator");
       }
       if (px < -140) {
         site.beam(g, px, 14.7, 124 - 1.8, px + 70, 14.7, 124 - 1.8, 0.09, dark, "PowerWire");

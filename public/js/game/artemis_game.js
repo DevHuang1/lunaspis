@@ -388,7 +388,7 @@
       this.root.innerHTML = `
         <div class="art-top">
           <div class="art-brand"><span class="art-kicker">ARTEMIS // LUNAR EXPEDITION</span><strong id="art-phase">BRIEFING</strong><span id="art-met">MET 00:00:00:00</span></div>
-          <div class="art-top-right"><span id="art-warp">WARP 1×</span><span id="art-assist">ASSIST ON</span><button id="art-reassign" type="button">DUTIES</button><button id="art-help" type="button">HELP</button><button id="art-leave" type="button">LEAVE</button></div>
+          <div class="art-top-right"><span id="art-warp">WARP 1×</span><span id="art-assist">ASSIST ON</span><button id="art-reassign" type="button">DUTIES</button><button id="art-help" type="button">HELP</button><button type="button" class="ft-help-btn ft-help-btn--sm" data-feature-help="artemis_expedition" title="Artemis Expedition Visual Guide">?</button><button id="art-leave" type="button">LEAVE</button></div>
         </div>
         <div class="art-left"><h3>MISSION PLAN</h3><div id="art-objectives"></div><div class="art-crew" id="art-crew"></div></div>
         <div class="art-right"><h3>VEHICLES &amp; RESOURCES</h3><div id="art-resources"></div><div class="art-message" id="art-messages"></div></div>
@@ -611,6 +611,7 @@
     },
     _key(e, down) {
       if (!this.isActive) return;
+      if (window.featureTutorial && window.featureTutorial.isOpen()) return;
       const tag = e.target && e.target.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       e.stopImmediatePropagation();

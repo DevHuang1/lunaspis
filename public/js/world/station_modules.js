@@ -1211,10 +1211,11 @@
             <div class="iss-topbar-copy">
               <span class="iss-topbar-kicker">ORBITAL / MISSION LAB</span>
               <span class="iss-topbar-title">ISS Reference Craft</span>
-              <span class="iss-topbar-meta">${ISS_PARTS.length} curated components · NASA 2011</span>
+              <span class="iss-topbar-meta">${ISS_PARTS.length} curated components · 2011 ISS</span>
             </div>
           </div>
           <div class="iss-topbar-actions">
+            <button type="button" class="ft-help-btn ft-help-btn--sm" data-feature-help="iss_showcase" title="ISS 3D Showcase Visual Guide">?</button>
             <button type="button" id="iss-btn-labels" class="iss-chip${this.labelsVisible ? " is-active" : ""}" aria-pressed="${this.labelsVisible}">
               <svg class="ui-icon" aria-hidden="true"><use href="#i-eye"></use></svg><span>LABELS</span>
             </button>
@@ -1309,7 +1310,7 @@
             ${groupsHtml || '<div class="iss-empty">No matching components.</div>'}
           </div>
           <div class="iss-panel-foot">
-            <span>NASA 2011 REFERENCE</span>
+            <span>2011 ISS REFERENCE</span>
             <span>${this.stats.nodes} NODES · ${this.stats.triangles.toLocaleString()} TRIS</span>
           </div>
         `;

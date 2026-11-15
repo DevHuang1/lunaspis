@@ -259,7 +259,7 @@
     }
 
     // Detailed multi-part Vehicles neatly parked inside stalls
-    const carPalette = ["nasa_blue", "red", "silver", "black", "steel_white", "navy", "yellow", "silver"];
+    const carPalette = ["ops_blue", "red", "silver", "black", "steel_white", "navy", "yellow", "silver"];
     const stallX = [-219.6, -210.8, -202.0, -193.2, -166.8, -158.0, -149.2, -140.4];
     stallX.forEach((cx, i) => {
       const variant = i === 4 ? "van" : i % 3 === 1 ? "truck" : "sedan";
@@ -286,7 +286,7 @@
     site.addBoxCollider(gateX, gateZ, 6.4, 5.4, "Security gatehouse");
     site.box(g, 14, 0.22, 4.2, gateX, 0.11, gateZ, curbMat, "GateMedianIsland");
     site.box(g, 4.8, 3.4, 3.2, gateX, 1.92, gateZ, m("steel_white"), "GatehouseBody");
-    site.box(g, 5.8, 0.45, 5.2, gateX, 3.85, gateZ, m("nasa_blue"), "GatehouseRoof");
+    site.box(g, 5.8, 0.45, 5.2, gateX, 3.85, gateZ, m("ops_blue"), "GatehouseRoof");
     site.box(g, 4.9, 1.3, 3.3, gateX, 2.45, gateZ, m("glass"), "GatehouseGlass");
     for (const laneZ of [292.2, 299.8]) {
       site.box(g, 0.35, 1.2, 0.35, gateX + 2.5, 0.7, laneZ, m("yellow"), "GatePost");
@@ -401,12 +401,12 @@
       name: "ClockFaceSouth"
     });
 
-    // NASA Press Flagpole, Broadcast Satellite Van, Canopy Tent & TV Tripod Cameras
+    // Press flagpole, broadcast satellite van, canopy tent & TV tripod cameras
     site.flagPole(g, press.x - 30, press.z - 13, 18, "usa", 1.6);
     site.vehicle(g, press.x + 28, press.z + 12, Math.PI * 0.78, "steel_white", "van", 1.6);
     site.sphere(g, 1.15, press.x + 28, 3.85, press.z + 12, m("white"), 10, "SatDishDome");
     for (const tx of [press.x - 16, press.x - 4]) {
-      site.box(g, 6.2, 0.24, 5.4, tx, 4.35, press.z + 11, m("nasa_blue"), "PressCanopyRoof");
+      site.box(g, 6.2, 0.24, 5.4, tx, 4.35, press.z + 11, m("ops_blue"), "PressCanopyRoof");
       for (const lx of [-2.8, 2.8]) {
         for (const lz of [-2.4, 2.4]) {
           site.cyl(g, 0.06, 2.75, tx + lx, 2.97, press.z + 11 + lz, m("steel_grey"), 6, "CanopyLeg");
@@ -597,7 +597,7 @@
     const basin = C.TURN_BASIN; // (-930, 118)
     site.box(g, 74, 0.34, 48, basin.x, 0.17, basin.z, concreteDark, "BasinQuay");
     site.box(g, 56, 0.42, 34, basin.x, 0.24, basin.z - 4, m("water"), "BasinWater");
-    site.box(g, 30, 1.4, 12, basin.x + 4, 1.0, basin.z - 4, m("steel_grey"), "NASA_PegasusBarge");
+    site.box(g, 30, 1.4, 12, basin.x + 4, 1.0, basin.z - 4, m("steel_grey"), "PegasusBarge");
     site.box(g, 16, 4.2, 8.6, basin.x + 2, 3.8, basin.z - 4, m("steel_white"), "BargeCargoShell");
     for (let mx = -28; mx <= 28; mx += 14) {
       site.cyl(g, 0.36, 1.2, basin.x + mx, 0.85, basin.z + 18, m("yellow"), 8, "QuayBollard");

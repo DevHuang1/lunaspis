@@ -1,5 +1,5 @@
 /**
- * Space Center 2 — NASA Crawler-Transporter (CT-2) on the LC-39A Crawlerway.
+ * Space Center 2 — Crawler-Transporter (CT-2) on the LC-39A Crawlerway.
  *
  * Eliminates the 99 coplanar deck-girder intersections and bogie/track-belt
  * Z-fighting while adding realistic hydraulic jacks, diesel genset stacks,
@@ -104,7 +104,7 @@
     site.railing(g, cx - 18.2, cz - 20.4, cx - 18.2, cz + 20.4, 8.1, yellow);
     site.railing(g, cx + 18.2, cz - 20.4, cx + 18.2, cz + 20.4, 8.1, yellow);
 
-    // Side Nameplate Banner ("NASA · CT-2")
+    // Side nameplate banner ("LUNASPIS · CT-2")
     site.canvasPlane(
       g,
       14,
@@ -116,13 +116,18 @@
       Math.PI / 2,
       0,
       (ctx, w, h) => {
-        ctx.fillStyle = "#0b3d91";
+        ctx.fillStyle = "#17427a";
         ctx.fillRect(0, 0, w, h);
         ctx.fillStyle = "#efeee7";
-        ctx.font = "900 72px Arial, Helvetica, sans-serif";
+        const label = "LUNASPIS · CRAWLER CT-2";
+        let size = 72;
+        do {
+          ctx.font = `900 ${size}px Arial, Helvetica, sans-serif`;
+          size -= 2;
+        } while (ctx.measureText(label).width > w * 0.88 && size > 24);
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText("NASA · CRAWLER CT-2", w * 0.5, h * 0.52);
+        ctx.fillText(label, w * 0.5, h * 0.52);
       },
       512,
       128,

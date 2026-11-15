@@ -596,8 +596,8 @@
         case "foam":
           material = new THREE.MeshStandardMaterial({ color: 0xc26b30, roughness: 0.8, metalness: 0.02 });
           break;
-        case "nasa_blue":
-          material = new THREE.MeshStandardMaterial({ color: 0x0b3d91, roughness: 0.46, metalness: 0.12 });
+        case "ops_blue":
+          material = new THREE.MeshStandardMaterial({ color: 0x17427a, roughness: 0.46, metalness: 0.12 });
           break;
         case "red":
           material = new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.5, metalness: 0.08 });
@@ -999,48 +999,25 @@
         0,
         0,
         (ctx, w, h) => {
-          if (kind === "nasa") {
-            ctx.fillStyle = "#0b3d91";
-            ctx.fillRect(0, 0, w, h);
-            ctx.strokeStyle = "#efeee7";
-            ctx.lineWidth = 10;
-            ctx.beginPath();
-            ctx.ellipse(w * 0.5, h * 0.5, w * 0.28, h * 0.24, -0.35, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.fillStyle = "#fc3d21";
-            ctx.beginPath();
-            ctx.moveTo(w * 0.25, h * 0.7);
-            ctx.lineTo(w * 0.58, h * 0.18);
-            ctx.lineTo(w * 0.72, h * 0.76);
-            ctx.lineTo(w * 0.55, h * 0.45);
-            ctx.closePath();
-            ctx.fill();
-            ctx.fillStyle = "#efeee7";
-            ctx.font = "900 92px Arial, Helvetica, sans-serif";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillText("NASA", w * 0.5, h * 0.54);
-          } else {
-            const stripeH = h / 13;
-            for (let s = 0; s < 13; s++) {
-              ctx.fillStyle = s % 2 === 0 ? "#b22234" : "#efeee7";
-              ctx.fillRect(0, s * stripeH, w, stripeH + 1);
-            }
-            ctx.fillStyle = "#3c3b6e";
-            ctx.fillRect(0, 0, w * 0.4, stripeH * 7);
-            ctx.fillStyle = "#efeee7";
-            for (let r = 0; r < 5; r++) {
-              for (let c = 0; c < 6; c++) {
-                ctx.beginPath();
-                ctx.arc(w * (0.045 + c * 0.06), h * (0.065 + r * 0.092), 3.6, 0, Math.PI * 2);
-                ctx.fill();
-              }
+          const stripeH = h / 13;
+          for (let s = 0; s < 13; s++) {
+            ctx.fillStyle = s % 2 === 0 ? "#b22234" : "#efeee7";
+            ctx.fillRect(0, s * stripeH, w, stripeH + 1);
+          }
+          ctx.fillStyle = "#3c3b6e";
+          ctx.fillRect(0, 0, w * 0.4, stripeH * 7);
+          ctx.fillStyle = "#efeee7";
+          for (let r = 0; r < 5; r++) {
+            for (let c = 0; c < 6; c++) {
+              ctx.beginPath();
+              ctx.arc(w * (0.045 + c * 0.06), h * (0.065 + r * 0.092), 3.6, 0, Math.PI * 2);
+              ctx.fill();
             }
           }
         },
         512,
         286,
-        { side: window.THREE.DoubleSide, name: kind === "nasa" ? "NASAFlagBanner" : "USAFlagBanner" }
+        { side: window.THREE.DoubleSide, name: "USAFlagBanner" }
       );
     }
 

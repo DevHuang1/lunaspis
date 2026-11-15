@@ -1,6 +1,6 @@
-# NASA Space Center — LC-39A Hub
+# Lunaspis Space Center — LC-39A Hub (design reference)
 
-Walkable 3D launch-complex hub for the NASA game, built in **Godot 4.7**.
+Walkable 3D launch-complex hub used as a design reference for the Lunaspis project, built in **Godot 4.7**.
 This is the scene behind **Main Menu / Lobby Start → Cinematic Earth Launch
 Cutscene**: the player spawns at Pad 39A, can walk the complex, use the launch
 console, and trigger the countdown.
@@ -51,8 +51,8 @@ Or open the folder in the Godot editor and press F5. Main scene:
 - **Vehicle Assembly Building** — a real shell you can walk into: 158 × 160 ×
   218 m, open 46 m high-bay door with retracted leaves, work platforms on six
   levels with caged ladders, bridge cranes, bay lighting, floor markings, and a
-  second SLS stack on its transport stand inside. Exterior: NASA meatball and
-  wordmark on the door face, American flag on the north face, fins and
+  second SLS stack on its transport stand inside. Exterior: Lunaspis wordmark on
+  the door face, American flag on the north face, fins and
   construction bands on all four faces, roof parapet with penthouse, stacks and
   chillers, two-storey annex, low bay with window strip, door track, rooftop
   crane and flag, apron light poles, lightning masts, utility pipes. Inside, a

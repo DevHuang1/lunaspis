@@ -43,7 +43,7 @@ func _build_junction_signs() -> void:
 	var sign_pos := Vector3(-730.0, 0.0, 258.0)
 	for x in [-3.0, 3.0]:
 		BuildKit.cylinder(self, 0.1, 3.4, sign_pos + Vector3(x, 1.7, 0.0), steel, "SignPost", 8)
-	BuildKit.box(self, Vector3(7.0, 1.6, 0.25), sign_pos + Vector3(0.0, 3.6, 0.0), Mats.mat("nasa_blue"), "LCCSignBoard")
+	BuildKit.box(self, Vector3(7.0, 1.6, 0.25), sign_pos + Vector3(0.0, 3.6, 0.0), Mats.mat("ops_blue"), "LCCSignBoard")
 	var lcc_label := BuildKit.label(self, "← LCC", sign_pos + Vector3(0.0, 3.6, 0.15), 0.012, Color(0.95, 0.97, 1.0), "LCCSignLabel")
 	lcc_label.font_size = 128
 
@@ -53,7 +53,7 @@ func _build_checkpoint() -> void:
 	var pos := Vector3(-728.0, 0.0, 330.0)
 	BuildKit.box(self, Vector3(2.6, 2.6, 2.6), pos + Vector3(0.0, 1.3, 0.0), Mats.mat("steel_white"), "GuardBooth")
 	BuildKit.box(self, Vector3(0.1, 1.2, 2.0), pos + Vector3(-1.32, 1.5, 0.0), Mats.mat("glass"), "GuardWindow")
-	BuildKit.box(self, Vector3(3.0, 0.25, 3.0), pos + Vector3(0.0, 2.75, 0.0), Mats.mat("nasa_blue"), "GuardRoof")
+	BuildKit.box(self, Vector3(3.0, 0.25, 3.0), pos + Vector3(0.0, 2.75, 0.0), Mats.mat("ops_blue"), "GuardRoof")
 
 
 func _build_landscaping() -> void:

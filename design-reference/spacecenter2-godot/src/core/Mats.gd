@@ -52,7 +52,7 @@ static func mat(key: String) -> StandardMaterial3D:
 			# SLS core-stage spray-on foam insulation
 			_base(m, Color(0.76, 0.42, 0.19), 0.0, 0.82)
 			_texture(m, 17, 0.35, Vector3(4, 4, 4))
-		"nasa_blue":
+		"ops_blue":
 			_base(m, Color(0.04, 0.16, 0.45), 0.1, 0.5)
 		"red":
 			_base(m, Color(0.62, 0.08, 0.1), 0.05, 0.55)

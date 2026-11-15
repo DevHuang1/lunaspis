@@ -2712,7 +2712,7 @@
         sign.rotation.y = rotation;
         group.add(sign);
       };
-      modulePlacard("NASA", "DESTINY LABORATORY", [-1.48, 2.35, 4], Math.PI / 2);
+      modulePlacard("US LAB", "DESTINY LABORATORY", [-1.48, 2.35, 4], Math.PI / 2);
       modulePlacard("ESA", "COLUMBUS LABORATORY", [-4.7, 2.35, -5.45], 0);
       modulePlacard("JAXA", "KIBO LABORATORY", [7, 2.35, -5.45], 0);
       modulePlacard("NODE 1", "UNITY", [-3.7, 2.35, 11.45], Math.PI);

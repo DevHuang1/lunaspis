@@ -10,7 +10,7 @@ config_version=5
 
 [application]
 
-config/name="NASA Space Center"
+config/name="Lunaspis Space Center Reference"
 config/description="Walkable LC-39A launch complex: pad, tower, VAB, crawlerway, LCC."
 run/main_scene="res://src/SpaceCenter.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")

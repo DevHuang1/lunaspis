@@ -858,6 +858,7 @@
         '    <div><div id="ss-title">SOLAR SYSTEM ATLAS</div><div id="ss-sub">Drag to orbit - Scroll / pinch to zoom - Select a destination</div></div>',
         '  </div>',
         '  <div id="ss-actions">',
+        '    <button type="button" class="ft-help-btn ft-help-btn--sm" data-feature-help="solar_system" title="Solar System Atlas Visual Guide">?</button>',
         '    <button type="button" class="ss-btn" id="ss-reset">RESET VIEW</button>',
         '    <button type="button" class="ss-btn" id="ss-exit">EXIT [O]</button>',
         '  </div>',

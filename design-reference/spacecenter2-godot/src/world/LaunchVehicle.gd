@@ -160,9 +160,9 @@ func _build_stack() -> void:
 		BuildKit.cone(self, 0.55, 0.95, 3.0, Vector3(cos(angle) * 1.5, -1.5, sin(angle) * 1.5), dark, "RS25", 20)
 	BuildKit.cylinder(self, 2.55, 0.8, Vector3(0.0, 0.0, 0.0), grey, "EngineSection", 32)
 
-	# Markings facing the camera / press site.
-	BuildKit.box(self, Vector3(3.2, 1.7, 0.06), Vector3(0.0, 52.0, 2.63), Mats.mat("nasa_blue"), "Logo")
-	BuildKit.box(self, Vector3(1.6, 0.22, 0.07), Vector3(0.0, 52.6, 2.64), Mats.mat("red"), "LogoSwoosh")
+	# Lunaspis mission marking facing the camera / press site.
+	BuildKit.box(self, Vector3(3.2, 1.7, 0.06), Vector3(0.0, 52.0, 2.63), Mats.mat("black"), "MissionMark")
+	BuildKit.box(self, Vector3(1.6, 0.22, 0.07), Vector3(0.0, 52.6, 2.64), Mats.mat("yellow"), "MissionMarkAccent")
 	BuildKit.label(self, "USA", Vector3(0.0, 43.0, 2.7), 0.012, Color(0.07, 0.08, 0.1), "USALabel").font_size = 200
 
 	# Raceway conduit running up the core stage.

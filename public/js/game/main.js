@@ -2,6 +2,8 @@
  * ============================================================================
  * INTERFELLAS 3D MULTIPLAYER ENGINE & THREE.JS SCENE PIPELINE (SPACESHIP EDITION)
  * ============================================================================
+ * SI-ASSISTED: This file was drafted/edited with Super Intelligence assistance.
+ * See SI-DISCLOSURE.md in the repository root for scope and review notes.
  * Integrates all 3D ship designs, interiors, models, shaders, and interactive
  * systems from SpaceShip (Lunaspis — Orbital / Mission Lab) in vanilla Three.js:
  * - 6-Room Lunaspis Orbital Transit Craft Interior + Exterior Hull & Solar Arrays
@@ -1945,16 +1947,6 @@
       btnDeckIss.addEventListener("click", () => {
         if (window.missionViz && window.missionViz.isActive) window.missionViz.close();
         if (window.issShowcase) window.issShowcase.toggle();
-      });
-    }
-
-    const btnDeckMoon = document.getElementById("btn-deck-moon");
-    if (btnDeckMoon) {
-      btnDeckMoon.addEventListener("click", () => {
-        if (window.missionViz && window.missionViz.isActive) window.missionViz.close();
-        if (window.shipInterior && typeof window.shipInterior.toggleMoonLandingScene === "function") {
-          window.shipInterior.toggleMoonLandingScene();
-        }
       });
     }
 

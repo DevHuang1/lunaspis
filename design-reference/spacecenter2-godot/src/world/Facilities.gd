@@ -392,7 +392,7 @@ func _build_props() -> void:
 	var pole := Vector3(-852.0, 0.0, 300.0)
 	BuildKit.cylinder(self, 0.18, 24.0, pole + Vector3(0.0, 12.0, 0.0), Mats.mat("steel_white"), "Flagpole", 8)
 	BuildKit.box(self, Vector3(3.2, 2.0, 0.08), pole + Vector3(1.7, 22.6, 0.0), Mats.mat("red"), "Flag")
-	BuildKit.box(self, Vector3(1.4, 1.1, 0.09), pole + Vector3(0.8, 23.0, 0.0), Mats.mat("nasa_blue"), "FlagCanton")
+	BuildKit.box(self, Vector3(1.4, 1.1, 0.09), pole + Vector3(0.8, 23.0, 0.0), Mats.mat("ops_blue"), "FlagCanton")
 
 
 func _build_details() -> void:
@@ -472,10 +472,9 @@ func _build_vab_details() -> void:
 	var white := Mats.mat("steel_white")
 	var glass := Mats.mat("glass")
 
-	# Door sill, NASA meatball and wordmark on the high-bay face.
+	# Door sill and Lunaspis wordmark on the high-bay face.
 	BuildKit.box(self, Vector3(4.0, 0.6, 46.0), Vector3(pos.x + 81.0, 0.3, pos.z), steel, "DoorSill")
-	_meatball(Vector3(pos.x + 79.2, 130.0, pos.z - 55.0), 12.0)
-	var wordmark := BuildKit.label(self, "NASA", Vector3(pos.x + 79.4, 108.0, pos.z - 55.0), 0.06, Color(0.96, 0.97, 1.0), "NASALabel")
+	var wordmark := BuildKit.label(self, "LUNASPIS", Vector3(pos.x + 79.4, 108.0, pos.z - 55.0), 0.06, Color(0.96, 0.97, 1.0), "LunaspisLabel")
 	wordmark.rotation_degrees.y = 90.0
 	wordmark.font_size = 200
 
@@ -487,7 +486,7 @@ func _build_vab_details() -> void:
 	for i in 13:
 		var y := 125.0 - (float(i) + 0.5) * stripe
 		BuildKit.box(self, Vector3(20.0, stripe, 0.15), Vector3(flag_x, y, flag_z), Mats.mat("red" if i % 2 == 0 else "steel_white"), "FlagStripe")
-	BuildKit.box(self, Vector3(8.0, 5.4, 0.18), Vector3(flag_x + 6.0, 122.3, flag_z), Mats.mat("nasa_blue"), "FlagCanton")
+	BuildKit.box(self, Vector3(8.0, 5.4, 0.18), Vector3(flag_x + 6.0, 122.3, flag_z), Mats.mat("ops_blue"), "FlagCanton")
 
 	# Roof parapet, penthouse, exhaust stacks and chiller units.
 	BuildKit.box(self, Vector3(158.4, 1.2, 0.4), Vector3(pos.x, 160.6, north), band, "RoofParapet")
@@ -524,12 +523,6 @@ func _build_vab_details() -> void:
 	var levels := [0.0, 24.0, 46.0, 68.0, 90.0, 112.0, 132.0]
 	for i in range(levels.size() - 1):
 		_ladder(Vector3(pos.x - 66.0, levels[i], pos.z + 97.0), levels[i + 1] - levels[i])
-
-
-func _meatball(center: Vector3, radius: float) -> void:
-	BuildKit.cylinder(self, radius, 0.4, center, Mats.mat("nasa_blue"), "NASALogoDisc", 48).rotation_degrees.z = 90.0
-	BuildKit.torus(self, radius * 0.9, radius, center + Vector3(0.25, 0.0, 0.0), Mats.mat("steel_white"), "NASALogoRing").rotation_degrees.z = 90.0
-	BuildKit.box_rot(self, Vector3(0.3, radius * 0.22, radius * 1.6), center + Vector3(0.5, 0.0, 0.0), Vector3(35.0, 0.0, 0.0), Mats.mat("red"), "NASALogoSwoosh")
 
 
 func _ladder(base: Vector3, height: float) -> void:
@@ -748,7 +741,7 @@ func _build_crawler_details() -> void:
 
 func _build_parking() -> void:
 	var lot := Vector3(-800.0, 0.0, 368.0)
-	var colors := ["steel_white", "black", "red", "steel_grey", "nasa_blue", "yellow"]
+	var colors := ["steel_white", "black", "red", "steel_grey", "ops_blue", "yellow"]
 	var index := 0
 	for row in 2:
 		for i in 7:

@@ -6,11 +6,11 @@
  * SpaceShip (Lunaspis — Orbital / Mission Lab):
  * 1. Asynchronous multi-asset loading & in-memory caching with Draco, KTX2/Basis
  *    Universal, and Meshopt decompression support
- * 2. SpaceShip NASA Astronaut suit integration (astronaut_lod0.glb & astronaut_lod1.glb)
+ * 2. SpaceShip astronaut suit integration (astronaut_lod0.glb & astronaut_lod1.glb)
  *    with 4 skeletal animation clips ('idle', 'walk', 'look_around', 'wave'),
  *    radial ground contact shadow, and role accent ring
  * 2b. Earth Control unsuit crew (crew_a.glb & crew_b.glb) for the two ground roles
- * 3. SpaceShip NASA ISS 3D Models (ISS_stationary_opt.glb & ISS_B.glb) + Orbital Fleet
+ * 3. SpaceShip orbital-station reference models (ISS_stationary_opt.glb & ISS_B.glb) + Orbital Fleet
  */
 
 (function (window) {
@@ -20,75 +20,75 @@
     // --- SPACESHIP PRIMARY ASTRONAUT RIGS ---
     "astronaut_lod0": {
       id: "astronaut_lod0",
-      name: "Lunaspis NASA Astronaut (LOD0 High-Detail)",
+      name: "Lunaspis Astronaut (LOD0 High-Detail)",
       category: "astronauts",
       role: "commander",
       file: "models/astronaut/astronaut_lod0.glb",
       defaultColor: "#c9f04b",
       targetHeight: 1.90,
       rotateY: 0,
-      description: "High-detail SpaceShip NASA spacesuit rig with KTX2 2K PBR textures, Meshopt geometry, and 4 skeletal animation clips (idle, walk, look_around, wave)."
+      description: "High-detail SpaceShip spacesuit rig with KTX2 2K PBR textures, Meshopt geometry, and 4 skeletal animation clips (idle, walk, look_around, wave)."
     },
     "astronaut_lod1": {
       id: "astronaut_lod1",
-      name: "Lunaspis NASA Crewmate (LOD1 Optimized)",
+      name: "Lunaspis Crewmate (LOD1 Optimized)",
       category: "astronauts",
       role: "scientist",
       file: "models/astronaut/astronaut_lod1.glb",
       defaultColor: "#c9f04b",
       targetHeight: 1.90,
       rotateY: 0,
-      description: "Optimized SpaceShip NASA spacesuit rig with 1K KTX2 textures and 4 skeletal animations for AI crew and multiplayer squad."
+      description: "Optimized SpaceShip spacesuit rig with 1K KTX2 textures and 4 skeletal animations for AI crew and multiplayer squad."
     },
 
     // --- EARTH CONTROL GROUND CREW (NO SPACESUITS) ---
     "crew_a": {
       id: "crew_a",
-      name: "NASA Ground Crew A (Unsuit)",
+      name: "Lunaspis Ground Crew A (Unsuit)",
       category: "crew",
       role: "flight_director",
       file: "models/crew/crew_a.glb",
-      defaultColor: "#0b3d91",
+      defaultColor: "#17427a",
       targetHeight: 1.90,
       rotateY: 0,
       origin: "feet",
-      description: "Broad-shouldered ground controller in the NASA-blue jersey and pants. No spacesuit. Uses the same humanoid bone names and idle / walk / look_around / wave clips as the astronaut rigs."
+      description: "Broad-shouldered ground controller in a blue jersey and pants. No spacesuit. Uses the same humanoid bone names and idle / walk / look_around / wave clips as the astronaut rigs."
     },
     "crew_b": {
       id: "crew_b",
-      name: "NASA Ground Crew B (Unsuit)",
+      name: "Lunaspis Ground Crew B (Unsuit)",
       category: "crew",
       role: "ground_capcom",
       file: "models/crew/crew_b.glb",
-      defaultColor: "#0b3d91",
+      defaultColor: "#17427a",
       targetHeight: 1.77,
       rotateY: 0,
       origin: "feet",
-      description: "Ground controller in the NASA-blue jersey and pants. No spacesuit. Uses the same humanoid bone names and idle / walk / look_around / wave clips as the astronaut rigs."
+      description: "Ground controller in a blue jersey and pants. No spacesuit. Uses the same humanoid bone names and idle / walk / look_around / wave clips as the astronaut rigs."
     },
 
     // --- SPACESHIP PRIMARY ISS & SPACECRAFT MODELS ---
     "iss_stationary_opt": {
       id: "iss_stationary_opt",
-      name: "NASA International Space Station (Lunaspis Primary)",
+      name: "Orbital Station (Lunaspis Primary)",
       category: "spacecraft",
       file: "models/iss/ISS_stationary_opt.glb",
       scale: 1.0,
       targetHeight: 5.0,
-      description: "SpaceShip primary Draco + WebP compressed 2011-era NASA ISS model with 27 curated interactive parts: Zarya, Zvezda, Destiny, Columbus, Kibo, Harmony, Cupola, Quest, Canadarm2, and solar wings."
+      description: "SpaceShip primary Draco + WebP compressed 2011-era International Space Station reference model with 27 curated interactive parts: Zarya, Zvezda, Destiny, Columbus, Kibo, Harmony, Cupola, Quest, Canadarm2, and solar wings."
     },
     "iss_b": {
       id: "iss_b",
-      name: "NASA ISS Alternate Configuration (ISS_B)",
+      name: "Orbital Station Alternate Configuration (ISS_B)",
       category: "spacecraft",
       file: "models/iss/ISS_B.glb",
       scale: 1.0,
       targetHeight: 5.0,
-      description: "SpaceShip secondary Draco-compressed NASA International Space Station configuration."
+      description: "SpaceShip secondary Draco-compressed International Space Station reference configuration."
     },
     "orbiter_v2": {
       id: "orbiter_v2",
-      name: "NASA Space Shuttle",
+      name: "Space Shuttle Orbiter",
       category: "spacecraft",
       file: "assets/Orbiter_V2.glb",
       scale: 1.0,
@@ -940,7 +940,7 @@
     });
   }
 
-  // Seated driver pose for the open-top NASA car. The astronaut GLB is a
+  // Seated driver pose for the open-top Lunaspis rover. The astronaut GLB is a
   // standing humanoid, so the hips stay over the seat while the thighs are
   // aimed forward, the knees bend over the sill and the hands reach the wheel.
   const SEATED_SIDES = [

@@ -1199,6 +1199,7 @@
       this.hudOverlay.id = "docking-hud-overlay";
 
       this.hudOverlay.innerHTML = `
+        <div class="dock-top-stack" style="display:flex;flex-direction:column;gap:8px;width:100%;">
         <div class="dock-header-row">
           <div class="dock-title-card">
             <div style="font-size:9.5px;font-weight:700;letter-spacing:1.6px;color:var(--ui-brand);">PHASE 3 // COORDINATED ORBITAL DOCKING</div>
@@ -1210,6 +1211,7 @@
           </div>
 
           <div class="dock-actions-wrap">
+            <button type="button" class="ft-help-btn ft-help-btn--sm" data-feature-help="docking_sim" title="Orbital Docking Visual Guide">?</button>
             <button type="button" id="dock-cam-badge" style="background:rgba(6,10,16,0.9);border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:7px 12px;font-family:inherit;font-size:10px;font-weight:700;color:#efeee7;cursor:pointer;">
               VIEW: ${this.cameraMode === "chase" ? "CHASE" : "COCKPIT"} [C]
             </button>
@@ -1234,7 +1236,8 @@
           </div>
         </div>
 
-        <div id="dock-crew-role-bar" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:7px 12px;margin:4px auto 0;max-width:1180px;background:rgba(6,10,16,0.88);border:1px solid rgba(var(--ui-brand-rgb),0.28);border-radius:6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;pointer-events:auto;"></div>
+        <div id="dock-crew-role-bar" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:7px 12px;margin:0 auto;width:100%;max-width:1180px;background:rgba(6,10,16,0.88);border:1px solid rgba(var(--ui-brand-rgb),0.28);border-radius:6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;pointer-events:auto;"></div>
+        </div>
 
         <div class="dock-reticle">
           <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:36px;height:36px;border:2px solid rgba(var(--ui-brand-rgb),0.65);border-radius:50%;">

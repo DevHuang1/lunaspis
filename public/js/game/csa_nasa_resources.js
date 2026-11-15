@@ -715,9 +715,12 @@
                 </div>
               </div>
             </div>
-            <button type="button" id="btn-close-csa-nasa-lab" style="padding:7px 14px;border-radius:6px;border:1px solid rgba(239,68,68,0.5);background:rgba(239,68,68,0.14);color:#fecaca;font-family:monospace;font-size:12px;font-weight:700;cursor:pointer;">
-              CLOSE &times;
-            </button>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <button type="button" class="ft-help-btn ft-help-btn--sm" data-feature-help="csa_nasa_lab" title="Space Games &amp; Tools Visual Guide">?</button>
+              <button type="button" id="btn-close-csa-nasa-lab" style="padding:7px 14px;border-radius:6px;border:1px solid rgba(239,68,68,0.5);background:rgba(239,68,68,0.14);color:#fecaca;font-family:monospace;font-size:12px;font-weight:700;cursor:pointer;">
+                CLOSE &times;
+              </button>
+            </div>
           </div>
           <div id="csa-nasa-lab-tabs" style="padding:10px 22px;background:rgba(8,13,24,0.95);border-bottom:1px solid rgba(148,163,184,0.16);display:flex;gap:8px;flex-wrap:wrap;"></div>
           <div id="csa-nasa-lab-body" style="padding:18px 22px;overflow-y:auto;flex:1;line-height:1.5;"></div>

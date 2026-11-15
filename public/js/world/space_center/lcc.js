@@ -1524,7 +1524,7 @@
 
     // Glazed Vestibule Entrance Canopy & LCC Sliding Doors
     site.box(g, 13.5, 0.55, 8.2, cx, 9.8, south + 4.1, steel, "LCCCanopy");
-    site.box(g, 13.7, 0.22, 8.4, cx, 10.18, south + 4.1, m("nasa_blue"), "LCCCanopyFascia");
+    site.box(g, 13.7, 0.22, 8.4, cx, 10.18, south + 4.1, m("ops_blue"), "LCCCanopyFascia");
     site.cyl(g, 0.34, 9.6, cx - 5.4, 4.8, south + 7.6, concrete, 10, "CanopyColW");
     site.cyl(g, 0.34, 9.6, cx + 5.4, 4.8, south + 7.6, concrete, 10, "CanopyColE");
 
@@ -1730,9 +1730,9 @@
       site.palmTree(g, px + side * 4, south + 20, 0.9, side > 0 ? 5 : 1, 0.74);
     }
 
-    // Hero Flagpoles (USA & NASA) flanking entry promenade
+    // Hero flagpoles flanking the entry promenade
     site.flagPole(g, cx - 22, south + 10, 20, "usa", 0.16);
-    site.flagPole(g, cx + 22, south + 10, 20, "nasa", 0.16);
+    site.flagPole(g, cx + 22, south + 10, 20, "usa", 0.16);
 
     // Safety bollards cleanly seated along concrete plaza curb edge (zero grass float!)
     for (let x = -205; x <= -155; x += 5) {

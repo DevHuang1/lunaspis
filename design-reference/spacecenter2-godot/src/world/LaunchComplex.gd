@@ -155,7 +155,7 @@ func _build_tower() -> void:
 		BuildKit.box(self, Vector3(1.2, 3.0, 3.8), Vector3(TOWER_X - 20.0, PAD_TOP + arm_y, z), Mats.mat("steel_grey"), "ArmTip")
 
 	# Pad designation mounted on the tower core between two decks.
-	BuildKit.box(self, Vector3(5.2, 3.0, 0.22), base + Vector3(0.0, 61.0, 1.9), Mats.mat("nasa_blue"), "PadSignBoard")
+	BuildKit.box(self, Vector3(5.2, 3.0, 0.22), base + Vector3(0.0, 61.0, 1.9), Mats.mat("ops_blue"), "PadSignBoard")
 	BuildKit.box(self, Vector3(5.4, 0.18, 0.3), base + Vector3(0.0, 62.6, 1.9), Mats.mat("steel_white"), "PadSignTrim")
 	BuildKit.box(self, Vector3(5.4, 0.18, 0.3), base + Vector3(0.0, 59.4, 1.9), Mats.mat("steel_white"), "PadSignTrim")
 	var sign := BuildKit.label(self, "39A", base + Vector3(0.0, 61.0, 2.06), 0.022, Color(0.95, 0.96, 1.0), "PadSign")

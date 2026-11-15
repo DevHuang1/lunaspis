@@ -192,7 +192,7 @@ func _build_press_site() -> void:
 		var tx := -26.0 + float(i) * 18.0
 		var base := pos + Vector3(tx, 3.3, 15.5)
 		BuildKit.box(self, Vector3(9.0, 3.2, 3.4), base, Mats.mat("steel_white"), "PressTrailer")
-		BuildKit.box(self, Vector3(9.2, 0.4, 3.6), base + Vector3(0.0, 1.4, 0.0), Mats.mat("nasa_blue"), "TrailerStripe")
+		BuildKit.box(self, Vector3(9.2, 0.4, 3.6), base + Vector3(0.0, 1.4, 0.0), Mats.mat("ops_blue"), "TrailerStripe")
 		# Door, windows and roof plant, on the road-facing side.
 		BuildKit.box(self, Vector3(0.9, 2.1, 0.14), base + Vector3(-3.2, -0.5, 1.75), Mats.mat("steel_grey"), "TrailerDoor")
 		for j in 3:
@@ -222,7 +222,7 @@ func _build_press_site() -> void:
 	var sign_center := pos + Vector3(31.0, 1.6, 18.0)
 	for side in [-1.0, 1.0]:
 		BuildKit.cylinder(self, 0.11, 2.6, sign_center + Vector3(side * 3.4, 1.3, 0.0), Mats.mat("steel_grey"), "PressSignPost", 8)
-	BuildKit.box(self, Vector3(8.0, 1.5, 0.28), sign_center + Vector3(0.0, 3.1, 0.0), Mats.mat("nasa_blue"), "PressSignBoard")
+	BuildKit.box(self, Vector3(8.0, 1.5, 0.28), sign_center + Vector3(0.0, 3.1, 0.0), Mats.mat("ops_blue"), "PressSignBoard")
 	var sign := BuildKit.label(self, "PRESS SITE 39A", sign_center + Vector3(0.0, 3.1, 0.2), 0.0026, Color(0.97, 0.98, 1.0), "PressSign")
 	sign.font_size = 128
 	sign.shaded = false
@@ -287,7 +287,7 @@ func _build_road_sign() -> void:
 	var pos := Vector3(-392.0, 0.0, 196.0)
 	BuildKit.cylinder(self, 0.16, 7.0, pos + Vector3(-3.0, 3.5, 0.0), Mats.mat("steel_grey"), "SignPost", 8)
 	BuildKit.cylinder(self, 0.16, 7.0, pos + Vector3(3.0, 3.5, 0.0), Mats.mat("steel_grey"), "SignPost", 8)
-	BuildKit.box(self, Vector3(9.0, 3.4, 0.22), pos + Vector3(0.0, 6.4, 0.0), Mats.mat("nasa_blue"), "RoadSign")
+	BuildKit.box(self, Vector3(9.0, 3.4, 0.22), pos + Vector3(0.0, 6.4, 0.0), Mats.mat("ops_blue"), "RoadSign")
 	var label := BuildKit.label(self, "LC-39A  →", pos + Vector3(0.0, 6.4, 0.16), 0.014, Color(0.95, 0.97, 1.0), "SignLabel")
 	label.font_size = 128
 	label.rotation_degrees.y = 180.0

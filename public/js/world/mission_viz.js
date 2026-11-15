@@ -125,7 +125,7 @@
 
       const THREE = window.THREE;
       this.vizGroup = new THREE.Group();
-      this.vizGroup.name = "NASA_Mission_Viz_Group";
+      this.vizGroup.name = "Lunaspis_Mission_Viz_Group";
       this.vizGroup.visible = false;
       this.scene.add(this.vizGroup);
 
@@ -736,7 +736,7 @@
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span style="width:8px;height:8px;border-radius:50%;background:var(--ui-brand);box-shadow:0 0 8px var(--ui-brand);"></span>
             <div>
-              <div style="font-size:11px;font-weight:700;letter-spacing:1.4px;color:var(--ui-brand);" id="mv-title">NASA MISSION VIZ // GMAT TRAJECTORY THEATER</div>
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.4px;color:var(--ui-brand);" id="mv-title">ORBITAL MISSION VIZ // GMAT TRAJECTORY THEATER</div>
               <div style="font-size:10px;color:#a7b0ba;" id="mv-subtitle">Drag to orbit · Scroll/Pinch to zoom · Scrub Mission Timeline below</div>
             </div>
           </div>
@@ -746,6 +746,7 @@
             <button type="button" id="mv-btn-cam-target" style="padding:6px 10px;border-radius:5px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.05);color:#efeee7;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">TARGET BODY</button>
             <button type="button" id="mv-btn-vr" style="padding:6px 10px;border-radius:5px;border:1px solid rgba(var(--ui-brand-rgb),0.5);background:rgba(var(--ui-brand-rgb),0.14);color:var(--ui-brand-strong);font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">🥽 VR MODE</button>
             <button type="button" id="mv-btn-close" style="padding:6px 12px;border-radius:5px;border:1px solid rgba(255,107,107,0.55);background:rgba(255,107,107,0.16);color:#ff6b6b;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">EXIT [U]</button>
+            <button type="button" class="ft-help-btn ft-help-btn--sm" data-feature-help="mission_viz" title="3D Orbit Viewer Visual Guide">?</button>
           </div>
         </div>
 

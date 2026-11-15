@@ -1,8 +1,8 @@
 /**
  * Space Center 2 — Vehicle Assembly Building (VAB), Low Bay & High Bay interior.
  *
- * Non-overlapping wall corners/roof, proud exterior South High Bay doors, NASA
- * Meatball and US Flag murals facing Pad 39A, illuminated High Bay platforms,
+ * Non-overlapping wall corners/roof, proud exterior South High Bay doors,
+ * Lunaspis emblem and US Flag murals facing Pad 39A, illuminated High Bay platforms,
  * overhead bridge crane, and walkable interior colliders.
  */
 (function (window) {
@@ -101,7 +101,7 @@
       }
     }
 
-    // Iconic NASA Meatball Insignia centered cleanly inside upper-west bay [-76..-31, y 81..135]
+    // Original Lunaspis flight-operations emblem in the upper-west bay.
     site.canvasPlane(
       g,
       28,
@@ -115,40 +115,47 @@
       (ctx, w, h) => {
         ctx.clearRect(0, 0, w, h);
         const r = w * 0.44;
-        ctx.fillStyle = "#0b3d91";
+        ctx.fillStyle = "#0f172a";
         ctx.beginPath();
         ctx.arc(w * 0.5, h * 0.5, r, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = "#efeee7";
-        for (let i = 0; i < 24; i++) {
-          const sx = (0.2 + ((i * 73) % 60) / 100) * w;
-          const sy = (0.2 + ((i * 41) % 60) / 100) * h;
-          ctx.beginPath();
-          ctx.arc(sx, sy, 2.2, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        ctx.strokeStyle = "#efeee7";
-        ctx.lineWidth = 10;
+        ctx.strokeStyle = "#c9f04b";
+        ctx.lineWidth = 8;
         ctx.beginPath();
-        ctx.ellipse(w * 0.5, h * 0.52, r * 0.88, r * 0.38, -0.38, 0, Math.PI * 2);
+        ctx.arc(w * 0.5, h * 0.5, r - 4, 0, Math.PI * 2);
         ctx.stroke();
-        ctx.fillStyle = "#fc3d21";
+        // Two crossing orbital paths with a small craft marker.
+        ctx.strokeStyle = "#c9f04b";
+        ctx.lineWidth = 12;
         ctx.beginPath();
-        ctx.moveTo(w * 0.14, h * 0.64);
-        ctx.lineTo(w * 0.52, h * 0.12);
-        ctx.lineTo(w * 0.84, h * 0.72);
-        ctx.lineTo(w * 0.52, h * 0.36);
-        ctx.closePath();
+        ctx.ellipse(w * 0.5, h * 0.52, r * 0.82, r * 0.34, -0.42, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.strokeStyle = "rgba(239,238,231,0.75)";
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.ellipse(w * 0.5, h * 0.48, r * 0.78, r * 0.32, 0.38, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = "#c9f04b";
+        ctx.beginPath();
+        ctx.arc(w * 0.8, h * 0.36, 11, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = "#efeee7";
-        ctx.font = "900 112px Arial, Helvetica, sans-serif";
+        const wordmark = "LUNASPIS";
+        let wordSize = 92;
+        do {
+          ctx.font = `900 ${wordSize}px Arial, Helvetica, sans-serif`;
+          wordSize -= 2;
+        } while (ctx.measureText(wordmark).width > r * 1.3 && wordSize > 30);
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText("NASA", w * 0.5, h * 0.54);
+        ctx.fillText(wordmark, w * 0.5, h * 0.62);
+        ctx.fillStyle = "#c9f04b";
+        ctx.font = "700 26px Arial, Helvetica, sans-serif";
+        ctx.fillText("FLIGHT SYSTEMS", w * 0.5, h * 0.74);
       },
       512,
       512,
-      { transparent: true, name: "VAB_NASA_Meatball" }
+      { transparent: true, name: "VAB_Lunaspis_Emblem" }
     );
 
     // Iconic Giant US Flag Mural centered cleanly inside upper-east bay [+31..+76, y 81..135]
@@ -185,7 +192,7 @@
       { name: "VAB_US_FlagMural" }
     );
 
-    // Crisp NASA architectural header placard centered above the High Bay door
+    // Crisp architectural header placard centered above the High Bay door
     site.canvasPlane(
       g,
       44,

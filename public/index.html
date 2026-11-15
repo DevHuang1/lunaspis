@@ -22,6 +22,7 @@
   <link rel="stylesheet" href="css/lunar-glass.css?v=6.2.2" />
   <link rel="stylesheet" href="css/flightdeck.css?v=6.2.2" />
   <link rel="stylesheet" href="css/ui-polish.css?v=6.2.2" />
+  <link rel="stylesheet" href="css/feature_tutorial.css?v=1.0.0" />
   <link rel="preload" href="fonts/chakra-petch-700.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="fonts/ibm-plex-mono-500.woff2" as="font" type="font/woff2" crossorigin />
   <!-- Three.js Engine & 3D GLTF/GLB/Draco/KTX2/Meshopt Loaders -->
@@ -272,6 +273,7 @@
         <button type="button" class="title-nav-link" id="btn-title-settings">SETTINGS</button>
       </nav>
       <div class="title-top-actions">
+        <button type="button" class="ft-help-btn ft-help-btn--pill" data-feature-help="title_screen" title="Visual Tutorial &amp; Controls">?</button>
         <div class="title-region-toggle" id="region-toggle" role="group" aria-label="Server region">
           <span class="region-status-dot" aria-hidden="true"></span>
           <span class="region-toggle-label" data-region-label>SERVER</span>
@@ -364,6 +366,7 @@
         <span><b>03</b> LAUNCH</span>
       </div>
       <div class="lobby-top-actions">
+        <button type="button" class="ft-help-btn ft-help-btn--pill" data-feature-help="lobby" title="Lobby Visual Guide">?</button>
         <button id="btn-lobby-voice" class="btn-lobby-voice">
           <span id="lobby-voice-icon">MIC</span>
           <span id="lobby-voice-text">TURN ON VOICE CHAT</span>
@@ -547,6 +550,7 @@
           <span class="voice-btn__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-leave"></use></svg></span>
           <span class="voice-btn__label">LEAVE</span>
         </button>
+        <button type="button" class="ft-help-btn ft-help-btn--sm" data-feature-help="in_game_hud" title="HUD &amp; Controls Visual Guide">?</button>
       </div>
       <div class="voice-sub-row">
         <div class="voice-status-badge" id="voice-status-badge">
@@ -568,6 +572,7 @@
           <div class="deck-eyebrow">LUNASPIS // COMMAND</div>
           <div id="quick-deck-title">QUICK DECK</div>
         </div>
+        <button type="button" class="ft-help-btn ft-help-btn--sm" data-feature-help="in_game_hud" title="HUD &amp; Controls Visual Guide">?</button>
         <button type="button" class="deck-close" id="btn-deck-close" title="Close [ESC]" aria-label="Close Quick Deck">&times;</button>
       </div>
       <div class="deck-tabs" data-tab="crew" role="tablist" aria-label="Quick Deck sections">
@@ -589,24 +594,20 @@
           <span class="deck-row__copy"><span class="deck-row__label">SHIP INTERIOR</span><span class="deck-row__sub">Six-room transit craft</span></span>
           <span class="deck-row__hint">I</span>
         </button>
-        <button type="button" id="btn-deck-iss" class="deck-row" title="Open the 27-part NASA ISS showcase [J]">
+        <button type="button" id="btn-deck-iss" class="deck-row" title="Open the 27-part ISS showcase [J]">
           <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-cubesat"></use></svg></span>
           <span class="deck-row__copy"><span class="deck-row__label">ISS 3D SHOWCASE</span><span class="deck-row__sub">27 curated station components</span></span>
           <span class="deck-row__hint">J</span>
         </button>
         <button type="button" id="btn-hud-orbit-viz" class="deck-row" title="Open the trajectory theater [U]">
           <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-orbit"></use></svg></span>
-          <span class="deck-row__copy"><span class="deck-row__label">ORBIT VIZ</span><span class="deck-row__sub">NASA mission trajectory theater</span></span>
+          <span class="deck-row__copy"><span class="deck-row__label">ORBIT VIZ</span><span class="deck-row__sub">Mission trajectory theater</span></span>
           <span class="deck-row__hint">U</span>
         </button>
         <button type="button" id="btn-hud-solar" class="deck-row" title="Open the Solar System Atlas [O]">
           <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-globe"></use></svg></span>
           <span class="deck-row__copy"><span class="deck-row__label">SOLAR ATLAS</span><span class="deck-row__sub">Destinations across the system</span></span>
           <span class="deck-row__hint">O</span>
-        </button>
-        <button type="button" id="btn-deck-moon" class="deck-row" title="Open the 3D lunar touchdown scene">
-          <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-moon"></use></svg></span>
-          <span class="deck-row__copy"><span class="deck-row__label">LUNAR SCENE</span><span class="deck-row__sub">Apollo touchdown on the Moon</span></span>
         </button>
         <div class="deck-section-label">DISPLAY MODES</div>
         <button type="button" id="btn-hud-vr-main" class="deck-row" title="Toggle WebXR / stereo VR">
@@ -701,6 +702,7 @@
     <div class="task-modal-card">
       <div class="task-modal-header">
         <span class="task-modal-title" id="task-modal-title">MISSION WORKSTATION</span>
+        <button type="button" class="ft-help-btn ft-help-btn--sm" data-feature-help="mdl_workstations" title="Workstation Visual Guide" style="margin-left:auto;margin-right:8px;">?</button>
         <button class="task-modal-close-btn" id="task-modal-close">&times;</button>
       </div>
       <div id="task-modal-content"></div>
@@ -1166,6 +1168,7 @@
   <script src="js/game/csa_nasa_resources.js?v=6.2.3"></script>
   <script src="js/game/gameplay.js?v=6.2.4"></script>
   <script src="js/game/mission_academy.js?v=6.2.3"></script>
+  <script src="js/game/feature_tutorial.js?v=1.0.0"></script>
   <script src="js/game/mission_log.js?v=6.2.3"></script>
   <script src="js/game/main.js?v=6.2.6"></script>
 

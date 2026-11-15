@@ -1,3 +1,5 @@
+// SI-ASSISTED: drafted/edited with Super Intelligence assistance.
+// See SI-DISCLOSURE.md in the repository root for scope and review notes.
 const fs = require("fs");
 const path = require("path");
 const http = require("http");
@@ -2390,7 +2392,7 @@ io.use(async (socket, next) => {
 });
 
 // ============================================================================
-// SOCKET.IO EVENT HANDLERS (NASA ISS ROOM SYSTEM + DB PERSISTENCE)
+// SOCKET.IO EVENT HANDLERS (ORBITAL STATION ROOM SYSTEM + DB PERSISTENCE)
 // ============================================================================
 io.on("connection", (socket) => {
   guardSocket(socket);
@@ -5129,7 +5131,7 @@ db.initDatabase()
       console.warn("[RESTORE] Failed loading persisted rooms:", err.message);
     });
     server.listen(PORT, "0.0.0.0", () => {
-      console.log(`🚀 Interfellas NASA ISS Expedition 3D Simulator online on port ${PORT}`);
+      console.log(`🚀 Interfellas Lunaspis Orbital Transit Simulator online on port ${PORT}`);
       console.log(`🌍 Server region: ${DEPLOY_REGION}`);
       console.log(`📦 Railway Object Storage: ${storage.isConfigured() ? 'Active (' + storage.bucket + ')' : 'Local Disk Mode'}`);
 

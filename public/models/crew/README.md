@@ -1,6 +1,6 @@
-# NASA Crew — Rigged Human Characters
+# Crew — Rigged Human Characters
 
-Two game-ready human crew members in NASA-blue jerseys and pants, generated in
+Two game-ready human crew members in blue jerseys and pants, generated in
 Blender and exported as glTF 2.0 binary (`.glb`).
 
 | File | Height | Description |
@@ -8,11 +8,11 @@ Blender and exported as glTF 2.0 binary (`.glb`).
 | `crew_a.glb` | ~1.90 m | Crew A — broad-shouldered male, short black hair, medium-tan skin. |
 | `crew_b.glb` | ~1.77 m | Crew B — female, pulled-back hair with bun, gold earrings, light-tan skin. |
 
-Both wear a NASA-blue jersey (`#0B3D91`) with white collar/cuffs and hem, a red
-vector swoosh, a white **NASA** front wordmark and back wordmark, and a back
-number (`01` / `02`). The navy jogger-style pants (`#0A2350`) have a white side
-stripe and a small NASA wordmark on the left thigh. White sneakers with blue and
-red accents finish the uniform.
+Both wear a blue jersey (`#17427A`) with white collar/cuffs and hem and a back
+number (`01` / `02`) underlined in red. The navy jogger-style pants (`#0A2350`)
+have a white side stripe. White sneakers with blue accents finish the uniform.
+The jerseys are intentionally unbranded so the project does not reproduce any
+agency wordmark or logo.
 
 ## Asset facts
 
@@ -25,7 +25,7 @@ red accents finish the uniform.
 - **Skinning:** smooth, max 4 influences per vertex. Hands are rigidly bound to
   the hand bones; all arm and leg joints articulate.
 - **Materials:** native glTF PBR materials (base colour, roughness, metallic),
-  no external texture files. Double-sided thin prints for crisp decals.
+  no external texture files. Double-sided thin geometry for the jersey number.
 - **Animations:** four embedded clips, all authored at 30 fps.
 - **Budget:** ~71k vertices / ~136k triangles for Crew A and ~72k / ~137k
   for Crew B (~4.1–4.2 MB GLB). The faces, hands and hair carry most of the
@@ -110,10 +110,13 @@ The source generator and a combined `.blend` live in `scripts/crew/`:
 ```bash
 /Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup \
   --python scripts/crew/build_crew.py
+python3 scripts/crew/watermark_previews.py
 ```
 
 - `build_crew.py` — fully procedural body, clothing, face, rig, weights,
   animations and export.
+- `watermark_previews.py` — restores the visible `SI-ASSISTED RENDER` label on
+  the preview images after a rebuild, as required by the SI disclosure policy.
 - `crew_characters.blend` — both characters, rigs, actions and the studio
   preview setup.
 - `previews/` — front/back/face, wave and walk reference renders.

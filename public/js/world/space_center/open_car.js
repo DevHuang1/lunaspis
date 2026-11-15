@@ -1,5 +1,5 @@
 /**
- * Space Center LC-39A — Drivable Open-Top NASA Ground Car
+ * Space Center LC-39A — Drivable Open-Top Launch Complex Rover
  * ============================================================================
  * A small, fully procedural open car parked on the apron-side parking pad near
  * the Pad 39A ground spawn. Players walk up, press [E], and drive around the
@@ -256,7 +256,7 @@
       this.mats = {
         white: M({ color: 0xf1f5f9, roughness: 0.5, metalness: 0.18 }),
         whiteDim: M({ color: 0xd7dee6, roughness: 0.62, metalness: 0.12 }),
-        blue: M({ color: 0x0b3d91, roughness: 0.48, metalness: 0.2 }),
+        blue: M({ color: 0x17427a, roughness: 0.48, metalness: 0.2 }),
         red: M({ color: 0xcf2a1b, roughness: 0.5, metalness: 0.15 }),
         dark: M({ color: 0x202a33, roughness: 0.82, metalness: 0.16 }),
         steel: M({ color: 0x93a2b1, roughness: 0.38, metalness: 0.72 }),
@@ -439,7 +439,7 @@
         // Low sill bridging the open door area (inset 1 cm so it cannot
         // z-fight with the door panels it overlaps).
         this._box(body, 0.12, 0.24, 1.4, side * 0.915, 0.82, -0.15, m.whiteDim, "CarSill");
-        // Blue NASA livery stripe, offset just proud of the side panels.
+        // Blue livery stripe, offset just proud of the side panels.
         this._box(body, 0.02, 0.1, 3.35, side * 1.006, 1.06, 0.0, m.blue, "CarStripe");
       }
 
@@ -690,7 +690,7 @@
       ctx.font = "900 82px Arial, Helvetica, sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText("NASA OPEN CAR", 512, 105);
+      ctx.fillText("LUNASPIS OPEN CAR", 512, 105);
       ctx.fillStyle = "#e2e8f0";
       ctx.font = "700 38px Arial, Helvetica, sans-serif";
       ctx.fillText("PRESS [E] TO DRIVE", 512, 168);
@@ -1121,7 +1121,7 @@
         hud.id = "open-car-hud";
         hud.innerHTML = `
           <div class="oc-card">
-            <div class="oc-title">LAUNCH CENTER · NASA ROAMING CAR</div>
+            <div class="oc-title">LAUNCH CENTER · LUNASPIS ROVER</div>
             <button type="button" class="oc-btn oc-btn-primary oc-near-only" id="open-car-action">E · DRIVE</button>
             <div class="oc-hint oc-near-only">WALK UP AND PRESS [E] OR TAP TO DRIVE</div>
 
@@ -1413,7 +1413,7 @@
         window.spaceAudio.playClick();
       }
       if (window.gameplay && typeof window.gameplay.showToast === "function") {
-        window.gameplay.showToast("NASA OPEN CAR READY · W/S THROTTLE · A/D STEER · SHIFT BOOST · SPACE DRIFT/BRAKE · C VIEW · [E] EXIT");
+        window.gameplay.showToast("LUNASPIS OPEN CAR READY · W/S THROTTLE · A/D STEER · SHIFT BOOST · SPACE DRIFT/BRAKE · C VIEW · [E] EXIT");
       }
       this._syncLocalCrewPose(true);
       this._updateDriverAnimation(1 / 60);
@@ -2037,8 +2037,8 @@
 
       if (this.statusEl) {
         this.statusEl.textContent = this.isDriving
-          ? "LAUNCH CENTER · NASA ROAMING CAR · DRIVING"
-          : "LAUNCH CENTER · NASA ROAMING CAR";
+          ? "LAUNCH CENTER · LUNASPIS ROVER · DRIVING"
+          : "LAUNCH CENTER · LUNASPIS ROVER";
       }
       if (this.stateEl) {
         const state = this.drifting ? "DRIFT" : this.boosting ? "BOOST" : braking ? "BRAKE" : this.speed < -0.4 ? "REVERSE" : "CRUISE";
@@ -2176,7 +2176,7 @@
       ctx.fillText("LC-39A ROVER", cx, cy + 84);
       ctx.fillStyle = "#94a3b8";
       ctx.font = "700 11px monospace";
-      ctx.fillText("NASA", cx, cy - 82);
+      ctx.fillText("LUNASPIS", cx, cy - 82);
     }
 
     /**

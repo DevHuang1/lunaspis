@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Build two rigged NASA crew characters for the Lunaspis project.
+Build two rigged crew characters for the Lunaspis project.
 
 Run headless:
     /Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup \
@@ -194,15 +194,15 @@ MAT = {
     "lash_a": make_material("Lash_A", "#1C1512", 0.5),
     "lash_b": make_material("Lash_B", "#20150F", 0.5),
     "gold": make_material("Gold_Stud", "#C9A24A", 0.28, 0.85),
-    "jersey": make_material("NASA_Jersey_Blue", "#0B3D91", 0.82),
-    "jersey_alt": make_material("NASA_Jersey_Deep", "#092F73", 0.84),
-    "pants": make_material("NASA_Pants_Navy", "#0A2350", 0.85),
+    "jersey": make_material("Crew_Jersey_Blue", "#17427A", 0.82),
+    "jersey_alt": make_material("Crew_Jersey_Deep", "#0E2E5A", 0.84),
+    "pants": make_material("Crew_Pants_Navy", "#0A2350", 0.85),
     "trim": make_material("Crew_Trim_White", "#EDEDE9", 0.78),
     "stripe": make_material("Crew_Stripe_White", "#F2F2EE", 0.74),
-    "print": make_material("NASA_Print_White", "#F6F6F2", 0.62),
-    "red": make_material("NASA_Red", "#C8102E", 0.6),
+    "print": make_material("Crew_Print_White", "#F6F6F2", 0.62),
+    "red": make_material("Crew_Print_Red", "#C8102E", 0.6),
     "shoe": make_material("Shoe_White", "#EDECE6", 0.58),
-    "shoe_panel": make_material("Shoe_Blue", "#0B3D91", 0.55),
+    "shoe_panel": make_material("Shoe_Blue", "#17427A", 0.55),
     "shoe_red": make_material("Shoe_Red", "#C8102E", 0.55),
     "sole": make_material("Shoe_Sole", "#D8D6CE", 0.72),
     "outsole": make_material("Shoe_Outsole", "#35393F", 0.8),
@@ -1144,7 +1144,7 @@ def build_jersey(P, key):
     female = P["female"]
     chest_w = P["chest_w"]
 
-    # Loose NASA-blue jersey with sloped shoulders. Values are in the 1.90 m
+    # Loose crew jersey with sloped shoulders. Values are in the 1.90 m
     # reference space. The old top rings flared wider than the chest and the
     # separate sleeve caps sat on top of them, producing the puffy-shoulder
     # "action figure" silhouette. This loft now narrows continuously from the
@@ -1590,47 +1590,9 @@ def conform_to_smooth_decals(obj, target, center_z, front=True, x_center=0.0,
     return obj
 
 
-def make_chest_prints(P, key, jersey):
+def make_jersey_marks(P, key, jersey):
     s = P["s"]
     parts = []
-    front_z = (1.405 if P["female"] else 1.375) * s
-
-    # Big front wordmark
-    front = make_flat_text(f"{P['id']}_FrontWordmark", "NASA",
-                           target_width=0.200 * s * (0.95 if P["female"] else 1.0),
-                           location=(0, 0, front_z))
-    conform_to_smooth_decals(front, jersey, front_z, front=True, x_center=0,
-                             offset=0.0018, dx=0.065 * s, dz=0.030 * s)
-    set_material(front, MAT["print"])
-    parts.append(front)
-
-    # Red vector swoosh below the wordmark
-    swoosh_pts = []
-    swoosh_w = []
-    swoosh_z = front_z - 0.050 * s
-    for i in range(9):
-        t = i / 8.0
-        x = (-0.098 + 0.196 * t) * s
-        z = swoosh_z + (-0.014 * t + 0.022 * t * t) * s
-        hit = surface_hit(jersey, x, z, front=True)
-        if not hit:
-            continue
-        loc, normal = hit
-        swoosh_pts.append(loc + normal * 0.0016)
-        swoosh_w.append((0.0070 - 0.0042 * t) * s)
-    swoosh = curve_ribbon(f"{P['id']}_ChestSwoosh", swoosh_pts, swoosh_w,
-                          Vector((0, -1, 0)), MAT["red"])
-    parts.append(swoosh)
-
-    # Back wordmark
-    back_z = 1.405 * s
-    back = make_flat_text(f"{P['id']}_BackWordmark", "NASA",
-                          target_width=0.255 * s * (0.96 if P["female"] else 1.0),
-                          location=(0, 0, back_z), rotation_z=pi)
-    conform_to_smooth_decals(back, jersey, back_z, front=False, x_center=0,
-                             offset=0.0018, dx=0.065 * s, dz=0.035 * s)
-    set_material(back, MAT["print"])
-    parts.append(back)
 
     # Back number
     number_z = 1.300 * s
@@ -1656,40 +1618,10 @@ def make_chest_prints(P, key, jersey):
                                  Vector((0, -1, 0)), MAT["red"])
         parts.append(underline)
 
-    print_obj = join_objects(parts, f"{P['id']}_ChestPrints")
-    for p in print_obj.data.polygons:
+    marks = join_objects(parts, f"{P['id']}_JerseyMarks")
+    for p in marks.data.polygons:
         p.use_smooth = False
-    return print_obj
-
-
-def make_thigh_print(P, key, pants):
-    s = P["s"]
-    # Find the front surface over the left thigh, then create a small wordmark.
-    L = P["legs"]["L"]
-    hit = surface_hit(pants, L["hip"].x + 0.01 * s, 0.735 * s, front=True)
-    if not hit:
-        return None
-    z = 0.735 * s
-    x_center = L["hip"].x + 0.008 * s
-    txt = make_flat_text(f"{P['id']}_ThighWordmark", "NASA",
-                         target_width=0.060 * s,
-                         location=(x_center, 0, z))
-    conform_to_smooth_decals(txt, pants, z, front=True, x_center=x_center,
-                             offset=0.0015, dx=0.025 * s, dz=0.020 * s)
-    set_material(txt, MAT["print"])
-    # tiny red underline
-    pts = []
-    for i in range(2):
-        x = L["hip"].x + 0.008 * s + (-0.028 + i * 0.056) * s
-        h = surface_hit(pants, x, z - 0.018 * s, front=True)
-        if h:
-            pts.append(h[0] + h[1] * 0.0016)
-    if len(pts) == 2:
-        under = curve_ribbon(f"{P['id']}_ThighSwoosh", pts,
-                             [0.0022 * s, 0.0022 * s], Vector((0, -1, 0)),
-                             MAT["red"])
-        return join_objects([txt, under], f"{P['id']}_ThighPrint")
-    return txt
+    return marks
 
 
 # ---------------------------------------------------------------------------
@@ -2302,9 +2234,8 @@ def build_character(key, cfg):
     face_details = build_face_details(P, key, head)
     hair = build_hair(P, key, head)
 
-    # Prints use raycasts against the finished garments.
-    chest_prints = make_chest_prints(P, key, jersey)
-    thigh_print = make_thigh_print(P, key, pants)
+    # Jersey marks use raycasts against the finished garment.
+    jersey_marks = make_jersey_marks(P, key, jersey)
 
     # Merge the base head into the body mesh (same skin material), keep hands
     # separate so they can be rigidly bound to the hand bones.
@@ -2353,12 +2284,9 @@ def build_character(key, cfg):
                     allowed_by_region=allowed_regions)
     bind_mesh(shoes, rig)
 
-    if chest_prints:
-        rigid_weights(chest_prints, "chest")
-        bind_mesh(chest_prints, rig)
-    if thigh_print:
-        rigid_weights(thigh_print, "thigh_L")
-        bind_mesh(thigh_print, rig)
+    if jersey_marks:
+        rigid_weights(jersey_marks, "chest")
+        bind_mesh(jersey_marks, rig)
 
     actions = create_animations(rig, P)
     stash_actions(rig, actions)
@@ -2373,7 +2301,7 @@ def build_character(key, cfg):
     return {
         "key": key, "P": P, "rig": rig, "actions": actions,
         "objects": [body] + hand_objs + [head_details, jersey, pants, shoes,
-                                        chest_prints, thigh_print],
+                                        jersey_marks],
         "armature": rig,
     }
 
@@ -2636,9 +2564,9 @@ def main():
     # Embed a small rig readme in the .blend
     text = bpy.data.texts.new("README_RIG")
     text.write(
-        "INTERFELLAS — NASA CREW CHARACTERS\n"
-        "=================================\n"
-        "Two rigged, game-ready crew characters in NASA-blue jerseys and pants.\n\n"
+        "INTERFELLAS — CREW CHARACTERS\n"
+        "=============================\n"
+        "Two rigged, game-ready crew characters in blue jerseys and pants.\n\n"
         "Files:\n"
         "  public/models/crew/crew_a.glb\n"
         "  public/models/crew/crew_b.glb\n\n"

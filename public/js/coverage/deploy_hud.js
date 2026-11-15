@@ -227,7 +227,7 @@
       const keys = { grapple: "W/S A/D R/F Q/E · Shift vernier · G grapple", point: "A/D W/S slew · B brakes · K camera · G GO · Y arm · Enter deploy", depress: "P pump · V vent · L leak check · H hatch", load: "Enter next step", outboard: "T slide table", move: "M move", done: "Enter start coverage" }[st.phase] || "";
       const html = D.WARPS.map((w) => this._btn("WARP", "×" + w, can && w <= cap && w !== st.warp, st.warp === w ? "on" : "", w)).join("")
         + `<span class="keys">&nbsp; C camera (${esc(ctx.view ? (ctx.view.camMode === "auto" ? "auto · " + ctx.view.activeMode : ctx.view.camMode) : "")}) · drag look · wheel zoom · ${esc(keys)}</span><span class="sp"></span>`
-        + this._btn("BRIEF", "Briefing", true) + (ctx.isHost && st.phase !== "done" ? this._btn("SKIP", "Skip to orbit", true) : "") + this._btn("LEAVE", "Leave", true);
+        + this._btn("BRIEF", "Briefing", true) + (ctx.isHost && st.phase !== "done" ? this._btn("SKIP", "Skip to orbit", true) : "") + this._btn("LEAVE", "Leave", true) + `<button type="button" class="ft-help-btn ft-help-btn--sm" data-feature-help="cubesat_deploy" title="CubeSat Deployment Visual Guide">?</button>`;
       if (html !== this._ctlHtml) { this.$("dh-ctl").innerHTML = html; this._ctlHtml = html; }
     }
     _log(ctx) {

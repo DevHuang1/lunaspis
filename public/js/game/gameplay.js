@@ -3070,7 +3070,7 @@
       const t = this.evaluateMissionDesign();
       const payload = {
         exportedAt: new Date().toISOString(),
-        generator: "LUNASPIS // NASA Space Apps MDL & Mission Viz Engine",
+        generator: "LUNASPIS // Space Apps MDL & Mission Viz Engine",
         cmlLevel: t.cmlLevel,
         cmlLabel: t.cmlLabel,
         scenario: t.scenario.id,

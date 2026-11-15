@@ -166,7 +166,7 @@ node tests/artemis/run_checks.js
 
 Current result: **21 passed, 0 failed**. The suite covers Moon motion, Lambert consistency, TLI feasibility, capture orbit, assisted docking, powered landing, EVA tasks, sample accounting, checkpoint restoration, absent-input failures, abort-return and full normal mission completion. It does not replace a human playtest or a browser/network integration test.
 
-The existing Shuttle suite now reports **64 passed, 0 failed**. Its previously stale `Ascent warp capped at 8×` expectation was updated to the current code's 25× ascent limit; the Shuttle flight model was not changed.
+The existing Shuttle suite now reports **67 passed, 0 failed**. Its previously stale `Ascent warp capped at 8×` expectation was updated to the current code's 100× ascent limit (with 25×/50×/100× fast-forward buttons); the Shuttle flight model was not changed.
 
 Observed on 2026-11-15:
 

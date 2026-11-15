@@ -140,6 +140,7 @@
             <button data-c="RESULTS" title="Results for the prediction window">RESULTS</button>
             <button data-c="DATA" title="Data page and pass table [Tab]">DATA</button>
             <button data-c="HELP" title="Help and glossary [?]">?</button>
+            <button type="button" class="ft-help-btn ft-help-btn--sm" data-feature-help="cubesat_coverage" title="Visual Screenshot Tutorial">?</button>
             <button data-c="EXIT" title="Leave the session">EXIT</button>
             <span class="who" id="cv-who"></span>
           </div>

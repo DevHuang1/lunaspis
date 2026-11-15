@@ -24,7 +24,7 @@ func _ready() -> void:
 func _vab_site() -> void:
 	var steel := Mats.mat("steel_grey")
 	_bollards(Vector3(-812.0, 0.0, -186.0), Vector3(-812.0, 0.0, -96.0), 12)
-	_sign(Vector3(-808.0, 0.0, -182.0), "VEHICLE ASSEMBLY BUILDING", 12.0, 90.0, "nasa_blue")
+	_sign(Vector3(-808.0, 0.0, -182.0), "VEHICLE ASSEMBLY BUILDING", 12.0, 90.0, "ops_blue")
 	_hydrant(Vector3(-810.0, 0.0, -230.0))
 	_hydrant(Vector3(-804.0, 0.0, -44.0))
 	_transformer(Vector3(-1000.0, 0.0, -272.0))
@@ -44,7 +44,7 @@ func _low_bay_site() -> void:
 	# Rooftop air handlers.
 	for x in [-1060.0, -1040.0, -1020.0, -1000.0]:
 		BuildKit.box(self, Vector3(6.0, 2.5, 3.0), Vector3(x, 64.3, -78.0), Mats.mat("steel_white"), "AirHandler")
-	_sign(Vector3(-1094.0, 0.0, -78.0), "LOW BAY", 8.0, -90.0, "nasa_blue")
+	_sign(Vector3(-1094.0, 0.0, -78.0), "LOW BAY", 8.0, -90.0, "ops_blue")
 
 
 func _lcc_site() -> void:
@@ -82,7 +82,7 @@ func _cooling_tower_site() -> void:
 	_tube(pos + Vector3(6.6, 1.2, -1.0), pos + Vector3(9.0, 1.2, -4.0), 0.3, steel)
 	BuildKit.cylinder(self, 0.9, 2.5, pos + Vector3(16.0, 1.25, 8.0), white, "ChemTank", 12)
 	BuildKit.cylinder(self, 0.95, 0.15, pos + Vector3(16.0, 2.5, 8.0), Mats.mat("yellow"), "ChemTankBand", 12)
-	_sign(pos + Vector3(-4.0, 0.0, 9.0), "COOLING TOWER", 7.0, 0.0, "nasa_blue")
+	_sign(pos + Vector3(-4.0, 0.0, 9.0), "COOLING TOWER", 7.0, 0.0, "ops_blue")
 
 
 func _generator_site() -> void:
@@ -124,7 +124,7 @@ func _antenna_site() -> void:
 	# Lightning mast beside the compound and a service box on the south side.
 	BuildKit.cylinder(self, 0.2, 14.0, pos + Vector3(-17.0, 7.0, -6.0), Mats.mat("steel_white"), "LightningMast", 8)
 	BuildKit.box(self, Vector3(1.2, 1.6, 0.5), pos + Vector3(10.0, 0.8, 11.0), Mats.mat("steel_grey"), "ServiceBox")
-	_sign(Vector3(-850.0, 0.0, 346.0), "ANTENNA FARM", 8.0, 0.0, "nasa_blue")
+	_sign(Vector3(-850.0, 0.0, 346.0), "ANTENNA FARM", 8.0, 0.0, "ops_blue")
 
 
 func _propellant_site() -> void:
@@ -146,7 +146,7 @@ func _water_tower_site() -> void:
 	var steel := Mats.mat("steel_grey")
 	BuildKit.box(self, Vector3(4.0, 3.0, 3.0), Vector3(112.0, 1.5, 46.0), concrete, "WaterPumpHouse")
 	BuildKit.box(self, Vector3(4.2, 0.25, 3.2), Vector3(112.0, 3.12, 46.0), steel, "WaterPumpRoof")
-	_sign(Vector3(96.0, 0.0, 42.0), "WATER TANK 39A", 8.0, 0.0, "nasa_blue")
+	_sign(Vector3(96.0, 0.0, 42.0), "WATER TANK 39A", 8.0, 0.0, "ops_blue")
 
 
 func _turn_basin_site() -> void:
@@ -157,7 +157,7 @@ func _turn_basin_site() -> void:
 	for x in [-36.0, 36.0]:
 		for z in [-26.0, 26.0]:
 			_pole_light(pos + Vector3(x, 0.0, z))
-	_sign(pos + Vector3(-22.0, 0.0, 33.0), "TURN BASIN", 7.0, 0.0, "nasa_blue")
+	_sign(pos + Vector3(-22.0, 0.0, 33.0), "TURN BASIN", 7.0, 0.0, "ops_blue")
 
 
 func _console_site() -> void:

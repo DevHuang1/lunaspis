@@ -130,7 +130,7 @@
     [prop.x - 16, prop.x + 16].forEach((x, idx) => {
       site.cyl(g, 9.2, 0.35, x, 0.35, prop.z, concrete, 20, "SpherePad");
       site.sphere(g, 7.6, x, 11.2, prop.z, white, 24, idx === 0 ? "LOX_Sphere" : "LH2_Sphere");
-      site.cyl(g, 7.68, 0.9, x, 11.2, prop.z, idx === 0 ? m("nasa_blue") : m("yellow"), 24, "SphereStripe");
+      site.cyl(g, 7.68, 0.9, x, 11.2, prop.z, idx === 0 ? m("ops_blue") : m("yellow"), 24, "SphereStripe");
       for (let i = 0; i < 6; i++) {
         const a = (i / 6) * Math.PI * 2;
         site.cyl(g, 0.42, 11.0, x + Math.cos(a) * 6.6, 5.8, prop.z + Math.sin(a) * 6.6, steel, 8, "SphereLeg");

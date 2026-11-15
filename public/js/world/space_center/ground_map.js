@@ -3,7 +3,7 @@
  * ============================================================================
  * A compact top-down map for the Kennedy Space Center ground tour.
  * - Draws the crawlerway/road network and every major ground facility.
- * - Marks local & remote crew, the driveable NASA car, and all parked
+ * - Marks local & remote crew, the driveable Lunaspis rover, and all parked
  *   site vehicles.
  * - Toggle with [N] or by clicking the map header. Starts collapsed so it
  *   never covers the HUD; the header is the only default footprint.

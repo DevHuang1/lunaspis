@@ -171,6 +171,10 @@
           const n = WARP_STEPS[Math.max(0, Math.min(WARP_STEPS.length - 1, cur + (cmd === "WARP+" ? 1 : -1)))];
           return this._send("SET_WARP", { factor: n });
         }
+        case "SET_WARP": {
+          const factor = Math.max(1, Math.min(1000, Math.round(Number(arg) || 1)));
+          return this._send("SET_WARP", { factor });
+        }
         case "FAST_FORWARD": {
           if (this.hud) this.hud.toast("FAST FORWARD · MAX TIME");
           return this._send("FAST_FORWARD");

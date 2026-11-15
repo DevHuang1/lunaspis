@@ -142,7 +142,7 @@
     for (const by of [22, 42, 54]) {
       CY(4.28, 1.0, 0, by, 0, stackMat, 16, "Pad39B_CoreBand");
     }
-    // Orange NASA-style core stage accent bands.
+    // Orange core-stage accent bands.
     for (const by of [30.5, 48.5]) {
       CY(4.26, 1.3, 0, by, 0, m("orange"), 16, "Pad39B_CoreAccent");
     }
@@ -188,7 +188,7 @@
         0,
         ROT - a,
         0,
-        m("nasa_blue"),
+        m("ops_blue"),
         "Pad39B_SolarWing"
       );
     }
@@ -212,7 +212,7 @@
       ringMesh.rotation.x = 0;
     }
 
-    // "USA" core-stage decal and NASA body-side marking.
+    // "USA" core-stage decal and Lunaspis body-side marking.
     site.canvasPlane(
       g, 5.4, 2.7,
       wx(4.36, 0), 56, wz(4.36, 0),
@@ -234,23 +234,19 @@
       0, ROT - Math.PI / 2, 0,
       (ctx, w, h) => {
         ctx.clearRect(0, 0, w, h);
-        ctx.fillStyle = "#0b3d91";
-        ctx.beginPath();
-        ctx.arc(w * 0.5, h * 0.5, Math.min(w, h) * 0.42, 0, Math.PI * 2);
-        ctx.fill();
         ctx.fillStyle = "#ffffff";
-        ctx.font = "900 54px Arial, Helvetica, sans-serif";
+        ctx.font = "900 44px Arial, Helvetica, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText("NASA", w * 0.5, h * 0.5);
-        ctx.strokeStyle = "#ffffff";
-        ctx.lineWidth = 5;
+        ctx.fillText("LUNASPIS", w * 0.5, h * 0.48);
+        ctx.strokeStyle = "#c9f04b";
+        ctx.lineWidth = 6;
         ctx.beginPath();
-        ctx.ellipse(w * 0.5, h * 0.5, w * 0.32, h * 0.24, -0.35, 0, Math.PI * 2);
+        ctx.ellipse(w * 0.5, h * 0.72, w * 0.28, h * 0.1, -0.18, 0, Math.PI * 2);
         ctx.stroke();
       },
       512, 256,
-      { unlit: true, transparent: true, name: "Pad39B_NASAWormDecal" }
+      { unlit: true, transparent: true, name: "Pad39B_LunaspisDecal" }
     );
 
     // -------------------------------------------------------------------------
@@ -582,7 +578,7 @@
     B(74, 1.3, 1.0, farm.x, 0.85, farm.z + 21.5, concrete, "Pad39BBermS");
     B(1.0, 1.3, 42, farm.x - 36.5, 0.85, farm.z, concrete, "Pad39BBermW");
     B(1.0, 1.3, 42, farm.x + 36.5, 0.85, farm.z, concrete, "Pad39BBermE");
-    [[-17, "LOX", m("nasa_blue")], [17, "LH2", yellow]].forEach(([dx, tag, stripe]) => {
+    [[-17, "LOX", m("ops_blue")], [17, "LH2", yellow]].forEach(([dx, tag, stripe]) => {
       const sx = farm.x + dx;
       CY(9.6, 0.4, sx, 0.4, farm.z, curb, 20, "Pad39BSpherePad");
       SP(7.9, sx, 10.6, farm.z, white, 24, tag === "LOX" ? "Pad39BLOXSphere" : "Pad39BLH2Sphere");
@@ -674,7 +670,7 @@
     });
 
     // Flagpole and LC-39B entrance sign.
-    site.flagPole(g, wx(44, 178), wz(44, 178), 20, "nasa");
+    site.flagPole(g, wx(44, 178), wz(44, 178), 20, "usa");
     site.signBoard(
       g,
       wx(52, 184),
@@ -695,7 +691,7 @@
         ctx.fillText("LC-39B", w * 0.5, h * 0.4);
         ctx.fillStyle = "#e5e7eb";
         ctx.font = "700 24px Arial, Helvetica, sans-serif";
-        ctx.fillText("KENNEDY SPACE CENTER · NASA", w * 0.5, h * 0.68);
+        ctx.fillText("KENNEDY SPACE CENTER", w * 0.5, h * 0.68);
         ctx.font = "600 19px Arial, Helvetica, sans-serif";
         ctx.fillText("AUTHORIZED PERSONNEL ONLY", w * 0.5, h * 0.86);
       },

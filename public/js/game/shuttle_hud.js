@@ -161,7 +161,7 @@
       if (!document.getElementById("shuttle-hud-css")) { const st = document.createElement("style"); st.nonce = window.__lunaspisCspNonce || ""; st.id = "shuttle-hud-css"; st.textContent = CSS; document.head.appendChild(st); }
       const root = document.createElement("div"); root.id = "shuttle-hud"; this.root = root;
       root.innerHTML = `
-        <div class="top"><div class="tl" id="sh-tl"></div><div class="tag"><b id="sh-id">SHUTTLE</b><span id="sh-phase"></span><span id="sh-met"></span><span id="sh-warp" class="w"></span><button type="button" id="sh-ff" class="ff" title="Set maximum time acceleration for the whole crew">FAST FORWARD</button><button type="button" id="sh-skip" class="ff skip" title="Skip to the next ISS mission step (host/commander or crew vote)">SKIP STEP</button></div></div>
+        <div class="top"><div class="tl" id="sh-tl"></div><div class="tag"><b id="sh-id">SHUTTLE</b><span id="sh-phase"></span><span id="sh-met"></span><span id="sh-warp" class="w"></span><button type="button" id="sh-ff" class="ff" title="Set maximum time acceleration for the whole crew">FAST FORWARD</button><button type="button" id="sh-ff25" class="ff" title="Set 25× time acceleration for the whole crew">25×</button><button type="button" id="sh-ff50" class="ff" title="Set 50× time acceleration for the whole crew">50×</button><button type="button" id="sh-ff100" class="ff" title="Set 100× time acceleration for the whole crew">100×</button><button type="button" id="sh-skip" class="ff skip" title="Skip to the next ISS mission step (host/commander or crew vote)">SKIP STEP</button><button type="button" class="ft-help-btn ft-help-btn--sm" data-feature-help="shuttle_flight" title="Shuttle Flight Ops Visual Guide" style="pointer-events:auto;margin:2px 4px;">?</button></div></div>
         <div class="kb" id="sh-kb"></div>
         <div class="steer" id="sh-steer"></div>
         <div class="banner" id="sh-banner">PRACTICE MODE — QUICK START</div>
@@ -196,6 +196,10 @@
       ci.addEventListener("blur", () => { this.el("sh-chat").style.display = "none"; this.el("sh-log").style.visibility = ""; });
       this.el("sh-data").addEventListener("click", (e) => { const b = e.target.closest("button[data-cmd]"); if (b) { b.blur(); this.onCommand(b.dataset.cmd, b.dataset.arg); } });
       this.el("sh-ff").addEventListener("click", () => { this.el("sh-ff").blur(); this.onCommand("FAST_FORWARD"); });
+      for (const factor of [25, 50, 100]) {
+        const btn = this.el(`sh-ff${factor}`);
+        btn.addEventListener("click", () => { btn.blur(); this.onCommand("SET_WARP", factor); });
+      }
       this.el("sh-skip").addEventListener("click", () => { this.el("sh-skip").blur(); this.onCommand("SKIP_STEP"); });
       this.controlOpen = true;
       this.el("sh-control-toggle").addEventListener("click", () => {
@@ -496,10 +500,23 @@
       const ff = this.el("sh-ff");
       if (ff) {
         const warpMax = Number(sn.warpMax) || 1;
+        const warp = Number(sn.warp) || 1;
         const canFastForward = !sn.paused && !sn.failure && !sn.result && warpMax > 1;
-        ff.style.display = canFastForward ? "inline-flex" : "none";
-        ff.disabled = !canFastForward || (Number(sn.warp) || 1) >= warpMax;
-        ff.textContent = (Number(sn.warp) || 1) >= warpMax ? `FAST ${warpMax}×` : `FAST FORWARD ${warpMax}×`;
+        // Explicit speed buttons cover the common high-warp phases; the single
+        // FAST FORWARD button remains for phases whose cap is below 25×.
+        const showSpeeds = canFastForward && warpMax >= 25;
+        for (const factor of [25, 50, 100]) {
+          const btn = this.el(`sh-ff${factor}`);
+          if (!btn) continue;
+          const available = showSpeeds && warpMax >= factor;
+          btn.style.display = available ? "inline-flex" : "none";
+          btn.disabled = !available || warp === factor;
+          btn.setAttribute("aria-pressed", String(warp === factor));
+        }
+        const showMax = canFastForward && !showSpeeds;
+        ff.style.display = showMax ? "inline-flex" : "none";
+        ff.disabled = !showMax || warp >= warpMax;
+        ff.textContent = warp >= warpMax ? `FAST ${warpMax}×` : `FAST FORWARD ${warpMax}×`;
       }
       const skip = this.el("sh-skip");
       if (skip) {

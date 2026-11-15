@@ -81,7 +81,7 @@
       this.steamPlumes = [];
       this.floodlights = [];
       this.whiteRoomDoor = null;
-      this.openCar = null;              // Drivable open-top NASA ground car
+      this.openCar = null;              // Drivable open-top Lunaspis rover
       this.rssGroup = null;
       this.goxVentArm = null;
       this.lccDoors = null;             // Interactive secure entrance doors to Launch Control Center (LCC)
@@ -4095,14 +4095,14 @@
       });
       this.towerGroup.add(binoGrp);
 
-      // Authentic NASA Top Deck Plaque mounted on the overhead portal header arch (above eye level, clear of doorway!)
+      // Top Deck plaque mounted on the overhead portal header arch (above eye level, clear of doorway).
       const tdSignCanvas = document.createElement("canvas");
       tdSignCanvas.width = 512; tdSignCanvas.height = 128;
       const tctx = tdSignCanvas.getContext("2d");
       tctx.fillStyle = "#0f172a"; tctx.fillRect(0, 0, 512, 128);
       tctx.strokeStyle = "#38bdf8"; tctx.lineWidth = 6; tctx.strokeRect(4, 4, 504, 120);
       tctx.fillStyle = "#38bdf8"; tctx.font = "bold 26px Arial"; tctx.textAlign = "center";
-      tctx.fillText("NASA KSC · FSS APEX OBSERVATION DECK", 256, 44);
+      tctx.fillText("LC-39A · FSS APEX OBSERVATION DECK", 256, 44);
       tctx.fillStyle = "#facc15"; tctx.font = "bold 22px Arial";
       tctx.fillText("ELEVATION 300 FT (88m) · LIGHTNING MAST ZONE", 256, 88);
       const tdSignMesh = new THREE.Mesh(new THREE.PlaneGeometry(3.5, 0.85),
@@ -6813,6 +6813,7 @@
                 ${guidance.canUnboard ? (touchUI ? "STEP OUT" : "STEP OUT [E/B]") : (touchUI ? "BOARD" : "BOARD [E/B]")}
               </button>
             `}
+            <button type="button" class="ft-help-btn ft-help-btn--sm" data-feature-help="space_center" title="Launch Pad &amp; Tower Visual Guide">?</button>
             <button type="button" id="btn-sc-hud-toggle" class="sc-hud-btn sc-btn-collapse" title="${this.hudCollapsed ? (touring ? "Open fast travel destinations" : "Expand Launch Pad Dock") : (touring ? "Hide fast travel destinations" : "Minimize Launch Pad Dock")}">
               ${this.hudCollapsed ? (touring ? "TRAVEL" : "+") : (touring ? "CLOSE" : "-")}
             </button>
@@ -6888,7 +6889,7 @@
                   icon: "i-arrow-right",
                   label: guidance.drivingCar ? "EXIT CAR" : "GROUND CAR",
                   sub: guidance.drivingCar ? "Return on foot" : "Kennedy site transport",
-                  title: guidance.drivingCar ? "Exit the NASA ground car" : "Get into the NASA ground car for your zone"
+                  title: guidance.drivingCar ? "Exit the Lunaspis rover" : "Get into the Lunaspis rover for your zone"
                 }) : ""}
                 ${guidance.isGround
                   ? systemCard({ id: "btn-sc-video", icon: "i-camera", label: "3D LINK", sub: "Animated crew link", hint: window.videoLink && window.videoLink.enabled ? "ON" : "OFF", title: "Open the animated 3D flight-deck crew link" })
@@ -7314,8 +7315,19 @@
       }
       const ffButton = this.lccConsoleOverlay.querySelector("#btn-lcc-ff");
       if (ffButton) {
-        ffButton.disabled = !live;
-        ffButton.textContent = live && snapshot.warp > 1 ? `FAST FORWARD · ${snapshot.warp}×` : "FAST FORWARD";
+        const warpMax = Number(snapshot && snapshot.warpMax) || 1;
+        const warp = Number(snapshot && snapshot.warp) || 1;
+        const showSpeeds = live && warpMax >= 25;
+        ffButton.style.display = live && !showSpeeds ? "inline-flex" : "none";
+        ffButton.disabled = !live || warp >= warpMax;
+        ffButton.textContent = live && warp > 1 ? `FAST FORWARD · ${warp}×` : "FAST FORWARD";
+        for (const factor of [25, 50, 100]) {
+          const btn = this.lccConsoleOverlay.querySelector(`#btn-lcc-ff${factor}`);
+          if (!btn) continue;
+          btn.style.display = showSpeeds && warpMax >= factor ? "inline-flex" : "none";
+          btn.disabled = !live || warp === factor;
+          btn.setAttribute("aria-pressed", String(warp === factor));
+        }
       }
       const skipButton = this.lccConsoleOverlay.querySelector("#btn-lcc-skip-step");
       if (skipButton) {
@@ -7539,6 +7551,19 @@
       });
     }
 
+    _requestShuttleWarp(factor) {
+      const net = window.netManager;
+      if (!net || !net.connected || typeof net.sendCommand !== "function") return;
+      const requested = Math.max(1, Math.min(1000, Math.round(Number(factor) || 1)));
+      net.sendCommand("SET_WARP", { factor: requested }).then((r) => {
+        if (window.gameplay && typeof window.gameplay.showToast === "function") {
+          if (r && r.accepted) window.gameplay.showToast(`TIME ACCELERATION · ${requested}×`);
+          else window.gameplay.showToast((r && r.reason) || "Time acceleration is not available right now");
+        }
+        this._syncLccConsoleLive();
+      });
+    }
+
     _requestMissionSkipStep() {
       const net = window.netManager;
       if (!net || typeof net.requestMissionSkipStep !== "function") return;
@@ -7635,6 +7660,7 @@
             <button type="button" class="ground-action-btn" id="btn-lcc-open-viz">3D PATH VIEW [U]</button>
             <button type="button" class="ground-action-btn" id="btn-lcc-open-planner">MISSION PLAN [F4]</button>
             <button type="button" class="ground-action-btn" id="btn-lcc-cml-review" style="border-color:rgba(251,191,36,0.55);color:#fde68a;">FRESH-EYES REVIEW</button>
+            <button type="button" class="ft-help-btn" data-feature-help="lcc_console" title="Earth Control Console Visual Guide">?</button>
             <button type="button" class="ground-action-btn" id="btn-lcc-close">CLOSE [F2]</button>
           </div>
         </div>
@@ -7672,6 +7698,9 @@
             <div id="lcc-gmat-result" role="status" style="font-size:12px;color:#b9cbd6;line-height:1.5;">GMAT forecast is available above 150 km with engines off. It estimates a 120-second coast.</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
               <button type="button" class="ground-action-btn" id="btn-lcc-ff" style="border-color:rgba(103,232,249,0.55);color:#a5f3fc;">FAST FORWARD</button>
+              <button type="button" class="ground-action-btn" id="btn-lcc-ff25" style="border-color:rgba(103,232,249,0.55);color:#a5f3fc;">25×</button>
+              <button type="button" class="ground-action-btn" id="btn-lcc-ff50" style="border-color:rgba(103,232,249,0.55);color:#a5f3fc;">50×</button>
+              <button type="button" class="ground-action-btn" id="btn-lcc-ff100" style="border-color:rgba(103,232,249,0.55);color:#a5f3fc;">100×</button>
               <button type="button" class="ground-action-btn" id="btn-lcc-skip-step" style="border-color:rgba(251,191,36,0.55);color:#fde68a;">SKIP STEP</button>
             </div>
           </div>
@@ -7736,6 +7765,10 @@
       if (btnGmat) btnGmat.addEventListener("click", () => this._requestLccGmatForecast());
       const btnLccFf = this.lccConsoleOverlay.querySelector("#btn-lcc-ff");
       if (btnLccFf) btnLccFf.addEventListener("click", () => this._requestShuttleFastForward());
+      for (const factor of [25, 50, 100]) {
+        const btn = this.lccConsoleOverlay.querySelector(`#btn-lcc-ff${factor}`);
+        if (btn) btn.addEventListener("click", () => this._requestShuttleWarp(factor));
+      }
       const btnLccSkip = this.lccConsoleOverlay.querySelector("#btn-lcc-skip-step");
       if (btnLccSkip) btnLccSkip.addEventListener("click", () => this._requestMissionSkipStep());
       const btnLccComms = this.lccConsoleOverlay.querySelector("#btn-lcc-comms");
@@ -8364,7 +8397,7 @@
     }
 
     /**
-     * Ground crew quick access to the drivable NASA car. Each client keeps a
+     * Ground crew quick access to the drivable Lunaspis rover. Each client keeps a
      * car parked in its own operating zone (LCC for Earth Control, Pad 39A for
      * flight crew); this button drops the local player straight into it.
      */

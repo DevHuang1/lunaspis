@@ -388,11 +388,11 @@
     site.box(vabWarehouse.group, 4.9, 0.26, 23.9, 25.5, 1.04, 0, concreteDark, "WarehouseDockLip");
     site.box(g, 14, 0.08, 34, -153, 0.04, 551, gravelLight, "WarehouseTruckPad");
     site.vehicle(g, -153, 545, -Math.PI / 2, "steel_white", "van", 0.08);
-    site.vehicle(g, -153, 558, -Math.PI / 2, "nasa_blue", "truck", 0.08);
+    site.vehicle(g, -153, 558, -Math.PI / 2, "ops_blue", "truck", 0.08);
 
     // Staff lot south of the warehouse, linked to the VAB apron.
     const wl = parkingLot(-185, 512, 44, 14, 0, { count: 7 });
-    const vabLotColors = ["silver", "nasa_blue", "red", "black", "steel_white", "navy", "yellow", "silver", "nasa_blue", "black"];
+    const vabLotColors = ["silver", "ops_blue", "red", "black", "steel_white", "navy", "yellow", "silver", "ops_blue", "black"];
     parkedCars(wl, -185, vabLotColors, ["sedan", "truck", "sedan", "van"], 0.12);
     paved(-147, 512, 32, 10);
     reserve(-185, 512, 46, 16);
@@ -460,8 +460,8 @@
     ruts(127.5, 534, 107, Math.PI / 2, 1.8);
 
     // Staff parking on the existing VAB south apron.
-    const vabA = ["silver", "black", "nasa_blue", "steel_white", "red", "navy", "silver", "yellow"];
-    const vabB = ["nasa_blue", "silver", "black", "tan", "steel_white", "red"];
+    const vabA = ["silver", "black", "ops_blue", "steel_white", "red", "navy", "silver", "yellow"];
+    const vabB = ["ops_blue", "silver", "black", "tan", "steel_white", "red"];
     for (let row = 0; row < 2; row++) {
       const z = row === 0 ? 506 : 530;
       const yaw = row === 0 ? 0 : Math.PI;
@@ -511,7 +511,7 @@
     });
     loadingDock(campusWh.group, 13, 48, 3);
     site.vehicle(g, -409, 255.5, Math.PI, "steel_white", "van", 0.1);
-    site.vehicle(g, -395, 255.5, Math.PI, "nasa_blue", "truck", 0.1);
+    site.vehicle(g, -395, 255.5, Math.PI, "ops_blue", "truck", 0.1);
     site.vehicle(g, -381, 255.5, Math.PI, "steel_white", "truck", 0.1);
     site.box(g, 76, 0.1, 14, -383, 0.05, 255, concreteDark, "CampusDockApron");
     reserve(-383, 255, 78, 16);
@@ -542,7 +542,7 @@
     }
     site.box(admin.group, 5.4, 0.18, 0.8, 0, 0.06, 12.5, concrete, "AdminEntryStep");
     sidewalk(-305, 247, 5, 14);
-    site.flagPole(g, -305, 252, 18, "nasa", 0.06);
+    site.flagPole(g, -305, 252, 18, "usa", 0.06);
     site.addCircleCollider(-305, 252, 0.8, "Mission Support flagpole", { maxY: 6 });
 
     // The campus spine, entrance drive and two staff lots.
@@ -551,10 +551,10 @@
     paved(-465, 254.9, 7.2, 9.8);
     site.box(g, 2.6, 0.1, 8.4, -277.8, 0.05, 264, asphalt, "CampusLotLink");
     const eastLot = parkingLot(-255, 267, 44, 30, 0, { count: 9 });
-    const eastColors = ["silver", "black", "nasa_blue", "red", "steel_white", "navy", "tan", "silver", "yellow", "nasa_blue", "black"];
+    const eastColors = ["silver", "black", "ops_blue", "red", "steel_white", "navy", "tan", "silver", "yellow", "ops_blue", "black"];
     parkedCars(eastLot, -255, eastColors, ["sedan", "van", "sedan", "truck"], 0.12);
     const westLot = parkingLot(-465, 235, 18, 30, 0, { count: 3 });
-    parkedCars(westLot, -465, ["silver", "nasa_blue", "black", "steel_white"], ["sedan", "truck"], 0.12);
+    parkedCars(westLot, -465, ["silver", "ops_blue", "black", "steel_white"], ["sedan", "truck"], 0.12);
     reserve(-465, 235, 20, 32);
     reserve(-255, 267, 46, 32);
     site.lightPole(g, -281, 254, 0, 10, true, 0.02);
@@ -701,7 +701,7 @@
     site.vehicle(g, -60, 270, Math.PI, "red", "truck", 0.1);
     site.vehicle(g, -96, 270, Math.PI, "steel_white", "van", 0.1);
     site.vehicle(g, -52, 270, Math.PI, "silver", "sedan", 0.1);
-    site.vehicle(g, -43, 269, Math.PI, "nasa_blue", "sedan", 0.1);
+    site.vehicle(g, -43, 269, Math.PI, "ops_blue", "sedan", 0.1);
     site.vehicle(g, -96, 262, Math.PI, "tan", "truck", 0.1);
     site.addRotatedBoxCollider(-79, 270, 2.2, 5.4, Math.PI, "Fire engine", { maxY: 3.4 });
     site.addRotatedBoxCollider(-60, 270, 2.2, 5.4, Math.PI, "Fire engine", { maxY: 3.4 });
@@ -837,7 +837,7 @@
     // 5. PRESS OVERFLOW LOT & SOUTH BEACH TRAIL
     // -----------------------------------------------------------------------
     const pressLot = parkingLot(202, 262, 26, 34, 0, { count: 4 });
-    const pressColors = ["steel_white", "silver", "nasa_blue", "red", "black", "tan", "steel_white", "navy"];
+    const pressColors = ["steel_white", "silver", "ops_blue", "red", "black", "tan", "steel_white", "navy"];
     for (let i = 0; i < 8; i++) {
       const row = i < 4 ? 0 : 1;
       const index = i % 4;
