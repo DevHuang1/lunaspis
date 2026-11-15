@@ -107,10 +107,30 @@ require("./server/video-signaling")(io);
 const PORT = process.env.PORT || 3000;
 const DEPLOY_REGION = process.env.SERVER_REGION || process.env.RAILWAY_REPLICA_REGION || process.env.RAILWAY_SERVICE_NAME || "local";
 
-// Baseline security headers. The app relies on inline bootstrap scripts and
-// inline styles, so 'unsafe-inline' is retained for compatibility. 'unsafe-eval'
-// is not required by the application or Three.js and is deliberately omitted.
+const INDEX_HTML_PATH = path.join(__dirname, "public", "index.html");
+let indexHtmlTemplate = null;
+
+function getIndexHtmlTemplate() {
+  if (indexHtmlTemplate == null) {
+    indexHtmlTemplate = fs.readFileSync(INDEX_HTML_PATH, "utf8");
+  }
+  return indexHtmlTemplate;
+}
+
+function sendIndexHtml(req, res) {
+  const nonce = (res.locals && res.locals.cspNonce) || "";
+  const html = getIndexHtmlTemplate().split("__CSP_NONCE__").join(nonce);
+  res.setHeader("Cache-Control", "no-cache");
+  res.type("html").send(html);
+}
+
+// Baseline security headers. Inline <script> blocks were removed, so scripts
+// are nonce-gated (no 'unsafe-inline'). Styles still rely on inline style
+// attributes across the UI, which CSP3 scopes to style-src-attr; dynamic
+// <style> elements receive the same per-request nonce from boot.js.
 app.use((req, res, next) => {
+  const nonce = crypto.randomBytes(18).toString("base64");
+  res.locals.cspNonce = nonce;
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("Referrer-Policy", "no-referrer");
@@ -123,8 +143,10 @@ app.use((req, res, next) => {
   res.setHeader(
     "Content-Security-Policy",
     "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdnjs.cloudflare.com; " +
-    "style-src 'self' 'unsafe-inline'; " +
+    `script-src 'self' 'nonce-${nonce}' 'wasm-unsafe-eval' https://cdnjs.cloudflare.com; ` +
+    "script-src-attr 'none'; " +
+    `style-src 'self' 'nonce-${nonce}'; ` +
+    "style-src-attr 'unsafe-inline'; " +
     "img-src 'self' data: blob:; " +
     "media-src 'self' blob:; " +
     "connect-src 'self' blob:; " +
@@ -425,6 +447,10 @@ app.post("/api/storage/sync", requireStorageAdmin, async (req, res) => {
   }
 });
 
+// The app shell needs a per-request CSP nonce, so serve it through the
+// templating helper instead of express.static.
+app.get(["/", "/index.html"], sendIndexHtml);
+
 // Serve static assets. Heavy binary assets (models, textures, WASM) are
 // cacheable so reloads and reconnects do not saturate the connection and
 // inflate realtime ping. HTML stays fresh, while JS/CSS revalidate cheaply.
@@ -596,7 +622,7 @@ app.use((req, res, next) => {
     return res.status(404).json({ success: false, error: "Not found" });
   }
   if (req.method === "GET") {
-    res.sendFile(path.join(__dirname, "public", "index.html"));
+    sendIndexHtml(req, res);
   } else {
     next();
   }
@@ -2623,6 +2649,25 @@ io.on("connection", (socket) => {
     if (!targetRoom) {
       recordJoinFailure(socket.clientIp);
       const err = { success: false, message: `Room "${targetCode}" does not exist. Check the code and try again!` };
+      if (typeof callback === "function") callback(err);
+      socket.emit("join_error", err);
+      return;
+    }
+
+    // An empty room owned by a persistent account may only be reopened by that
+    // account. Without this, anyone who learns a room code could claim host
+    // powers after the original host disconnects.
+    const ownerUserId = typeof targetRoom.hostUserId === "string" ? targetRoom.hostUserId : "";
+    const ownerIsPersistent = !!ownerUserId && !ownerUserId.startsWith("guest_");
+    if (
+      ownerIsPersistent &&
+      Object.keys(targetRoom.players).length === 0 &&
+      socket.userId !== ownerUserId
+    ) {
+      const err = {
+        success: false,
+        message: "This expedition is waiting for its original host. Ask the host to reopen it or create a new room."
+      };
       if (typeof callback === "function") callback(err);
       socket.emit("join_error", err);
       return;

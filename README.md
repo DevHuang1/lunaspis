@@ -40,7 +40,7 @@ Interfellas/
 │       │   ├── GLTFLoader.js
 │       │   └── SkeletonUtils.js
 │       ├── core/                  # Core engine subsystems
-│       │   ├── glb_manager.js     # GLB/KTX2/Draco/Meshopt loader, astronaut rig & 3D Hangar Studio
+│       │   ├── glb_manager.js     # GLB/KTX2/Draco/Meshopt loader & astronaut rig
 │       │   ├── network.js         # Socket.IO client state sync & snapshot interpolation
 │       │   ├── voice.js           # Always-on all-crew voice relay
 │       │   ├── video_link.js      # Camera-free animated 3D crew link & flight-deck/control-room views
@@ -125,7 +125,6 @@ Interfellas/
 | **3D Lunar Touchdown Scene** | `[K]` | Tap `🌕 MOON` button in HUD |
 | **3D Mission Viz / Trajectory Theater** | `[U]` | Tap `🛰️ VIZ` or `🛰️ 3D ORBIT VIZ` in HUD |
 | **WebXR / Stereo VR Inspection** | `VR VIEW` button (`[ESC]` to exit) | Tap `🥽 VR` / `🥽 STEREO VR` button |
-| **3D Model Hangar / Ground Planner** | `[H]` / `[M]` | Tap `GLB HANGAR` or `📋 MISSION DESIGN` in HUD |
 
 ## 🌐 Local Development
 
@@ -185,12 +184,12 @@ Module relationships and interior details were also checked against NASA's [stat
 - **DB TLS:** PostgreSQL TLS verification is on by default. Only set `DB_SSL_REJECT_UNAUTHORIZED=false` if your provider requires relaxed verification.
 - **Password changes:** `/api/auth/reset-password` requires the current password as well as the new one.
 - **Rate limits:** auth endpoints are limited to 20 requests/minute/IP; other APIs to 120/minute/IP. Socket.IO limits each connection to 60 packets and 256 KB per second, a 64 KB frame, and limits room creation per IP. HTTP limiter maps are capped so spoofed address keys cannot exhaust memory.
-- **Server-authoritative missions:** LDR final reports are re-evaluated server-side from the same mission-design catalogs and scoring math used by the browser (`server/mission_design_core.js`, generated from `public/js/game/gameplay.js`). Client scores/constraint flags are ignored. Scenario/difficulty changes are host-only and lobby-only; arbitrary task ids cannot award stats.
-- **Gameplay authority:** docking completion requires the helm pilot, commander or host; mission reset requires the host or commander; the boarding arm requires the engineer, commander or host. Client-supplied `corridorCapture`/`naturalEnd` hints are not treated as authority.
+- **Server-authoritative missions:** LDR final reports are re-evaluated server-side from the same mission-design catalogs and scoring math used by the browser (`server/mission_design_core.js`, generated from `public/js/game/gameplay.js`). Client scores, constraint flags, phase list, and seeded-anomaly claim are ignored for rewards; the qualifying phases and all-nominal result are derived from the server evaluation. Scenario/difficulty changes are host-only and lobby-only; arbitrary task ids cannot award stats.
+- **Gameplay authority:** docking completion requires the helm pilot, commander or host; mission reset requires the host or commander; the boarding arm requires the engineer, commander or host. Client-supplied `corridorCapture`/`naturalEnd` hints are not treated as authority. An empty room owned by a persistent account can only be reopened by that account, preventing host takeover by a code holder.
 - **Client asset ids:** astronaut `modelId` values are restricted to catalog-id characters and the browser only loads paths from its local catalog, preventing untrusted URLs from being fetched by other players.
 - **3D Crew Link:** the Earth Control ↔ Flight Crew link is rendered with animated 3D models, so it needs no camera permission, WebRTC media, STUN or TURN configuration. The legacy unauthenticated `/api/video/ice` TURN credential endpoint has been removed; if a future media feature needs TURN, use authenticated short-lived HMAC credentials.
-- **Headers:** CSP disallows `unsafe-eval` but allows `wasm-unsafe-eval` for the meshopt and Basis/KTX2 WebAssembly decoders, HSTS is sent on secure requests, frame/opener/resource isolation headers are enabled, and the app runs as a non-root user in the container.
-- **Dependencies:** `npm audit --omit=dev` should be run in CI (currently reports 0 vulnerabilities). `npm run test:security` covers the crash payloads, validation forgery, auth backoff and header checks.
+- **Headers:** page scripts are nonce-gated and use no `unsafe-inline`; `script-src-attr` is disabled. `wasm-unsafe-eval` is allowed for the meshopt and Basis/KTX2 WebAssembly decoders. Inline style attributes are constrained to `style-src-attr`, while dynamic `<style>` elements use the same per-request nonce. HSTS is sent on secure requests, frame/opener/resource isolation headers are enabled, and the app runs as a non-root user in the container.
+- **Dependencies:** `npm audit --omit=dev` should be run in CI (currently reports 0 vulnerabilities). `npm run test:security` covers the crash payloads, validation forgery, auth backoff, host reclaim, CSP nonces and header checks. The GMAT release is pinned by SHA-256 in the Dockerfile.
 
 ## 🌐 Server Regions
 

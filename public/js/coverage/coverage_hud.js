@@ -105,7 +105,7 @@
   class CoverageHud {
     constructor(cb) {
       this.cb = cb;
-      this.style = document.createElement("style"); this.style.textContent = CSS; document.head.appendChild(this.style);
+      this.style = document.createElement("style"); this.style.nonce = window.__lunaspisCspNonce || ""; this.style.textContent = CSS; document.head.appendChild(this.style);
       const el = this.el = document.createElement("div"); el.id = "cov-hud";
       el.innerHTML = `
         <div class="top"><div class="tag" id="cv-tag"><b>COVERAGE</b><span id="cv-utc">—</span><span id="cv-met">T+00:00:00</span><span id="cv-orbit">ORBIT 1</span><span class="r" id="cv-rate">II 60×</span></div><div class="wbar" title="Position in the prediction window"><i id="cv-wbar"></i></div></div>

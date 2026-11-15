@@ -728,6 +728,7 @@
         this.hud = document.getElementById("open-car-hud");
       } else {
         const style = document.createElement("style");
+      style.nonce = window.__lunaspisCspNonce || "";
         style.id = "open-car-style";
         style.textContent = `
           #open-car-hud {

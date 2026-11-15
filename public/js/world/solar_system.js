@@ -810,7 +810,7 @@
       root.id = "solar-system-ui";
       root.style.display = "none";
       root.innerHTML = [
-        "<style>",
+        "<style nonce=\"" + String(window.__lunaspisCspNonce || "") + "\">",
         "#solar-system-ui{position:fixed;inset:0;z-index:162;pointer-events:none;color:#efeee7;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}",
         "#solar-system-ui .ss-panel{pointer-events:auto;background:rgba(6,11,22,0.9);border:1px solid rgba(var(--ui-brand-rgb),0.28);backdrop-filter:blur(12px);border-radius:10px;}",
         "#ss-topbar{position:absolute;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 14px;}",
@@ -1158,7 +1158,6 @@
       }
       if (window.missionViz && window.missionViz.isActive) window.missionViz.close();
       if (window.issShowcase && window.issShowcase.isActive) window.issShowcase.close();
-      if (window.glbManager && window.glbManager.hangarActive) window.glbManager.closeHangar();
       const moonLandingWasActive = !!(window.shipInterior && window.shipInterior.isMoonLandingActive);
       if (moonLandingWasActive && typeof window.shipInterior.toggleMoonLandingScene === "function") {
         window.shipInterior.toggleMoonLandingScene(false);
@@ -1237,7 +1236,6 @@
         (window.shuttleGame && window.shuttleGame.isActive) ||
         (window.missionViz && window.missionViz.isActive) ||
         (window.issShowcase && window.issShowcase.isActive) ||
-        (window.glbManager && window.glbManager.hangarActive) ||
         (window.dockingSim && window.dockingSim.isActive);
       if (conflict) {
         this.close();

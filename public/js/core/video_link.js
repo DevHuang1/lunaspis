@@ -365,6 +365,7 @@
     _buildDom() {
       if (!document.getElementById("vl-style")) {
         const style = document.createElement("style");
+        style.nonce = window.__lunaspisCspNonce || "";
         style.id = "vl-style";
         style.textContent = `
           :root{--vl-cyan:#67e8f9;--vl-green:#4ade80;--vl-amber:#fbbf24;--vl-ink:#e6f7fb;--vl-dim:#94a3b8;--vl-line:rgba(103,232,249,.32);--vl-bg:rgba(3,10,18,.9)}

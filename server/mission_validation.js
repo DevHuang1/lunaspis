@@ -7,8 +7,9 @@
  * mission-design evaluator (generated from the same catalogs as the client)
  * against the authoritative room scenario/difficulty and the sanitized design.
  *
- * The report's simulation phases and seeded-anomaly attestation are still
- * supplied by the client (the mission simulation is not replayed here), but a
+ * The client still supplies a simulation narrative for display, but it is not
+ * trusted for rewards. The qualifying phases, all-nominal flag, and scores in
+ * the normalized result are derived from the server's design evaluation. A
  * design that fails any physical constraint can never be accepted.
  */
 "use strict";
@@ -149,18 +150,18 @@ function validateFinalReport({ report, scenarioId, difficultyId, completedObject
     if (core.overallScore < 75) reasons.push("Overall score below the flight-qualified threshold (75).");
   }
 
-  if (!isTrue(report.allNominal)) reasons.push("The LDR report is not all-nominal.");
-  const phases = Array.isArray(report.phases) ? report.phases : [];
-  if (phases.length < 6) reasons.push("Final report is missing simulation phases.");
-  if (phases.some((phase) => !phase || phase.ok !== true)) {
-    reasons.push("One or more simulation phases failed.");
-  }
-  if (report.event && report.event.ok !== true) {
-    reasons.push("The seeded mission anomaly was not survived.");
-  }
-
+  // The LDR simulation narrative (phase list, "all nominal", seeded-anomaly
+  // result) is client-supplied and is deliberately NOT used for rewards. The
+  // server derives the qualifying phases from its own design evaluation below.
   const segments = core ? Object.values(core.segments || {}) : [];
   const segmentsPassed = segments.filter((segment) => segment && segment.ok === true).length;
+  const serverPhases = core
+    ? Object.entries(core.segments || {}).map(([phase, segment]) => ({
+        phase: String(phase || "design").toUpperCase(),
+        ok: !!(segment && segment.ok),
+        metric: "server design constraint check"
+      }))
+    : [];
   let cmlLevel = 1;
   const completed = Math.max(0, Number(completedObjectives) || 0);
   if (completed >= 2 || (core && core.overallScore >= 50)) cmlLevel = 2;
@@ -210,26 +211,19 @@ function validateFinalReport({ report, scenarioId, difficultyId, completedObject
         },
         thermal: { ok: core.thermalOk, radiationOk: core.radiationOk },
         disposal: { ok: core.disposalOk, note: clampText(core.disposalNote, 180) },
-        phases: phases.slice(0, 12).map((phase) => ({
-          phase: clampText(phase.phase || phase.id, 120),
-          ok: phase.ok === true,
-          metric: clampText(phase.metric, 180)
-        })),
-        event: report.event
-          ? {
-              id: clampText(report.event.id, 64),
-              severity: clampText(report.event.severity, 24),
-              title: clampText(report.event.title, 120),
-              ok: report.event.ok === true
-            }
-          : null,
+        phases: serverPhases,
+        allNominal: serverPhases.length > 0 && serverPhases.every((phase) => phase.ok),
+        // No server-side replay of the seeded anomaly exists; do not record a
+        // client claim as if it were verified.
+        event: null,
+        simulationAttestation: "server-design-constraints-only",
         design: {
           ...design,
           scenarioId: authoritativeScenario,
           difficultyId: authoritativeDifficulty
         },
         validatedAt: Date.now(),
-        validator: "lunaspis-server-design-evaluator-v2"
+        validator: "lunaspis-server-design-evaluator-v3"
       }
     : null;
 

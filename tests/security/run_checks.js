@@ -109,6 +109,19 @@ function testMissionValidation() {
   });
   check("client cannot swap in an easier scenario/difficulty", forcedScenario.ok && forcedScenario.result.scenarioId === "lunar_south_pole" && forcedScenario.result.difficultyId === "engineer");
 
+  const noClientAttestation = validateFinalReport({
+    report: { ...report, phases: [], allNominal: false, event: { ok: false } },
+    scenarioId: "lunar_south_pole",
+    difficultyId: "engineer",
+    completedObjectives: 7
+  });
+  check("client phase/event claims have no reward impact",
+    noClientAttestation.ok &&
+    noClientAttestation.result.event === null &&
+    noClientAttestation.result.allNominal === true &&
+    noClientAttestation.result.phases.every((phase) => phase.ok),
+    noClientAttestation.ok ? `allNominal=${noClientAttestation.result.allNominal}` : noClientAttestation.reasons.join("; "));
+
   let coreThrew = false;
   try {
     evaluateDesignCore({ ...design, orbitId: undefined });
@@ -130,7 +143,7 @@ function testGeneratedCoreFreshness() {
 // ---------------------------------------------------------------------------
 // Minimal raw Socket.IO client (no socket.io-client dependency)
 // ---------------------------------------------------------------------------
-function connectSocket() {
+function connectSocket(token = null) {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(`ws://127.0.0.1:${PORT}/socket.io/?EIO=4&transport=websocket`);
     let ackId = 0;
@@ -158,7 +171,7 @@ function connectSocket() {
     const timer = setTimeout(() => reject(new Error("socket connect timeout")), 8000);
     ws.onmessage = (event) => {
       const data = String(event.data);
-      if (data.startsWith("0")) { ws.send("40"); return; }
+      if (data.startsWith("0")) { ws.send(token ? `40${JSON.stringify({ token })}` : "40"); return; }
       if (data.startsWith("40")) {
         clearTimeout(timer);
         client.connected = true;
@@ -295,10 +308,50 @@ async function testMissionAuthority() {
 }
 
 // ---------------------------------------------------------------------------
+// Empty-room host reclaim
+// ---------------------------------------------------------------------------
+async function testHostReclaim() {
+  console.log("\n=== 5. EMPTY-ROOM HOST RECLAIM ===");
+  if (typeof WebSocket !== "function") {
+    console.log("  SKIP  host-reclaim integration — this Node runtime has no global WebSocket");
+    return;
+  }
+  const authName = `hostprobe${Date.now()}`;
+  const register = await fetch(`${BASE}/api/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username: authName, password: "host-probe-password" })
+  });
+  const registered = await register.json();
+  check("persistent host account created", register.status === 200 && !!registered.token, `status=${register.status}`);
+
+  const owner = await connectSocket(registered.token);
+  const created = await owner.emit("create_room", { playerName: "OwnerHost", isPublic: false });
+  const roomId = created && created[0] && created[0].roomId;
+  check("owned room created", !!roomId);
+  owner.close();
+  await new Promise((resolve) => setTimeout(resolve, 500));
+
+  const guest = await connectSocket();
+  const denied = await guest.emit("join_room", { roomId, playerName: "RoomClaimer" });
+  check("guest cannot claim an empty account-owned room",
+    !!(denied && denied[0] && denied[0].success === false) && /waiting for its original host/i.test(String(denied[0].message || "")),
+    denied && denied[0] ? denied[0].message : "no response");
+  guest.close();
+
+  const returningOwner = await connectSocket(registered.token);
+  const rejoined = await returningOwner.emit("join_room", { roomId, playerName: "OwnerHost" });
+  check("original account owner can reopen the room and remains host",
+    !!(rejoined && rejoined[0] && rejoined[0].success) && rejoined[0].player && rejoined[0].player.isHost,
+    rejoined && rejoined[0] ? `host=${rejoined[0].player && rejoined[0].player.isHost}` : "no response");
+  returningOwner.close();
+}
+
+// ---------------------------------------------------------------------------
 // HTTP checks
 // ---------------------------------------------------------------------------
 async function testHttpHardening() {
-  console.log("\n=== 5. HTTP AUTH / HEADER HARDENING ===");
+  console.log("\n=== 6. HTTP AUTH / HEADER HARDENING ===");
 
   const ice = await fetch(`${BASE}/api/video/ice`);
   check("legacy TURN credential endpoint is removed", ice.status === 404, `status=${ice.status}`);
@@ -308,14 +361,37 @@ async function testHttpHardening() {
   check("GMAT status does not disclose the executable path", status.status === 200 && !("executable" in statusBody) && typeof statusBody.available === "boolean");
 
   const home = await fetch(`${BASE}/`, { headers: { "X-Forwarded-Proto": "https" } });
+  const homeBody = await home.text();
   const csp = home.headers.get("content-security-policy") || "";
   const hsts = home.headers.get("strict-transport-security") || "";
-  check("CSP allows WebAssembly without full unsafe-eval",
+  const directives = Object.fromEntries(csp.split(";").map((part) => part.trim()).filter(Boolean).map((part) => {
+    const space = part.indexOf(" ");
+    return space === -1 ? [part, ""] : [part.slice(0, space), part.slice(space + 1)];
+  }));
+  const nonceMatch = /'nonce-([^']+)'/.exec(csp);
+  const nonce = nonceMatch ? nonceMatch[1] : "";
+  check("CSP allows WebAssembly without JavaScript eval",
     csp.includes("'wasm-unsafe-eval'") && !csp.includes("'unsafe-eval'"), csp.slice(0, 160));
+  check("inline scripts are nonce-gated instead of unsafe-inline",
+    !!nonce && !String(directives["script-src"] || "").includes("'unsafe-inline'") && directives["script-src-attr"] === "'none'",
+    String(directives["script-src"] || "").slice(0, 140));
+  check("inline style attributes are separately scoped",
+    !String(directives["style-src"] || "").includes("'unsafe-inline'") && String(directives["style-src-attr"] || "").includes("'unsafe-inline'"));
+  check("index HTML carries the same nonce",
+    homeBody.includes(`name="lunaspis-csp-nonce" content="${nonce}"`) && homeBody.includes("js/core/boot.js"));
+  check("index HTML has no inline script blocks", !/<script(?![^>]*\bsrc=)[^>]*>/i.test(homeBody));
   check("HSTS is sent on secure proxied requests", hsts.includes("max-age="), hsts);
   check("COOP/CORP isolation headers are present",
     home.headers.get("cross-origin-opener-policy") === "same-origin" &&
     home.headers.get("cross-origin-resource-policy") === "same-origin");
+
+  const spa = await fetch(`${BASE}/lobby/TEST`, { headers: { "X-Forwarded-Proto": "https" } });
+  const spaBody = await spa.text();
+  const spaCsp = spa.headers.get("content-security-policy") || "";
+  const spaNonceMatch = /'nonce-([^']+)'/.exec(spaCsp);
+  const spaNonce = spaNonceMatch ? spaNonceMatch[1] : "";
+  check("SPA fallback gets a fresh nonce and templated shell",
+    spa.status === 200 && !!spaNonce && spaNonce !== nonce && spaBody.includes(`content="${spaNonce}"`));
 
   const longUsername = "x".repeat(40);
   const longRegister = await fetch(`${BASE}/api/auth/register`, {
@@ -371,7 +447,7 @@ async function testHttpHardening() {
 // Hostile model id propagation
 // ---------------------------------------------------------------------------
 async function testModelIdSanitization() {
-  console.log("\n=== 6. HOSTILE MODEL IDS ARE NOT PROPAGATED ===");
+  console.log("\n=== 7. HOSTILE MODEL IDS ARE NOT PROPAGATED ===");
   const client = await connectSocket();
   const created = await client.emit("create_room", { playerName: "ModelProbe", isPublic: false, solo: true });
   const roomId = created && created[0] && created[0].roomId;
@@ -422,6 +498,7 @@ async function main() {
     testGeneratedCoreFreshness();
     await testSocketCrashPayloads(serverLog);
     await testMissionAuthority();
+    await testHostReclaim();
     await testHttpHardening();
     await testModelIdSanitization();
 

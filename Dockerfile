@@ -1,14 +1,13 @@
 FROM ubuntu:22.04
 
-# Optional strong pin for the GMAT tarball; MD5 remains only as a fallback.
-ARG GMAT_SHA256=""
+# Pinned SHA-256 of the GMAT R2026a Ubuntu tarball.
+ARG GMAT_SHA256="fe124b4a606b2e3b704a6fbb1c37b87598d5df0d18cb661c304b5f60074a7754"
 
 ENV DEBIAN_FRONTEND=noninteractive \
     NODE_VERSION=20.20.2 \
     NODE_SHA256=df770b2a6f130ed8627c9782c988fda9669fa23898329a61a871e32f965e007d \
     GMAT_VERSION=R2026a \
     GMAT_URL="https://sourceforge.net/projects/gmat/files/GMAT/GMAT-R2026a/gmat-ubuntu-x64-R2026a.tar.gz/download" \
-    GMAT_MD5=ec496a0319657fa2c079d7e996b9b1ed \
     GMAT_SHA256=${GMAT_SHA256} \
     GMAT_ROOT=/opt/GMAT/R2026a \
     GMAT_CONSOLE_PATH=/opt/GMAT/R2026a/bin/GmatConsole \
@@ -64,11 +63,8 @@ RUN curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-l
 RUN mkdir -p /opt /tmp/gmat-runtime /tmp/gmat-runs \
     && chmod 1777 /tmp/gmat-runtime /tmp/gmat-runs \
     && curl -fSL --retry 3 --retry-delay 5 "${GMAT_URL}" -o /tmp/gmat.tar.gz \
-    && if [ -n "${GMAT_SHA256}" ]; then \
-         echo "${GMAT_SHA256}  /tmp/gmat.tar.gz" | sha256sum -c -; \
-       else \
-         echo "${GMAT_MD5}  /tmp/gmat.tar.gz" | md5sum -c -; \
-       fi \
+    && test -n "${GMAT_SHA256}" \
+    && echo "${GMAT_SHA256}  /tmp/gmat.tar.gz" | sha256sum -c - \
     && tar -xzf /tmp/gmat.tar.gz -C /opt \
     && rm -f /tmp/gmat.tar.gz \
     && test -x "${GMAT_CONSOLE_PATH}" \

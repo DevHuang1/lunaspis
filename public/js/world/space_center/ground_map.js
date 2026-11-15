@@ -34,6 +34,7 @@
     init() {
       if (this.el) return;
       const style = document.createElement("style");
+      style.nonce = window.__lunaspisCspNonce || "";
       style.id = "space-center-ground-map-style";
       style.textContent = `
         #space-center-ground-map {

@@ -64,7 +64,7 @@
   class DeployHud {
     constructor(cmd) {
       this.cmd = cmd;
-      if (!document.getElementById("dep-hud-css")) { const s = document.createElement("style"); s.id = "dep-hud-css"; s.textContent = CSS; document.head.appendChild(s); }
+      if (!document.getElementById("dep-hud-css")) { const s = document.createElement("style"); s.nonce = window.__lunaspisCspNonce || ""; s.id = "dep-hud-css"; s.textContent = CSS; document.head.appendChild(s); }
       const el = document.createElement("div"); el.id = "dep-hud"; this.el = el;
       el.innerHTML = `
         <div class="top"><div class="tag" id="dh-tag"></div></div>

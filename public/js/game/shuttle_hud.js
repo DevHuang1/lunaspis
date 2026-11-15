@@ -156,7 +156,7 @@
   class ShuttleHud {
     constructor(onCommand, opts) {
       this.onCommand = onCommand; this.opts = opts || {};
-      if (!document.getElementById("shuttle-hud-css")) { const st = document.createElement("style"); st.id = "shuttle-hud-css"; st.textContent = CSS; document.head.appendChild(st); }
+      if (!document.getElementById("shuttle-hud-css")) { const st = document.createElement("style"); st.nonce = window.__lunaspisCspNonce || ""; st.id = "shuttle-hud-css"; st.textContent = CSS; document.head.appendChild(st); }
       const root = document.createElement("div"); root.id = "shuttle-hud"; this.root = root;
       root.innerHTML = `
         <div class="top"><div class="tl" id="sh-tl"></div><div class="tag"><b id="sh-id">SHUTTLE</b><span id="sh-phase"></span><span id="sh-met"></span><span id="sh-warp" class="w"></span><button type="button" id="sh-ff" class="ff" title="Set maximum time acceleration">FAST FORWARD</button></div></div>
