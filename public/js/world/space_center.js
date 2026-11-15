@@ -9,8 +9,8 @@
  *      automatically when a crew member walks up to it.
  *    - The crew walk the bridge freely and board with [E]/[B] at the orbiter
  *      hatch. Before liftoff they can step back onto the bridge with [E]/[B].
- *    - Once every connected astronaut is aboard, the automatic liftoff
- *      countdown begins after a short safety pause.
+ *    - Once every connected astronaut is aboard, Earth Control clearance is
+ *      required when ground crew are present; otherwise liftoff is automatic.
  * 3. Pre-Launch Flight Deck & Liftoff Ignition:
  *    - Triggers sound suppression water deluge, SSME + SRB ignition, and launches
  *      into the 3D Ascent Cutscene -> Player-Controlled Orbital Docking ->
@@ -5312,7 +5312,10 @@
       if (!term) return;
       if (window.spaceAudio) window.spaceAudio.playClick();
       if (term.action === "lcc_console") {
-        this.openLccConsole(true);
+        const opened = this.openLccConsole(true);
+        if (!opened && window.gameplay && typeof window.gameplay.showToast === "function") {
+          window.gameplay.showToast("LCC CONSOLE UNAVAILABLE · ENTER THE SITE TOUR TO VIEW THE FIRING ROOM");
+        }
         return;
       }
       if (term.action === "mission") {
@@ -5589,6 +5592,9 @@
       this._hudCollapsedBeforeTour = null;
       this._syncSpaceGamesLock();
       const isGround = this._isLocalGroundCrew();
+      // A flight-crew visitor can inspect the firing-room console during the
+      // tour, but it must not stay on screen after returning to the tower.
+      if (!isGround && this.lccConsoleOpen) this.openLccConsole(false);
       const spawn = isGround
         ? this._groundLccSpawnForIndex(this._localGroundIndex())
         : this._groundSpawnForIndex(this._localPlayerIndex());
@@ -6235,6 +6241,7 @@
       }
       if (this.missionPhase !== "gantry") return false;
       const state = crewState || this._crewAboardState();
+      if (state.hasOnlineGround) return !!(state.allAboard && !state.launchPollAt);
       return !!(this.crewBoarded || (state && state.aboardCount > 0));
     }
 
@@ -6363,7 +6370,7 @@
       if (!this.isGroundMode) return;
 
       const isGround = this._isLocalGroundCrew();
-      if (this.lccConsoleOpen && isGround) {
+      if (this.lccConsoleOpen && (isGround || this.siteTourActive)) {
         this._lccSyncAccumulator += delta;
         if (this._lccSyncAccumulator >= 0.35) {
           this._lccSyncAccumulator = 0;
@@ -6404,19 +6411,27 @@
 
       const crewState = this._crewAboardState();
       if (this.dockLocked && crewState.allAboard && !this._launchSequenceStarted) {
-        if (this.autoLaunchRemaining === null) {
-          this.autoLaunchRemaining = crewState.isLocalLaunchAuthority ? 5.0 : 6.2;
-          if (window.spaceAudio) window.spaceAudio.playCountdownBeep(true);
-          if (window.gameplay && typeof window.gameplay.showToast === "function") {
-            window.gameplay.showToast("ALL CREW ABOARD · AUTOMATIC LIFTOFF IN 5 SECONDS");
-          }
-        }
-        this.autoLaunchRemaining -= delta;
-        if (this.autoLaunchRemaining <= 0) {
-          this.autoLaunchRemaining = 0;
-          if (!this._autoLaunchPollSent) {
+        if (crewState.hasOnlineGround) {
+          this.autoLaunchRemaining = null;
+          if (!crewState.launchPollAt && !this._autoLaunchPollSent) {
             this._autoLaunchPollSent = true;
             this.startLaunchCountdown();
+          }
+        } else {
+          if (this.autoLaunchRemaining === null) {
+            this.autoLaunchRemaining = crewState.isLocalLaunchAuthority ? 5.0 : 6.2;
+            if (window.spaceAudio) window.spaceAudio.playCountdownBeep(true);
+            if (window.gameplay && typeof window.gameplay.showToast === "function") {
+              window.gameplay.showToast("ALL CREW ABOARD · AUTOMATIC LIFTOFF IN 5 SECONDS");
+            }
+          }
+          this.autoLaunchRemaining -= delta;
+          if (this.autoLaunchRemaining <= 0) {
+            this.autoLaunchRemaining = 0;
+            if (!this._autoLaunchPollSent) {
+              this._autoLaunchPollSent = true;
+              this.startLaunchCountdown();
+            }
           }
         }
       } else {
@@ -6511,13 +6526,16 @@
           statusColor = "#60a5fa";
         } else if (this.missionPhase === "gantry") {
           if (pollActive) {
-            statusText = "LAUNCH CHECK READY · GIVE FINAL OK IN CONTROL CONSOLE [C]";
+            statusText = "ALL ASTRONAUTS ABOARD · GIVE FINAL LIFTOFF OK IN CONTROL CONSOLE [C]";
             statusColor = "#fbbf24";
           } else {
             const crewLabel = crewState.crewTotal > 0
               ? `CREW ABOARD ${crewState.aboardCount}/${crewState.crewTotal}`
               : "NO FLIGHT CREW IN ROOM";
-            statusText = `EARTH CONTROL · ${roleMeta.short} · ${crewLabel} · OPS CONSOLE [C]`;
+            const launchStatus = crewState.allAboard
+              ? "WAITING FOR FLIGHT CREW REQUEST"
+              : "WAITING FOR ALL ASTRONAUTS TO BOARD";
+            statusText = `EARTH CONTROL · ${roleMeta.short} · ${crewLabel} · ${launchStatus} · OPS CONSOLE [C]`;
             statusColor = gs.goNoGoLaunch ? "#86efac" : "#93c5fd";
           }
         } else if (this.missionPhase === "launch") {
@@ -6537,8 +6555,8 @@
         statusColor = "#f87171";
       } else if (pollActive) {
         statusText = touchUI
-          ? "WAITING ON EARTH CONTROL OK · TAP LAUNCH TO OVERRIDE"
-          : "WAITING ON EARTH CONTROL OK (8s) · PRESS [L] AGAIN TO LAUNCH NOW";
+          ? "WAITING FOR FLIGHT DIRECTOR LIFTOFF OK"
+          : "WAITING FOR FLIGHT DIRECTOR LIFTOFF OK · NO OVERRIDE";
         statusColor = "#fbbf24";
       } else if (isAtGround && !step2Done) {
         statusText = "LAUNCH PAD · REACH TOWER TOP: PRESS [3] OR [T] · BRIDGE LEVEL: PRESS [2]";
@@ -6563,7 +6581,9 @@
       } else if (crewState.allAboard) {
         statusText = gs.goNoGoLaunch
           ? `CLEAR FOR LIFTOFF · CREW ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · STARTING...`
-          : `CREW ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · CHECKING WITH GROUND...${stepOutHint}`;
+          : crewState.hasOnlineGround
+            ? `CREW ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · ${pollActive ? "WAITING FOR EARTH CONTROL GO" : "REQUESTING EARTH CONTROL GO"}${stepOutHint}`
+            : `CREW ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · CHECKING WITH GROUND...${stepOutHint}`;
         statusColor = "#86efac";
       } else {
         const waitingOn = unboardedNames.length ? `WAIT: ${unboardedNames.join(", ")} · ` : "";
@@ -6596,6 +6616,7 @@
         aboardCount: crewState.aboardCount,
         crewTotal: crewState.crewTotal,
         allAboard: crewState.allAboard,
+        hasOnlineGround: crewState.hasOnlineGround,
         roster: crewState.roster,
         flightRoster: crewState.flightRoster,
         groundRoster: crewState.groundRoster,
@@ -6639,9 +6660,12 @@
       return roles.getRoleMeta(allowed[0]).label;
     }
 
-    _groundActionLockAttrs(type) {
-      if (this._groundActionAllowed(type)) return "";
-      return `disabled title="${this._groundActionOwnerLabel(type)} only"`;
+    _groundActionLockAttrs(type, ready = true) {
+      if (!this._groundActionAllowed(type)) {
+        return `disabled title="${this._groundActionOwnerLabel(type)} only"`;
+      }
+      if (!ready) return 'disabled title="Wait until all astronauts are aboard and request launch clearance"';
+      return "";
     }
 
     _triggerGroundAction(type, extra = {}) {
@@ -6732,7 +6756,7 @@
                 ${guidance.isAtGround ? (touchUI ? "🗼 TO TOP DECK" : "🗼 TO TOP DECK [3/T]") : (guidance.isAtTop ? (touchUI ? "🛗 TO GROUND" : "🛗 TO GROUND [1]") : "🛗 ELEVATOR [G/E]")}
               </button>
               <button type="button" id="btn-sc-launch" class="sc-hud-btn sc-btn-launch" style="display:${guidance.canLaunchNow ? "inline-flex" : "none"};">
-                ${guidance.pollActive ? (touchUI ? "OVERRIDE LAUNCH" : "OVERRIDE [L]") : (touchUI ? "LAUNCH" : "LAUNCH [L]")}
+                ${guidance.hasOnlineGround ? (touchUI ? "REQUEST GO" : "REQUEST GO [L]") : (touchUI ? "LAUNCH" : "LAUNCH [L]")}
               </button>
               <button type="button" id="btn-sc-boarding" class="sc-hud-btn sc-btn-term" style="display:${guidance.canBoard || guidance.canUnboard ? "inline-flex" : "none"};">
                 ${guidance.canUnboard ? (touchUI ? "STEP OUT" : "STEP OUT [E/B]") : (touchUI ? "BOARD" : "BOARD [E/B]")}
@@ -6806,8 +6830,8 @@
 
             ${guidance.isGround ? `
               <div class="sc-ground-ops-strip">
-                <button type="button" id="btn-gop-gonogo" class="ground-action-btn ${this._groundOpButtonAttrs(gs.goNoGoLaunch, guidance.pollActive)}" ${this._groundActionLockAttrs("go_nogo_launch")} data-ground-op="go_nogo_launch">
-                  ${gs.goNoGoLaunch ? "LIFTOFF OK'D" : (guidance.pollActive ? "APPROVE LIFTOFF" : "PRE-APPROVE LIFTOFF")}
+                <button type="button" id="btn-gop-gonogo" class="ground-action-btn ${this._groundOpButtonAttrs(gs.goNoGoLaunch, guidance.pollActive)}" ${this._groundActionLockAttrs("go_nogo_launch", guidance.pollActive && guidance.allAboard)} data-ground-op="go_nogo_launch">
+                  ${gs.goNoGoLaunch ? "LIFTOFF OK'D" : (guidance.pollActive ? "APPROVE LIFTOFF" : (guidance.allAboard ? "WAITING FOR CREW REQUEST" : "WAITING FOR ASTRONAUTS"))}
                 </button>
                 <button type="button" id="btn-gop-dock" class="ground-action-btn ${this._groundOpButtonAttrs(gs.dockingClearance, this.missionPhase === "docking" && !gs.dockingClearance)}" ${this._groundActionLockAttrs("docking_clearance")} data-ground-op="docking_clearance">
                   ${gs.dockingClearance ? "DOCKING OK'D" : "APPROVE DOCKING"}
@@ -7050,8 +7074,8 @@
       const btnLaunch = this.hudOverlay.querySelector("#btn-sc-launch");
       if (btnLaunch) {
         btnLaunch.style.display = guidance.canLaunchNow ? "inline-flex" : "none";
-        btnLaunch.textContent = guidance.pollActive
-          ? (guidance.touchUI ? "OVERRIDE LAUNCH" : "OVERRIDE [L]")
+        btnLaunch.textContent = guidance.hasOnlineGround
+          ? (guidance.touchUI ? "REQUEST GO" : "REQUEST GO [L]")
           : (guidance.touchUI ? "LAUNCH" : "LAUNCH [L]");
       }
 
@@ -7114,7 +7138,11 @@
       }
       applyChip(
         "sc-step-3",
-        guidance.allAboard ? "3 · AUTO LIFTOFF" : (guidance.canLaunchNow ? "3 · LAUNCH [L]" : "3 · LIFTOFF"),
+        guidance.allAboard
+          ? (guidance.hasOnlineGround
+            ? (guidance.pollActive ? "3 · WAIT FOR FLIGHT DIRECTOR GO" : "3 · REQUESTING EARTH CONTROL GO")
+            : "3 · AUTO LIFTOFF")
+          : (guidance.canLaunchNow ? "3 · LAUNCH [L]" : "3 · LIFTOFF"),
         this.isLaunching,
         guidance.canLaunchNow && !this.isLaunching,
         {
@@ -7126,11 +7154,15 @@
     }
 
     toggleLccConsole() {
-      this.openLccConsole(!this.lccConsoleOpen);
+      return this.openLccConsole(!this.lccConsoleOpen);
     }
 
     openLccConsole(open = true) {
-      const next = !!open && this._isLocalGroundCrew() && this.isGroundMode;
+      // Earth Control owns the live actions, but flight crew on the LC-39A site
+      // tour can inspect the firing-room console. Actions stay role-locked via
+      // _groundActionAllowed(), so opening the display never grants control.
+      const canView = this.isGroundMode && (this._isLocalGroundCrew() || this.siteTourActive);
+      const next = !!open && canView;
       this.lccConsoleOpen = next;
       if (this.lccConsoleOverlay) {
         this.lccConsoleOverlay.style.display = next ? "flex" : "none";
@@ -7141,6 +7173,7 @@
         }
       }
       this._renderGroundHUD();
+      return next;
     }
 
     _syncLccConsoleLive() {
@@ -7309,8 +7342,8 @@
 
           <div class="ground-lcc-card${roleId === "flight_director" ? " is-role-focus" : ""}">
             <div style="font-family:var(--font-mono);font-size:11.5px;letter-spacing:1px;color:#94a3b8;">LAUNCH & DOCKING OK · FLIGHT DIRECTOR</div>
-            <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.goNoGoLaunch, pollActive)}" ${this._groundActionLockAttrs("go_nogo_launch")} data-lcc-op="go_nogo_launch" style="text-align:left;padding:9px 12px;font-size:11.5px;">
-              ${gs.goNoGoLaunch ? `LIFTOFF APPROVED (${gs.goNoGoBy || "GROUND"})` : (pollActive ? "CHECK ACTIVE: GIVE LIFTOFF OK" : "PRE-APPROVE LIFTOFF")}
+            <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.goNoGoLaunch, pollActive)}" ${this._groundActionLockAttrs("go_nogo_launch", pollActive && crewState.allAboard)} data-lcc-op="go_nogo_launch" style="text-align:left;padding:9px 12px;font-size:11.5px;">
+              ${gs.goNoGoLaunch ? `LIFTOFF APPROVED (${gs.goNoGoBy || "GROUND"})` : (pollActive ? "GIVE LIFTOFF GO · ALL ASTRONAUTS ABOARD" : (crewState.allAboard ? "WAITING FOR FLIGHT CREW REQUEST" : "WAITING FOR ALL ASTRONAUTS TO BOARD"))}
             </button>
             <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.dockingClearance, this.missionPhase === "docking" && !gs.dockingClearance)}" ${this._groundActionLockAttrs("docking_clearance")} data-lcc-op="docking_clearance" style="text-align:left;padding:9px 12px;font-size:11.5px;">
               ${gs.dockingClearance ? `DOCKING PATH CLEARED (${gs.dockingClearanceBy || "GROUND"})` : "APPROVE SAFE DOCKING PATH"}
@@ -7519,8 +7552,12 @@
           const touchUI = !!(window.isMobileDevice || (window.matchMedia && window.matchMedia("(pointer: coarse), (hover: none)").matches));
           window.gameplay.showToast(
             crewState.allAboard
-              ? "CREW MEMBER BOARDED & HATCH SEALED · AUTOMATIC LIFTOFF SEQUENCE"
-              : `CREW MEMBER BOARDED (${crewState.aboardCount}/${crewState.crewTotal}) · ${touchUI ? "TAP LAUNCH NOW" : "PRESS [L] OR CLICK LAUNCH NOW"} TO START WITHOUT WAITING`
+              ? (crewState.hasOnlineGround
+                ? "ALL ASTRONAUTS ABOARD · REQUESTING LIFTOFF CLEARANCE FROM EARTH CONTROL"
+                : "CREW MEMBER BOARDED & HATCH SEALED · AUTOMATIC LIFTOFF SEQUENCE")
+              : (crewState.hasOnlineGround
+                ? `CREW MEMBER BOARDED (${crewState.aboardCount}/${crewState.crewTotal}) · WAIT FOR ALL ASTRONAUTS TO BOARD`
+                : `CREW MEMBER BOARDED (${crewState.aboardCount}/${crewState.crewTotal}) · ${touchUI ? "TAP LAUNCH NOW" : "PRESS [L] OR CLICK LAUNCH NOW"} TO START WITHOUT WAITING`)
           );
         }
         if (broadcast && window.netManager && typeof window.netManager.boardSpacecraft === "function") {
@@ -8005,11 +8042,18 @@
         : null;
       if (!isGround && activeMission && activeMission.flightMode === "shuttle_docking") {
         if (!fromNetwork) {
-          if (broadcast && window.netManager && typeof window.netManager.requestLaunch === "function") {
-            window.netManager.requestLaunch();
+          const nm = window.netManager;
+          const crewState = this._crewAboardState();
+          const clearancePending = !!(crewState.hasOnlineGround && activeMission.launchPollAt);
+          if (!clearancePending && broadcast && nm && typeof nm.requestLaunch === "function") {
+            nm.requestLaunch();
           }
           if (window.gameplay && typeof window.gameplay.showToast === "function") {
-            window.gameplay.showToast("LAUNCH REQUEST SENT — SHUTTLE FLIGHT BEGINS WHEN EARTH CONTROL CLEARS LIFTOFF");
+            window.gameplay.showToast(crewState.hasOnlineGround
+              ? (clearancePending
+                ? "WAITING FOR FLIGHT DIRECTOR LIFTOFF GO · NO OVERRIDE"
+                : "ALL ASTRONAUTS ABOARD · LAUNCH REQUEST SENT TO EARTH CONTROL")
+              : "LAUNCH REQUEST SENT · SHUTTLE FLIGHT STARTING");
           }
           this._renderGroundHUD();
         }
@@ -8019,25 +8063,22 @@
       if (!fromNetwork) {
         if (isGround) return;
         const nm = window.netManager;
-        const room = nm && nm.roomState;
         const mission = nm && typeof nm.getMission === "function" ? nm.getMission() : null;
-        const gs = (mission && mission.groundSupport) || {};
-        const roles = window.InterfellasRoles;
-        const hasGround = !!(room && Array.isArray(room.players) && room.players.some((p) => p && (p.team === "ground" || (roles && roles.isGroundRole(p.role)))));
+        const crewState = this._crewAboardState();
+        const hasGround = !!crewState.hasOnlineGround;
 
-        if (nm && nm.roomId && hasGround && !gs.goNoGoLaunch) {
+        if (nm && nm.roomId && hasGround) {
           const pollPending = !!(mission && mission.launchPollAt);
-          if (broadcast && typeof nm.requestLaunch === "function") {
+          if (!pollPending && broadcast && typeof nm.requestLaunch === "function") {
             nm.requestLaunch();
           }
-          if (!pollPending || (Date.now() - this._localPollSentAt < 1200)) {
-            if (!pollPending) this._localPollSentAt = Date.now();
-            if (window.gameplay && typeof window.gameplay.showToast === "function") {
-              window.gameplay.showToast("LIFTOFF CHECK SENT TO EARTH CONTROL (8s AUTO-START · PRESS [L] AGAIN TO LAUNCH NOW)");
-            }
-            this._renderGroundHUD();
-            return;
+          if (!pollPending) this._localPollSentAt = Date.now();
+          if (window.gameplay && typeof window.gameplay.showToast === "function") {
+            window.gameplay.showToast(pollPending
+              ? "WAITING FOR FLIGHT DIRECTOR LIFTOFF GO · NO OVERRIDE"
+              : "ALL ASTRONAUTS ABOARD · LAUNCH REQUEST SENT TO EARTH CONTROL");
           }
+          this._renderGroundHUD();
           return;
         }
       }

@@ -3960,15 +3960,19 @@ io.on("connection", (socket) => {
     if (!room.mission || room.mission.phase !== "gantry") return;
 
     if (room.mission.boarded) delete room.mission.boarded[socket.id];
-    // Stepping out cancels this player's own pending launch poll so the
-    // countdown cannot start after they have left the orbiter.
-    if (room.mission.launchPollBy === socket.id) {
+    // Stepping out invalidates the crew-wide launch request. Earth Control must
+    // receive a fresh request after everyone is aboard again.
+    if (room.mission.launchPollAt) {
       if (room.launchPollTimer) {
         clearTimeout(room.launchPollTimer);
         room.launchPollTimer = null;
       }
       room.mission.launchPollAt = 0;
       room.mission.launchPollBy = null;
+      const gs = room.mission.groundSupport || (room.mission.groundSupport = createGroundSupportState());
+      gs.goNoGoLaunch = false;
+      gs.goNoGoBy = null;
+      gs.goNoGoAt = 0;
     }
     room.mission.updatedAt = Date.now();
     broadcastMissionUpdate(room, {
@@ -3986,60 +3990,44 @@ io.on("connection", (socket) => {
     room.mission = room.mission || createMissionState();
     if (room.mission.phase !== "gantry") return;
 
+    const hasGround = roomHasGroundCrew(room);
+    if (!hasGround) {
+      triggerRoomLaunch(room, socket.id, p.name);
+      return;
+    }
+
+    // Earth Control clearance is mandatory whenever a ground player is present.
+    // Require the entire flight crew to be aboard before opening the clearance
+    // request; a flight-side launch request can never bypass the Flight Director.
+    if (getTeamForRole(p.role) === "ground") {
+      socket.emit("ground_support_event", {
+        type: "launch_clearance_wait",
+        message: "Earth Control gives launch clearance from the Flight Director console after every astronaut is aboard."
+      });
+      return;
+    }
+    const flightIds = getFlightCrewIds(room);
+    const allFlightCrewAboard = flightIds.length > 0 && flightIds.every((id) => !!(room.mission.boarded && room.mission.boarded[id]));
+    if (!allFlightCrewAboard) {
+      socket.emit("ground_support_event", {
+        type: "launch_clearance_wait",
+        message: "All astronauts must be aboard before requesting launch clearance from Earth Control."
+      });
+      return;
+    }
+
+    if (room.mission.launchPollAt) return;
+
     const now = Date.now();
     const gs = room.mission.groundSupport || (room.mission.groundSupport = createGroundSupportState());
-    const hasGround = roomHasGroundCrew(room);
-
-    // Only the Flight Director can provide final launch clearance from Earth
-    // Control. Ground Systems keeps to the dish, power and science links.
-    if (getTeamForRole(p.role) === "ground") {
-      if (normalizeRoleId(p.role, "commander") !== "flight_director") {
-        const roleMeta = ROLE_INFO.flight_director;
-        socket.emit("ground_support_event", {
-          type: "role_locked",
-          action: "go_nogo_launch",
-          requiredRole: "flight_director",
-          requiredRoleShort: roleMeta.short,
-          requiredRoleLabel: roleMeta.title,
-          message: "Only the Flight Director can give final launch clearance."
-        });
-        return;
-      }
-      gs.goNoGoLaunch = true;
-      gs.goNoGoBy = p.name;
-      gs.goNoGoAt = now;
-    }
-
-    if (!hasGround || gs.goNoGoLaunch) {
-      triggerRoomLaunch(room, socket.id, p.name);
-      return;
-    }
-
-    // Advisory GO/NO-GO Poll: if Flight Crew clicks LAUNCH a second time (>=1.2s later),
-    // override cleanly; otherwise hold briefly for LCC approval with an 8-second fail-safe.
-    const pollAge = room.mission.launchPollAt ? (now - room.mission.launchPollAt) : Infinity;
-    if (room.mission.launchPollAt && pollAge >= 1200 && pollAge < 10000) {
-      triggerRoomLaunch(room, socket.id, p.name);
-      return;
-    }
-
+    // Clear any legacy/pre-board approval. Clearance must follow this request.
+    gs.goNoGoLaunch = false;
+    gs.goNoGoBy = null;
+    gs.goNoGoAt = 0;
     room.mission.launchPollAt = now;
     room.mission.launchPollBy = socket.id;
     room.mission.dockLocked = true;
-    if (getTeamForRole(p.role) !== "ground") {
-      room.mission.boarded[socket.id] = room.mission.boarded[socket.id] || now;
-    }
     room.mission.updatedAt = now;
-
-    if (room.launchPollTimer) clearTimeout(room.launchPollTimer);
-    const roomRef = room;
-    const triggerId = socket.id;
-    const triggerName = p.name;
-    room.launchPollTimer = setTimeout(() => {
-      if (roomRef.mission && roomRef.mission.phase === "gantry") {
-        triggerRoomLaunch(roomRef, triggerId, triggerName);
-      }
-    }, 8000);
 
     broadcastMissionUpdate(room, {
       action: "go_nogo_poll",
@@ -4050,12 +4038,11 @@ io.on("connection", (socket) => {
       type: "go_nogo_poll",
       byId: socket.id,
       byName: p.name,
-      byRole: p.role,
-      autoReleaseMs: 8000
+      byRole: p.role
     });
   });
 
-  // Ground Control Operations Actions (Advisory — Enhances Launch/Dock/Systems, never soft-locks)
+  // Ground Control operations. Launch clearance is mandatory when ground crew are present.
   socket.on("ground_action", (data = {}) => {
     data = asObject(data);
     if (!currentRoomId || !rooms[currentRoomId]) return;
@@ -4088,10 +4075,19 @@ io.on("connection", (socket) => {
     const gs = room.mission.groundSupport || (room.mission.groundSupport = createGroundSupportState());
 
     if (type === "go_nogo_launch") {
+      const flightIds = getFlightCrewIds(room);
+      const allFlightCrewAboard = flightIds.length > 0 && flightIds.every((id) => !!(room.mission.boarded && room.mission.boarded[id]));
+      if (room.mission.phase !== "gantry" || !room.mission.launchPollAt || !allFlightCrewAboard) {
+        socket.emit("ground_support_event", {
+          type: "launch_clearance_wait",
+          message: "Wait until all astronauts are aboard and the flight crew requests launch clearance."
+        });
+        return;
+      }
+
       gs.goNoGoLaunch = true;
       gs.goNoGoBy = p.name;
       gs.goNoGoAt = now;
-      room.mission.updatedAt = now;
 
       io.to(currentRoomId).emit("ground_support_event", {
         type: "go_nogo_launch",
@@ -4099,14 +4095,7 @@ io.on("connection", (socket) => {
         byName: p.name,
         byRole: p.role
       });
-
-      const flightIds = getFlightCrewIds(room);
-      const boardedCount = flightIds.filter((id) => room.mission.boarded && room.mission.boarded[id]).length;
-      if (room.mission.phase === "gantry" && (room.mission.launchPollAt || (flightIds.length > 0 && boardedCount >= flightIds.length))) {
-        triggerRoomLaunch(room, socket.id, p.name);
-        return;
-      }
-      broadcastMissionUpdate(room, { action: "ground_go", playerId: socket.id, playerName: p.name });
+      triggerRoomLaunch(room, socket.id, p.name);
       return;
     }
 
