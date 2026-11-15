@@ -73,7 +73,7 @@
   #shuttle-hud .tag{display:flex;align-items:stretch;flex-wrap:wrap;justify-content:center;border:1px solid var(--line);background:var(--void)}
   #shuttle-hud .tag b{background:var(--ink);color:#000;font-weight:400;padding:3px 10px}
   #shuttle-hud .tag span{padding:3px 10px;white-space:nowrap} #shuttle-hud .tag .w{color:var(--blue)}
-  #shuttle-hud .tag .ff{display:none;align-items:center;padding:3px 8px;border:0;border-left:1px solid var(--line);background:rgba(103,232,249,0.12);color:#67e8f9;font-family:inherit;font-size:9px;font-weight:800;letter-spacing:.06em;cursor:pointer}
+  #shuttle-hud .tag .ff{display:none;align-items:center;padding:3px 8px;border:0;border-left:1px solid var(--line);background:rgba(103,232,249,0.12);color:#67e8f9;font-family:inherit;font-size:9px;font-weight:800;letter-spacing:.06em;cursor:pointer;pointer-events:auto}
   #shuttle-hud .tag .ff:hover{background:rgba(103,232,249,0.24)}
   #shuttle-hud .tag .ff:disabled{opacity:.55;cursor:default}
   #shuttle-hud .tag .ff.skip{background:rgba(251,191,36,0.14);color:#fbbf24;border-left-color:rgba(251,191,36,0.55)}
