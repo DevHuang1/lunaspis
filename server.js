@@ -1266,6 +1266,7 @@ function serializeRoom(room) {
     swapRequests: serializeSwapRequests(room),
     systems: room.systems,
     tasks: room.tasks,
+    chatHistory: Array.isArray(room.chatHistory) ? room.chatHistory.slice(-40) : [],
     mission: serializeMission(room.mission)
   };
 }

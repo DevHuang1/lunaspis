@@ -83,6 +83,10 @@
       this._lccTelemetryHandler = null;
       this._lccTelemetrySnapshot = null;
       this._lccTelemetryReceivedAt = 0;
+      this.lccMessages = [];
+      this.lccUnreadMessages = 0;
+      this._lccChatNet = null;
+      this._lccChatHandler = null;
       this._localPollSentAt = 0;
       this._autoLaunchPollSent = false;
       this._groundObserverLaunch = false;
@@ -2712,8 +2716,8 @@
             z: 180.5,
             y: 0.3,
             radius: 3.2,
-            label: "E · EARTH CONTROL OPS CONSOLE",
-            shortAction: "OPEN CONTROL CONSOLE [E]",
+            label: "CONTROL CENTER CONSOLE",
+            shortAction: "OPEN CONTROL CENTER [E]",
             action: "lcc_console",
             color: 0x3b82f6
           },
@@ -4314,6 +4318,8 @@
         this.lccConsoleOverlay.style.display = next ? "flex" : "none";
         if (next) {
           this._bindLccShuttleTelemetry();
+          this._bindLccCrewChat();
+          this.lccUnreadMessages = 0;
           this._renderLccConsole();
         }
       }
@@ -4364,6 +4370,60 @@
         this._lccTelemetrySnapshot = net.snapshot;
         if (!this._lccTelemetryReceivedAt) this._lccTelemetryReceivedAt = Date.now();
       }
+    }
+
+    _bindLccCrewChat() {
+      const net = window.netManager;
+      if (!net) return;
+      if (this._lccChatNet !== net) {
+        if (this._lccChatNet && this._lccChatHandler && typeof this._lccChatNet.off === "function") {
+          this._lccChatNet.off("chat_message", this._lccChatHandler);
+        }
+        this._lccChatNet = net;
+        this._lccChatHandler = (message) => {
+          if (!message || !String(message.text || "").trim()) return;
+          const key = `${message.timestamp || 0}|${message.sender || ""}|${message.text || ""}`;
+          if (!this.lccMessages.some((item) => item._key === key)) {
+            const isFlight = message.team === "crew" || (window.InterfellasRoles && typeof window.InterfellasRoles.isGroundRole === "function" && !window.InterfellasRoles.isGroundRole(message.role));
+            this.lccMessages.push({ ...message, _key: key, _isFlight: isFlight });
+            this.lccMessages = this.lccMessages.slice(-40);
+            if (isFlight && !this.lccConsoleOpen) this.lccUnreadMessages += 1;
+          }
+          this._renderLccMessages();
+        };
+        if (typeof net.on === "function") net.on("chat_message", this._lccChatHandler);
+      }
+
+      const history = net.roomState && Array.isArray(net.roomState.chatHistory) ? net.roomState.chatHistory : [];
+      if (history.length && !this.lccMessages.length) {
+        this.lccMessages = history.slice(-40).map((message) => {
+          const key = `${message.timestamp || 0}|${message.sender || ""}|${message.text || ""}`;
+          const isFlight = message.team === "crew" || (window.InterfellasRoles && typeof window.InterfellasRoles.isGroundRole === "function" && !window.InterfellasRoles.isGroundRole(message.role));
+          return { ...message, _key: key, _isFlight: isFlight };
+        });
+      }
+    }
+
+    _renderLccMessages() {
+      const root = this.lccConsoleOverlay && this.lccConsoleOverlay.querySelector("#lcc-console-message-list");
+      const badge = this.lccConsoleOverlay && this.lccConsoleOverlay.querySelector("#lcc-console-message-count");
+      if (!root) return;
+      if (badge) {
+        badge.textContent = this.lccUnreadMessages ? `${this.lccUnreadMessages} NEW` : "LIVE";
+        badge.classList.toggle("has-new", this.lccUnreadMessages > 0);
+      }
+      const messages = this.lccMessages.slice(-6).reverse();
+      if (!messages.length) {
+        root.innerHTML = '<div class="lcc-message-empty">No crew messages yet. Flight crew messages will appear here automatically.</div>';
+        return;
+      }
+      const esc = (value) => String(value == null ? "" : value).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+      root.innerHTML = messages.map((message) => {
+        const incoming = !!message._isFlight;
+        const role = esc(message.role || (incoming ? "Flight crew" : "Ground control"));
+        const time = Number(message.timestamp) ? new Date(Number(message.timestamp)).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "NOW";
+        return `<article class="lcc-message${incoming ? " is-flight" : " is-ground"}"><div class="lcc-message-meta"><strong>${esc(message.sender || (incoming ? "Flight crew" : "Ground control"))}</strong><span>${incoming ? "FROM SHIP" : "GROUND"} · ${role}</span><time>${esc(time)}</time></div><p>${esc(message.text)}</p></article>`;
+      }).join("");
     }
 
     _renderLccTelemetry(snapshot) {
@@ -4469,17 +4529,41 @@
       const telemetryPanel = `
         <section class="ground-lcc-telemetry lcc-telemetry" id="lcc-shuttle-telemetry" aria-label="Live shuttle downlink">
           <div class="ground-lcc-telemetry-head">
-            <div class="ground-lcc-telemetry-title">Shuttle downlink</div>
+            <div><div class="ground-lcc-telemetry-title">Shuttle flight data</div><div class="ground-lcc-telemetry-subtitle">AUTO TELEMETRY · CREW STATUS IN SAME PACKET</div></div>
             <div class="ground-lcc-telemetry-sync" id="lcc-shuttle-telemetry-sync">Waiting for downlink</div>
           </div>
+          <div class="ground-lcc-data-route" aria-label="Telemetry route">
+            <div><span>1</span><strong>SHUTTLE</strong><small>Flight computer</small></div><i aria-hidden="true">›</i>
+            <div><span>2</span><strong>MISSION SERVER</strong><small>15 updates/s · crew status included</small></div><i aria-hidden="true">›</i>
+            <div><span>3</span><strong>GROUND LCC</strong><small>Latest packet displayed</small></div>
+          </div>
+          <div class="ground-lcc-telemetry-note"><strong>DATA ONLY</strong><span>No cabin video. Crew voice and messages use Crew Comms.</span></div>
           <nav class="ground-lcc-telemetry-tabs" id="lcc-shuttle-telemetry-tabs" role="tablist" aria-label="Shuttle telemetry views">
             <button type="button" role="tab" aria-pressed="true" data-lcc-telemetry-tab="flight">Flight</button>
             <button type="button" role="tab" aria-pressed="false" data-lcc-telemetry-tab="systems">Systems</button>
             <button type="button" role="tab" aria-pressed="false" data-lcc-telemetry-tab="crew">Crew &amp; log</button>
             <button type="button" role="tab" aria-pressed="false" data-lcc-telemetry-tab="raw">Full data</button>
-            <button type="button" role="tab" aria-pressed="false" data-lcc-telemetry-tab="controls">Ground role</button>
+            <button type="button" role="tab" aria-pressed="false" data-lcc-telemetry-tab="controls">Your role</button>
           </nav>
           <div class="ground-lcc-telemetry-content" id="lcc-shuttle-telemetry-content"></div>
+        </section>`;
+
+      const messagesPanel = `
+        <section class="lcc-panel lcc-message-panel" aria-label="Crew messages">
+          <div class="lcc-panel-head">
+            <div><h3>Flight crew messages</h3><p class="lcc-panel-sub">Messages from the ship appear here automatically.</p></div>
+            <span class="lcc-message-count" id="lcc-console-message-count">LIVE</span>
+          </div>
+          <div class="lcc-message-list" id="lcc-console-message-list" aria-live="polite"></div>
+          <div class="lcc-message-quick" aria-label="Quick replies">
+            <button type="button" data-lcc-quick-msg="STATUS REPORT?">Status?</button>
+            <button type="button" data-lcc-quick-msg="COPY THAT">Copy</button>
+            <button type="button" data-lcc-quick-msg="HOLD — STAND BY">Hold</button>
+          </div>
+          <form class="lcc-message-compose" id="lcc-console-message-form">
+            <input id="lcc-console-message-input" type="text" maxlength="140" autocomplete="off" placeholder="Reply to the flight crew…" aria-label="Reply to the flight crew" />
+            <button type="submit">Send</button>
+          </form>
         </section>`;
 
       this.lccConsoleOverlay.innerHTML = `
@@ -4499,6 +4583,8 @@
         </div>
 
         ${telemetryPanel}
+
+        ${messagesPanel}
 
         ${pingValid ? `
           <div class="ground-ping-banner">
@@ -4564,6 +4650,24 @@
 
       const btnClose = this.lccConsoleOverlay.querySelector("#btn-lcc-close");
       if (btnClose) btnClose.addEventListener("click", () => this.openLccConsole(false));
+      const messageForm = this.lccConsoleOverlay.querySelector("#lcc-console-message-form");
+      const messageInput = this.lccConsoleOverlay.querySelector("#lcc-console-message-input");
+      const sendGroundMessage = (value) => {
+        const text = String(value || "").trim();
+        if (!text || !window.netManager || typeof window.netManager.sendChat !== "function") return;
+        window.netManager.sendChat(text);
+        if (messageInput) {
+          messageInput.value = "";
+          messageInput.focus();
+        }
+      };
+      if (messageForm) messageForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        sendGroundMessage(messageInput && messageInput.value);
+      });
+      this.lccConsoleOverlay.querySelectorAll("[data-lcc-quick-msg]").forEach((btn) => {
+        btn.addEventListener("click", () => sendGroundMessage(btn.dataset.lccQuickMsg));
+      });
       const btnViz = this.lccConsoleOverlay.querySelector("#btn-lcc-open-viz");
       if (btnViz) btnViz.addEventListener("click", () => {
         if (window.missionViz && typeof window.missionViz.toggle === "function") window.missionViz.toggle();
@@ -4604,7 +4708,9 @@
         });
       });
       this._bindLccShuttleTelemetry();
+      this._bindLccCrewChat();
       this._renderLccTelemetry();
+      this._renderLccMessages();
     }
 
     _syncSpaceGamesLock() {
