@@ -6088,13 +6088,46 @@
               },
               {
                 phase: "STAGE 5 · SCIENCE CAMERAS & SENDING DATA HOME",
-                ok: t.commsOk && t.scienceScore >= 60,
+                ok: t.commsOk && t.scienceScore >= 60 && t.matchedTypes.length > 0,
                 metric: `${t.downlinkCapGbPerDay} GB/day sent vs ${t.dataGeneratedGbPerDay} GB/day · Signal: ${t.linkMarginDb} dB · Sci: ${t.scienceScore}/100`,
-                detail: t.commsOk
-                  ? `${t.com.name} connected with ${t.gnd.name} at +${t.linkMarginDb} dB signal strength, sending 100% of ${t.dataGeneratedGbPerDay} GB/day science data from ${t.selectedInsts.length} tools.`
-                  : `SIGNAL TOO WEAK: Signal strength (${t.linkMarginDb} dB) or download speed (${t.downlinkCapGbPerDay} GB/day) couldn't send all ${t.dataGeneratedGbPerDay} GB/day from your tools.`
+                detail: !t.commsOk
+                  ? `SIGNAL TOO WEAK: Signal strength (${t.linkMarginDb} dB) or download speed (${t.downlinkCapGbPerDay} GB/day) couldn't send all ${t.dataGeneratedGbPerDay} GB/day from your tools.`
+                  : t.matchedTypes.length === 0
+                    ? "SCIENCE GOAL: Choose a mission-priority science tool at the Science desk."
+                    : t.scienceScore < 60
+                      ? `SCIENCE SCORE: Improve the science payload to reach 60/100 (currently ${t.scienceScore}/100).`
+                      : `${t.com.name} connected with ${t.gnd.name} at +${t.linkMarginDb} dB signal strength, sending 100% of ${t.dataGeneratedGbPerDay} GB/day science data from ${t.selectedInsts.length} tools.`
               }
             ];
+
+        // Keep the readiness shown here aligned with the server's final-report
+        // requirements, including checks not covered by the BioNutrients stages.
+        const finalRequirements = [
+          [t.budgetOk, "adjust the budget"],
+          [t.massOk, "fix spacecraft mass and launch capacity"],
+          [t.powerOk, "fix solar power or the battery"],
+          [t.commsOk, "fix the Earth communication link"],
+          [t.deltaVOk, "provide enough flight fuel"],
+          [t.thermalOk, "improve cooling"],
+          [t.radiationOk, "improve radiation shielding"],
+          [t.lifetimeOk, "meet the mission lifetime"],
+          [t.disposalOk, "choose a safe return or disposal plan"],
+          [t.selectedInsts.length > 0, "select a science tool at the Science desk"],
+          [isBio || t.matchedTypes.length > 0, "select a mission-priority science tool at the Science desk"],
+          [t.telescopeOk, "resolve the telescope setup"],
+          [!isBio || bio.bioOk, "finish the BioNutrients recipe"],
+          [t.scienceScore >= 40, "improve the science score"],
+          [Number.isFinite(t.cmlLevel) && t.cmlLevel >= 1 && t.cmlLevel <= 6, "complete the mission maturity assessment"]
+        ];
+        const unmetRequirements = finalRequirements.filter(([ok]) => !ok).map(([, action]) => action);
+        phases.push({
+          phase: `STAGE ${phases.length + 1} · FINAL MISSION REQUIREMENTS`,
+          ok: unmetRequirements.length === 0,
+          metric: unmetRequirements.length ? `${unmetRequirements.length} requirement(s) need attention` : "All final requirements passed",
+          detail: unmetRequirements.length
+            ? `Before completing the mission: ${unmetRequirements.join("; ")}.`
+            : "The mission design meets the final report requirements."
+        });
 
         if (missionEvent) {
           phases.push({
