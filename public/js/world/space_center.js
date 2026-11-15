@@ -78,6 +78,11 @@
       this.hudCollapsed = false;
       this.lccConsoleOverlay = null;
       this.lccConsoleOpen = false;
+      this.lccTelemetryTab = "flight";
+      this._lccTelemetryNet = null;
+      this._lccTelemetryHandler = null;
+      this._lccTelemetrySnapshot = null;
+      this._lccTelemetryReceivedAt = 0;
       this._localPollSentAt = 0;
       this._autoLaunchPollSent = false;
       this._groundObserverLaunch = false;
@@ -4308,6 +4313,7 @@
       if (this.lccConsoleOverlay) {
         this.lccConsoleOverlay.style.display = next ? "flex" : "none";
         if (next) {
+          this._bindLccShuttleTelemetry();
           this._renderLccConsole();
         }
       }
@@ -4316,6 +4322,7 @@
 
     _syncLccConsoleLive() {
       if (!this.lccConsoleOverlay || !this.lccConsoleOpen) return;
+      this._renderLccTelemetry();
       const mapWrap = this.lccConsoleOverlay.querySelector("#lcc-live-floorplan");
       if (mapWrap && window.shipInterior && typeof window.shipInterior.renderExternalFloorplanHtml === "function") {
         mapWrap.innerHTML = window.shipInterior.renderExternalFloorplanHtml(190);
@@ -4324,6 +4331,115 @@
       if (missionEl && window.gameplay && typeof window.gameplay.getGroundTelemetrySummary === "function") {
         const sum = window.gameplay.getGroundTelemetrySummary();
         missionEl.textContent = `STAGE: ${String(this.missionPhase || "gantry").toUpperCase()} · TASKS ${sum.completed}/${sum.total} · READY ${sum.readiness}%`;
+      }
+    }
+
+    _lccPhaseLabel(phase) {
+      const labels = {
+        gantry: "Launch pad",
+        launch: "Launch & ascent",
+        docking: "Docking",
+        station: "Station operations",
+        debrief: "Debrief"
+      };
+      return labels[phase] || String(phase || "Launch pad").replace(/_/g, " ");
+    }
+
+    _bindLccShuttleTelemetry() {
+      const net = window.netManager;
+      if (!net || typeof net.on !== "function") return;
+      if (this._lccTelemetryNet !== net) {
+        if (this._lccTelemetryNet && this._lccTelemetryHandler && typeof this._lccTelemetryNet.off === "function") {
+          this._lccTelemetryNet.off("shuttle_state", this._lccTelemetryHandler);
+        }
+        this._lccTelemetryNet = net;
+        this._lccTelemetryHandler = (snapshot) => {
+          this._lccTelemetrySnapshot = snapshot || null;
+          this._lccTelemetryReceivedAt = Date.now();
+          if (this.lccConsoleOpen) this._renderLccTelemetry(snapshot);
+        };
+        net.on("shuttle_state", this._lccTelemetryHandler);
+      }
+      if (net.snapshot && net.snapshot.telemetry) {
+        this._lccTelemetrySnapshot = net.snapshot;
+        if (!this._lccTelemetryReceivedAt) this._lccTelemetryReceivedAt = Date.now();
+      }
+    }
+
+    _renderLccTelemetry(snapshot) {
+      const root = this.lccConsoleOverlay && this.lccConsoleOverlay.querySelector("#lcc-shuttle-telemetry");
+      if (!root) return;
+      const net = window.netManager;
+      const sn = snapshot || this._lccTelemetrySnapshot || (net && net.snapshot && net.snapshot.telemetry ? net.snapshot : null);
+      const content = root.querySelector("#lcc-shuttle-telemetry-content");
+      const sync = root.querySelector("#lcc-shuttle-telemetry-sync");
+      const nav = root.querySelector("#lcc-shuttle-telemetry-tabs");
+      if (!sn || !sn.telemetry) {
+        if (sync) sync.textContent = "WAITING FOR SHUTTLE DOWNLINK";
+        if (content) content.innerHTML = '<div class="sync-banner">Shuttle telemetry will appear here when the flight vehicle begins transmitting. Crew assignments and flight data share the same live mission snapshot.</div>';
+        if (nav) nav.querySelectorAll("button").forEach((button) => button.disabled = true);
+        return;
+      }
+      this._lccTelemetrySnapshot = sn;
+      if (!this._lccTelemetryReceivedAt) this._lccTelemetryReceivedAt = Date.now();
+      if (nav) nav.querySelectorAll("button").forEach((button) => {
+        button.disabled = false;
+        button.setAttribute("aria-pressed", String(button.dataset.lccTelemetryTab === this.lccTelemetryTab));
+      });
+
+      const esc = (value) => String(value == null ? "" : value).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+      const hasNumber = (value) => value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
+      const fmt = (value, decimals = 0) => hasNumber(value) ? Number(value).toFixed(decimals) : "—";
+      const t = sn.telemetry || {}, v = sn.vehicle || {}, eng = v.eng || {}, cfg = v.cfg || {}, res = sn.resources || {}, pay = sn.payload || {};
+      const phase = String(sn.phase || "flight").replace(/_/g, " ").toUpperCase();
+      const seconds = Math.max(0, Math.floor(Number(sn.met) || 0));
+      const met = sn.phase === "prelaunch" ? `T-${fmt(sn.countdown)} S` : sn.met == null ? "—" : `T+${String(Math.floor(seconds / 3600)).padStart(2, "0")}:${String(Math.floor(seconds / 60) % 60).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+      const altitudeKm = hasNumber(t.altitudeM) ? Number(t.altitudeM) / 1000 : NaN;
+      const altitude = Number.isFinite(altitudeKm) ? (Math.abs(altitudeKm) >= 20 ? fmt(altitudeKm, 1) : fmt(t.altitudeM)) : "—";
+      const altitudeUnit = Number.isFinite(altitudeKm) && Math.abs(altitudeKm) >= 20 ? "KM" : "M";
+      const pressure = hasNumber(t.dynPressPa) ? `${fmt(Number(t.dynPressPa) / 1000, 1)} KPA` : "—";
+      const speed = (value) => `${fmt(value)} M/S`;
+      const metric = (label, value) => `<div class="ground-lcc-telemetry-metric"><span>${esc(label)}</span><strong>${value}</strong></div>`;
+      const cell = (label, value) => `<div class="ground-lcc-data-cell"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`;
+      const grid = (rows) => `<div class="ground-lcc-data-grid">${rows.map(([label, value]) => cell(label, value)).join("")}</div>`;
+      const crew = sn.crew || {};
+      const crewSeats = [["cdr", "COMMANDER"], ["plt", "PILOT"], ["ms1", "MISSION SPECIALIST 1"], ["ms2", "MISSION SPECIALIST 2"]];
+      const next = sn.guidance && sn.guidance.next || {};
+      const receivedAge = Math.max(0, Date.now() - this._lccTelemetryReceivedAt);
+      const linkStatus = sn.paused ? "PAUSED" : receivedAge < 3000 ? "LIVE" : "STALE DOWNLINK";
+      if (sync) sync.textContent = `${linkStatus} · ${esc(sn.missionId || "SHUTTLE")} · SIM ${fmt(sn.simTime, 1)} S · ${met} · ${(Object.values(crew).filter((seat) => seat && seat.name).length)}/4 CREW`;
+
+      if (this.lccTelemetryTab === "systems") {
+        const rows = [
+          ["SSME", eng.ssme ? "FIRING" : "OFF"], ["SRB", eng.srb ? "FIRING" : "OFF"], ["OMS", eng.oms ? "FIRING" : "OFF"],
+          ["THROTTLE", `${fmt((Number(eng.throttle) || 0) * 100)}%`], ["BOOSTERS", cfg.srb ? "ATTACHED" : "SEPARATED"], ["EXTERNAL TANK", cfg.et ? "ATTACHED" : "SEPARATED"],
+          ["GEAR", v.gear >= 1 ? "DOWN" : v.gearCmd ? "MOVING" : "UP"], ["SPEED BRAKE", `${fmt((Number(v.sb) || 0) * 100)}%`], ["CARGO DOORS", `${fmt((Number(v.doors) || 0) * 100)}%`],
+          ["PAYLOAD POWER", pay.power ? "ON" : "OFF"], ["PAYLOAD CHECKOUT", pay.checkout || "—"], ["PAYLOAD READY", pay.ready ? "YES" : "NO"], ["PAYLOAD STATE", pay.released ? "RELEASED" : pay.attached ? "ATTACHED" : "SEPARATED"],
+          ["OMS FUEL", `${fmt(res.oms, 1)} KG`], ["RCS FUEL", `${fmt(res.rcs, 1)} KG`], ["ET FUEL", `${fmt(res.et, 1)} KG`], ["SRB FUEL", `${fmt(res.srb, 1)} KG`], ["PAYLOAD MASS", `${fmt(res.payloadKg, 1)} KG`],
+          ["WARP", `${fmt(sn.warp)}× / ${fmt(sn.warpMax)}× MAX`], ["INTEGRITY", sn.integrity || "NORMAL"]
+        ];
+        content.innerHTML = grid(rows);
+      } else if (this.lccTelemetryTab === "crew") {
+        const roster = crewSeats.map(([key, label]) => {
+          const seat = crew[key] || {};
+          return `<article class="ground-lcc-crew-card"><strong>${label}</strong><span>${esc(seat.name || "AWAITING CREW")}</span><span>${seat.filled ? "CONNECTED · ABOARD" : "SEAT COVERED BY FLIGHT CONTROL"}</span></article>`;
+        }).join("");
+        const eventRows = (sn.messages || []).slice(-5).reverse().map((message) => `<div class="ground-lcc-data-cell"><span>${esc(fmt(message.t, 1))} S · ${esc(message.level || "FLIGHT")}</span><strong>${esc(message.text)}</strong></div>`).join("") || '<div class="ground-lcc-data-cell"><span>FLIGHT LOG</span><strong>No flight messages yet</strong></div>';
+        content.innerHTML = `<div class="ground-lcc-crew-grid">${roster}</div><div class="sync-banner">CREW AND TELEMETRY ARE FROM THE SAME SERVER SNAPSHOT · NEXT ACTION: ${esc(next.seat || "CREW")} · ${esc(next.text || "Awaiting flight instruction")}</div><div class="ground-lcc-data-grid">${eventRows}</div>`;
+      } else if (this.lccTelemetryTab === "raw") {
+        content.innerHTML = `<pre class="ground-lcc-raw-snapshot">${esc(JSON.stringify(sn, null, 2))}</pre>`;
+      } else if (this.lccTelemetryTab === "controls") {
+        content.innerHTML = '<div class="sync-banner">GROUND CONTROL IS MONITORING THE LIVE SHUTTLE DOWNLINK. Flight command authority remains with the crew aboard. Use CREW COMMS in the console header to coordinate directly.</div>';
+      } else {
+        const primaryValue = altitude;
+        const status = sn.failure ? `FLIGHT STOPPED · ${sn.failure.reason}` : sn.paused ? "FLIGHT PAUSED" : phase;
+        const flightRows = [
+          ["ORBIT SPEED", speed(t.inertialSpeedMps)], ["VERTICAL SPEED", speed(t.verticalSpeedMps)], ["MACH", fmt(t.mach, 2)], ["DYNAMIC PRESSURE", pressure],
+          ["FLIGHT PATH", `${fmt(Number(t.flightPathRad) * 180 / Math.PI, 1)}°`], ["BANK", `${fmt(Number(t.bankRad) * 180 / Math.PI, 1)}°`], ["ANGLE OF ATTACK", `${fmt(Number(t.angleOfAttackRad) * 180 / Math.PI, 1)}°`],
+          ["G LOAD", `${fmt(t.loadG, 2)} G`], ["HEAT", `${fmt(t.heat)} W/CM²`], ["APOAPSIS", hasNumber(t.apoapsisAltitudeM) ? `${fmt(Number(t.apoapsisAltitudeM) / 1000, 1)} KM` : "—"],
+          ["PERIAPSIS", hasNumber(t.periapsisAltitudeM) ? `${fmt(Number(t.periapsisAltitudeM) / 1000, 1)} KM` : "—"], ["SATELLITE RANGE", hasNumber(pay.range) ? `${fmt(pay.range, 1)} M` : "—"]
+        ];
+        content.innerHTML = `<div class="ground-lcc-telemetry-main"><div class="ground-lcc-led-wrap"><span class="ground-lcc-led-label">${v.regime === "ground" ? "LANDING SPEED" : "SHUTTLE ALTITUDE"} · ${esc(status)}</span><strong class="ground-lcc-led-value">${esc(v.regime === "ground" ? fmt(t.eas, 1) : primaryValue)}</strong><span class="ground-lcc-led-unit">${v.regime === "ground" ? "M/S" : altitudeUnit}</span></div><div class="ground-lcc-telemetry-metrics">${metric("AIR SPEED", speed(t.airspeedMps))}${metric("MACH", fmt(t.mach, 2))}${metric("VERTICAL SPEED", speed(t.verticalSpeedMps))}${metric("AIR LOAD", pressure)}</div></div>${grid(flightRows)}`;
       }
     }
 
@@ -4350,6 +4466,22 @@
         { id: "HULL", label: "HULL · RADIO DISH" }
       ];
 
+      const telemetryPanel = `
+        <section class="ground-lcc-telemetry lcc-telemetry" id="lcc-shuttle-telemetry" aria-label="Live shuttle downlink">
+          <div class="ground-lcc-telemetry-head">
+            <div class="ground-lcc-telemetry-title">Shuttle downlink</div>
+            <div class="ground-lcc-telemetry-sync" id="lcc-shuttle-telemetry-sync">Waiting for downlink</div>
+          </div>
+          <nav class="ground-lcc-telemetry-tabs" id="lcc-shuttle-telemetry-tabs" role="tablist" aria-label="Shuttle telemetry views">
+            <button type="button" role="tab" aria-pressed="true" data-lcc-telemetry-tab="flight">Flight</button>
+            <button type="button" role="tab" aria-pressed="false" data-lcc-telemetry-tab="systems">Systems</button>
+            <button type="button" role="tab" aria-pressed="false" data-lcc-telemetry-tab="crew">Crew &amp; log</button>
+            <button type="button" role="tab" aria-pressed="false" data-lcc-telemetry-tab="raw">Full data</button>
+            <button type="button" role="tab" aria-pressed="false" data-lcc-telemetry-tab="controls">Ground role</button>
+          </nav>
+          <div class="ground-lcc-telemetry-content" id="lcc-shuttle-telemetry-content"></div>
+        </section>`;
+
       this.lccConsoleOverlay.innerHTML = `
         <div class="ground-lcc-header">
           <div>
@@ -4365,6 +4497,8 @@
             <button type="button" class="ground-action-btn" id="btn-lcc-close">CLOSE [C]</button>
           </div>
         </div>
+
+        ${telemetryPanel}
 
         ${pingValid ? `
           <div class="ground-ping-banner">
@@ -4463,6 +4597,14 @@
           if (targetRoom) this._triggerGroundAction("ping_room", { targetRoom, message: "PLEASE CHECK THIS ROOM — EARTH CONTROL" });
         });
       });
+      this.lccConsoleOverlay.querySelectorAll("[data-lcc-telemetry-tab]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          this.lccTelemetryTab = btn.dataset.lccTelemetryTab || "flight";
+          this._renderLccTelemetry();
+        });
+      });
+      this._bindLccShuttleTelemetry();
+      this._renderLccTelemetry();
     }
 
     _syncSpaceGamesLock() {
