@@ -18,6 +18,10 @@
   const SUN_ECI = (() => { const a = 0.35 + (-80.6 * Math.PI / 180) + 0.55; return S.vec.unit([Math.cos(a), Math.sin(a), 0.25]); })();
   // stack geometry in the orbiter frame (from the ET/orbiter sockets in the GLBs)
   const ET_OFF = [0, -5.25, 12.4], SRB_L_OFF = [6.6, -5.25, 2.52], SRB_R_OFF = [-6.6, -5.25, 2.52];
+  // The Space Center pad sits on a 12.2 m hardstand with a ~20.2 m mobile-launcher
+  // deck; the Shuttle simulation puts the MLP deck at 12.8 m. Lower the borrowed
+  // site by the difference so the boosters meet the launcher instead of clipping.
+  const LAUNCH_SITE_OFFSET_Y = -7.4;
 
   class ShuttleView {
     constructor(renderer) {
@@ -30,7 +34,15 @@
       this.camMode = "follow"; this.camModes = ["follow", "bay", "fixed"];
       this.camPos = null; this.objs = {}; this.mixers = []; this.debrisObjs = {}; this.loaded = false; this.disposed = false;
       this.camOrbit = { yaw: 0, pitch: 0, idle: 0 }; this.zoom = 1; this.showRibbon = true;
+      // The detailed LC-39A site is handed over by the ground game at liftoff so
+      // the pad, tower, VAB and surrounding buildings stay in frame instead of
+      // cutting to the simplified training pad.
+      this.launchSite = null;
+      this.launchSiteMount = new T.Group();
+      this.launchSiteMount.name = "LC39A_DetailedLaunchSite";
+      this.launchSiteMount.visible = false;
       this._buildFar(); this._buildNear(); this._loadModels(); this._buildRibbons();
+      this.near.add(this.launchSiteMount);
       this._onResize = () => this.resize();
       window.addEventListener("resize", this._onResize);
     }
@@ -184,9 +196,117 @@
       const pad = this._buildLaunchComplex();
       const padRel = this._enuOf(S.llhToEcef(site.pad.lat, site.pad.lon, 0));
       pad.position.set(padRel[0], 0, -padRel[1]); ground.add(pad);
+      this.simplePad = pad;
       this._buildVAB(ground);
       this.groundGroup = ground; this.near.add(ground);
     }
+
+    // ------------------------------------------------------------------ detailed LC-39A handoff
+    // The ground game owns the walkable Space Center scene. Rather than hiding it and
+    // swapping in the training pad, the same group is lent to this renderer for the
+    // first minutes of flight, so ignition and tower clearance happen over the real
+    // pad, VAB, LCC and surrounding buildings.
+    attachLaunchSite(manager) {
+      if (!manager || !manager.group) return false;
+      this.detachLaunchSite();
+      const group = manager.group;
+      const saved = {
+        parent: group.parent,
+        visible: group.visible,
+        stackVisible: manager.stackGroup ? manager.stackGroup.visible : true,
+        carVisible: manager.openCar && manager.openCar.group ? manager.openCar.group.visible : true,
+        guidance: [],
+        facilities: []
+      };
+      for (const key of Object.keys(manager.guidanceMarkers || {})) {
+        const marker = manager.guidanceMarkers[key];
+        if (!marker) continue;
+        saved.guidance.push([marker, marker.visible]);
+        marker.visible = false;
+      }
+      for (const terminal of manager.facilityTerminals || []) {
+        if (!terminal || !terminal.marker) continue;
+        saved.facilities.push([terminal.marker, terminal.marker.visible]);
+        terminal.marker.visible = false;
+      }
+      let skyDome = null;
+      group.traverse((node) => { if (node && node.name === "SpaceCenterSkyDome") skyDome = node; });
+      this.launchSite = {
+        manager, group, saved,
+        deluge: manager.delugeWaterMesh || null,
+        steam: manager.steamPlumes || null,
+        skyDome
+      };
+      this.launchSiteMount.add(group);
+      group.visible = true;
+      if (manager.stackGroup) manager.stackGroup.visible = false;      // the flight vehicle replaces it
+      if (manager.openCar && manager.openCar.group) manager.openCar.group.visible = false;
+      if (this.simplePad) this.simplePad.visible = false;
+      if (this.simpleVAB) this.simpleVAB.visible = false;
+      this.launchSiteMount.visible = true;
+      return true;
+    }
+
+    detachLaunchSite() {
+      if (!this.launchSite) return;
+      const { manager, group, saved } = this.launchSite;
+      if (group.parent === this.launchSiteMount) this.launchSiteMount.remove(group);
+      if (saved.parent) saved.parent.add(group);
+      else if (manager.scene) manager.scene.add(group);
+      group.visible = saved.visible !== false;
+      if (manager.stackGroup) manager.stackGroup.visible = saved.stackVisible !== false;
+      if (manager.openCar && manager.openCar.group) manager.openCar.group.visible = saved.carVisible !== false;
+      for (const [marker, visible] of saved.guidance) marker.visible = visible;
+      for (const [marker, visible] of saved.facilities) marker.visible = visible;
+      if (this.launchSite.skyDome) this.launchSite.skyDome.visible = true;
+      this.launchSiteMount.visible = false;
+      this.launchSite = null;
+      if (this.simplePad) this.simplePad.visible = true;
+      if (this.simpleVAB) this.simpleVAB.visible = true;
+      if (this.groundGroup) this.groundGroup.visible = true;
+    }
+
+    _sitePointToEci(local, th) {
+      const pad = S.SITES.pad, B = S.enuBasis(pad.lat, pad.lon);
+      const base = S.vec.add(S.llhToEcef(pad.lat, pad.lon, 0), S.vec.scl(B.U, LAUNCH_SITE_OFFSET_Y));
+      const ecef = S.vec.add(base, S.vec.add(
+        S.vec.scl(B.E, local[0]),
+        S.vec.add(S.vec.scl(B.U, local[1]), S.vec.scl(B.N, -local[2]))
+      ));
+      return S.ecefToEci(ecef, th);
+    }
+
+    _updateLaunchSite(sn, alt, th, cam) {
+      if (!this.launchSite) return;
+      const v = sn.vehicle;
+      const visible = (v.regime === "pad" || v.regime === "ascent") && alt < 15000;
+      this.launchSiteMount.visible = visible;
+      if (this.groundGroup) this.groundGroup.visible = alt < 9000 && !visible;
+      if (!visible) return;
+      // The ground scene's sky bubble is only useful from inside it; once the
+      // stack climbs out, let the flight renderer's sky/space background show.
+      if (this.launchSite.skyDome) this.launchSite.skyDome.visible = alt < 1800;
+      // Water deluge and pad steam during ignition, using the detailed pad's
+      // existing effects so the ground behaves like the pre-launch scene.
+      const eng = v.eng || {};
+      const firing = (v.regime === "pad" && (eng.ssme || eng.srb)) || (v.regime === "ascent" && alt < 1400);
+      const site = this.launchSite;
+      if (site.deluge && site.deluge.material) site.deluge.material.opacity = firing ? 0.78 : 0;
+      if (site.steam) {
+        site.steam.forEach((steam, i) => {
+          if (!steam.material) return;
+          steam.material.opacity = firing ? 0.55 + Math.sin(sn.simTime * 4 + i) * 0.12 : 0;
+          steam.scale.setScalar(1 + Math.sin(sn.simTime * 2.2 + i * 1.3) * 0.07);
+        });
+      }
+      const padBase = this._sitePointToEci([0, 0, 0], th);
+      this.launchSiteMount.position.copy(toR(S.vec.sub(padBase, cam)));
+      const pad = S.SITES.pad, B = S.enuBasis(pad.lat, pad.lon);
+      const E = S.ecefToEci(B.E, th), N = S.ecefToEci(B.N, th), U = S.ecefToEci(B.U, th);
+      const m = new T.Matrix4().makeBasis(toR(E), toR(U), toR(N).multiplyScalar(-1));
+      this.launchSiteMount.quaternion.setFromRotationMatrix(m);
+    }
+
     _buildLaunchComplex() {
       const g = new T.Group(), M = {};
       const mat = (k, c) => M[k] || (M[k] = new T.MeshLambertMaterial({ color: c }));
@@ -250,6 +370,7 @@
       const flag = new T.Mesh(new T.PlaneGeometry(64, 34), new T.MeshLambertMaterial({ map: new T.CanvasTexture(flagC) })); flag.position.set(-79.1, 110, -40); flag.rotation.y = -Math.PI / 2; vab.add(flag);
       const low = new T.Mesh(new T.BoxGeometry(130, 64, 180), new T.MeshLambertMaterial({ color: 0xcfccc4 })); low.position.set(144, 32, 0); vab.add(low);
       vab.position.set(p[0], 0, -p[1]); ground.add(vab);
+      this.simpleVAB = vab;
       // crawlerway: two gravel lanes from the VAB to the pad
       const dx = padP[0] - p[0], dz = -(padP[1] - p[1]), len = Math.hypot(dx, dz), ang = Math.atan2(dx, dz);
       for (const off of [-10, 10]) {
@@ -547,7 +668,9 @@
       const th = S.gmst({ theta0: sn.theta0, t: sn.simTime }, sn.simTime);
       const gECI = S.ecefToEci(this.groundECEF, th);
       const alt = sn.telemetry.altitudeM;
-      this.groundGroup.visible = alt < 9000;   // the flat KSC tile reads as a pale square from higher up; the globe covers it
+      this._updateLaunchSite(sn, alt, th, cam);
+      const detailedGround = !!(this.launchSite && this.launchSiteMount.visible);
+      this.groundGroup.visible = alt < 9000 && !detailedGround;   // the flat KSC tile reads as a pale square from higher up; the globe covers it
       if (this.groundGroup.visible) {
         this.groundGroup.position.copy(toR(S.vec.sub(gECI, cam)));
         const B = this.groundBasis;
@@ -648,6 +771,23 @@
         // keep the camera above the ground near the pad/runway
         const alt = S.vec.norm(eye) - S.RE;
         if (alt < 3) eye = S.vec.add(eye, S.vec.scl(up, 3 - alt));
+      }
+      // Continuous liftoff shot: hold the same north-east pad vantage the ground
+      // game uses, track the climbing stack, then ease into the chase camera as
+      // the vehicle leaves the detailed site. No scene cut is visible.
+      const altNow = sn.telemetry.altitudeM;
+      if (this.launchSite && (v.regime === "pad" || v.regime === "ascent") && altNow < 12000) {
+        const padEye = this._sitePointToEci([96, 46, -72], th);
+        const padLook = this._sitePointToEci([0, 42, 0], th);
+        const B = S.enuBasis(S.SITES.pad.lat, S.SITES.pad.lon);
+        const padUp = S.ecefToEci(B.U, th);
+        let k = altNow <= 2500 ? 0 : altNow >= 9000 ? 1 : (altNow - 2500) / 6500;
+        k = k * k * (3 - 2 * k);
+        const track = altNow <= 50 ? 0 : Math.min(1, (altNow - 50) / 1200);
+        const tracked = S.vec.add(S.vec.scl(padLook, 1 - track), S.vec.scl(r, track));
+        eye = S.vec.add(S.vec.scl(padEye, 1 - k), S.vec.scl(eye, k));
+        look = S.vec.add(S.vec.scl(tracked, 1 - k), S.vec.scl(look, k));
+        camUp = S.vec.add(S.vec.scl(padUp, 1 - k), S.vec.scl(camUp, k));
       }
       this.camPos = eye;
       const c = this.nearCam, f = this.farCam;

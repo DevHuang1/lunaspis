@@ -86,6 +86,7 @@
         this.view.autoRecentre = true;
         this.view.recentre();
         this.view.camMode = "follow";
+        if (opts && opts.launchSite) this.view.attachLaunchSite(opts.launchSite);
       }
       this.hud = new window.ShuttleHud((cmd, arg) => this.command(cmd, arg), { crew: CREW, canReturnLobby: !!(opts && opts.canReturnLobby && this.onReturnToLobby) });
       this._on(window, "keydown", (e) => this._key(e, true), true);
@@ -117,7 +118,7 @@
       if (this.net && this._netHandlers) for (const k of Object.keys(this._netHandlers)) this.net.off(k, this._netHandlers[k]);
       if (this.hud) this.hud.dispose();
       this.hud = null; this.keys = {}; this.isActive = false; this.snapA = this.snapB = null; this.snapBuf = [];
-      if (this.view) { this.view.setScope(false); this.view.dragging = false; this.view.autoRecentre = false; this.view.recentre(); this.view.camMode = "follow"; }
+      if (this.view) { this.view.setScope(false); this.view.dragging = false; this.view.autoRecentre = false; this.view.recentre(); this.view.camMode = "follow"; if (typeof this.view.detachLaunchSite === "function") this.view.detachLaunchSite(); }
       if (this.renderer) this.renderer.setClearColor(0x000000, 1);
       if (window.shuttleSfx && typeof window.shuttleSfx.stopAll === "function") window.shuttleSfx.stopAll();
       console.log("[Shuttle] crew flight view closed");
@@ -126,7 +127,7 @@
     onChat(comm) { if (this.hud) this.hud.chat(comm); },
 
     myRoles() { return this.net ? this.net.myRoles() : []; },
-    owns(seat) { return this.myRoles().includes(seat); },
+    owns(seat) { return seat === "all" || this.myRoles().includes(seat); },
 
     async command(cmd, arg) {
       if (!this.net) return;

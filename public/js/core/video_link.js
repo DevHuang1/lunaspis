@@ -1,10 +1,10 @@
 /*
- * video_link.js — live Earth Control <-> Flight Crew video link.
+ * video_link.js — live Earth Control <-> Flight Crew 3D link.
  *
- * Earth Control sees a live 3D flight-deck view of the seated crew; the crew
- * sees a compact Earth Control camera feed in the top-left corner. Audio stays
- * on the existing always-on crew voice relay; this module carries camera video
- * over a small WebRTC mesh and uses Socket.IO only for SDP/ICE signalling.
+ * Both sides see animated 3D models instead of real-world camera video:
+ * Earth Control gets a 3D flight-deck view of the seated crew, and the crew
+ * gets a 3D Earth Control room view. No camera or microphone permission is
+ * requested; Socket.IO only relays link presence.
  */
 (function (window) {
   "use strict";
@@ -40,7 +40,15 @@
     if (window.InterfellasRoles && typeof window.InterfellasRoles.normalizeRole === "function") {
       return window.InterfellasRoles.normalizeRole(raw, fallback);
     }
-    return String(raw || fallback).trim().toLowerCase().replace(/[_-]+/g, " ");
+    const value = String(raw || fallback).trim().toLowerCase().replace(/[_-]+/g, " ");
+    const aliases = {
+      "flight director": "flight_director",
+      fdir: "flight_director",
+      "ground capcom": "ground_capcom",
+      capcom: "ground_capcom",
+      "ground systems": "ground_capcom"
+    };
+    return aliases[value] || value;
   }
 
   function teamForRole(raw) {
@@ -72,30 +80,26 @@
       this.roomId = null;
       this.enabled = false;
       this._starting = false;
-      this._cameraSeq = 0;
       this._joining = false;
-      this.localStream = null;
-      this.peers = new Map();
       this.knownVideoPeers = new Set();
       this.lastError = null;
-      this._teamCache = null;
 
-      this._shipFeedSig = "";
-      this._seatFeedSig = "";
       this._cabinRosterKey = "";
-      this._cabinMounted = false;
       this.cabinMount = null;
       this.cabinFloat = null;
       this.cabinWrap = null;
       this.cabin = null;
       this._cabinPointer = { x: 0, y: 0 };
+
+      this._groundRosterKey = "";
+      this.groundView = null;
+      this.groundWrap = null;
+      this._groundPointer = { x: 0, y: 0 };
       this._toastTimer = null;
-      this._iceServers = null;
 
       this._buildDom();
       this._bindDom();
       this._refreshUI();
-      this._loadIceConfig();
     }
 
     // ------------------------------------------------------------------ lifecycle
@@ -107,7 +111,6 @@
         this._socketBound = true;
         socket.on("video_peer_joined", (data) => this._onPeerJoined(data));
         socket.on("video_peer_left", (data) => this._onPeerLeft(data));
-        socket.on("video_signal", (data) => this._onSignal(data));
         socket.on("disconnect", () => this._onDisconnect());
         socket.on("connect", () => this._onReconnect());
       }
@@ -125,7 +128,6 @@
       if (!this.socket || typeof this.socket.off !== "function") return;
       this.socket.off("video_peer_joined");
       this.socket.off("video_peer_left");
-      this.socket.off("video_signal");
       this.socket.off("disconnect");
       this.socket.off("connect");
     }
@@ -142,10 +144,10 @@
         this._refreshUI();
         return;
       }
+      if (this.roomId) this._leaveVideo(this.roomId);
       this.roomId = next;
-      this._closeAllPeers();
       this.knownVideoPeers.clear();
-      if (!this.roomId) this.stopCamera();
+      if (!this.roomId) this.stopLink();
       if (this.roomId && this.enabled) this._joinVideo();
       this._refreshUI();
     }
@@ -155,7 +157,6 @@
     }
 
     _onDisconnect() {
-      this._closeAllPeers();
       this.knownVideoPeers.clear();
       this._refreshUI();
     }
@@ -167,115 +168,49 @@
         this.setRoom(nm.roomId || null);
         return;
       }
-      const team = this._localTeam();
-      if (this._teamCache && team && this._teamCache !== team) {
-        // A ground/crew role swap changes who we are allowed to call.
-        this._closeAllPeers();
-        if (this.enabled) this._joinVideo();
-      }
-      this._teamCache = team;
-      this._reconcilePeers();
       this._refreshUI();
     }
 
-    _reconcilePeers() {
-      if (!this.enabled) return;
-      for (const peerId of Array.from(this.knownVideoPeers)) {
-        if (this._isCrossTeam(peerId)) this._ensurePeer(peerId, true);
-        else if (this.peers.has(peerId)) this._closePeer(peerId);
-      }
-    }
-
-    // ------------------------------------------------------------------ camera
-    async startCamera() {
+    // ------------------------------------------------------------------ 3D link
+    startLink() {
       if (this.enabled || this._starting) return this.enabled;
       this.lastError = null;
       if (!this.roomId) {
-        this._fail("Join a room before starting the video link.");
-        return false;
-      }
-      if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== "function") {
-        this._fail("Camera needs HTTPS (or localhost) and a browser with getUserMedia support.");
+        this._fail("Join a room before opening the 3D crew link.");
         return false;
       }
 
       this._starting = true;
-      const requestId = ++this._cameraSeq;
       this._refreshUI();
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: false,
-          video: {
-            width: { ideal: 640 },
-            height: { ideal: 480 },
-            frameRate: { ideal: 15, max: 24 },
-            facingMode: "user"
-          }
-        });
-        if (requestId !== this._cameraSeq || !this.roomId) {
-          stream.getTracks().forEach((t) => { try { t.stop(); } catch (e) {} });
-          this._starting = false;
-          this._refreshUI();
-          return false;
-        }
-        this.localStream = stream;
-        const track = this.localStream.getVideoTracks()[0];
-        if (track && "contentHint" in track) track.contentHint = "motion";
-        if (track && typeof track.addEventListener === "function") {
-          track.addEventListener("ended", () => {
-            if (this.enabled && (!this.localStream || !this.localStream.getVideoTracks().some((t) => t.readyState === "live"))) {
-              this.stopCamera();
-            }
-          });
-        }
-        this.enabled = true;
-        this._starting = false;
-        this._joinVideo();
-        this._refreshUI();
-        this._toast("VIDEO LINK ACTIVE — Earth Control can see your camera.");
-        return true;
-      } catch (error) {
-        this._starting = false;
-        this.enabled = false;
-        this.localStream = null;
-        this._fail(this._cameraError(error));
-        return false;
-      }
+      this.enabled = true;
+      this._starting = false;
+      this._joinVideo();
+      this._refreshUI();
+      this._toast("3D CREW LINK ACTIVE — animated crew models, no camera access needed.");
+      return true;
     }
 
-    stopCamera() {
-      this._cameraSeq++;
-      if (this.localStream) {
-        this.localStream.getTracks().forEach((track) => {
-          try { track.stop(); } catch (e) {}
-        });
-      }
-      this.localStream = null;
+    stopLink() {
       this.enabled = false;
       this._starting = false;
       this._leaveVideo();
-      this._closeAllPeers();
       this._refreshUI();
     }
 
-    toggleCamera() {
+    toggleLink() {
       if (this._starting) return;
       if (this.enabled) {
-        this.stopCamera();
-        this._toast("VIDEO LINK CLOSED — camera is private again.");
+        this.stopLink();
+        this._toast("3D CREW LINK CLOSED.");
         return;
       }
-      this.startCamera();
+      this.startLink();
     }
 
-    _cameraError(error) {
-      const name = error && error.name;
-      if (name === "NotAllowedError" || name === "PermissionDeniedError") return "Camera permission was denied. Allow it in the browser settings and try again.";
-      if (name === "NotFoundError" || name === "DevicesNotFoundError") return "No camera was found on this device.";
-      if (name === "NotReadableError" || name === "TrackStartError") return "The camera is already in use by another app.";
-      if (name === "OverconstrainedError") return "This camera does not support the requested video format.";
-      return (error && error.message) || "Unable to start the camera.";
-    }
+    // Backwards-compatible aliases for the existing HUD buttons.
+    startCamera() { return this.startLink(); }
+    stopCamera() { return this.stopLink(); }
+    toggleCamera() { return this.toggleLink(); }
 
     _fail(message) {
       this.lastError = message;
@@ -290,230 +225,44 @@
       this.socket.emit("video_join", { roomId: this.roomId }, (response) => {
         this._joining = false;
         if (!response || !response.ok) {
-          this.lastError = (response && response.error) || "Video signalling unavailable.";
+          this.lastError = (response && response.error) || "3D crew link relay unavailable.";
           this._refreshUI();
           return;
         }
         for (const peer of response.peers || []) {
-          if (peer && peer.id) {
-            this.knownVideoPeers.add(peer.id);
-            if (this._isCrossTeam(peer.id)) this._ensurePeer(peer.id, true);
-          }
+          if (peer && peer.id) this.knownVideoPeers.add(peer.id);
         }
         this._refreshUI();
       });
     }
 
-    _leaveVideo() {
-      if (this.socket && this.roomId) this.socket.emit("video_leave", { roomId: this.roomId });
-    }
-
-    _sendSignal(to, data) {
-      if (!this.socket || !this.roomId) return;
-      this.socket.emit("video_signal", { roomId: this.roomId, to, data });
+    _leaveVideo(roomId) {
+      const target = roomId || this.roomId;
+      if (this.socket && target) this.socket.emit("video_leave", { roomId: target });
     }
 
     _onPeerJoined(data) {
       const id = data && data.id;
       if (!id || id === this._socketId()) return;
       this.knownVideoPeers.add(id);
-      if (this._isCrossTeam(id)) this._ensurePeer(id, true);
       this._refreshUI();
-    }
-
-    _onSignal(data) {
-      const from = data && data.from;
-      const payload = data && data.data;
-      if (!from || !payload || from === this._socketId()) return;
-      if (this._isSameTeam(from)) return;
-      this.knownVideoPeers.add(from);
-      const peer = this._ensurePeer(from, true, false);
-      if (!peer) return;
-      if (payload.description) this._handleDescription(peer, payload.description);
-      else if (payload.candidate) this._handleCandidate(peer, payload.candidate);
     }
 
     _onPeerLeft(data) {
       const id = data && data.id;
       if (!id) return;
       this.knownVideoPeers.delete(id);
-      this._closePeer(id);
       this._refreshUI();
     }
 
-    _ensurePeer(peerId, allowUnknown = false, initiate = true) {
-      if (!this.enabled || !this.localStream || !peerId || peerId === this._socketId()) return null;
-      if (!allowUnknown && !this._isCrossTeam(peerId)) {
-        if (this.peers.has(peerId)) this._closePeer(peerId);
-        return null;
-      }
-      if (!allowUnknown && this._isSameTeam(peerId)) return null;
-      const existing = this.peers.get(peerId);
-      if (existing) return existing;
-      if (typeof window.RTCPeerConnection !== "function") {
-        this._fail("This browser does not support WebRTC video calls.");
-        return null;
-      }
-
-      const pc = new window.RTCPeerConnection(this._rtcConfig());
-      const peer = {
-        id: peerId,
-        pc,
-        stream: null,
-        video: null,
-        videoTexture: null,
-        pendingCandidates: [],
-        remoteSet: false,
-        makingOffer: false,
-        closed: false
-      };
-      this.peers.set(peerId, peer);
-      for (const track of this.localStream.getTracks()) {
-        try { pc.addTrack(track, this.localStream); } catch (e) {}
-      }
-      pc.onicecandidate = (event) => {
-        if (event && event.candidate) this._sendSignal(peerId, { candidate: event.candidate });
-      };
-      pc.ontrack = (event) => {
-        const stream = (event.streams && event.streams[0]) || new window.MediaStream([event.track]);
-        this._attachRemoteStream(peer, stream);
-      };
-      pc.onconnectionstatechange = () => {
-        if (!peer.closed && (pc.connectionState === "failed" || pc.connectionState === "closed")) {
-          this._closePeer(peerId);
-        }
-        this._refreshUI();
-      };
-      pc.oniceconnectionstatechange = () => this._refreshUI();
-
-      if (initiate && this._socketId() && this._socketId() < peerId) this._makeOffer(peer);
-      return peer;
+    _linkActive(peerId) {
+      return !!peerId && this.knownVideoPeers.has(peerId);
     }
 
-    async _makeOffer(peer) {
-      if (!peer || peer.closed || peer.makingOffer || peer.pc.signalingState !== "stable") return;
-      peer.makingOffer = true;
-      try {
-        const offer = await peer.pc.createOffer();
-        if (peer.closed) return;
-        await peer.pc.setLocalDescription(offer);
-        this._sendSignal(peer.id, { description: peer.pc.localDescription });
-      } catch (error) {
-        this._closePeer(peer.id);
-      } finally {
-        peer.makingOffer = false;
-      }
-    }
-
-    async _handleDescription(peer, description) {
-      try {
-        if (description.type === "offer") {
-          if (peer.pc.signalingState !== "stable") {
-            try { await peer.pc.setLocalDescription({ type: "rollback" }); } catch (e) {}
-          }
-          await peer.pc.setRemoteDescription(description);
-          peer.remoteSet = true;
-          this._flushCandidates(peer);
-          const answer = await peer.pc.createAnswer();
-          await peer.pc.setLocalDescription(answer);
-          this._sendSignal(peer.id, { description: peer.pc.localDescription });
-        } else if (description.type === "answer" && peer.pc.signalingState === "have-local-offer") {
-          await peer.pc.setRemoteDescription(description);
-          peer.remoteSet = true;
-          this._flushCandidates(peer);
-        }
-        this._refreshUI();
-      } catch (error) {
-        this._closePeer(peer.id);
-      }
-    }
-
-    _handleCandidate(peer, candidate) {
-      if (!candidate) return;
-      if (peer.remoteSet) {
-        peer.pc.addIceCandidate(candidate).catch(() => {});
-      } else {
-        peer.pendingCandidates.push(candidate);
-      }
-    }
-
-    _flushCandidates(peer) {
-      const pending = peer.pendingCandidates.splice(0);
-      for (const candidate of pending) peer.pc.addIceCandidate(candidate).catch(() => {});
-    }
-
-    _attachRemoteStream(peer, stream) {
-      if (!stream) return;
-      if (peer.video) {
-        peer.video.srcObject = null;
-        if (peer.video.parentNode) peer.video.parentNode.removeChild(peer.video);
-      }
-      peer.stream = stream;
-      const video = document.createElement("video");
-      video.autoplay = true;
-      video.muted = true;
-      video.playsInline = true;
-      video.setAttribute("playsinline", "");
-      video.setAttribute("webkit-playsinline", "");
-      video.srcObject = stream;
-      this.hiddenMedia.appendChild(video);
-      peer.video = video;
-      video.addEventListener("loadeddata", () => this._refreshUI());
-      video.addEventListener("playing", () => this._refreshUI());
-      video.play().catch(() => {});
-      if (T && typeof T.VideoTexture === "function") {
-        const texture = new T.VideoTexture(video);
-        if (T.LinearFilter) { texture.minFilter = T.LinearFilter; texture.magFilter = T.LinearFilter; }
-        texture.generateMipmaps = false;
-        if (T.sRGBEncoding !== undefined && "encoding" in texture) texture.encoding = T.sRGBEncoding;
-        if (peer.videoTexture && typeof peer.videoTexture.dispose === "function") peer.videoTexture.dispose();
-        peer.videoTexture = texture;
-      }
-      const track = stream.getVideoTracks()[0];
-      if (track && typeof track.addEventListener === "function") {
-        track.addEventListener("ended", () => this._closePeer(peer.id));
-      }
-      this._refreshUI();
-    }
-
-    _closePeer(peerId) {
-      const peer = this.peers.get(peerId);
-      if (!peer) return;
-      peer.closed = true;
-      this.peers.delete(peerId);
-      if (peer.video) {
-        peer.video.srcObject = null;
-        if (peer.video.parentNode) peer.video.parentNode.removeChild(peer.video);
-      }
-      if (peer.videoTexture && typeof peer.videoTexture.dispose === "function") peer.videoTexture.dispose();
-      try { peer.pc.close(); } catch (e) {}
-      this._refreshUI();
-    }
-
-    _closeAllPeers() {
-      for (const id of Array.from(this.peers.keys())) this._closePeer(id);
-    }
-
-    _loadIceConfig() {
-      if (typeof fetch !== "function") return;
-      fetch("/api/video/ice", { credentials: "omit" })
-        .then((response) => (response && response.ok ? response.json() : null))
-        .then((data) => {
-          if (data && Array.isArray(data.iceServers) && data.iceServers.length) this._iceServers = data.iceServers;
-        })
-        .catch(() => {});
-    }
-
-    _rtcConfig() {
-      const configured = Array.isArray(window.INTERFELLAS_ICE_SERVERS)
-        ? window.INTERFELLAS_ICE_SERVERS
-        : (Array.isArray(this._iceServers) && this._iceServers.length ? this._iceServers : null);
-      return {
-        iceServers: configured || [
-          { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }
-        ],
-        iceCandidatePoolSize: 4
-      };
+    _remoteLinkActive() {
+      const team = this._localTeam();
+      if (!team) return false;
+      return this._peerEntries(team === "crew" ? "ground" : "crew").length > 0;
     }
 
     // ------------------------------------------------------------------ roster helpers
@@ -538,38 +287,21 @@
       return null;
     }
 
-    _teamOf(peerId) {
-      const p = this._player(peerId);
-      return playerTeam(p);
-    }
-
-    _isSameTeam(peerId) {
-      const a = this._localTeam(), b = this._teamOf(peerId);
-      return !!a && !!b && a === b;
-    }
-
-    _isCrossTeam(peerId) {
-      const a = this._localTeam(), b = this._teamOf(peerId);
-      return !!a && !!b && a !== b;
-    }
-
     _peerEntries(team) {
-      const ids = new Set([...this.knownVideoPeers, ...this.peers.keys()]);
+      const ids = new Set(this.knownVideoPeers);
       const entries = [];
       for (const id of ids) {
         const player = this._player(id);
-        const peer = this.peers.get(id);
-        const resolvedTeam = playerTeam(player) || (peer ? (this._teamOf(id) || null) : null);
+        const resolvedTeam = playerTeam(player);
         if (team && resolvedTeam !== team) continue;
-        if (team && !player && !peer) continue;
+        if (team && !player) continue;
         entries.push({
           id,
           player,
           name: (player && player.name) || "CREW",
           role: (player && player.role) || "crew",
           team: resolvedTeam,
-          peer,
-          live: !!(peer && peer.video && peer.stream && peer.video.readyState >= 2)
+          link: true
         });
       }
       entries.sort((a, b) => {
@@ -605,6 +337,30 @@
       });
     }
 
+    _groundRoster() {
+      const ground = this._players().filter((p) => p && playerTeam(p) === "ground");
+      const roles = ["flight_director", "ground_capcom"];
+      const used = new Set();
+      const roster = roles.map((role, index) => ({ seat: role, index, role, player: null }));
+      // Seat operators by their actual role first, then fill any empty station.
+      for (const entry of roster) {
+        const player = ground.find((p) => !used.has(p.id) && normalizeRole(p.role) === entry.role) || null;
+        if (player) {
+          used.add(player.id);
+          entry.player = player;
+        }
+      }
+      for (const entry of roster) {
+        if (entry.player) continue;
+        const player = ground.find((p) => !used.has(p.id)) || null;
+        if (player) {
+          used.add(player.id);
+          entry.player = player;
+        }
+      }
+      return roster;
+    }
+
     // ------------------------------------------------------------------ UI
     _buildDom() {
       if (!document.getElementById("vl-style")) {
@@ -618,8 +374,8 @@
           .vl-start-prompt:hover{border-color:var(--vl-cyan);background:rgba(8,27,40,.94)}
           .vl-start-prompt b{display:block;color:var(--vl-cyan);font-size:11px}
           .vl-start-prompt small{display:block;color:var(--vl-dim);font:600 9px/1.2 ui-monospace,Menlo,monospace;letter-spacing:.05em;margin-top:2px}
-          .vl-cam-glyph{width:17px;height:12px;border:1.5px solid var(--vl-cyan);border-radius:2px;position:relative;flex:0 0 auto}
-          .vl-cam-glyph:after{content:"";position:absolute;right:-6px;top:2px;border-left:5px solid var(--vl-cyan);border-top:2px solid transparent;border-bottom:2px solid transparent}
+          .vl-link-glyph{width:15px;height:15px;border:1.5px solid var(--vl-cyan);border-radius:3px;position:relative;flex:0 0 auto;transform:rotate(45deg);margin:0 4px}
+          .vl-link-glyph:after{content:"";position:absolute;inset:3px;border:1px solid rgba(103,232,249,.65);border-radius:1px}
           .vl-ship-panel{position:fixed;left:18px;top:62px;z-index:5002;display:none;flex-direction:column;width:min(306px,44vw);border:1px solid var(--vl-line);border-radius:11px;background:var(--vl-bg);color:var(--vl-ink);box-shadow:0 16px 42px rgba(0,0,0,.42);backdrop-filter:blur(12px);pointer-events:auto;overflow:hidden}
           .vl-ship-panel.is-open{display:flex}
           .vl-ship-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-bottom:1px solid rgba(103,232,249,.2);background:rgba(6,22,34,.62)}
@@ -631,19 +387,15 @@
           .vl-head-actions button,.vl-cabin-cam{border:1px solid rgba(103,232,249,.38);border-radius:5px;background:rgba(103,232,249,.1);color:var(--vl-cyan);font:800 8.5px/1 ui-monospace,Menlo,monospace;letter-spacing:.05em;padding:5px 7px;cursor:pointer;white-space:nowrap}
           .vl-head-actions button:hover,.vl-cabin-cam:hover{background:rgba(103,232,249,.22)}
           .vl-head-actions button.is-on{color:#031018;background:var(--vl-cyan);border-color:var(--vl-cyan)}
-          .vl-feeds{display:grid;grid-template-columns:1fr;gap:6px;padding:7px}
-          .vl-feeds:has(.vl-feed:nth-child(2)){grid-template-columns:1fr 1fr}
-          .vl-feed{border:1px solid rgba(148,163,184,.2);border-radius:7px;overflow:hidden;background:#02070d;position:relative}
-          .vl-feed-frame{aspect-ratio:16/9;position:relative;background:radial-gradient(circle at 50% 46%,rgba(30,64,82,.55),#02070d 70%);overflow:hidden}
-          .vl-feed-frame video{width:100%;height:100%;object-fit:cover;display:block}
-          .vl-feed-wait{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--vl-dim);font:700 8.5px/1.2 ui-monospace,Menlo,monospace;letter-spacing:.08em;text-align:center;padding:8px}
-          .vl-feed-label{display:flex;align-items:center;gap:5px;padding:4px 6px;font:700 8.5px/1.15 ui-monospace,Menlo,monospace;letter-spacing:.045em;background:rgba(6,20,30,.86)}
-          .vl-feed-label b{color:var(--vl-cyan);font-size:8.5px}
-          .vl-feed-label span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--vl-ink)}
-          .vl-feed-label i{margin-left:auto;color:var(--vl-dim);font-style:normal;font-size:7.5px}
-          .vl-feed.is-live .vl-feed-label i{color:var(--vl-green)}
+          .vl-ground-view{position:relative;width:100%;aspect-ratio:16/9;background:#02070d;overflow:hidden}
+          .vl-ground-view .vl-cabin-head{padding:7px 9px}
+          .vl-ground-view .vl-cabin-title{min-width:0;white-space:nowrap;overflow:hidden}
+          .vl-ground-view .vl-cabin-title span{display:none}
+          .vl-ground-view .vl-cabin-badge{margin-left:auto;padding:2px 5px;font-size:7.5px}
+          .vl-ground-view .vl-cabin-status{bottom:42px;font-size:8px;background:linear-gradient(180deg,transparent,rgba(2,7,13,.72) 28%,rgba(2,7,13,.72) 72%,transparent);padding:3px 6px}
+          .vl-ground-view .vl-cabin-roster{grid-template-columns:repeat(2,minmax(0,1fr))}
           .vl-foot{padding:6px 9px 8px;color:var(--vl-dim);font:600 8.5px/1.35 ui-monospace,Menlo,monospace;letter-spacing:.035em;border-top:1px solid rgba(103,232,249,.14)}
-          .vl-ship-panel.is-collapsed .vl-feeds,.vl-ship-panel.is-collapsed .vl-foot{display:none}
+          .vl-ship-panel.is-collapsed .vl-ground-view,.vl-ship-panel.is-collapsed .vl-foot{display:none}
           .vl-cabin-float{position:fixed;right:18px;bottom:18px;width:min(470px,calc(100vw - 36px));z-index:4800;pointer-events:auto;display:none}
           .vl-cabin-float.is-open{display:block}
           .vl-cabin-wrap{position:relative;width:100%;aspect-ratio:16/9;border:1px solid rgba(103,232,249,.34);border-radius:11px;background:#02070d;overflow:hidden;box-shadow:0 20px 52px rgba(0,0,0,.48);pointer-events:auto}
@@ -664,8 +416,6 @@
           .vl-seat-chip i{display:block;color:var(--vl-dim);font:600 7px/1.2 ui-monospace,Menlo,monospace;font-style:normal;margin-top:1px}
           .vl-seat-chip.is-live{border-color:rgba(74,222,128,.42)}
           .vl-seat-chip.is-live i{color:var(--vl-green)}
-          .vl-hidden-media{position:fixed;left:-9999px;top:-9999px;width:2px;height:2px;overflow:hidden;opacity:0;pointer-events:none}
-          #vl-hidden-media video{width:2px;height:2px;opacity:0}
           #crew-comms-video.is-on{color:#031018;background:var(--vl-cyan);border-color:var(--vl-cyan)}
           body.vl-prompt-live #shuttle-hud .log,body.vl-prompt-live #shuttle-hud .chat{top:112px}
           body.vl-ship-live #shuttle-hud .log,body.vl-ship-live #shuttle-hud .chat{top:var(--vl-ship-offset,320px)}
@@ -685,35 +435,46 @@
       const shell = document.createElement("div");
       shell.id = "vl-shell";
       shell.innerHTML = `
-        <button type="button" class="vl-start-prompt" id="vl-start-prompt" title="Share your camera with Earth Control">
-          <span class="vl-cam-glyph"></span>
-          <span><b>VIDEO LINK</b><small>START CREW CAMERA</small></span>
+        <button type="button" class="vl-start-prompt" id="vl-start-prompt" title="Open the animated 3D crew link — no camera needed">
+          <span class="vl-link-glyph"></span>
+          <span><b>3D CREW LINK</b><small>NO CAMERA NEEDED</small></span>
         </button>
-        <section class="vl-ship-panel" id="vl-ship-panel" aria-label="Earth Control live video">
+        <section class="vl-ship-panel" id="vl-ship-panel" aria-label="Earth Control live 3D control room">
           <header class="vl-ship-head">
-            <div class="vl-live"><i></i><span>EARTH CONTROL<small>LIVE CAMERA FEED</small></span></div>
+            <div class="vl-live"><i></i><span>EARTH CONTROL<small>LIVE 3D CONTROL ROOM</small></span></div>
             <div class="vl-head-actions">
-              <button type="button" id="vl-ship-cam" data-vl-ship-cam>CAM OFF</button>
+              <button type="button" id="vl-ship-cam" data-vl-ship-cam>LINK OFF</button>
               <button type="button" id="vl-ship-min" data-vl-ship-min>HIDE</button>
             </div>
           </header>
-          <div class="vl-feeds" id="vl-ground-feeds"></div>
+          <div class="vl-ground-view" id="vl-ground-view">
+            <canvas class="vl-cabin-canvas" id="vl-ground-canvas"></canvas>
+            <div class="vl-cabin-scan"></div>
+            <div class="vl-cabin-head">
+              <div class="vl-cabin-title"><i></i>EARTH CONTROL <span>ANIMATED 3D CREW LINK</span></div>
+              <div class="vl-cabin-badge" id="vl-ground-badge">LINK 0/2</div>
+            </div>
+            <div class="vl-cabin-status" id="vl-ground-status">AWAITING EARTH CONTROL</div>
+            <div class="vl-cabin-roster" id="vl-ground-roster"></div>
+          </div>
           <div class="vl-foot" id="vl-ship-foot">LINK STANDBY</div>
         </section>
         <div class="vl-cabin-float" id="vl-cabin-float"></div>
-        <div class="vl-hidden-media" id="vl-hidden-media" aria-hidden="true"></div>
       `;
       document.body.appendChild(shell);
 
       this.shell = shell;
       this.prompt = shell.querySelector("#vl-start-prompt");
       this.shipPanel = shell.querySelector("#vl-ship-panel");
-      this.groundFeeds = shell.querySelector("#vl-ground-feeds");
+      this.groundWrap = shell.querySelector("#vl-ground-view");
+      this.groundCanvas = shell.querySelector("#vl-ground-canvas");
+      this.groundBadge = shell.querySelector("#vl-ground-badge");
+      this.groundStatus = shell.querySelector("#vl-ground-status");
+      this.groundRosterEl = shell.querySelector("#vl-ground-roster");
       this.shipFoot = shell.querySelector("#vl-ship-foot");
       this.shipCamBtn = shell.querySelector("#vl-ship-cam");
       this.shipMinBtn = shell.querySelector("#vl-ship-min");
       this.cabinFloat = shell.querySelector("#vl-cabin-float");
-      this.hiddenMedia = shell.querySelector("#vl-hidden-media");
 
       const wrap = document.createElement("div");
       wrap.className = "vl-cabin-wrap";
@@ -722,11 +483,11 @@
         <canvas class="vl-cabin-canvas" id="vl-cabin-canvas"></canvas>
         <div class="vl-cabin-scan"></div>
         <div class="vl-cabin-head">
-          <div class="vl-cabin-title"><i></i>FLIGHT DECK <span>LIVE 3D CREW LINK</span></div>
-          <div class="vl-cabin-badge" id="vl-cabin-badge">LINK 0/4</div>
+          <div class="vl-cabin-title"><i></i>FLIGHT DECK <span>ANIMATED 3D CREW LINK</span></div>
+          <div class="vl-cabin-badge" id="vl-cabin-badge">CREW 0/4</div>
         </div>
-        <button type="button" class="vl-cabin-cam" id="vl-cabin-cam" data-vl-cabin-cam>START MY CAMERA</button>
-        <div class="vl-cabin-status" id="vl-cabin-status">AWAITING CREW CAMERAS</div>
+        <button type="button" class="vl-cabin-cam" id="vl-cabin-cam" data-vl-cabin-cam>START 3D LINK</button>
+        <div class="vl-cabin-status" id="vl-cabin-status">AWAITING FLIGHT CREW</div>
         <div class="vl-cabin-roster" id="vl-cabin-roster"></div>
       `;
       this.cabinFloat.appendChild(wrap);
@@ -738,9 +499,9 @@
     }
 
     _bindDom() {
-      this.prompt.addEventListener("click", () => this.startCamera());
+      this.prompt.addEventListener("click", () => this.startLink());
       this.shipPanel.addEventListener("click", (event) => {
-        if (event.target.closest("[data-vl-ship-cam]")) this.toggleCamera();
+        if (event.target.closest("[data-vl-ship-cam]")) this.toggleLink();
         if (event.target.closest("[data-vl-ship-min]")) {
           this.shipPanel.classList.toggle("is-collapsed");
           this.shipMinBtn.textContent = this.shipPanel.classList.contains("is-collapsed") ? "SHOW" : "HIDE";
@@ -748,7 +509,7 @@
         }
       });
       this.cabinWrap.addEventListener("click", (event) => {
-        if (event.target.closest("[data-vl-cabin-cam]")) this.toggleCamera();
+        if (event.target.closest("[data-vl-cabin-cam]")) this.toggleLink();
       });
       this.cabinWrap.addEventListener("pointermove", (event) => {
         const rect = this.cabinWrap.getBoundingClientRect();
@@ -759,9 +520,18 @@
         this._cabinPointer.x = 0;
         this._cabinPointer.y = 0;
       });
+      this.groundWrap.addEventListener("pointermove", (event) => {
+        const rect = this.groundWrap.getBoundingClientRect();
+        this._groundPointer.x = ((event.clientX - rect.left) / Math.max(1, rect.width) - 0.5) * 2;
+        this._groundPointer.y = ((event.clientY - rect.top) / Math.max(1, rect.height) - 0.5) * 2;
+      });
+      this.groundWrap.addEventListener("pointerleave", () => {
+        this._groundPointer.x = 0;
+        this._groundPointer.y = 0;
+      });
 
       const commsVideo = document.getElementById("crew-comms-video");
-      if (commsVideo) commsVideo.addEventListener("click", () => this.toggleCamera());
+      if (commsVideo) commsVideo.addEventListener("click", () => this.toggleLink());
     }
 
     attachCabinView(container) {
@@ -803,52 +573,32 @@
       this.shipPanel.classList.toggle("is-open", show);
       document.body.classList.toggle("vl-ship-live", show);
       if (!show) {
-        this._shipFeedSig = "";
+        if (this.groundView) this.groundView.visible = false;
         return;
       }
 
-      const sig = groundPeers.map((p) => `${p.id}:${p.live ? 1 : 0}:${p.name}`).join("|") + `|${this.enabled ? 1 : 0}|${this._starting ? 1 : 0}`;
-      if (sig !== this._shipFeedSig) {
-        this._shipFeedSig = sig;
-        // Keep the live <video> decoders alive while their tiles are rebuilt.
-        for (const entry of groundPeers) {
-          if (entry.peer && entry.peer.video && entry.peer.video.parentNode) this.hiddenMedia.appendChild(entry.peer.video);
-        }
-        this.groundFeeds.innerHTML = "";
-        if (!groundPeers.length) {
-          const wait = document.createElement("div");
-          wait.className = "vl-feed";
-          wait.innerHTML = `<div class="vl-feed-frame"><div class="vl-feed-wait">WAITING FOR<br />EARTH CONTROL CAMERA…</div></div>`;
-          this.groundFeeds.appendChild(wait);
+      const roster = this._groundRoster();
+      const groundCount = roster.filter((entry) => !!entry.player).length;
+      const linkedCount = roster.filter((entry) => entry.player && this._linkActive(entry.player.id)).length;
+
+      this._initGroundView();
+      if (this.groundView && !this.groundView.failed) this.groundView.visible = true;
+      this._resizeGroundView();
+      this._syncGroundRoster();
+      this._syncGroundScreens();
+
+      if (this.groundBadge) this.groundBadge.textContent = groundCount ? `EARTH ${groundCount}/2` : "NO GROUND";
+      if (this.groundStatus) {
+        if (groundCount) {
+          const linkText = linkedCount ? `${linkedCount}/${groundCount} ON LINK · ` : "";
+          this.groundStatus.textContent = `${linkText}${groundCount} ANIMATED 3D OPERATOR${groundCount === 1 ? "" : "S"}`;
         } else {
-          for (const entry of groundPeers) {
-            const tile = document.createElement("div");
-            tile.className = "vl-feed" + (entry.live ? " is-live" : "");
-            tile.dataset.peer = entry.id;
-            const frame = document.createElement("div");
-            frame.className = "vl-feed-frame";
-            if (entry.live && entry.peer && entry.peer.video) {
-              frame.appendChild(entry.peer.video);
-              entry.peer.video.play().catch(() => {});
-            } else {
-              const wait = document.createElement("div");
-              wait.className = "vl-feed-wait";
-              wait.textContent = "LINKING EARTH CONTROL…";
-              frame.appendChild(wait);
-            }
-            const label = document.createElement("div");
-            label.className = "vl-feed-label";
-            label.innerHTML = `<b>${esc(roleShort(entry.role))}</b><span>${esc(entry.name)}</span><i>${entry.live ? "LIVE" : "WAIT"}</i>`;
-            tile.appendChild(frame);
-            tile.appendChild(label);
-            this.groundFeeds.appendChild(tile);
-          }
+          this.groundStatus.textContent = "EARTH CONTROL ROOM READY · WAITING FOR GROUND CREW";
         }
       }
-      const liveCount = groundPeers.filter((p) => p.live).length;
-      this.shipFoot.textContent = liveCount
-        ? `${liveCount} EARTH CAMERA${liveCount === 1 ? "" : "S"} LIVE · AUDIO ON CREW COMMS`
-        : "WAITING FOR EARTH CONTROL CAMERA · TURN YOURS ON SO THEY CAN SEE YOU";
+      this.shipFoot.textContent = groundCount
+        ? `${linkedCount ? `${linkedCount} ON 3D LINK · ` : ""}${groundCount} EARTH CONTROL OPERATOR${groundCount === 1 ? "" : "S"} · AUDIO ON CREW COMMS`
+        : "3D EARTH CONTROL ROOM READY · NO CAMERA PERMISSION NEEDED";
       window.requestAnimationFrame(() => {
         if (!this.shipPanel.classList.contains("is-open")) return;
         const offset = Math.max(112, this.shipPanel.offsetHeight + 72);
@@ -873,38 +623,46 @@
       if (this.cabin && !this.cabin.failed) this.cabin.visible = true;
       this._resizeCabin();
       this._syncCabinRoster();
-      this._syncSeatFeeds();
+      this._syncSeatScreens();
       const roster = this._cabinRoster();
-      const liveCount = roster.filter((entry) => {
-        const p = entry.player && this.peers.get(entry.player.id);
-        return !!(p && p.video && p.stream && p.video.readyState >= 2);
-      }).length;
       const crewCount = roster.filter((entry) => !!entry.player).length;
-      if (this.cabinBadge) this.cabinBadge.textContent = crewCount ? `LINK ${liveCount}/${crewCount}` : "NO CREW";
+      const linkedCount = roster.filter((entry) => entry.player && this._linkActive(entry.player.id)).length;
+      if (this.cabinBadge) this.cabinBadge.textContent = crewCount ? `CREW ${crewCount}/4` : "NO CREW";
       if (this.cabinStatus) {
-        this.cabinStatus.textContent = liveCount
-          ? `${liveCount} LIVE CAMERA${liveCount === 1 ? "" : "S"} · SEATED FLIGHT DECK CREW`
-          : (crewCount ? "CREW SEATED · ASK THEM TO START THEIR CAMERAS" : "AWAITING FLIGHT CREW · CREW SEATS OPEN");
+        if (crewCount) {
+          const linkText = linkedCount ? `${linkedCount}/${crewCount} ON LINK · ` : "";
+          this.cabinStatus.textContent = `${linkText}${crewCount} ANIMATED 3D CREW AVATAR${crewCount === 1 ? "" : "S"}`;
+        } else {
+          this.cabinStatus.textContent = "AWAITING FLIGHT CREW · CREW SEATS OPEN";
+        }
       }
     }
 
     _refreshButtons() {
-      const label = this._starting ? "STARTING…" : (this.enabled ? "CAM ON" : "CAM OFF");
+      const remoteLink = this._remoteLinkActive();
+      const label = this._starting ? "OPENING…" : (this.enabled ? "LINK ON" : (remoteLink ? "JOIN LINK" : "LINK OFF"));
       if (this.shipCamBtn) {
         this.shipCamBtn.textContent = label;
         this.shipCamBtn.classList.toggle("is-on", this.enabled);
       }
-      if (this.cabinCamBtn) this.cabinCamBtn.textContent = this.enabled ? "MY CAMERA ON" : "START MY CAMERA";
+      if (this.cabinCamBtn) this.cabinCamBtn.textContent = this.enabled ? "LINK ACTIVE" : (remoteLink ? "JOIN 3D LINK" : "START 3D LINK");
       const commsVideo = document.getElementById("crew-comms-video");
       if (commsVideo) {
-        commsVideo.textContent = this.enabled ? "VIDEO ON" : "VIDEO OFF";
+        commsVideo.textContent = this.enabled ? "LINK ON" : "LINK OFF";
+        commsVideo.title = "Open the camera-free animated 3D crew link";
         commsVideo.classList.toggle("is-on", this.enabled);
         commsVideo.disabled = !this.roomId;
       }
       const groundHudVideo = document.getElementById("btn-sc-video");
-      if (groundHudVideo) groundHudVideo.textContent = `VIDEO ${this.enabled ? "ON" : "OFF"}`;
+      if (groundHudVideo) {
+        groundHudVideo.textContent = `3D LINK ${this.enabled ? "ON" : "OFF"}`;
+        groundHudVideo.title = "Open the animated 3D flight-deck crew link";
+      }
       const lccVideo = document.getElementById("btn-lcc-video");
-      if (lccVideo) lccVideo.textContent = this.enabled ? "CAMERA ON" : "START CAMERA";
+      if (lccVideo) {
+        lccVideo.textContent = this.enabled ? "3D LINK ON" : "START 3D LINK";
+        lccVideo.title = "Open the camera-free animated 3D crew link";
+      }
     }
 
     _toast(message) {
@@ -1042,7 +800,7 @@
       this._cabinBox(scene, 0.06, 0.38, 0.06, 0.36, 1.33, -2.56, cyan);
       this._cabinBox(scene, 0.06, 0.38, 0.06, -0.36, 1.33, -2.56, cyan);
 
-      const board = this._cabinLabelTexture("LUNASPIS · FLIGHT DECK", "CREW VIDEO LINK · ORBITAL TRANSIT", "#67e8f9");
+      const board = this._cabinLabelTexture("LUNASPIS · FLIGHT DECK", "ANIMATED 3D CREW LINK · ORBITAL TRANSIT", "#67e8f9");
       const boardMesh = new T.Mesh(new T.PlaneGeometry(2.45, 0.56), new T.MeshBasicMaterial({ map: board, transparent: true }));
       boardMesh.position.set(0, 2.28, -2.585);
       scene.add(boardMesh);
@@ -1177,10 +935,10 @@
         this._cabinBox(group, 0.035, 0.24, 0.035, 0, 1.0, 0.7, seatMetal);
         this._cabinBox(group, 0.1, 0.06, 0.1, 0, 1.12, 0.7, cyan);
 
-        // Private video display on a short support arm above the seat.
+        // Private status display on a short support arm above the seat.
         this._cabinBox(group, 0.055, 0.36, 0.055, 0, 1.83, -0.2, seatMetal);
         this._cabinBox(group, 0.92, 0.6, 0.055, 0, 2.1, -0.03, seatMetal);
-        const placeholder = this._cabinSeatTexture(item.seat, "OPEN SEAT", "CAMERA OFFLINE");
+        const placeholder = this._cabinSeatTexture(item.seat, "OPEN SEAT", "CREW LINK STANDBY");
         const screenMat = new T.MeshBasicMaterial({ map: placeholder });
         const screen = new T.Mesh(new T.PlaneGeometry(0.78, 0.47), screenMat);
         screen.position.set(0, 2.1, 0.001);
@@ -1212,8 +970,8 @@
           rig: null,
           playerId: null,
           avatarKey: "",
-          feedSig: "",
-          feedPeerId: null,
+          screenSig: "",
+          linkPeerId: null,
           lookUntil: 0,
           nextLook: 4 + this.cabin.seats.length * 2.1,
           hipAligned: false
@@ -1243,7 +1001,7 @@
       ctx.fillText(String(name || "OPEN SEAT").slice(0, 18).toUpperCase(), 256, 198);
       ctx.fillStyle = "#7dd3fc";
       ctx.font = "700 20px Arial, Helvetica, sans-serif";
-      ctx.fillText(String(status || "CAMERA OFFLINE"), 256, 246);
+      ctx.fillText(String(status || "CREW LINK STANDBY"), 256, 246);
       const texture = new T.CanvasTexture(canvas);
       if (T.sRGBEncoding !== undefined && "encoding" in texture) texture.encoding = T.sRGBEncoding;
       return texture;
@@ -1271,7 +1029,7 @@
       ctx.fillText(String(name || "OPEN SEAT").slice(0, 21).toUpperCase(), 90, 54);
       ctx.fillStyle = "#7dd3fc";
       ctx.font = "700 17px Arial, Helvetica, sans-serif";
-      ctx.fillText("FLIGHT DECK · LIVE VIDEO", 26, 92);
+      ctx.fillText("FLIGHT DECK · 3D CREW LINK", 26, 92);
       const texture = new T.CanvasTexture(canvas);
       if (T.sRGBEncoding !== undefined && "encoding" in texture) texture.encoding = T.sRGBEncoding;
       return texture;
@@ -1301,7 +1059,7 @@
       ctx.fillText(String(name || "OPEN SEAT").slice(0, 21).toUpperCase(), 90, 54);
       ctx.fillStyle = "#7dd3fc";
       ctx.font = "700 17px Arial, Helvetica, sans-serif";
-      ctx.fillText("FLIGHT DECK · LIVE VIDEO", 26, 92);
+      ctx.fillText("FLIGHT DECK · 3D CREW LINK", 26, 92);
       if (seat.nameTex) seat.nameTex.needsUpdate = true;
     }
 
@@ -1329,12 +1087,11 @@
       if (this.cabinRosterEl) {
         const html = roster.map((entry) => {
           const p = entry.player;
-          const peer = p && this.peers.get(p.id);
-          const live = !!(peer && peer.video && peer.stream && peer.video.readyState >= 2);
-          return `<div class="vl-seat-chip${live ? " is-live" : ""}">
+          const linked = !!(p && this._linkActive(p.id));
+          return `<div class="vl-seat-chip${linked ? " is-live" : ""}">
             <b>${SEAT_LABEL[entry.seat]}</b>
             <span>${esc(p ? p.name : "OPEN SEAT")}</span>
-            <i>${live ? "LIVE CAMERA" : (p ? roleLabel(p.role) : "UNASSIGNED")}</i>
+            <i>${linked ? "ON 3D LINK" : (p ? roleLabel(p.role) : "UNASSIGNED")}</i>
           </div>`;
         }).join("");
         if (this._cabinRosterHtml !== html) {
@@ -1357,8 +1114,8 @@
       seat.rig = null;
       seat.playerId = nextId;
       seat.avatarKey = avatarKey;
-      seat.feedSig = "";
-      seat.feedPeerId = null;
+      seat.screenSig = "";
+      seat.linkPeerId = null;
       seat.hipAligned = false;
       if (!player) {
         this._drawSeatName(seat, "OPEN SEAT");
@@ -1394,30 +1151,430 @@
       seat.rig = rig;
     }
 
-    _syncSeatFeeds() {
+    _syncSeatScreens() {
       if (!this.cabin || this.cabin.failed) return;
       const roster = this._cabinRoster();
       for (const entry of roster) {
         const seat = this.cabin.seats[entry.index];
         if (!seat) continue;
         const player = entry.player;
-        const peer = player ? this.peers.get(player.id) : null;
-        const ready = !!(peer && peer.video && peer.stream && peer.video.readyState >= 2 && peer.videoTexture);
-        const sig = `${player ? player.id : "open"}:${player ? player.name : ""}:${ready ? 1 : 0}`;
-        if (seat.feedSig === sig) continue;
-        const status = ready ? "LIVE CAMERA" : (player ? "CAMERA OFFLINE" : "OPEN SEAT");
-        if (ready) {
-          seat.screenMat.map = peer.videoTexture;
-          seat.ledMat.color.setHex(0x4ade80);
-          seat.feedPeerId = player.id;
-        } else {
-          seat.screenMat.map = this._drawSeatPlaceholder(seat, player ? player.name : "OPEN SEAT", status);
-          seat.ledMat.color.setHex(player ? 0xfbbf24 : 0x334155);
-          seat.feedPeerId = null;
-        }
+        const linked = !!(player && this._linkActive(player.id));
+        const sig = `${player ? player.id : "open"}:${player ? player.name : ""}:${linked ? 1 : 0}`;
+        if (seat.screenSig === sig) continue;
+        const status = linked ? "ON 3D CREW LINK" : (player ? "3D AVATAR ON DECK" : "OPEN SEAT");
+        seat.screenMat.map = this._drawSeatPlaceholder(seat, player ? player.name : "OPEN SEAT", status);
+        seat.ledMat.color.setHex(player ? (linked ? 0x4ade80 : 0x67e8f9) : 0x334155);
+        seat.linkPeerId = linked ? player.id : null;
         if (seat.screenMat.map) seat.screenMat.needsUpdate = true;
-        seat.feedSig = sig;
+        seat.screenSig = sig;
       }
+    }
+
+    // ------------------------------------------------------------------ 3D Earth Control room
+    _initGroundView() {
+      if (this.groundView || !T || !this.groundCanvas) return;
+      let renderer;
+      try {
+        renderer = new T.WebGLRenderer({ canvas: this.groundCanvas, antialias: true, alpha: false, powerPreference: "high-performance" });
+      } catch (error) {
+        this.groundView = { failed: true, visible: false };
+        return;
+      }
+      renderer.setPixelRatio(Math.min(1.75, window.devicePixelRatio || 1));
+      renderer.setClearColor(0x02070d, 1);
+      if (T.sRGBEncoding !== undefined) renderer.outputEncoding = T.sRGBEncoding;
+      if (T.ACESFilmicToneMapping !== undefined) {
+        renderer.toneMapping = T.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.05;
+      }
+
+      const scene = new T.Scene();
+      scene.fog = new T.FogExp2(0x02070d, 0.05);
+      const camera = new T.PerspectiveCamera(38, 16 / 9, 0.05, 50);
+      const baseCam = { x: 0, y: 2.42, z: 5.55 };
+      camera.position.set(baseCam.x, baseCam.y, baseCam.z);
+      camera.lookAt(0, 1.08, 0.22);
+
+      scene.add(new T.HemisphereLight(0xbfe8ff, 0x080b0f, 0.66));
+      const key = new T.DirectionalLight(0xe8f7ff, 1.0);
+      key.position.set(2.8, 4.8, 4.6);
+      scene.add(key);
+      const rim = new T.DirectionalLight(0x4f9ec9, 0.68);
+      rim.position.set(-4.2, 2.2, -2.8);
+      scene.add(rim);
+      const warm = new T.PointLight(0xffc46b, 0.5, 9, 2);
+      warm.position.set(-2.2, 1.8, 1.2);
+      scene.add(warm);
+      const cyan = new T.PointLight(0x67e8f9, 0.62, 8, 2);
+      cyan.position.set(0, 2.35, 1.5);
+      scene.add(cyan);
+
+      this.groundView = {
+        canvas: this.groundCanvas,
+        renderer,
+        scene,
+        camera,
+        baseCam,
+        elapsed: 0,
+        lastFrame: 0,
+        screenTick: 0,
+        camX: 0,
+        camY: 0,
+        visible: false,
+        raf: null,
+        seats: [],
+        failed: false
+      };
+
+      this._buildGroundRoom();
+      this._resizeGroundView();
+      this._startGroundLoop();
+      if (typeof ResizeObserver === "function") {
+        this._groundResizeObserver = new ResizeObserver(() => this._resizeGroundView());
+        this._groundResizeObserver.observe(this.groundWrap);
+      }
+      this._onGroundWindowResize = () => this._resizeGroundView();
+      window.addEventListener("resize", this._onGroundWindowResize);
+    }
+
+    _buildGroundRoom() {
+      const c = this.groundView, scene = c.scene;
+      const wall = this._cabinMaterial(0x0b1620, 0.88, 0.18);
+      const wallDeep = this._cabinMaterial(0x07121b, 0.92, 0.1);
+      const floor = this._cabinMaterial(0x081118, 0.94, 0.07);
+      const metal = this._cabinMaterial(0x3c5966, 0.36, 0.72);
+      const darkMetal = this._cabinMaterial(0x1a303b, 0.5, 0.48);
+      const cyan = new T.MeshStandardMaterial({ color: 0x67e8f9, emissive: 0x1386a2, emissiveIntensity: 1.55, roughness: 0.35 });
+      const amber = new T.MeshStandardMaterial({ color: 0xffc46b, emissive: 0x7c3f06, emissiveIntensity: 1.2, roughness: 0.4 });
+
+      this._cabinBox(scene, 5.0, 0.14, 4.9, 0, -0.08, -0.1, floor);
+      this._cabinBox(scene, 5.0, 0.1, 4.9, 0, 2.95, -0.1, wallDeep);
+      this._cabinBox(scene, 5.0, 3.0, 0.14, 0, 1.45, -2.55, wall);
+      this._cabinBox(scene, 0.14, 3.0, 4.9, -2.5, 1.45, -0.1, wall);
+      this._cabinBox(scene, 0.14, 3.0, 4.9, 2.5, 1.45, -0.1, wall);
+
+      // Ceiling light strips, ribs, and floor guidance.
+      for (const x of [-1.05, 0, 1.05]) this._cabinBox(scene, 0.75, 0.035, 3.6, x, 2.87, -0.2, cyan);
+      for (const z of [-2.1, -1.2, -0.3, 0.6, 1.5, 2.4]) {
+        this._cabinBox(scene, 0.1, 2.65, 0.09, -2.41, 1.36, z, metal);
+        this._cabinBox(scene, 0.1, 2.65, 0.09, 2.41, 1.36, z, metal);
+        this._cabinBox(scene, 4.55, 0.09, 0.09, 0, 2.82, z, metal);
+      }
+      this._cabinBox(scene, 0.07, 0.012, 4.2, 0, 0.012, -0.2, cyan);
+
+      // Mission display spanning the back wall.
+      const display = new T.Mesh(
+        new T.PlaneGeometry(3.5, 0.68),
+        new T.MeshBasicMaterial({ map: this._groundDisplayTexture() })
+      );
+      display.position.set(0, 2.34, -2.47);
+      scene.add(display);
+
+      // Side-wall plaques.
+      for (const side of [-1, 1]) {
+        const plaque = new T.Mesh(
+          new T.PlaneGeometry(1.25, 0.34),
+          new T.MeshBasicMaterial({ map: this._cabinLabelTexture("EARTH CONTROL", "LCC · FLIGHT OPS", "#67e8f9"), transparent: true })
+        );
+        plaque.position.set(side * 2.425, 2.05, -0.55);
+        plaque.rotation.y = side * Math.PI / 2;
+        scene.add(plaque);
+      }
+
+      // Two ground workstations: Flight Director and Ground Systems.
+      const layout = [
+        { seat: "flight_director", x: -1.02, z: 0.2, ry: 0.05 },
+        { seat: "ground_capcom", x: 1.02, z: 0.2, ry: -0.05 }
+      ];
+      const seatMat = this._cabinMaterial(0x17303d, 0.9, 0.08);
+      const seatTrim = this._cabinMaterial(0x2a4654, 0.62, 0.34);
+      const seatMetal = this._cabinMaterial(0x48606b, 0.35, 0.75);
+
+      for (const item of layout) {
+        const group = new T.Group();
+        group.position.set(item.x, 0.02, item.z);
+        group.rotation.y = item.ry || 0;
+        scene.add(group);
+
+        // Chair shell and headrest.
+        this._cabinBox(group, 0.78, 0.17, 0.72, 0, 0.5, -0.02, seatMat);
+        this._cabinBox(group, 0.78, 0.94, 0.15, 0, 1.02, -0.36, seatMat, -0.1);
+        this._cabinBox(group, 0.4, 0.26, 0.16, 0, 1.62, -0.4, seatMat, -0.1);
+        for (const side of [-1, 1]) {
+          this._cabinBox(group, 0.12, 0.28, 0.72, side * 0.42, 0.62, -0.02, seatTrim);
+          this._cabinBox(group, 0.13, 0.08, 0.6, side * 0.47, 0.79, -0.01, seatMetal);
+          this._cabinBox(group, 0.08, 0.36, 0.08, side * 0.47, 0.2, 0.26, seatMetal);
+        }
+
+        // Console desk with keyboards, switches, and a front status plate.
+        this._cabinBox(group, 1.34, 0.09, 0.72, 0, 0.82, 0.73, darkMetal);
+        this._cabinBox(group, 1.34, 0.055, 0.56, 0, 0.9, 0.76, seatTrim);
+        this._cabinBox(group, 1.3, 0.58, 0.07, 0, 0.5, 1.04, darkMetal);
+        for (const side of [-1, 1]) {
+          this._cabinBox(group, 0.08, 0.78, 0.08, side * 0.57, 0.41, 0.72, metal);
+        }
+        for (let i = 0; i < 5; i++) {
+          this._cabinBox(group, 0.13, 0.022, 0.09, -0.42 + i * 0.21, 0.935, 0.68, i % 2 ? amber : cyan);
+        }
+        this._cabinBox(group, 0.55, 0.035, 0.2, 0, 0.94, 0.86, metal);
+        this._cabinBox(group, 0.06, 0.18, 0.06, 0.48, 1.0, 0.52, metal);
+        this._cabinBox(group, 0.16, 0.11, 0.12, 0.48, 1.12, 0.52, cyan);
+        const plate = this._groundStationTexture(item.seat, "OPEN STATION", "STANDBY");
+        const screenMat = new T.MeshBasicMaterial({ map: plate });
+        const screen = new T.Mesh(new T.PlaneGeometry(1.02, 0.38), screenMat);
+        screen.position.set(0, 0.57, 1.1);
+        group.add(screen);
+        const ledMat = new T.MeshBasicMaterial({ color: 0x475569 });
+        const led = new T.Mesh(new T.SphereGeometry(0.028, 10, 8), ledMat);
+        led.position.set(0.59, 0.68, 1.06);
+        group.add(led);
+
+        this.groundView.seats.push({
+          index: this.groundView.seats.length,
+          role: item.seat,
+          group,
+          screenMat,
+          ledMat,
+          screenSig: "",
+          avatarRoot: null,
+          rig: null,
+          playerId: null,
+          avatarKey: "",
+          armRestY: 0.94,
+          armRestZ: 0.68,
+          hipAligned: false
+        });
+      }
+    }
+
+    _groundDisplayTexture() {
+      const canvas = document.createElement("canvas");
+      canvas.width = 1024;
+      canvas.height = 200;
+      const ctx = canvas.getContext("2d");
+      const grad = ctx.createLinearGradient(0, 0, 1024, 200);
+      grad.addColorStop(0, "#03111c");
+      grad.addColorStop(0.55, "#061c2a");
+      grad.addColorStop(1, "#020a12");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 1024, 200);
+      ctx.strokeStyle = "rgba(103,232,249,0.6)";
+      ctx.lineWidth = 4;
+      ctx.strokeRect(8, 8, 1008, 184);
+      ctx.strokeStyle = "rgba(103,232,249,0.16)";
+      ctx.lineWidth = 1;
+      for (let x = 24; x < 1024; x += 42) {
+        ctx.beginPath(); ctx.moveTo(x, 10); ctx.lineTo(x, 190); ctx.stroke();
+      }
+      for (let y = 28; y < 200; y += 34) {
+        ctx.beginPath(); ctx.moveTo(10, y); ctx.lineTo(1014, y); ctx.stroke();
+      }
+      ctx.fillStyle = "#67e8f9";
+      ctx.font = "900 54px Arial, Helvetica, sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText("EARTH CONTROL", 34, 82);
+      ctx.fillStyle = "#e6f7fb";
+      ctx.font = "800 24px Arial, Helvetica, sans-serif";
+      ctx.fillText("LUNASPIS LAUNCH CONTROL CENTER · LIVE 3D CREW LINK", 36, 126);
+      ctx.fillStyle = "#4ade80";
+      ctx.font = "800 20px Arial, Helvetica, sans-serif";
+      ctx.fillText("ANIMATED MODELS · NO CAMERA FEED", 36, 164);
+      const glow = ctx.createRadialGradient(878, 100, 6, 878, 100, 82);
+      glow.addColorStop(0, "#dff7ff");
+      glow.addColorStop(0.36, "#67c8f2");
+      glow.addColorStop(0.7, "#1f6ea8");
+      glow.addColorStop(1, "rgba(9,30,55,0)");
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(878, 100, 74, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(103,232,249,0.55)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(878, 100, 108, 38, -0.35, 0, Math.PI * 2);
+      ctx.stroke();
+      const texture = new T.CanvasTexture(canvas);
+      if (T.sRGBEncoding !== undefined && "encoding" in texture) texture.encoding = T.sRGBEncoding;
+      return texture;
+    }
+
+    _groundStationTexture(role, name, status) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 512;
+      canvas.height = 192;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#020b12";
+      ctx.fillRect(0, 0, 512, 192);
+      ctx.strokeStyle = "rgba(103,232,249,0.5)";
+      ctx.lineWidth = 3;
+      ctx.strokeRect(6, 6, 500, 180);
+      ctx.strokeStyle = "rgba(103,232,249,0.11)";
+      ctx.lineWidth = 1;
+      for (let y = 24; y < 192; y += 26) {
+        ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(504, y); ctx.stroke();
+      }
+      ctx.fillStyle = "#67e8f9";
+      ctx.font = "900 34px Arial, Helvetica, sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText(roleShort(role), 22, 52);
+      ctx.fillStyle = "#e6f7fb";
+      ctx.font = "800 35px Arial, Helvetica, sans-serif";
+      ctx.fillText(String(name || "OPEN STATION").slice(0, 17).toUpperCase(), 22, 103);
+      ctx.fillStyle = "#7dd3fc";
+      ctx.font = "700 20px Arial, Helvetica, sans-serif";
+      ctx.fillText(String(status || "STANDBY"), 22, 147);
+      ctx.fillStyle = "#4ade80";
+      ctx.font = "700 16px Arial, Helvetica, sans-serif";
+      ctx.textAlign = "right";
+      ctx.fillText("EARTH CONTROL · 3D LINK", 488, 52);
+      const texture = new T.CanvasTexture(canvas);
+      if (T.sRGBEncoding !== undefined && "encoding" in texture) texture.encoding = T.sRGBEncoding;
+      return texture;
+    }
+
+    _syncGroundRoster() {
+      if (!this.groundView || this.groundView.failed) return;
+      const roster = this._groundRoster();
+      const key = roster.map((entry) => `${entry.role}:${entry.player ? entry.player.id : ""}:${entry.player ? entry.player.name : ""}:${entry.player ? entry.player.role : ""}:${entry.player ? entry.player.color || "" : ""}`).join("|");
+      if (key !== this._groundRosterKey) {
+        this._groundRosterKey = key;
+        roster.forEach((entry) => this._syncGroundAvatar(this.groundView.seats[entry.index], entry.player, entry.role));
+      }
+      if (this.groundRosterEl) {
+        const html = roster.map((entry) => {
+          const p = entry.player;
+          const linked = !!(p && this._linkActive(p.id));
+          return `<div class="vl-seat-chip${linked ? " is-live" : ""}">
+            <b>${roleShort(entry.role)}</b>
+            <span>${esc(p ? p.name : "OPEN STATION")}</span>
+            <i>${linked ? "ON 3D LINK" : (p ? roleLabel(p.role) : "UNASSIGNED")}</i>
+          </div>`;
+        }).join("");
+        if (this._groundRosterHtml !== html) {
+          this._groundRosterHtml = html;
+          this.groundRosterEl.innerHTML = html;
+        }
+      }
+    }
+
+    _syncGroundAvatar(seat, player, roleKey) {
+      if (!seat || !this.groundView) return;
+      const nextId = player ? player.id : null;
+      const avatarKey = player ? `${nextId}:${player.name || ""}:${player.role || ""}:${player.color || ""}` : "";
+      if (seat.avatarKey === avatarKey && (seat.avatarRoot || !player)) return;
+      if (seat.avatarRoot && seat.avatarRoot.parent) seat.avatarRoot.parent.remove(seat.avatarRoot);
+      seat.avatarRoot = null;
+      seat.rig = null;
+      seat.playerId = nextId;
+      seat.avatarKey = avatarKey;
+      seat.screenSig = "";
+      seat.hipAligned = false;
+      if (!player) return;
+
+      const role = normalizeRole(player.role || roleKey, "flight_director");
+      const modelId = roleKey === "ground_capcom" ? "crew_b" : "crew_a";
+      const color = player.color || (roleKey === "ground_capcom" ? "#7fb8a6" : "#67e8f9");
+      if (!window.glbManager || typeof window.glbManager.createAstronautRig !== "function") return;
+      const rig = window.glbManager.createAstronautRig(
+        color,
+        role,
+        player.name || "EARTH CONTROL",
+        false,
+        modelId,
+        "ground",
+        { enableLight: false, castShadow: false, receiveShadow: false }
+      );
+      if (!rig || !rig.root) return;
+      if (rig.shadowMesh) rig.shadowMesh.visible = false;
+      if (rig.accentRing) rig.accentRing.visible = false;
+      if (rig.nameBadge) rig.nameBadge.visible = false;
+      if (rig.emoteBubble && rig.emoteBubble.sprite) rig.emoteBubble.sprite.visible = false;
+      if (rig.spotLight) rig.spotLight.visible = false;
+      rig.root.position.set(seat.group.position.x, seat.group.position.y, seat.group.position.z);
+      rig.root.rotation.y = 0;
+      rig.root.scale.setScalar(0.96);
+      this.groundView.scene.add(rig.root);
+      seat.avatarRoot = rig.root;
+      seat.rig = rig;
+    }
+
+    _syncGroundScreens() {
+      if (!this.groundView || this.groundView.failed) return;
+      const roster = this._groundRoster();
+      for (const entry of roster) {
+        const seat = this.groundView.seats[entry.index];
+        if (!seat) continue;
+        const player = entry.player;
+        const linked = !!(player && this._linkActive(player.id));
+        const status = linked ? "ON 3D CREW LINK" : (player ? "AT CONSOLE" : "STANDBY");
+        const sig = `${player ? player.id : "open"}:${player ? player.name : ""}:${linked ? 1 : 0}`;
+        if (seat.screenSig !== sig) {
+          const texture = this._groundStationTexture(entry.role, player ? player.name : "OPEN STATION", status);
+          if (seat.screenMat.map && seat.screenMat.map !== texture && typeof seat.screenMat.map.dispose === "function") {
+            seat.screenMat.map.dispose();
+          }
+          seat.screenMat.map = texture;
+          seat.screenMat.needsUpdate = true;
+          seat.ledMat.color.setHex(player ? (linked ? 0x4ade80 : 0x67e8f9) : 0x334155);
+          seat.screenSig = sig;
+        }
+      }
+    }
+
+    _resizeGroundView() {
+      const c = this.groundView;
+      if (!c || c.failed || !this.groundWrap) return;
+      const rect = this.groundWrap.getBoundingClientRect();
+      if (rect.width < 2 || rect.height < 2) return;
+      const width = Math.max(2, Math.floor(rect.width));
+      const height = Math.max(2, Math.floor(rect.height));
+      if (c.renderer.domElement.width === Math.floor(width * c.renderer.getPixelRatio()) &&
+          c.renderer.domElement.height === Math.floor(height * c.renderer.getPixelRatio())) return;
+      c.renderer.setSize(width, height, false);
+      c.camera.aspect = width / height;
+      c.camera.updateProjectionMatrix();
+    }
+
+    _startGroundLoop() {
+      if (!this.groundView || this.groundView.raf) return;
+      const tick = () => {
+        const c = this.groundView;
+        if (!c || c.failed) return;
+        c.raf = window.requestAnimationFrame(tick);
+        if (!c.visible || document.hidden) return;
+        const now = performance.now();
+        if (now - c.lastFrame < 30) return;
+        const dt = Math.min(0.06, Math.max(0.001, (now - c.lastFrame) / 1000));
+        c.lastFrame = now;
+        c.elapsed += dt;
+        c.camX += (this._groundPointer.x * 0.2 - c.camX) * Math.min(1, dt * 3.2);
+        c.camY += (-this._groundPointer.y * 0.1 - c.camY) * Math.min(1, dt * 3.2);
+        c.camera.position.x = c.baseCam.x + c.camX + Math.sin(c.elapsed * 0.17) * 0.03;
+        c.camera.position.y = c.baseCam.y + c.camY + Math.sin(c.elapsed * 0.25) * 0.016;
+        c.camera.position.z = c.baseCam.z;
+        c.camera.lookAt(0, 1.08, 0.22);
+
+        for (const seat of c.seats) {
+          if (!seat.rig || typeof seat.rig.updateAnimation !== "function") continue;
+          if (!seat.hipAligned && seat.rig.bones && seat.rig.bones.hips) {
+            seat.rig.root.updateMatrixWorld(true);
+            const hip = seat.rig.bones.hips.getWorldPosition(new T.Vector3());
+            const targetHip = seat.group.position.y + 0.63;
+            seat.rig.root.position.y += targetHip - hip.y;
+            seat.hipAligned = true;
+          }
+          seat.rig.root.rotation.y = 0;
+          seat.rig.updateAnimation(dt, false, false, true, "idle", false, false, true, 0);
+          this._applyCabinArmPose(seat);
+        }
+        c.screenTick += dt;
+        if (c.screenTick > 0.5) {
+          c.screenTick = 0;
+          this._syncGroundScreens();
+        }
+        c.renderer.render(c.scene, c.camera);
+      };
+      this.groundView.raf = window.requestAnimationFrame(tick);
     }
 
     _aimCabinBone(bone, child, target) {
@@ -1451,7 +1608,7 @@
         if (!upper || !fore || !hand) continue;
         const shoulder = upper.getWorldPosition(new T.Vector3());
         const elbow = shoulder.clone().add(new T.Vector3(side * 0.05, -0.15, 0.17));
-        const wristOffset = new T.Vector3(side * 0.2, 0.93, 0.5)
+        const wristOffset = new T.Vector3(side * 0.2, seat.armRestY || 0.93, seat.armRestZ || 0.5)
           .applyAxisAngle(new T.Vector3(0, 1, 0), seat.group.rotation.y);
         const wrist = new T.Vector3(base.x, base.y, base.z).add(wristOffset);
         this._aimCabinBone(upper, fore, elbow);
@@ -1514,7 +1671,7 @@
         c.feedTick += dt;
         if (c.feedTick > 0.35) {
           c.feedTick = 0;
-          this._syncSeatFeeds();
+          this._syncSeatScreens();
         }
         c.renderer.render(c.scene, c.camera);
       };

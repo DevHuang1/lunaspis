@@ -1,6 +1,8 @@
-/* Focused checks for the SDP/ICE signalling relay that backs the crew video link. */
+/* Focused checks for the camera-free 3D crew link and its presence relay. */
 "use strict";
 
+const fs = require("fs");
+const path = require("path");
 const setupVideoSignaling = require("../../server/video-signaling");
 
 let passed = 0;
@@ -110,7 +112,13 @@ check("Leaving clears the video room binding", crew.videoRoom === null);
 
 let afterLeaveAck = null;
 crew.handlers.video_join({ roomId: "ROOM2" }, (ack) => { afterLeaveAck = ack; });
-check("A socket outside ROOM2 cannot join its video call", !afterLeaveAck || afterLeaveAck.ok === false, JSON.stringify(afterLeaveAck));
+check("A socket outside ROOM2 cannot join its 3D crew link", !afterLeaveAck || afterLeaveAck.ok === false, JSON.stringify(afterLeaveAck));
+
+const clientSource = fs.readFileSync(path.join(__dirname, "../../public/js/core/video_link.js"), "utf8");
+check("3D crew link never requests real-world camera access", !clientSource.includes("getUserMedia"));
+check("3D crew link does not create WebRTC media peers", !clientSource.includes("RTCPeerConnection"));
+check("Crew side builds an animated 3D Earth Control room", clientSource.includes("_initGroundView") && clientSource.includes("_syncGroundAvatar"));
+check("Ground side builds the animated 3D flight deck", clientSource.includes("_initCabin") && clientSource.includes("_syncSeatAvatar"));
 
 leaveRoom(crew, "ROOM1");
 console.log(`\n${passed} passed, ${failed} failed`);

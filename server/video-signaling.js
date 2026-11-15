@@ -1,12 +1,13 @@
 /**
  * ============================================================================
- * INTERFELLAS LIVE CREW VIDEO SIGNALING
+ * INTERFELLAS CREW LINK PRESENCE RELAY
  * ============================================================================
- * WebRTC signalling relay for the Earth Control <-> Flight Crew video link.
+ * Presence relay for the Earth Control <-> Flight Crew 3D crew link.
  *
- * Audio already travels over the always-on voice relay; this module carries
- * only the SDP/ICE handshake. Media is peer-to-peer between the two crews, so
- * the server never sees or stores camera frames.
+ * The link renders animated 3D models on both sides; no camera or media is
+ * captured. Socket.IO only tracks who has the link open. The legacy
+ * `video_signal` relay is kept for older clients but is unused by the current
+ * camera-free client.
  */
 
 module.exports = function setupVideoSignaling(io) {
@@ -27,7 +28,7 @@ module.exports = function setupVideoSignaling(io) {
     socket.on("video_join", (data = {}, callback) => {
       const roomId = roomIdFrom(data);
       if (!roomId || !socket.rooms.has(roomId)) {
-        if (typeof callback === "function") callback({ ok: false, error: "Join the room before starting video." });
+        if (typeof callback === "function") callback({ ok: false, error: "Join the room before starting the 3D crew link." });
         return;
       }
 
@@ -74,5 +75,5 @@ module.exports = function setupVideoSignaling(io) {
     socket.on("disconnect", () => { socket.videoRoom = null; });
   });
 
-  console.log("🎥 [VIDEO] Earth Control <-> Flight Crew WebRTC signalling active.");
+  console.log("🎥 [LINK] Camera-free Earth Control <-> Flight Crew 3D link presence active.");
 };

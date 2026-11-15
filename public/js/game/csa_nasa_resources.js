@@ -1006,9 +1006,6 @@
               🇨🇦 ACTIVITY 3 · CSA LAB
             </span>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button type="button" id="btn-lab-open-iss-canadarm" style="padding:7px 12px;border-radius:5px;border:1px solid rgba(103,232,249,0.5);background:rgba(103,232,249,0.14);color:#67e8f9;font-family:monospace;font-size:11px;font-weight:700;cursor:pointer;">
-                VIEW CSA LAB [J]
-              </button>
               <button type="button" id="btn-lab-apply-csa-preset" style="padding:7px 12px;border-radius:5px;border:1px solid rgba(52,211,153,0.5);background:rgba(52,211,153,0.16);color:#86efac;font-family:monospace;font-size:11px;font-weight:700;cursor:pointer;">
                 ADD CSA TOOLS
               </button>
@@ -1078,18 +1075,6 @@
           this._renderModalContent();
         });
       });
-      const btnIss = body.querySelector("#btn-lab-open-iss-canadarm");
-      if (btnIss) {
-        btnIss.addEventListener("click", () => {
-          this.closeModal();
-          if (window.issShowcase && typeof window.issShowcase.open === "function") {
-            window.issShowcase.open();
-            if (typeof window.issShowcase.selectModuleById === "function") {
-              window.issShowcase.selectModuleById("canadarm2");
-            }
-          }
-        });
-      }
       const btnTom = body.querySelector("#btn-toggle-tomatosphere");
       if (btnTom) {
         btnTom.addEventListener("click", () => {

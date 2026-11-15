@@ -25,12 +25,12 @@
   const PHASE_TAG = { briefing: "BRIEFING", prelaunch: "COUNTDOWN", ascent: "LAUNCH", insertion: "ORBIT PUSH", payload: "SATELLITE", deorbit: "RETURN PREP", entry: "RE-ENTRY", approach: "LANDING", rollout: "RUNWAY STOP", debrief: "DEBRIEF" };
   // keys per seat and phase — shown on the DATA page for your own seats only
   const KEYS = {
-    all: [["DRAG", "look around"], ["WHEEL", "zoom"], ["RMB", "hold: scope (sky view)"], ["F", "recenter camera"], ["C", "camera view"], ["/", "crew chat"], ["V", "mic on/off"], ["F3", "this page"]],
+    all: [["DRAG", "look around"], ["WHEEL", "zoom"], ["RMB", "hold: scope (sky view)"], ["F", "recenter camera"], ["C", "camera view"], [", / .", "time slower / faster"], ["/", "crew chat"], ["V", "mic on/off"], ["F3", "this page"]],
     cdr: { briefing: [["ENTER", "start countdown"]], orbit: [["W / S", "nose down / up"], ["A / D", "roll left / right"], ["Q / E", "turn left / right"], ["H", "steady hold"]],
       entry: [["A / D", "tilt wings left / right"], ["W / S", "nose up/down (if auto off)"]], approach: [["W / S", "glide steeper / gentler (holds when released)"], ["A / D", "tilt wings left / right"]],
       rollout: [["W", "lower the nose"], ["Q / E", "steer wheels"], ["SPACE", "brakes"]], any: [["ESC", "pause / checkpoints"]] },
-    plt: { orbit: [["B", "start engine burn"], ["T", "jump to burn"], [", / .", "time slower / faster"]], entry: [["M", "auto nose angle"]], approach: [["X / Z", "air brake open / close"], ["G", "landing wheels"]],
-      rollout: [["X / Z", "air brake"]], ascent: [[", / .", "time slower / faster"]] },
+    plt: { orbit: [["B", "start engine burn"], ["T", "jump to burn"]], entry: [["M", "auto nose angle"]], approach: [["X / Z", "air brake open / close"], ["G", "landing wheels"]],
+      rollout: [["X / Z", "air brake"]] },
     ms1: { orbit: [["Y", "cargo bay doors"], ["R", "release satellite"], ["I / K", "slide up / down"], ["J / L", "slide left / right"], ["U / O", "slide forward / back"]] },
     ms2: { orbit: [["P", "satellite power"], ["N", "approve release"]] },
   };
@@ -366,7 +366,7 @@
       const grp = keyGroup(ph), keys = [];
       for (const r of roles) { const k = KEYS[r] || {}; for (const row of (k[grp] || []).concat(k.any || [])) keys.push([`${row[0]}`, `${SEAT[r]} ${row[1]}`]); }
       for (const row of KEYS.all) keys.push([row[0], row[1]]);
-      const al = new Set(sn.allowedCommands), owns = (c) => { const s = this.opts.crew.commandRole[c]; return !s || roles.includes(s); };
+      const al = new Set(sn.allowedCommands), owns = (c) => { const s = this.opts.crew.commandRole[c]; return !s || s === "all" || roles.includes(s); };
       const can = { BAY: (al.has("OPEN_BAY") || al.has("CLOSE_BAY")) && owns("OPEN_BAY"), "WARP-": al.has("SET_WARP") && owns("SET_WARP"), "WARP+": al.has("SET_WARP") && owns("SET_WARP"), FAST_FORWARD: al.has("SET_WARP") && owns("SET_WARP"), PAUSE: owns("PAUSE") && !sn.failure && !sn.result, TOUCH: true, COMMS: true, LEAVE: true };
       const cmds = CMDS.filter(([c]) => (c in can ? can[c] : al.has(c) && owns(c))).map(([c, label, k]) => `<button data-cmd="${c}">${label}${k ? `<span class="k">${k}</span>` : ""}</button>`).join("");
       const pi = PHASES.indexOf(ph);
@@ -492,7 +492,7 @@
       const ff = this.el("sh-ff");
       if (ff) {
         const warpMax = Number(sn.warpMax) || 1;
-        const canFastForward = ["prelaunch", "ascent", "insertion"].includes(sn.phase) && warpMax > 1;
+        const canFastForward = !sn.paused && !sn.failure && !sn.result && warpMax > 1;
         ff.style.display = canFastForward ? "inline-flex" : "none";
         ff.disabled = !canFastForward || (Number(sn.warp) || 1) >= warpMax;
         ff.textContent = (Number(sn.warp) || 1) >= warpMax ? `FAST ${warpMax}×` : `FAST FORWARD ${warpMax}×`;

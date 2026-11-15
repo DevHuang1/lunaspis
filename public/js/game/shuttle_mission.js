@@ -27,7 +27,7 @@
     ["gear", "approach", "Lower landing wheels"], ["touchdown", "approach", "Land smoothly inside runway limits"],
     ["wheels_stop", "rollout", "Steer straight and brake to a stop"],
   ];
-  // every flown phase can be accelerated (user request); hand-flown phases are capped so inputs stay controllable
+  // every flown phase can be accelerated by any crewmember (user request); hand-flown phases are capped so inputs stay controllable
   const WARP_LIMIT = { briefing: 1, prelaunch: 10, ascent: 25, insertion: 100, payload: 20, deorbit: 100, entry: 8, approach: 4, rollout: 4, debrief: 1 };
   const CHECKPOINTS = ["pad", "orbit", "payload", "entry", "approach"];
 
@@ -791,14 +791,14 @@
         if (st.cfg.payload) {
           if (st.bay.doors < 0.999) return st.bay.cmd > 0 ? step("ms1", "", `Cargo doors opening ${(st.bay.doors * 100).toFixed(0)}%`, "") : step("ms1", "Y", "Open the cargo bay doors", "Lets the satellite out and cools the ship");
           if (!st.payload.power) return step("ms2", "P", "Turn on satellite power", "");
-          if (!st.payload.ready) return step("ms2", "", "Satellite self-check running…", "Pilot can speed up time with [.]");
+          if (!st.payload.ready) return step("ms2", "", "Satellite self-check running…", "Anyone can speed up time with [.]");
           if (!this.flags.payloadGo) return step("ms2", "N", "Approve satellite release", "Self-check passed: confirm the satellite is healthy");
           return (() => { const r = holdCue(this._rotTo(S.lvlh(st.r, st.v).q), "Cargo bay pointing straight up, nose facing forward", 10);
             if (r.key === "" && this._releaseErr() <= 10 * DEG && this._relRate() <= 0.15 * DEG) return step("ms1", "R", "RELEASE the satellite", "All safety checks clear");
             return r; })();
         }
         if ((st.payload.sepDv || 0) < 0.3 || (st.payload.rangeRate || 0) < 0.8) return step("ms1", "K", "Hold [K] — drift down away from the satellite", `Move away until pulling apart at ≥ 0.8 m/s (now ${(st.payload.rangeRate || 0).toFixed(2)})`);
-        return step("plt", ".", `Drifting clear — ${((st.payload.range || 0)).toFixed(0)} / 150 m`, "Pilot can speed up time with [.]");
+        return step("all", ".", `Drifting clear — ${((st.payload.range || 0)).toFixed(0)} / 150 m`, "Anyone can speed up time with [.]");
       }
       case "deorbit": {
         if (st.burn && st.burn.complete) return step("all", "", "Return burn finished — dropping toward Earth's air", `Re-entry starts in ${(gv.tEI || 0).toFixed(0)} s`);
@@ -833,13 +833,13 @@
     roles: ["cdr", "plt", "ms1", "ms2"],
     info: {
       cdr: { title: "Commander", short: "CDR", duty: "Steers the ship in space, tilts wings during re-entry, glides onto the runway & brakes; picks retries" },
-      plt: { title: "Pilot", short: "PLT", duty: "Starts big engine burns, speeds up wait time, toggles auto nose angle, air brakes & landing wheels" },
+      plt: { title: "Pilot", short: "PLT", duty: "Starts big engine burns, toggles auto nose angle, air brakes & landing wheels" },
       ms1: { title: "Mission Specialist 1", short: "MS1", duty: "Cargo bay crew: opens cargo doors, releases satellite, steers gently away afterward" },
       ms2: { title: "Mission Specialist 2", short: "MS2", duty: "Satellite lead: turns on satellite power, checks self-test & approves release" },
     },
     commandRole: {
       START: "cdr", PAUSE: "cdr", RETRY_CHECKPOINT: "cdr", RESTART: "cdr", DAP_HOLD: "cdr",
-      AUTHORIZE_BURN: "plt", COAST_TO_TIG: "plt", SET_WARP: "plt", TOGGLE_AOA_ASSIST: "plt", DEPLOY_GEAR: "plt",
+      AUTHORIZE_BURN: "plt", COAST_TO_TIG: "plt", SET_WARP: "all", TOGGLE_AOA_ASSIST: "plt", DEPLOY_GEAR: "plt",
       OPEN_BAY: "ms1", CLOSE_BAY: "ms1", RELEASE_PAYLOAD: "ms1",
       PAYLOAD_POWER: "ms2", PAYLOAD_GO: "ms2",
     },

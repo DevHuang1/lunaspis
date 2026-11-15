@@ -6,7 +6,7 @@
  */
 "use strict";
 const S = require("../../public/js/game/shuttle_simulation.js");
-const { ShuttleMission, DT } = require("../../public/js/game/shuttle_mission.js");
+const { ShuttleMission, DT, CREW } = require("../../public/js/game/shuttle_mission.js");
 const { createPilot, fly } = require("./pilot.js");
 const { add, sub, scl, norm, dot, unit } = S.vec;
 const DEG = S.DEG;
@@ -288,6 +288,7 @@ const apprRuns = {};
   const m4 = new ShuttleMission(); m4.command("START"); m4.advanceSim(60);
   const w = m4.command("SET_WARP", { factor: 50 });
   check("Ascent warp capped at 25x (every phase can be accelerated, hand-flown ones are capped)", !w.accepted && m4.warpReq === 25, w.reason);
+  check("Time acceleration is shared by every crew seat (SET_WARP is not Pilot-only)", CREW.commandRole.SET_WARP === "all");
   (() => { const lim = { entry: 8, approach: 4, rollout: 4 }; const bad = Object.keys(lim).filter((ph) => ShuttleMission.WARP_LIMIT ? ShuttleMission.WARP_LIMIT[ph] !== lim[ph] : false);
     const M = require("../../public/js/game/shuttle_mission.js"); const got = Object.keys(lim).map((ph) => `${ph}:${M.WARP_LIMIT[ph]}`).join(" ");
     check("Entry, approach and rollout accept time acceleration", Object.keys(lim).every((ph) => M.WARP_LIMIT[ph] >= lim[ph]), got + (bad.length ? "" : "")); })();

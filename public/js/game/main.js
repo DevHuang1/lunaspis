@@ -1955,14 +1955,21 @@
       if (!isMergedShuttleMission(mission) || isLocalGroundCrew()) return;
       if (!window.shuttleGame || window.shuttleGame.isActive) return;
 
+      let launchSite = null;
       if (window.spaceCenter) {
         const sc = window.spaceCenter;
+        // The ground game has already built LC-39A while the crew walked the
+        // pad. Lend that exact group to the flight renderer so liftoff keeps
+        // the tower, VAB, LCC and surrounding buildings instead of cutting to
+        // the simplified training pad.
+        if (typeof sc._ensureGroundBuilt === "function" && !sc._groundBuilt) sc._ensureGroundBuilt();
+        launchSite = sc.group && sc._groundBuilt ? sc : null;
         sc.missionPhase = "launch";
         sc._launchSequenceStarted = true;
         sc.isLaunching = true;
         sc.isGroundMode = false;
         sc._groundObserverLaunch = false;
-        if (sc.group) sc.group.visible = false;
+        if (sc.group) sc.group.visible = true;
         if (sc.stackGroup) sc.stackGroup.visible = false;
         if (sc.hudOverlay) sc.hudOverlay.style.display = "none";
       }
@@ -1988,6 +1995,7 @@
         renderer,
         net: window.netManager,
         mergedMission: true,
+        launchSite,
         canReturnLobby: !!(window.netManager && window.netManager.isHost),
         onLeave: leaveCurrentRoom,
         onReturnToLobby: () => {

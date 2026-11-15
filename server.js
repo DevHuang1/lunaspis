@@ -44,7 +44,7 @@ const io = new Server(server, {
   pingTimeout: 20000
 });
 
-// Initialize always-on crew voice relay and live crew video signalling
+// Initialize always-on crew voice relay and camera-free 3D crew link presence
 require("./server/voice-signaling")(io);
 require("./server/video-signaling")(io);
 
@@ -111,9 +111,8 @@ app.use("/api", createRateLimiter({ windowMs: 60_000, max: 120 }));
 app.use(express.json({ limit: "100kb" }));
 app.get("/api/gmat/status", (req, res) => res.json(gmatForecast.status()));
 
-// Public ICE configuration for the live crew video link. Set TURN_URL(S) (and
-// optionally TURN_USERNAME / TURN_CREDENTIAL) on hosts where peer-to-peer
-// WebRTC cannot traverse NAT; without TURN the link falls back to public STUN.
+// Legacy ICE configuration for older WebRTC video clients. The current crew
+// link is rendered with animated 3D models and never requests camera access.
 app.get("/api/video/ice", (req, res) => {
   const urls = String(process.env.TURN_URLS || process.env.TURN_URL || "")
     .split(",").map((url) => url.trim()).filter(Boolean);
