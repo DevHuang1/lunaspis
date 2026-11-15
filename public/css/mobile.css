@@ -561,19 +561,6 @@ body #space-center-ground-map {
     right: calc(8px + var(--safe-right)) !important;
   }
 
-  /* Keep long mission labels on one line instead of wrapping on small phones. */
-  .hud-race-team-info {
-    gap: 4px;
-  }
-
-  .hud-race-team-name {
-    flex: 1 1 auto;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
   #lunaspis-ship-minimap,
   #hud-active-speakers {
     top: calc(168px + var(--safe-top));

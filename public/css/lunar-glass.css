@@ -291,7 +291,6 @@ input[type="range"] {
 .lobby-player-pod,
 .lobby-chat-box,
 .lobby-bottom-bar,
-.hud-race-bar-container,
 .hud-checklist-panel,
 #hud-voice-panel,
 #perf-overlay,
@@ -827,14 +826,11 @@ body.deck-open #hud-crosshair,
 body.deck-open #space-center-ground-hud,
 body.deck-open #space-center-ground-map,
 body.deck-open #hud-network-pill,
-body.deck-open #crew-comms-toggle,
 body.deck-open #crew-comms-panel,
-body.deck-open .vl-start-prompt,
 body.deck-open .vl-ship-panel,
 body.deck-open .vl-cabin-float,
 body.deck-open #ship-interior-hud,
-body.deck-open #lunaspis-ship-minimap,
-body.deck-open .hud-race-bar-container {
+body.deck-open #lunaspis-ship-minimap {
   display: none !important;
 }
 
@@ -910,21 +906,8 @@ body.deck-open .hud-race-bar-container {
   box-shadow: none;
 }
 
-.hud-race-fill,
-.fill-coop {
-  background: var(--brand);
-}
-
-.hud-race-track,
-.hud-task-track,
 .lunaspis-res-track {
   background: rgba(255, 255, 255, 0.09);
-}
-
-.hud-systems-badge {
-  color: var(--state-ok);
-  border-color: rgba(99, 230, 168, 0.34);
-  background: rgba(99, 230, 168, 0.08);
 }
 
 #btn-proximity-use {
@@ -1147,7 +1130,6 @@ body.deck-open .hud-race-bar-container {
   .lobby-player-pod,
   .lobby-chat-box,
   .lobby-bottom-bar,
-  .hud-race-bar-container,
   .hud-checklist-panel,
   #hud-voice-panel,
   #perf-overlay,

@@ -122,7 +122,7 @@
       </div>
     </div>
     <div class="diag-footer">
-      <span>[P] / [F3] Info &bull; [J] Space Station &bull; [K] Moon &bull; [O] Solar System</span>
+      <span>[P] / [F3] Info &bull; [J] Space Station &bull; [H] 3D Models &bull; [O] Solar System</span>
       <span id="diag-clock">TIME 00:00:00</span>
     </div>
   </div>
@@ -337,7 +337,7 @@
       <span class="ctl-group"><kbd class="ctl-glyph" data-action="navigate">WASD</kbd> NAVIGATE</span>
       <span class="ctl-group"><kbd class="ctl-glyph" data-action="select">ENTER</kbd> SELECT</span>
       <span class="ctl-group"><kbd class="ctl-glyph" data-action="close">ESC</kbd> BACK</span>
-      <span class="title-control-meta">LUNASPIS // BUILD 6.0 · LEO &rarr; LUNAR</span>
+      <span class="title-control-meta">LUNASPIS // BUILD 6.0 &middot; LEO &rarr; LUNAR</span>
     </footer>
   </div>
 
@@ -479,31 +479,9 @@
       <div class="crosshair-ring"></div>
     </div>
 
-    <!-- Top-Left Co-op Progress Bar -->
-    <div class="hud-race-bar-container">
-      <div class="hud-race-team coop">
-        <div class="hud-race-team-info">
-          <span class="hud-race-team-dot dot-coop"></span>
-          <span class="hud-race-team-name">TEAM MISSION STEPS</span>
-          <span class="hud-race-score" id="race-score-coop">0 / 7</span>
-        </div>
-        <div class="hud-race-track">
-          <div class="hud-race-fill fill-coop" id="race-fill-coop" style="width: 0%;"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Live Crew Role & Phase Control Assignment Panel was moved inside #hud-checklist-panel for clean docking -->
-
-    <div class="hud-task-bar-container" style="display:none;">
-      <div class="hud-task-label-row">
-        <span class="hud-task-label" id="hud-task-label">MISSION STEPS [0/7]</span>
-        <span class="hud-systems-badge">READY</span>
-      </div>
-      <div class="hud-task-track">
-        <div class="hud-task-fill" id="hud-task-fill"></div>
-      </div>
-    </div>
+    <!-- Top-Left Mission Progress: the role-filtered Mission Hub below is the
+         single source of truth. Legacy race/task bars were removed to keep the
+         in-game HUD free of duplicate progress readouts. -->
 
     <!-- Mission Hub: role-filtered objectives, crew assignments and next action -->
     <div class="hud-checklist-panel" id="hud-checklist-panel">
@@ -519,6 +497,7 @@
         </div>
       </div>
       <div class="hud-checklist-progress" aria-hidden="true"><span id="hud-checklist-progress-fill"></span></div>
+      <div id="hud-checklist-next" class="checklist-next" hidden>NEXT: —</div>
       <div id="hud-crew-roster" class="hud-crew-roster" hidden>
         <!-- Rendered by main.js: role filters, roster cards and next action -->
       </div>
@@ -550,6 +529,11 @@
           <span id="voice-mic-icon" class="voice-btn__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-mic"></use></svg></span>
           <span id="voice-mic-label" class="voice-btn__label">ON</span>
         </button>
+        <button id="btn-hud-comms" class="voice-mic-btn" data-label="COMMS" title="Crew comms" aria-label="Open crew comms" aria-controls="crew-comms-panel" aria-expanded="false">
+          <span class="voice-btn__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-chat"></use></svg></span>
+          <span class="voice-btn__label">COMMS</span>
+          <span id="crew-comms-badge" class="hud-comms-badge" hidden>0</span>
+        </button>
         <span class="hud-action-divider" aria-hidden="true"></span>
         <button id="btn-quick-deck" class="voice-mic-btn" data-label="QUICK DECK" title="Quick Deck [Q] / Emotes [X]" aria-label="Open Quick Deck" aria-haspopup="dialog" aria-expanded="false">
           <span class="voice-btn__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-deck"></use></svg></span>
@@ -569,7 +553,7 @@
           <span class="voice-pulse-dot" id="voice-pulse-dot"></span>
           <span id="voice-mode-label">VOICE</span>
         </div>
-        <div class="voice-key-hint">ALL-CREW VOICE &middot; <strong>[M]</strong> Mic &middot; <strong>[U]</strong> 3D Orbit &middot; <strong>[O]</strong> Solar Map &middot; <strong>[J]</strong> Station &middot; <strong>[K]</strong> Moon &middot; <strong>[C]</strong> Camera</div>
+        <div class="voice-key-hint">ALL-CREW VOICE &middot; <strong>[M]</strong> Mic &middot; <strong>[U]</strong> 3D Orbit &middot; <strong>[O]</strong> Solar Map &middot; <strong>[J]</strong> Station &middot; <strong>[C]</strong> Camera</div>
       </div>
     </div>
 
@@ -620,10 +604,9 @@
           <span class="deck-row__copy"><span class="deck-row__label">SOLAR ATLAS</span><span class="deck-row__sub">Destinations across the system</span></span>
           <span class="deck-row__hint">O</span>
         </button>
-        <button type="button" id="btn-deck-moon" class="deck-row" title="Open the 3D lunar touchdown scene [K]">
+        <button type="button" id="btn-deck-moon" class="deck-row" title="Open the 3D lunar touchdown scene">
           <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-moon"></use></svg></span>
           <span class="deck-row__copy"><span class="deck-row__label">LUNAR SCENE</span><span class="deck-row__sub">Apollo touchdown on the Moon</span></span>
-          <span class="deck-row__hint">K</span>
         </button>
         <div class="deck-section-label">DISPLAY MODES</div>
         <button type="button" id="btn-hud-vr-main" class="deck-row" title="Toggle WebXR / stereo VR">
@@ -648,12 +631,12 @@
           <span class="deck-row__hint">F1</span>
         </button>
         <button type="button" id="btn-hud-cml" class="deck-row" title="Mission Readiness Guide — 9 Stages from Big Idea to Launch">
-          <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-globe"></use></svg></span>
+          <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-chart"></use></svg></span>
           <span class="deck-row__copy"><span class="deck-row__label">MISSION STAGES</span><span class="deck-row__sub">CML readiness guide (9 stages)</span></span>
           <span class="deck-row__hint">CML</span>
         </button>
         <button type="button" id="btn-hud-nasa-csa" class="deck-row" title="Play Space Mini-Games, Build a Telescope &amp; Read Simple Guides">
-          <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-globe"></use></svg></span>
+          <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-flask"></use></svg></span>
           <span class="deck-row__copy"><span class="deck-row__label">SPACE GAMES &amp; LAB</span><span class="deck-row__sub">Mini-games &amp; telescope tools</span></span>
           <span class="deck-row__hint">OPS</span>
         </button>
@@ -1085,10 +1068,6 @@
   </div>
 
   <!-- SHARED CREW COMMS (Earth Control ↔ Flight Crew) -->
-  <button type="button" id="crew-comms-toggle" title="Open crew comms" aria-expanded="false">
-    <span>COMMS</span>
-    <span id="crew-comms-badge" hidden>0</span>
-  </button>
   <section id="crew-comms-panel" aria-hidden="true">
     <header class="cc-head">
       <div>

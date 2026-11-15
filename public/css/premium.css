@@ -287,7 +287,6 @@ textarea:focus-visible {
 .lobby-customizer,
 .lobby-mission-panel,
 .lobby-player-pod,
-.hud-race-bar-container,
 .hud-checklist-panel,
 #hud-voice-panel,
 #perf-overlay,
@@ -1279,7 +1278,6 @@ textarea:focus-visible {
 
 /* ---------- HUD shell ---------- */
 
-.hud-race-bar-container,
 .voice-sub-row,
 #hud-room-code,
 .sc-hud-steps,
@@ -1317,36 +1315,6 @@ textarea:focus-visible {
   background: rgba(255, 107, 107, 0.12);
   border-color: rgba(255, 107, 107, 0.4);
   color: #ff6b6b;
-}
-
-.hud-race-bar-container {
-  padding: 10px 14px;
-  border-radius: var(--ui-radius-md);
-}
-.hud-race-team-info { gap: 8px; }
-.hud-race-team-name {
-  font-size: 10px;
-  letter-spacing: 0.09em;
-  color: var(--ui-text-muted);
-}
-.hud-race-score {
-  font-family: var(--ui-font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--ui-text);
-  font-variant-numeric: tabular-nums;
-}
-.hud-race-track {
-  height: 4px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.07);
-  margin-top: 8px;
-}
-.hud-race-fill,
-.fill-coop {
-  border-radius: 999px;
-  background: var(--ui-accent);
-  transition: width var(--ui-dur) var(--ui-ease);
 }
 
 .hud-checklist-panel {
@@ -2412,9 +2380,6 @@ textarea:focus-visible {
 }
 
 @media (max-width: 900px) {
-  .hud-race-bar-container {
-    display: none;
-  }
   .hud-checklist-panel {
     top: 44px;
   }
@@ -3492,6 +3457,28 @@ body.shuttle-mode-active #modal-station-systems {
   color: var(--ui-brand-strong);
 }
 
+.checklist-next {
+  padding: 7px 12px 8px;
+  border-bottom: 1px solid var(--ui-divider);
+  color: var(--ui-text-muted);
+  font-family: var(--ui-font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hud-checklist-panel.collapsed .checklist-next:not([hidden]) {
+  display: block;
+}
+
+.hud-checklist-panel:not(.collapsed) .checklist-next {
+  display: none !important;
+}
+
 .hud-crew-roster {
   display: flex;
   flex-direction: column;
@@ -3825,6 +3812,20 @@ body.shuttle-mode-active #modal-station-systems {
   font-weight: 700;
 }
 
+.hub-role-group-orbit {
+  flex: 0 0 auto;
+  padding: 1px 4px;
+  border: 1px solid rgba(131, 168, 150, 0.35);
+  border-radius: 2px;
+  background: rgba(131, 168, 150, 0.1);
+  color: #a9c4b8;
+  font-family: var(--ui-font-mono);
+  font-size: 6.5px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
 .hub-role-group-owner {
   padding: 0 8px;
   color: var(--ui-text-dim);
@@ -3834,22 +3835,6 @@ body.shuttle-mode-active #modal-station-systems {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.hub-role-group-track {
-  height: 2px;
-  margin: 4px 8px 5px;
-  border-radius: 1px;
-  background: rgba(255, 255, 255, 0.08);
-  overflow: hidden;
-}
-
-.hub-role-group-track i {
-  display: block;
-  height: 100%;
-  border-radius: 1px;
-  background: var(--role-color, var(--ui-brand));
-  transition: width var(--ui-dur) var(--ui-ease);
 }
 
 .hub-role-group-tasks {
@@ -4224,58 +4209,23 @@ body.shuttle-mode-active #modal-station-systems {
   }
 }
 
-#crew-comms-toggle {
-  position: fixed;
-  right: 12px;
-  top: 44%;
-  transform: translateY(-50%);
-  z-index: 5000;
-  display: none;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 9px;
-  background: rgba(5, 10, 20, 0.92);
-  border: 1px solid rgba(103, 232, 249, 0.4);
-  border-radius: 5px;
-  color: #e8f6ff;
-  font-family: var(--ui-font-mono, monospace);
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  writing-mode: vertical-rl;
-  cursor: pointer;
-}
-
-body.game-active #crew-comms-toggle,
-body.ground-mode-active #crew-comms-toggle,
-body.launch-active #crew-comms-toggle,
-body.docking-active #crew-comms-toggle,
-body.shuttle-mode-active #crew-comms-toggle {
-  display: flex;
-}
-
-#crew-comms-toggle:hover,
-#crew-comms-toggle[aria-expanded="true"] {
-  border-color: #67e8f9;
-  color: #67e8f9;
-}
-
-#crew-comms-badge {
+.hud-comms-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 16px;
-  height: 16px;
+  min-width: 15px;
+  height: 15px;
+  margin-left: 1px;
   padding: 0 4px;
   border-radius: 8px;
   background: #f59e0b;
   color: #111827;
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 900;
-  writing-mode: horizontal-tb;
+  line-height: 1;
 }
 
-#crew-comms-toggle #crew-comms-badge[hidden] { display: none; }
+.hud-comms-badge[hidden] { display: none; }
 
 #crew-comms-panel {
   position: fixed;
@@ -4445,12 +4395,6 @@ body.shuttle-mode-active #crew-comms-toggle {
 #crew-comms-send { padding: 7px 11px; }
 
 @media (max-width: 640px) {
-  #crew-comms-toggle {
-    top: 38%;
-    right: 8px;
-    padding: 8px 7px;
-  }
-
   #crew-comms-panel {
     right: 8px;
     bottom: 82px;

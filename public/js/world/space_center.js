@@ -29,6 +29,12 @@
       .replace(/'/g, "&#39;");
   }
 
+  // The dock already labels the location (LC-39A // LAUNCH PAD), so keep the
+  // status line focused on the current step instead of repeating it.
+  function formatHudStatus(text) {
+    return String(text == null ? "" : text).replace(/^LAUNCH PAD · /, "");
+  }
+
   class SpaceCenterManager {
     constructor() {
       this.scene = null;
@@ -90,7 +96,7 @@
 
       // Interactive UI
       this.hudOverlay = null;
-      this.hudCollapsed = false;
+      this.hudCollapsed = true;
       this.lccConsoleOverlay = null;
       this.lccConsoleOpen = false;
       this.lccTelemetryTab = "flight";
@@ -6464,6 +6470,9 @@
       const step2Done = this.crewBoarded;
 
       const camPos = (window.localCrew && window.localCrew.group) ? window.localCrew.group.position : (this.camera ? this.camera.position : null);
+      const drivingCar = !!(this.openCar && this.openCar.isDriving);
+      const carPos = this.openCar && this.openCar.group ? this.openCar.group.position : null;
+      const nearCar = drivingCar || !!(camPos && carPos && Math.hypot(camPos.x - carPos.x, camPos.z - carPos.z) <= 9);
       const insideLcc = !!camPos && camPos.x > -214.4 && camPos.x < -145.6 && camPos.z > 157.4 && camPos.z < 202.6 && camPos.y < 10.0;
       const elevX = -34 + (this._elevatorConfig ? this._elevatorConfig.x : -8.2);
       const elevZ = (this._elevatorConfig ? this._elevatorConfig.z : -4.0);
@@ -6602,6 +6611,8 @@
         nearLccDoor,
         lccDoorSide,
         nearTerm,
+        nearCar,
+        drivingCar,
         nearElevator,
         canGoTop,
         isAtGround,
@@ -6748,19 +6759,39 @@
       const tourGrid = `
         <div class="sc-tour-grid">
           ${tourSpawns.map((spawn, index) => `
-            <button type="button" data-site-tour-index="${index}" class="sc-tour-btn${index === this.siteTourIndex ? " is-active" : ""}">
-              ${index + 1}. ${spawn.short || spawn.label}
+            <button type="button" data-site-tour-index="${index}" class="sc-tour-btn${index === this.siteTourIndex ? " is-active" : ""}" title="${escapeHtml(spawn.label)}">
+              <span class="sc-tour-btn__key">${index + 1}</span>
+              <span class="sc-tour-btn__label">${escapeHtml(spawn.short || spawn.label)}</span>
             </button>
           `).join("")}
         </div>
       `;
+      const systemCard = ({ id = "", icon, label, sub, hint = "", extraClass = "", style = "", title = "" }) => `
+        <button type="button"${id ? ` id="${id}"` : ""} class="sc-system-card${extraClass ? ` ${extraClass}` : ""}"${style ? ` style="${style}"` : ""}${title ? ` title="${escapeHtml(title)}"` : ""}>
+          <span class="sc-system-card__icon" aria-hidden="true"><svg class="ui-icon"><use href="#${icon}"></use></svg></span>
+          <span class="sc-system-card__copy">
+            <span class="sc-system-card__label">${escapeHtml(label)}</span>
+            <span class="sc-system-card__sub">${escapeHtml(sub)}</span>
+          </span>
+          ${hint ? `<span class="sc-system-card__hint">${escapeHtml(hint)}</span>` : ""}
+        </button>
+      `;
+      const panelTitle = guidance.insideLcc
+        ? "LCC // FIRING ROOM"
+        : (touring ? "LC-39A // SITE TOUR" : "LC-39A // LAUNCH PAD");
 
       this.hudOverlay.classList.toggle("is-collapsed", !!this.hudCollapsed);
       this.hudOverlay.innerHTML = `
         <div class="sc-hud-top">
           <div class="sc-hud-status">
-            <span id="sc-status-dot" class="sc-status-dot" style="background:${guidance.statusColor};"></span>
-            <span id="sc-status-label" class="sc-status-label" style="color:${escapeHtml(guidance.statusColor)};">${escapeHtml(guidance.statusText)}</span>
+            <span class="sc-hud-emblem" aria-hidden="true"><svg class="ui-icon"><use href="#i-pin"></use></svg></span>
+            <div class="sc-hud-heading">
+              <span class="sc-hud-eyebrow">${panelTitle}</span>
+              <span class="sc-hud-statusline">
+                <span id="sc-status-dot" class="sc-status-dot" style="background:${guidance.statusColor};"></span>
+                <span id="sc-status-label" class="sc-status-label" style="color:${escapeHtml(guidance.statusColor)};">${escapeHtml(formatHudStatus(guidance.statusText))}</span>
+              </span>
+            </div>
           </div>
 
           <div class="sc-hud-primary">
@@ -6770,24 +6801,11 @@
             <button type="button" id="btn-sc-term-act" class="sc-hud-btn sc-btn-term" style="display:${guidance.nearTerm ? "inline-flex" : "none"};">
               ${guidance.nearTerm ? guidance.nearTerm.shortAction : "TERMINAL [E]"}
             </button>
-            ${touring ? `
-              <button type="button" id="btn-sc-site-tour" class="sc-hud-btn sc-btn-tour is-active">
-                ${touchUI ? tourExitLabel : `${tourExitLabel} [T]`}
-              </button>
-              <button type="button" id="btn-sc-elv-act" class="sc-hud-btn sc-btn-elv">
-                ${guidance.isAtGround ? (touchUI ? "🗼 TO TOP DECK" : "🗼 TO TOP DECK [3/T]") : (guidance.isAtTop ? (touchUI ? "🛗 TO GROUND" : "🛗 TO GROUND [1]") : (touchUI ? "🛗 ELEVATOR" : "🛗 ELEVATOR [E]"))}
-              </button>
-            ` : guidance.isGround ? `
+            ${guidance.isGround ? `
               <button type="button" id="btn-sc-lcc-console" class="sc-hud-btn ${this.lccConsoleOpen ? "sc-btn-launch" : "sc-btn-term"}">
                 ${this.lccConsoleOpen ? "CLOSE OPS [F2]" : (guidance.pollActive ? "GIVE LIFTOFF OK [F2]" : (guidance.insideLcc ? "OPS CONSOLE [F2]" : "REMOTE OPS [F2]"))}
               </button>
-              <button type="button" id="btn-sc-elv-act" class="sc-hud-btn sc-btn-elv" style="display:${guidance.nearElevator ? "inline-flex" : "none"};">
-                ${guidance.isAtGround ? (touchUI ? "🗼 TO TOP DECK" : "🗼 TO TOP DECK [3/T]") : (guidance.isAtTop ? (touchUI ? "🛗 TO GROUND" : "🛗 TO GROUND [1]") : "🛗 ELEVATOR [E]")}
-              </button>
             ` : `
-              <button type="button" id="btn-sc-elv-act" class="sc-hud-btn sc-btn-elv" style="display:${guidance.nearElevator || guidance.isAtGround ? "inline-flex" : "none"};">
-                ${guidance.isAtGround ? (touchUI ? "🗼 TO TOP DECK" : "🗼 TO TOP DECK [3/T]") : (guidance.isAtTop ? (touchUI ? "🛗 TO GROUND" : "🛗 TO GROUND [1]") : "🛗 ELEVATOR [E]")}
-              </button>
               <button type="button" id="btn-sc-launch" class="sc-hud-btn sc-btn-launch" style="display:${guidance.canLaunchNow ? "inline-flex" : "none"};">
                 ${guidance.hasOnlineGround ? (touchUI ? "REQUEST GO" : "REQUEST GO [L]") : (touchUI ? "LAUNCH" : "LAUNCH [L]")}
               </button>
@@ -6795,13 +6813,6 @@
                 ${guidance.canUnboard ? (touchUI ? "STEP OUT" : "STEP OUT [E/B]") : (touchUI ? "BOARD" : "BOARD [E/B]")}
               </button>
             `}
-            <button type="button" id="btn-sc-car" class="sc-hud-btn sc-btn-car" title="${this.openCar && this.openCar.isDriving ? "Exit the NASA ground car" : "Get into the NASA ground car for your zone"}">
-              ${touchUI ? (this.openCar && this.openCar.isDriving ? "EXIT CAR" : "CAR") : (this.openCar && this.openCar.isDriving ? "EXIT CAR" : "CAR")}
-            </button>
-            ${guidance.isGround ? `
-              <button type="button" id="btn-sc-comms" class="sc-hud-btn sc-btn-comms" title="Open the shared Earth ↔ Flight crew comms channel">COMMS</button>
-              <button type="button" id="btn-sc-video" class="sc-hud-btn sc-btn-comms" title="Open the animated 3D flight-deck crew link">3D LINK ${window.videoLink && window.videoLink.enabled ? "ON" : "OFF"}</button>
-            ` : ""}
             <button type="button" id="btn-sc-hud-toggle" class="sc-hud-btn sc-btn-collapse" title="${this.hudCollapsed ? (touring ? "Open fast travel destinations" : "Expand Launch Pad Dock") : (touring ? "Hide fast travel destinations" : "Minimize Launch Pad Dock")}">
               ${this.hudCollapsed ? (touring ? "TRAVEL" : "+") : (touring ? "CLOSE" : "-")}
             </button>
@@ -6809,7 +6820,25 @@
         </div>
 
         <div class="sc-hud-body" style="display:${this.hudCollapsed ? "none" : "flex"};">
-          ${touring ? tourGrid : `
+          ${touring ? `
+            <div class="sc-hud-section">
+              <div class="sc-hud-section-label">FAST TRAVEL DESTINATIONS</div>
+              ${tourGrid}
+            </div>
+            <div class="sc-hud-section">
+              <div class="sc-hud-section-label">SITE TOUR</div>
+              <div class="sc-system-grid">
+                ${systemCard({
+                  id: "btn-sc-site-tour",
+                  icon: "i-leave",
+                  label: "EXIT SITE TOUR",
+                  sub: `Return to ${tourExitLabel.toLowerCase()}`,
+                  hint: "T",
+                  extraClass: " is-active"
+                })}
+              </div>
+            </div>
+          ` : `
             ${guidance.isGround ? `
               <div class="sc-ground-role-card" style="--sc-role-color:${guidance.roleColor};">
                 <div class="sc-ground-role-main">
@@ -6826,60 +6855,51 @@
                 </div>
               </div>
             ` : ""}
-            <div class="sc-hud-tools">
-              ${guidance.insideLcc ? "" : `
-                <button type="button" id="btn-sc-ground" class="sc-hud-btn sc-btn-elv" title="Ride Elevator to Pad Ground Level [1]">
-                  ${touchUI ? "🛗 GROUND" : "🛗 GROUND [1]"}
-                </button>
-                <button type="button" id="btn-sc-gantry" class="sc-hud-btn sc-btn-gantry" title="Ride Elevator to Spacecraft Gantry [2]">
-                  ${touchUI ? "🚀 GANTRY" : "🚀 GANTRY [2]"}
-                </button>
-                <button type="button" id="btn-sc-top-deck" class="sc-hud-btn sc-btn-top" title="Ride Elevator to Tower Top Observation Deck [3/T]">
-                  ${touchUI ? "🗼 TOP DECK" : "🗼 TOP DECK [3/T]"}
-                </button>
-              `}
-              <button type="button" id="btn-sc-mission-plan" class="sc-hud-btn sc-btn-plan">
-                ${touchUI ? "DESIGN" : "DESIGN [F4]"}
-              </button>
-              <button type="button" id="btn-sc-mdl-desk" class="sc-hud-btn sc-btn-mdl">
-                SUMMARY DESK
-              </button>
-              <button type="button" id="btn-sc-cml-workbench" class="sc-hud-btn sc-btn-plan">
-                READINESS
-              </button>
-              <button type="button" id="btn-sc-orbit-viz" class="sc-hud-btn sc-btn-viz">
-                ${touchUI ? "3D VIEW" : "3D VIEW [U]"}
-              </button>
-              ${guidance.isGround ? `
-                <button type="button" id="btn-sc-return-lcc" class="sc-hud-btn sc-btn-tour">
-                  ${touchUI ? "CONTROL ROOM" : "CONTROL ROOM [T]"}
-                </button>
-              ` : `
-                <button type="button" id="btn-sc-site-tour" class="sc-hud-btn sc-btn-tour">
-                  SITE TOUR
-                </button>
-              `}
+
+            ${guidance.insideLcc ? "" : `
+              <div class="sc-hud-section">
+                <div class="sc-hud-section-label">FAST TRAVEL</div>
+                <div class="sc-system-grid">
+                  ${systemCard({ id: "btn-sc-ground", icon: "i-globe", label: "GROUND", sub: "Pad level", hint: "1", title: "Ride the elevator to Pad Ground Level" })}
+                  ${systemCard({ id: "btn-sc-gantry", icon: "i-zap", label: "GANTRY", sub: "Crew access", hint: "2", title: "Ride the elevator to the Spacecraft Gantry" })}
+                  ${systemCard({ id: "btn-sc-top-deck", icon: "i-target", label: "TOP DECK", sub: "Observation level", hint: "3", title: "Ride the elevator to the Tower Top Observation Deck" })}
+                </div>
+              </div>
+            `}
+
+            <div class="sc-hud-section">
+              <div class="sc-hud-section-label">MISSION TOOLS</div>
+              <div class="sc-system-grid">
+                ${systemCard({ id: "btn-sc-mission-plan", icon: "i-wrench", label: "DESIGN", sub: "Mission design", hint: "F4" })}
+                ${systemCard({ id: "btn-sc-mdl-desk", icon: "i-chart", label: "SUMMARY DESK", sub: "Pre-flight review" })}
+                ${systemCard({ id: "btn-sc-cml-workbench", icon: "i-shield", label: "READINESS", sub: "CML stages 1–9" })}
+                ${systemCard({ id: "btn-sc-orbit-viz", icon: "i-orbit", label: "3D VIEW", sub: "Trajectories", hint: "U" })}
+              </div>
             </div>
 
-            ${guidance.isGround ? `
-              <div class="sc-ground-ops-strip">
-                <button type="button" id="btn-gop-gonogo" class="ground-action-btn ${this._groundOpButtonAttrs(gs.goNoGoLaunch, guidance.pollActive)}" ${this._groundActionLockAttrs("go_nogo_launch", guidance.pollActive && guidance.allAboard)} data-ground-op="go_nogo_launch">
-                  ${gs.goNoGoLaunch ? "LIFTOFF OK'D" : (guidance.pollActive ? "APPROVE LIFTOFF" : (guidance.allAboard ? "WAITING FOR CREW REQUEST" : "WAITING FOR ASTRONAUTS"))}
-                </button>
-                <button type="button" id="btn-gop-dock" class="ground-action-btn ${this._groundOpButtonAttrs(gs.dockingClearance, this.missionPhase === "docking" && !gs.dockingClearance)}" ${this._groundActionLockAttrs("docking_clearance")} data-ground-op="docking_clearance">
-                  ${gs.dockingClearance ? "DOCKING OK'D" : "APPROVE DOCKING"}
-                </button>
-                <button type="button" id="btn-gop-dsn" class="ground-action-btn ${this._groundOpButtonAttrs(gs.dsnLocked)}" ${this._groundActionLockAttrs("dsn_lock")} data-ground-op="dsn_lock">
-                  ${gs.dsnLocked ? "DISH LOCKED" : "LOCK EARTH DISH"}
-                </button>
-                <button type="button" id="btn-gop-eps" class="ground-action-btn ${this._groundOpButtonAttrs(gs.powerRouted)}" ${this._groundActionLockAttrs("power_route")} data-ground-op="power_route">
-                  ${gs.powerRouted ? "POWER SENT" : "BOOST SOLAR POWER"}
-                </button>
-                <button type="button" id="btn-gop-sci" class="ground-action-btn ${this._groundOpButtonAttrs(gs.scienceCleared)}" ${this._groundActionLockAttrs("science_downlink")} data-ground-op="science_downlink">
-                  ${gs.scienceCleared ? "LAB DATA ON" : "CLEAR SCIENCE DATA"}
-                </button>
+            <div class="sc-hud-section">
+              <div class="sc-hud-section-label">SITE</div>
+              <div class="sc-system-grid">
+                ${guidance.isGround
+                  ? systemCard({ id: "btn-sc-return-lcc", icon: "i-users", label: "CONTROL ROOM", sub: "LCC firing room", hint: "T" })
+                  : systemCard({ id: "btn-sc-site-tour", icon: "i-target", label: "SITE TOUR", sub: "KSC destinations", hint: "T" })}
+                ${guidance.nearCar ? systemCard({
+                  id: "btn-sc-car",
+                  icon: "i-arrow-right",
+                  label: guidance.drivingCar ? "EXIT CAR" : "GROUND CAR",
+                  sub: guidance.drivingCar ? "Return on foot" : "Kennedy site transport",
+                  title: guidance.drivingCar ? "Exit the NASA ground car" : "Get into the NASA ground car for your zone"
+                }) : ""}
+                ${guidance.isGround
+                  ? systemCard({ id: "btn-sc-video", icon: "i-camera", label: "3D LINK", sub: "Animated crew link", hint: window.videoLink && window.videoLink.enabled ? "ON" : "OFF", title: "Open the animated 3D flight-deck crew link" })
+                  : ""}
+                ${guidance.isGround
+                  ? systemCard({ id: "btn-sc-comms", icon: "i-users", label: "COMMS", sub: "Crew channel", title: "Open the shared Earth ↔ Flight crew comms channel" })
+                  : ""}
               </div>
-            ` : `
+            </div>
+
+            ${guidance.isGround ? "" : `
               <div id="sc-guidance-steps" class="sc-hud-steps" style="display:flex;">
                 <span id="sc-step-1" class="sc-step-chip"></span>
                 <span id="sc-step-2" class="sc-step-chip"></span>
@@ -6887,7 +6907,35 @@
               </div>
             `}
 
-            ${guidance.isGround ? tourGrid : ""}
+            ${guidance.isGround ? `
+              <div class="sc-hud-section">
+                <div class="sc-hud-section-label">EARTH CONTROL ACTIONS</div>
+                <div class="sc-ground-ops-strip">
+                  <button type="button" id="btn-gop-gonogo" class="ground-action-btn ${this._groundOpButtonAttrs(gs.goNoGoLaunch, guidance.pollActive)}" ${this._groundActionLockAttrs("go_nogo_launch", guidance.pollActive && guidance.allAboard)} data-ground-op="go_nogo_launch">
+                    ${gs.goNoGoLaunch ? "LIFTOFF OK'D" : (guidance.pollActive ? "APPROVE LIFTOFF" : (guidance.allAboard ? "WAITING FOR CREW REQUEST" : "WAITING FOR ASTRONAUTS"))}
+                  </button>
+                  <button type="button" id="btn-gop-dock" class="ground-action-btn ${this._groundOpButtonAttrs(gs.dockingClearance, this.missionPhase === "docking" && !gs.dockingClearance)}" ${this._groundActionLockAttrs("docking_clearance")} data-ground-op="docking_clearance">
+                    ${gs.dockingClearance ? "DOCKING OK'D" : "APPROVE DOCKING"}
+                  </button>
+                  <button type="button" id="btn-gop-dsn" class="ground-action-btn ${this._groundOpButtonAttrs(gs.dsnLocked)}" ${this._groundActionLockAttrs("dsn_lock")} data-ground-op="dsn_lock">
+                    ${gs.dsnLocked ? "DISH LOCKED" : "LOCK EARTH DISH"}
+                  </button>
+                  <button type="button" id="btn-gop-eps" class="ground-action-btn ${this._groundOpButtonAttrs(gs.powerRouted)}" ${this._groundActionLockAttrs("power_route")} data-ground-op="power_route">
+                    ${gs.powerRouted ? "POWER SENT" : "BOOST SOLAR POWER"}
+                  </button>
+                  <button type="button" id="btn-gop-sci" class="ground-action-btn ${this._groundOpButtonAttrs(gs.scienceCleared)}" ${this._groundActionLockAttrs("science_downlink")} data-ground-op="science_downlink">
+                    ${gs.scienceCleared ? "LAB DATA ON" : "CLEAR SCIENCE DATA"}
+                  </button>
+                </div>
+              </div>
+            ` : ""}
+
+            ${guidance.isGround ? `
+              <div class="sc-hud-section">
+                <div class="sc-hud-section-label">SITE TOUR DESTINATIONS</div>
+                ${tourGrid}
+              </div>
+            ` : ""}
           `}
         </div>
       `;
@@ -7096,7 +7144,7 @@
       const guidance = this._groundGuidanceState();
       const label = this.hudOverlay.querySelector("#sc-status-label");
       if (label) {
-        label.textContent = guidance.statusText;
+        label.textContent = formatHudStatus(guidance.statusText);
         label.style.color = guidance.statusColor;
       }
       const dot = this.hudOverlay.querySelector("#sc-status-dot");

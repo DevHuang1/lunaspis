@@ -5,8 +5,8 @@
  * - Draws the crawlerway/road network and every major ground facility.
  * - Marks local & remote crew, the driveable NASA car, and all parked
  *   site vehicles.
- * - Toggle with [N] or by clicking the map header. Starts collapsed on
- *   small / touch displays so it does not cover the HUD.
+ * - Toggle with [N] or by clicking the map header. Starts collapsed so it
+ *   never covers the HUD; the header is the only default footprint.
  */
 (function (window) {
   "use strict";
@@ -23,7 +23,7 @@
       this.staticCanvas = null;
       this.countEl = null;
       this.toggleEl = null;
-      this.collapsed = !!(window.isMobileDevice || window.innerWidth <= 900);
+      this.collapsed = true;
       this.accum = 0;
       this._map = null;
       this._staticSite = null;

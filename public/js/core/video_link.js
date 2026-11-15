@@ -370,14 +370,7 @@
         style.textContent = `
           :root{--vl-cyan:#67e8f9;--vl-green:#4ade80;--vl-amber:#fbbf24;--vl-ink:#e6f7fb;--vl-dim:#94a3b8;--vl-line:rgba(103,232,249,.32);--vl-bg:rgba(3,10,18,.9)}
           #vl-shell{position:fixed;inset:0;z-index:4900;pointer-events:none;font-family:"DM Sans",Inter,system-ui,sans-serif}
-          .vl-start-prompt{position:fixed;right:12px;top:calc(44% + 58px);z-index:4901;display:none;align-items:center;gap:8px;padding:7px 11px;border:1px solid var(--vl-line);border-radius:8px;background:rgba(3,10,18,.84);color:var(--vl-ink);font:700 10px/1.15 ui-monospace,Menlo,monospace;letter-spacing:.06em;cursor:pointer;pointer-events:auto;box-shadow:0 8px 24px rgba(0,0,0,.28);backdrop-filter:blur(9px)}
-          .vl-start-prompt.is-open{display:flex}
-          body:not(.game-active) .vl-start-prompt,body:not(.game-active) .vl-ship-panel,body:not(.game-active) .vl-cabin-float{display:none!important}
-          .vl-start-prompt:hover{border-color:var(--vl-cyan);background:rgba(8,27,40,.94)}
-          .vl-start-prompt b{display:block;color:var(--vl-cyan);font-size:10.5px}
-          .vl-start-prompt small{display:block;color:var(--vl-dim);font:600 8.5px/1.2 ui-monospace,Menlo,monospace;letter-spacing:.05em;margin-top:2px}
-          .vl-link-glyph{width:14px;height:14px;border:1.5px solid var(--vl-cyan);border-radius:3px;position:relative;flex:0 0 auto;transform:rotate(45deg);margin:0 4px}
-          .vl-link-glyph:after{content:"";position:absolute;inset:3px;border:1px solid rgba(103,232,249,.65);border-radius:1px}
+          body:not(.game-active) .vl-ship-panel,body:not(.game-active) .vl-cabin-float{display:none!important}
           .vl-ship-panel{position:fixed;right:16px;bottom:56px;top:auto;left:auto;z-index:5002;display:none;flex-direction:column;width:min(290px,36vw);border:1px solid var(--vl-line);border-radius:11px;background:var(--vl-bg);color:var(--vl-ink);box-shadow:0 16px 42px rgba(0,0,0,.42);backdrop-filter:blur(12px);pointer-events:auto;overflow:hidden}
           .vl-ship-panel.is-open{display:flex}
           .vl-ship-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-bottom:1px solid rgba(103,232,249,.2);background:rgba(6,22,34,.62)}
@@ -421,7 +414,6 @@
           #crew-comms-video.is-on{color:#031018;background:var(--vl-cyan);border-color:var(--vl-cyan)}
           @media (max-width:720px){
             .vl-ship-panel{width:min(240px,52vw);right:10px;bottom:54px;top:auto;left:auto}
-            .vl-start-prompt{right:10px;top:calc(44% + 52px);left:auto}
             .vl-cabin-float{right:10px;bottom:10px;width:min(380px,calc(100vw - 20px))}
             .vl-cabin-wrap.is-embedded{aspect-ratio:16/10}
             .vl-cabin-roster{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -434,10 +426,6 @@
       const shell = document.createElement("div");
       shell.id = "vl-shell";
       shell.innerHTML = `
-        <button type="button" class="vl-start-prompt" id="vl-start-prompt" title="Open the animated 3D crew link — no camera needed">
-          <span class="vl-link-glyph"></span>
-          <span><b>3D CREW LINK</b><small>NO CAMERA NEEDED</small></span>
-        </button>
         <section class="vl-ship-panel" id="vl-ship-panel" aria-label="Earth Control live 3D control room">
           <header class="vl-ship-head">
             <div class="vl-live"><i></i><span>EARTH CONTROL<small>LIVE 3D CONTROL ROOM</small></span></div>
@@ -463,7 +451,6 @@
       document.body.appendChild(shell);
 
       this.shell = shell;
-      this.prompt = shell.querySelector("#vl-start-prompt");
       this.shipPanel = shell.querySelector("#vl-ship-panel");
       this.groundWrap = shell.querySelector("#vl-ground-view");
       this.groundCanvas = shell.querySelector("#vl-ground-canvas");
@@ -498,7 +485,6 @@
     }
 
     _bindDom() {
-      this.prompt.addEventListener("click", () => this.startLink());
       this.shipPanel.addEventListener("click", (event) => {
         if (event.target.closest("[data-vl-ship-cam]")) this.toggleLink();
         if (event.target.closest("[data-vl-ship-min]")) {
@@ -566,18 +552,9 @@
     }
 
     _refreshUI() {
-      this._refreshPrompt();
       this._refreshShipPanel();
       this._refreshCabin();
       this._refreshButtons();
-    }
-
-    _refreshPrompt() {
-      const isCrew = this._localTeam() === "crew";
-      const groundPeers = this._peerEntries("ground");
-      const show = !!(this._isInGame() && isCrew && this.roomId && !this.enabled && !groundPeers.length && !this._starting);
-      this.prompt.classList.toggle("is-open", show);
-      document.body.classList.toggle("vl-prompt-live", show);
     }
 
     _refreshShipPanel() {

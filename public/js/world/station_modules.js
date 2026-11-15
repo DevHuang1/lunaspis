@@ -14,16 +14,16 @@
   "use strict";
 
   const MODEL_TARGET_SIZE = 28;
-  const SELECT_COLOR = "#c9f04b";
-  const HOVER_COLOR = "#e4ff7e";
+  const SELECT_COLOR = "#e7e8e3";
+  const HOVER_COLOR = "#ffffff";
 
   const PART_CATEGORIES = [
-    { id: "modules", label: "Pressurized modules", color: "#7dd3fc" },
-    { id: "power", label: "Truss & power", color: "#f5c451" },
-    { id: "robotics", label: "Robotics", color: "#efeee7" },
-    { id: "science", label: "Science & external", color: "#63e6a8" },
-    { id: "docking", label: "Docking & airlock", color: "#ff6b6b" },
-    { id: "logistics", label: "Logistics & stowage", color: "#a7b0ba" }
+    { id: "modules", label: "Pressurized modules", color: "#8ec5e8" },
+    { id: "power", label: "Truss & power", color: "#e3c27a" },
+    { id: "robotics", label: "Robotics", color: "#e6e6df" },
+    { id: "science", label: "Science & external", color: "#8ed7b6" },
+    { id: "docking", label: "Docking & airlock", color: "#e6a0a0" },
+    { id: "logistics", label: "Logistics & stowage", color: "#b8c0c8" }
   ];
 
   const CATEGORY_BY_ID = new Map(PART_CATEGORIES.map((c) => [c.id, c]));
@@ -586,12 +586,19 @@
       this.labelsVisible = true;
       this.isolateSelected = false;
       this.searchQuery = "";
+      this.modelError = null;
+      this._pendingOpen = false;
 
       this.selectedMaterials = [];
-      this.selectionMarker = null;
+      this.selectionOutlines = [];
+      this.selectionOutlineMaterials = [];
+      this._outlinedPartId = null;
+      this._outlinedColor = null;
+
       this.overlayEl = null;
       this.labelsContainerEl = null;
       this.labelElements = {};
+      this._environmentState = null;
 
       // Orbit camera state for showcase
       this.camTarget = null;
@@ -619,6 +626,9 @@
       this.pointerNDC = new THREE.Vector2();
       this.camTarget = new THREE.Vector3(0, 0, -35);
       this.desiredTarget = new THREE.Vector3(0, 0, -35);
+      const defaultRadius = this._defaultRadius();
+      this.camSpherical.radius = defaultRadius;
+      this.desiredRadius = defaultRadius;
 
       const model = rawScene.clone(true);
       model.updateMatrixWorld(true);
@@ -711,44 +721,16 @@
       offsetGroup.add(model);
       this.spinGroup.add(offsetGroup);
 
-      // Selection Marker Sprite
-      this.selectionMarker = new THREE.Group();
-      this.selectionMarker.visible = false;
-      const ringMesh = new THREE.Mesh(
-        new THREE.RingGeometry(0.9, 1.0, 64),
-        new THREE.MeshBasicMaterial({
-          color: SELECT_COLOR,
-          transparent: true,
-          opacity: 0.85,
-          depthTest: false,
-          depthWrite: false,
-          side: THREE.DoubleSide,
-          blending: THREE.AdditiveBlending
-        })
-      );
-      ringMesh.renderOrder = 20;
-      const dotMesh = new THREE.Mesh(
-        new THREE.CircleGeometry(0.08, 16),
-        new THREE.MeshBasicMaterial({
-          color: SELECT_COLOR,
-          transparent: true,
-          opacity: 0.9,
-          depthTest: false,
-          depthWrite: false,
-          side: THREE.DoubleSide,
-          blending: THREE.AdditiveBlending
-        })
-      );
-      dotMesh.renderOrder = 21;
-      this.selectionMarker.add(ringMesh, dotMesh);
-      this.selectionMarker.userData = { ringMesh, dotMesh };
-      this.spinGroup.add(this.selectionMarker);
-
       parentGroup.add(this.spinGroup);
       this.builtModel = model;
+      this.modelError = null;
 
       this._bindCanvasEvents();
       console.log(`🛰️ [ISSShowcase] Normalized 3D ISS model (${nodes} nodes, ${meshes} meshes, ${Object.keys(this.targets).length} interactive parts).`);
+      if (this._pendingOpen) {
+        this._pendingOpen = false;
+        this.open();
+      }
     }
 
     _bindCanvasEvents() {
@@ -910,11 +892,20 @@
       this.desiredRadius = Math.max(4.2, Math.min(36, Math.max(target.radius, 0.5) * 5.2));
     }
 
+    _defaultRadius() {
+      const width = Math.max(320, window.innerWidth || 1600);
+      // Leave room for the 288px / 340px side panels on desktop so the solar
+      // arrays never slide underneath the component details card.
+      const sidePanels = width > 1360 ? 660 : (width > 900 ? 560 : 0);
+      const available = Math.max(340, width - sidePanels);
+      return Math.max(28, Math.min(70, 28 * (1000 / available)));
+    }
+
     resetView() {
       this.selectedPartId = null;
       this.isolateSelected = false;
       this.desiredTarget.set(0, 0, -35);
-      this.desiredRadius = 28;
+      this.desiredRadius = this._defaultRadius();
       this.camSpherical.theta = 0.55;
       this.camSpherical.phi = 1.15;
       this._applyMaterialHighlights();
@@ -929,6 +920,7 @@
       const selectedColor = selectedPart
         ? CATEGORY_BY_ID.get(selectedPart.category)?.color || SELECT_COLOR
         : SELECT_COLOR;
+      const hoverColor = (window.UITheme && window.UITheme.palette && window.UITheme.palette.brandStrong) || HOVER_COLOR;
 
       this.builtModel.traverse((obj) => {
         if (!obj.isMesh) return;
@@ -940,12 +932,14 @@
         mats.forEach((mat) => {
           if (!mat || !mat.emissive) return;
           if (isSelected) {
+            // Keep the PBR texture readable: selected parts get a faint
+            // emissive lift plus a silhouette outline, not a solid color wash.
             mat.emissive.set(selectedColor);
-            mat.emissiveIntensity = 0.45;
+            mat.emissiveIntensity = 0.08;
             this.selectedMaterials.push(mat);
           } else if (isHovered) {
-            mat.emissive.set(HOVER_COLOR);
-            mat.emissiveIntensity = 0.22;
+            mat.emissive.set(hoverColor);
+            mat.emissiveIntensity = 0.045;
           } else {
             const base = mat.userData.baseEmissive;
             mat.emissive.setHex(typeof base === "number" ? base : 0x000000);
@@ -954,37 +948,94 @@
         });
       });
 
-      if (this.selectionMarker) {
-        const target = this.selectedPartId ? this.targets[this.selectedPartId] : null;
-        if (target) {
-          this.selectionMarker.visible = true;
-          this.selectionMarker.position.set(target.center[0], target.center[1], target.center[2]);
-          const outer = Math.max(target.radius * 1.35, 0.55);
-          this.selectionMarker.scale.setScalar(outer);
-          const { ringMesh, dotMesh } = this.selectionMarker.userData;
-          ringMesh.material.color.set(selectedColor);
-          dotMesh.material.color.set(selectedColor);
-        } else {
-          this.selectionMarker.visible = false;
+      if (this.selectedPartId !== this._outlinedPartId || (this.selectedPartId && selectedColor !== this._outlinedColor)) {
+        this._clearSelectionOutlines();
+        if (this.selectedPartId) {
+          this._buildSelectionOutlines(this.selectedPartId, selectedColor);
+          this._outlinedPartId = this.selectedPartId;
+          this._outlinedColor = selectedColor;
         }
       }
+    }
+
+    _clearSelectionOutlines() {
+      this.selectionOutlines.forEach((outline) => {
+        if (outline.parent) outline.parent.remove(outline);
+      });
+      this.selectionOutlineMaterials.forEach((mat) => {
+        if (mat && typeof mat.dispose === "function") mat.dispose();
+      });
+      this.selectionOutlines = [];
+      this.selectionOutlineMaterials = [];
+      this._outlinedPartId = null;
+      this._outlinedColor = null;
+    }
+
+    _buildSelectionOutlines(partId, color) {
+      const THREE = window.THREE;
+      if (!THREE || !this.builtModel || !partId) return;
+      const meshes = [];
+      this.builtModel.traverse((obj) => {
+        if (obj.isMesh && obj.userData.partId === partId && obj.visible) meshes.push(obj);
+      });
+      meshes.forEach((mesh) => {
+        const mat = new THREE.MeshBasicMaterial({
+          color,
+          side: THREE.BackSide,
+          transparent: true,
+          opacity: 0.42,
+          depthWrite: false,
+          depthTest: true,
+          toneMapped: false
+        });
+        const outline = new THREE.Mesh(mesh.geometry, mat);
+        outline.name = "ISS_SelectionOutline";
+        outline.userData.isSelectionOutline = true;
+        outline.scale.setScalar(1.012);
+        outline.renderOrder = 4;
+        outline.raycast = () => {};
+        mesh.add(outline);
+        this.selectionOutlines.push(outline);
+        this.selectionOutlineMaterials.push(mat);
+      });
     }
 
     _applyIsolation() {
       if (!this.builtModel) return;
       this.builtModel.traverse((obj) => {
         if (!obj.isMesh) return;
+        if (obj.userData.isSelectionOutline) return;
         const partId = obj.userData.partId;
         obj.visible = !this.isolateSelected || !this.selectedPartId || partId === this.selectedPartId;
       });
     }
 
+    notifyModelError(error) {
+      this.modelError = error ? String(error.message || error) : "ISS model unavailable";
+      this._pendingOpen = false;
+      if (window.gameplay && typeof window.gameplay.showToast === "function") {
+        window.gameplay.showToast("ISS 3D MODEL FAILED TO LOAD — USING THE STATION VIEW AS-IS");
+      }
+      console.warn("[ISSShowcase] Model load failed:", error);
+    }
+
     open() {
+      if (this.isActive) return;
       if (window.solarSystem && window.solarSystem.isActive && typeof window.solarSystem.close === "function") {
         window.solarSystem.close();
       }
       if (window.missionViz && window.missionViz.isActive && typeof window.missionViz.close === "function") {
         window.missionViz.close();
+      }
+      if (!this.builtModel) {
+        this._pendingOpen = !this.modelError;
+        const message = this.modelError
+          ? "ISS 3D MODEL UNAVAILABLE — CHECK YOUR CONNECTION AND RELOAD"
+          : "ISS 3D MODEL IS STILL LOADING — OPENING WHEN READY";
+        if (window.gameplay && typeof window.gameplay.showToast === "function") {
+          window.gameplay.showToast(message);
+        }
+        return;
       }
       this.isActive = true;
       document.body.classList.add("iss-showcase-active");
@@ -1001,6 +1052,8 @@
       }
       // The showcase is mounted at the origin; hide the launch complex so the
       // reference model is not drawn inside the pad or the crawlerway terrain.
+      // Save the scene dressing first, before the ground presentation is suspended.
+      this._saveEnvironmentState();
       this._previousGroundSuspended = !!(
         window.spaceCenter &&
         typeof window.spaceCenter.suspendGroundPresentation === "function" &&
@@ -1008,14 +1061,71 @@
       );
       this._previousIssVisible = !!(window.issGroup && window.issGroup.visible);
       if (window.issGroup) window.issGroup.visible = false;
-      if (this.showcaseGroup) this.showcaseGroup.visible = true;
       if (window.localCrew && window.localCrew.group) window.localCrew.group.visible = false;
+      this._enterOrbitBackdrop();
+      if (this.showcaseGroup) this.showcaseGroup.visible = true;
       this._ensureShowcaseDOM();
       this.overlayEl.style.display = "block";
       this._renderShowcasePanels();
     }
 
+    _saveEnvironmentState() {
+      // The showcase is an orbital reference view. Preserve the current scene
+      // dressing (launch pad, Earth, starfield, sky/fog) so opening it from the
+      // ground does not leave the station half-buried in the pad concrete, and
+      // restore every flag exactly when the showcase closes.
+      const scene = window.scene;
+      const ground = window.spaceCenter && window.spaceCenter.group;
+      const earth = window.photorealisticEarth && window.photorealisticEarth.group;
+      this._environmentState = {
+        groundVisible: ground ? ground.visible : null,
+        earthVisible: earth ? earth.visible : null,
+        starsVisible: window.spaceStars ? window.spaceStars.visible : null,
+        background: scene && scene.background
+          ? (scene.background.isColor ? scene.background.clone() : scene.background)
+          : null,
+        fog: scene ? scene.fog : null
+      };
+    }
+
+    _enterOrbitBackdrop() {
+      const THREE = window.THREE;
+      const scene = window.scene;
+      if (window.spaceCenter && window.spaceCenter.group) {
+        window.spaceCenter.group.visible = false;
+      }
+      if (window.photorealisticEarth && window.photorealisticEarth.group) {
+        window.photorealisticEarth.group.visible = true;
+      }
+      if (window.spaceStars) window.spaceStars.visible = true;
+      if (scene) {
+        scene.background = new THREE.Color(0x03060f);
+        scene.fog = null;
+      }
+    }
+
+    _restoreEnvironmentState() {
+      const scene = window.scene;
+      const state = this._environmentState;
+      if (!state) return;
+      if (window.spaceCenter && window.spaceCenter.group && state.groundVisible !== null) {
+        window.spaceCenter.group.visible = state.groundVisible;
+      }
+      if (window.photorealisticEarth && window.photorealisticEarth.group && state.earthVisible !== null) {
+        window.photorealisticEarth.group.visible = state.earthVisible;
+      }
+      if (window.spaceStars && state.starsVisible !== null) {
+        window.spaceStars.visible = state.starsVisible;
+      }
+      if (scene) {
+        scene.background = state.background;
+        scene.fog = state.fog;
+      }
+      this._environmentState = null;
+    }
+
     close() {
+      if (!this.isActive) return;
       this.isActive = false;
       document.body.classList.remove("iss-showcase-active");
       document.body.style.cursor = "";
@@ -1028,6 +1138,7 @@
       if (this._previousGroundSuspended && window.spaceCenter && typeof window.spaceCenter.resumeGroundPresentation === "function") {
         window.spaceCenter.resumeGroundPresentation();
       }
+      this._restoreEnvironmentState();
       if (window.localCrew && window.localCrew.group) {
         window.localCrew.group.visible = this._previousCrewVisible !== false;
       }
@@ -1062,7 +1173,7 @@
         z-index: 980;
         pointer-events: none;
         display: none;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-family: var(--ui-font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
       `;
 
       this.overlayEl.innerHTML = `
@@ -1095,20 +1206,33 @@
           ? "EXIT VR"
           : (window.vrManager && window.vrManager.webxrSupported ? "WEBXR / VR" : "STEREO VR");
         topbar.innerHTML = `
-          <div style="display:flex;align-items:center;gap:12px;">
-            <span style="display:inline-flex;align-items:center;justify-content:center;padding:3px 6px;border:1px solid rgba(56,189,248,0.4);border-radius:4px;background:rgba(37,99,235,0.16);color:#93c5fd;font-family:'SF Mono',monospace;font-size:10px;font-weight:700;letter-spacing:1px;">ISS</span>
-            <div>
-              <div style="font-size:9px;font-weight:700;letter-spacing:2.4px;color:rgba(var(--ui-brand-rgb),0.75);text-transform:uppercase;">ORBITAL / MISSION LAB</div>
-              <div style="font-size:14px;font-weight:700;color:#efeee7;">ISS Reference Craft (${ISS_PARTS.length} Curated Components)</div>
+          <div class="iss-topbar-brand">
+            <span class="iss-topbar-mark" aria-hidden="true">ISS</span>
+            <div class="iss-topbar-copy">
+              <span class="iss-topbar-kicker">ORBITAL / MISSION LAB</span>
+              <span class="iss-topbar-title">ISS Reference Craft</span>
+              <span class="iss-topbar-meta">${ISS_PARTS.length} curated components · NASA 2011</span>
             </div>
           </div>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <button id="iss-btn-labels" style="padding:6px 12px;border-radius:18px;border:1px solid ${this.labelsVisible ? "rgba(var(--ui-brand-rgb),0.5)" : "rgba(255,255,255,0.15)"};background:${this.labelsVisible ? "rgba(var(--ui-brand-rgb),0.16)" : "rgba(255,255,255,0.04)"};color:${this.labelsVisible ? "var(--ui-brand-strong)" : "#efeee7"};font-size:10px;font-weight:700;cursor:pointer;">🏷️ LABELS</button>
-            <button id="iss-btn-rotate" style="padding:6px 12px;border-radius:18px;border:1px solid ${this.autoRotate ? "rgba(var(--ui-brand-rgb),0.5)" : "rgba(255,255,255,0.15)"};background:${this.autoRotate ? "rgba(var(--ui-brand-rgb),0.16)" : "rgba(255,255,255,0.04)"};color:${this.autoRotate ? "var(--ui-brand-strong)" : "#efeee7"};font-size:10px;font-weight:700;cursor:pointer;">🔄 AUTO-ROTATE</button>
-            <button id="iss-btn-isolate" ${!this.selectedPartId ? "disabled" : ""} style="padding:6px 12px;border-radius:18px;border:1px solid ${this.isolateSelected ? "rgba(var(--ui-brand-rgb),0.5)" : "rgba(255,255,255,0.15)"};background:${this.isolateSelected ? "rgba(var(--ui-brand-rgb),0.16)" : "rgba(255,255,255,0.04)"};color:${this.isolateSelected ? "var(--ui-brand-strong)" : "#efeee7"};font-size:10px;font-weight:700;cursor:pointer;opacity:${this.selectedPartId ? 1 : 0.4};">🔲 ISOLATE</button>
-            <button id="iss-btn-reset" style="padding:6px 12px;border-radius:18px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.04);color:#efeee7;font-size:10px;font-weight:700;cursor:pointer;">↺ RESET VIEW</button>
-            <button id="iss-btn-vr" style="padding:6px 12px;border-radius:18px;border:1px solid rgba(var(--ui-brand-rgb),0.5);background:rgba(var(--ui-brand-rgb),0.14);color:var(--ui-brand-strong);font-size:10px;font-weight:700;cursor:pointer;">${vrLabel}</button>
-            <button id="iss-btn-return-ship" style="padding:6px 14px;border-radius:18px;border:1px solid var(--ui-brand);background:#8faf2e;color:#efeee7;font-size:10px;font-weight:800;cursor:pointer;">🛸 RETURN TO SHIP INTERIOR [I]</button>
+          <div class="iss-topbar-actions">
+            <button type="button" id="iss-btn-labels" class="iss-chip${this.labelsVisible ? " is-active" : ""}" aria-pressed="${this.labelsVisible}">
+              <svg class="ui-icon" aria-hidden="true"><use href="#i-eye"></use></svg><span>LABELS</span>
+            </button>
+            <button type="button" id="iss-btn-rotate" class="iss-chip${this.autoRotate ? " is-active" : ""}" aria-pressed="${this.autoRotate}">
+              <svg class="ui-icon" aria-hidden="true"><use href="#i-orbit"></use></svg><span>AUTO-ROTATE</span>
+            </button>
+            <button type="button" id="iss-btn-isolate" class="iss-chip${this.isolateSelected ? " is-active" : ""}" aria-pressed="${this.isolateSelected}" ${!this.selectedPartId ? "disabled" : ""}>
+              <svg class="ui-icon" aria-hidden="true"><use href="#i-target"></use></svg><span>ISOLATE</span>
+            </button>
+            <button type="button" id="iss-btn-reset" class="iss-chip">
+              <span class="iss-chip__glyph" aria-hidden="true">↺</span><span>RESET VIEW</span>
+            </button>
+            <button type="button" id="iss-btn-vr" class="iss-chip iss-chip--accent">
+              <svg class="ui-icon" aria-hidden="true"><use href="#i-vr"></use></svg><span>${vrLabel}</span>
+            </button>
+            <button type="button" id="iss-btn-return-ship" class="iss-chip iss-chip--primary">
+              <svg class="ui-icon" aria-hidden="true"><use href="#i-leave"></use></svg><span>${this._previousInteriorActive ? "RETURN TO SHIP INTERIOR" : "CLOSE SHOWCASE"}</span><span class="iss-chip__key">${this._previousInteriorActive ? "I" : "J"}</span>
+            </button>
           </div>
         `;
 
@@ -1148,41 +1272,45 @@
           const parts = filtered.filter((p) => p.category === cat.id);
           if (!parts.length) return "";
           return `
-            <div style="margin-bottom:12px;">
-              <div style="display:flex;align-items:center;gap:6px;padding:4px 8px;font-size:9px;font-weight:700;letter-spacing:1.8px;color:#7a8490;text-transform:uppercase;">
-                <span style="width:6px;height:6px;border-radius:50%;background:${cat.color};display:inline-block;"></span>
-                <span>${cat.label}</span>
-                <span style="margin-left:auto;">${parts.length}</span>
+            <section class="iss-part-group">
+              <div class="iss-part-group-head" style="--iss-cat-color:${cat.color};">
+                <span class="iss-dot" aria-hidden="true"></span>
+                <span class="iss-part-group-label">${cat.label}</span>
+                <span class="iss-part-group-count">${parts.length}</span>
               </div>
-              <div>
+              <div class="iss-part-group-list">
                 ${parts
                   .map((part) => {
                     const isSel = part.id === this.selectedPartId;
                     return `
-                      <button type="button" class="iss-part-item" data-id="${part.id}" style="width:100%;display:flex;align-items:center;gap:8px;padding:7px 10px;border:none;border-radius:8px;background:${isSel ? "rgba(var(--ui-brand-rgb),0.14)" : "transparent"};color:${isSel ? "var(--ui-brand-strong)" : "#efeee7"};font-size:12px;text-align:left;cursor:pointer;">
-                        <span style="width:6px;height:6px;border-radius:50%;background:${cat.color};opacity:${isSel ? 1 : 0.6};"></span>
-                        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${part.shortName}</span>
-                        <span style="font-size:10px;color:#7a8490;">›</span>
+                      <button type="button" class="iss-part-item${isSel ? " is-selected" : ""}" data-id="${part.id}" style="--iss-cat-color:${cat.color};" aria-pressed="${isSel}">
+                        <span class="iss-part-dot" aria-hidden="true"></span>
+                        <span class="iss-part-name">${part.shortName}</span>
+                        <span class="iss-part-arrow" aria-hidden="true">›</span>
                       </button>
                     `;
                   })
                   .join("")}
               </div>
-            </div>
+            </section>
           `;
         }).join("");
 
         leftPanel.innerHTML = `
-          <div style="padding:14px;border-bottom:1px solid rgba(255,255,255,0.1);">
-            <div style="font-size:9px;font-weight:700;letter-spacing:2px;color:#7a8490;text-transform:uppercase;">STATION MAP</div>
-            <div style="font-size:14px;font-weight:700;color:#efeee7;margin-top:2px;">${ISS_PARTS.length} components</div>
-            <input id="iss-part-search" type="text" value="${this.searchQuery}" placeholder="Search components…" style="margin-top:10px;width:100%;box-sizing:border-box;padding:7px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.04);color:#efeee7;font-size:12px;outline:none;" />
+          <div class="iss-panel-head">
+            <span class="iss-panel-kicker">STATION MAP</span>
+            <span class="iss-panel-title">${ISS_PARTS.length} components</span>
+            <label class="iss-search-wrap">
+              <span class="iss-search-icon" aria-hidden="true">⌕</span>
+              <input id="iss-part-search" type="search" class="iss-search" value="${this.searchQuery}" placeholder="Search components…" aria-label="Search ISS components" />
+            </label>
           </div>
-          <div style="flex:1;overflow-y:auto;padding:10px;">
-            ${groupsHtml || '<div style="padding:20px;text-align:center;color:#7a8490;font-size:12px;">No matching components.</div>'}
+          <div class="iss-panel-scroll iss-part-list">
+            ${groupsHtml || '<div class="iss-empty">No matching components.</div>'}
           </div>
-          <div style="padding:10px 14px;border-top:1px solid rgba(255,255,255,0.1);font-size:10px;color:#7a8490;">
-            NASA 2011 Reference · ${this.stats.nodes} nodes · ${this.stats.triangles.toLocaleString()} tris
+          <div class="iss-panel-foot">
+            <span>NASA 2011 REFERENCE</span>
+            <span>${this.stats.nodes} NODES · ${this.stats.triangles.toLocaleString()} TRIS</span>
           </div>
         `;
 
@@ -1210,34 +1338,34 @@
         const part = PART_BY_ID.get(this.selectedPartId);
         if (!part) {
           rightPanel.innerHTML = `
-            <div style="padding:14px;border-bottom:1px solid rgba(255,255,255,0.1);">
-              <div style="font-size:9px;font-weight:700;letter-spacing:2px;color:#7a8490;text-transform:uppercase;">STATION OVERVIEW</div>
-              <div style="font-size:14px;font-weight:700;color:#efeee7;margin-top:2px;">Reference configuration</div>
+            <div class="iss-panel-head">
+              <span class="iss-panel-kicker">STATION OVERVIEW</span>
+              <span class="iss-panel-title">Reference configuration</span>
             </div>
-            <div style="flex:1;overflow-y:auto;padding:16px;">
-              <div style="font-size:9px;font-weight:700;letter-spacing:2px;color:rgba(var(--ui-brand-rgb),0.75);text-transform:uppercase;">LOW EARTH ORBIT · 1998–PRESENT</div>
-              <div style="font-size:20px;font-weight:700;color:#efeee7;margin-top:6px;">${ISS_STATION.name}</div>
-              <div style="font-size:13px;color:var(--ui-brand-strong);margin-top:6px;line-height:1.5;">${ISS_STATION.tagline}</div>
-              <div style="font-size:12px;color:#efeee7;margin-top:10px;line-height:1.6;">${ISS_STATION.description}</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px;">
-                ${ISS_STATION.facts
-                  .map(
-                    (f) => `
-                  <div style="padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.07);background:rgba(255,255,255,0.025);">
-                    <div style="font-size:9px;color:#7a8490;text-transform:uppercase;letter-spacing:1.4px;">${f.label}</div>
-                    <div style="font-size:12px;font-weight:600;color:#efeee7;margin-top:4px;">${f.value}</div>
-                  </div>
-                `
-                  )
-                  .join("")}
+            <div class="iss-panel-scroll">
+              <div class="iss-overview">
+                <span class="iss-eyebrow">LOW EARTH ORBIT · 1998–PRESENT</span>
+                <h2 class="iss-hero-title">${ISS_STATION.name}</h2>
+                <p class="iss-lead">${ISS_STATION.tagline}</p>
+                <p class="iss-body">${ISS_STATION.description}</p>
+                <div class="iss-fact-grid">
+                  ${ISS_STATION.facts
+                    .map(
+                      (f) => `
+                    <div class="iss-fact-card">
+                      <span class="iss-fact-label">${f.label}</span>
+                      <span class="iss-fact-value">${f.value}</span>
+                    </div>
+                  `
+                    )
+                    .join("")}
+                </div>
+                <div class="iss-note">${ISS_STATION.modelNote}</div>
+                <button type="button" id="iss-btn-inspect-destiny" class="iss-action iss-action--wide">
+                  <span>Inspect the Destiny laboratory</span>
+                  <span class="iss-action-arrow" aria-hidden="true">→</span>
+                </button>
               </div>
-              <div style="margin-top:16px;padding:12px;border-radius:10px;border:1px solid rgba(var(--ui-brand-rgb),0.15);background:rgba(var(--ui-brand-rgb),0.05);font-size:11px;color:#a7b0ba;line-height:1.5;">
-                ${ISS_STATION.modelNote}
-              </div>
-              <button id="iss-btn-inspect-destiny" style="margin-top:16px;width:100%;padding:10px 14px;border-radius:10px;border:1px solid rgba(var(--ui-brand-rgb),0.35);background:rgba(var(--ui-brand-rgb),0.1);color:#efeee7;font-size:12px;font-weight:600;cursor:pointer;text-align:left;display:flex;justify-content:space-between;align-items:center;">
-                <span>Inspect the Destiny laboratory</span>
-                <span>→</span>
-              </button>
             </div>
           `;
           const btnDest = rightPanel.querySelector("#iss-btn-inspect-destiny");
@@ -1246,37 +1374,43 @@
           const cat = CATEGORY_BY_ID.get(part.category);
           const facts = [...(part.mass ? [{ label: "Mass", value: part.mass }] : []), ...part.facts];
           rightPanel.innerHTML = `
-            <div style="padding:14px;border-bottom:1px solid rgba(255,255,255,0.1);display:flex;justify-content:space-between;align-items:center;">
+            <div class="iss-panel-head iss-panel-head--split">
               <div>
-                <div style="font-size:9px;font-weight:700;letter-spacing:2px;color:#7a8490;text-transform:uppercase;">COMPONENT</div>
-                <div style="font-size:14px;font-weight:700;color:#efeee7;margin-top:2px;">${part.name}</div>
+                <span class="iss-panel-kicker">COMPONENT</span>
+                <span class="iss-panel-title">${part.name}</span>
               </div>
-              <button id="iss-btn-clear-sel" style="width:28px;height:28px;border-radius:50%;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.04);color:#a7b0ba;cursor:pointer;">✕</button>
+              <button type="button" id="iss-btn-clear-sel" class="iss-icon-btn" title="Back to station overview" aria-label="Clear component selection">✕</button>
             </div>
-            <div style="flex:1;overflow-y:auto;padding:16px;">
-              <div style="display:flex;align-items:center;gap:6px;">
-                <span style="width:8px;height:8px;border-radius:50%;background:${cat ? cat.color : "var(--ui-brand)"};"></span>
-                <span style="font-size:9px;font-weight:700;letter-spacing:1.8px;color:${cat ? cat.color : "var(--ui-brand)"};text-transform:uppercase;">${cat ? cat.label : "Component"}</span>
-              </div>
-              <div style="font-size:20px;font-weight:700;color:#efeee7;margin-top:8px;">${part.name}</div>
-              <div style="font-size:11px;color:#a7b0ba;margin-top:4px;">${part.agency} · ${part.launched}</div>
-              <div style="font-size:13px;color:var(--ui-brand-strong);margin-top:14px;line-height:1.5;">${part.summary}</div>
-              <div style="font-size:12px;color:#efeee7;margin-top:10px;line-height:1.6;">${part.description}</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px;">
-                ${facts
-                  .map(
-                    (f) => `
-                  <div style="padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.07);background:rgba(255,255,255,0.025);">
-                    <div style="font-size:9px;color:#7a8490;text-transform:uppercase;letter-spacing:1.4px;">${f.label}</div>
-                    <div style="font-size:12px;font-weight:600;color:#efeee7;margin-top:4px;">${f.value}</div>
-                  </div>
-                `
-                  )
-                  .join("")}
-              </div>
-              <div style="display:flex;gap:8px;margin-top:16px;">
-                <button id="iss-btn-focus-part" style="flex:1;padding:9px 12px;border-radius:8px;border:1px solid rgba(var(--ui-brand-rgb),0.4);background:rgba(var(--ui-brand-rgb),0.12);color:var(--ui-brand-strong);font-size:11px;font-weight:700;cursor:pointer;">🎯 Focus camera</button>
-                <button id="iss-btn-isolate-part" style="flex:1;padding:9px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.04);color:#efeee7;font-size:11px;font-weight:700;cursor:pointer;">${this.isolateSelected ? "Show all" : "Isolate"}</button>
+            <div class="iss-panel-scroll">
+              <div class="iss-component" style="--iss-cat-color:${cat ? cat.color : SELECT_COLOR};">
+                <span class="iss-category">
+                  <span class="iss-dot" aria-hidden="true"></span>
+                  <span>${cat ? cat.label : "Component"}</span>
+                </span>
+                <h2 class="iss-hero-title">${part.name}</h2>
+                <div class="iss-meta">${part.agency} · ${part.launched}</div>
+                <p class="iss-lead">${part.summary}</p>
+                <p class="iss-body">${part.description}</p>
+                <div class="iss-fact-grid">
+                  ${facts
+                    .map(
+                      (f) => `
+                    <div class="iss-fact-card">
+                      <span class="iss-fact-label">${f.label}</span>
+                      <span class="iss-fact-value">${f.value}</span>
+                    </div>
+                  `
+                    )
+                    .join("")}
+                </div>
+                <div class="iss-action-row">
+                  <button type="button" id="iss-btn-focus-part" class="iss-action">
+                    <span aria-hidden="true">◎</span><span>Focus camera</span>
+                  </button>
+                  <button type="button" id="iss-btn-isolate-part" class="iss-action iss-action--ghost">
+                    <span aria-hidden="true">▣</span><span>${this.isolateSelected ? "Show all" : "Isolate"}</span>
+                  </button>
+                </div>
               </div>
             </div>
           `;
@@ -1298,16 +1432,19 @@
         this.spinGroup.rotation.y += Math.min(delta, 0.08) * 0.07;
       }
 
-      // Pulse selected materials
+      // Pulse the faint selection lift and the silhouette outline instead of
+      // washing out the component's texture.
       if (this.selectedMaterials.length > 0) {
-        const intensity = 0.38 + Math.sin(elapsed * 2.4) * 0.1;
+        const intensity = 0.065 + Math.sin(elapsed * 2.4) * 0.012;
         this.selectedMaterials.forEach((mat) => {
           if (mat.emissive) mat.emissiveIntensity = intensity;
         });
       }
-
-      if (this.selectionMarker && this.selectionMarker.visible && camera) {
-        this.selectionMarker.quaternion.copy(camera.quaternion);
+      if (this.selectionOutlineMaterials.length > 0) {
+        const opacity = 0.36 + Math.sin(elapsed * 2.4) * 0.1;
+        this.selectionOutlineMaterials.forEach((mat) => {
+          mat.opacity = opacity;
+        });
       }
 
       if (!this.isActive || !camera) return;
@@ -1345,23 +1482,7 @@
         if (!btn) {
           btn = document.createElement("button");
           btn.type = "button";
-          btn.style.cssText = `
-            position: absolute;
-            transform: translate(-50%, -50%);
-            pointer-events: auto;
-            display: none;
-            align-items: center;
-            gap: 5px;
-            padding: 3px 9px;
-            border-radius: 999px;
-            font-size: 9px;
-            font-weight: 700;
-            letter-spacing: 1.4px;
-            text-transform: uppercase;
-            cursor: pointer;
-            backdrop-filter: blur(8px);
-            white-space: nowrap;
-          `;
+          btn.className = "iss-floating-label";
           btn.addEventListener("click", (e) => {
             e.stopPropagation();
             this.selectPart(part.id);
@@ -1392,13 +1513,14 @@
         const y = (-proj.y * 0.5 + 0.5) * window.innerHeight;
         const color = CATEGORY_BY_ID.get(part.category)?.color || SELECT_COLOR;
 
-        btn.style.display = "flex";
+        btn.style.display = "inline-flex";
         btn.style.left = `${x.toFixed(1)}px`;
         btn.style.top = `${y.toFixed(1)}px`;
-        btn.style.border = `1px solid ${isSelected || isHovered ? color : "rgba(255,255,255,0.2)"}`;
-        btn.style.background = isSelected ? color : "rgba(3,8,15,0.82)";
-        btn.style.color = isSelected ? "#041018" : "rgba(226,240,255,0.95)";
-        btn.innerHTML = `${!isSelected ? `<span style="width:5px;height:5px;border-radius:50%;background:${color};display:inline-block;"></span>` : ""}${part.shortName}`;
+        btn.style.setProperty("--iss-cat-color", color);
+        btn.classList.toggle("is-selected", isSelected);
+        btn.classList.toggle("is-hovered", isHovered);
+        btn.setAttribute("aria-pressed", String(isSelected));
+        btn.innerHTML = `<span class="iss-floating-dot" aria-hidden="true"></span><span>${part.shortName}</span>`;
       });
     }
   }
