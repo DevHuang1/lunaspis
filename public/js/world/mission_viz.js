@@ -315,7 +315,7 @@
       this.craftGroup.clear();
       const body = new THREE.Mesh(
         new THREE.CylinderGeometry(0.28, 0.34, 0.65, 8),
-        new THREE.MeshStandardMaterial({ color: 0xd0a15c, roughness: 0.35, metalness: 0.75 })
+        new THREE.MeshStandardMaterial({ color: 0xc9f04b, roughness: 0.35, metalness: 0.75 })
       );
       const wingMat = new THREE.MeshStandardMaterial({ color: 0x2563eb, emissive: 0x0c2461, roughness: 0.25, metalness: 0.6 });
       const wingL = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.03, 0.34), wingMat);
@@ -729,32 +729,29 @@
         z-index:160;
         pointer-events:none;
         font-family:var(--font-mono, monospace);
-        color:#ece7dc;
+        color:#efeee7;
       `;
 
       root.innerHTML = `
-        <div id="mv-topbar" style="pointer-events:auto;position:absolute;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 14px;border-radius:4px;background:rgba(8,13,24,0.88);border:1px solid rgba(148,163,184,0.22);backdrop-filter:blur(8px);">
+        <div id="mv-topbar" style="pointer-events:auto;position:absolute;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;border-radius:8px;background:rgba(6,11,22,0.88);border:1px solid rgba(var(--ui-brand-rgb),0.28);backdrop-filter:blur(10px);">
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-            <span style="width:7px;height:7px;border-radius:2px;background:#2563eb;"></span>
+            <span style="width:8px;height:8px;border-radius:50%;background:var(--ui-brand);box-shadow:0 0 8px var(--ui-brand);"></span>
             <div>
-              <div style="font-size:11px;font-weight:700;letter-spacing:1.4px;color:#f8fafc;" id="mv-title">3D EARTH &amp; SPACE FLIGHT MAP</div>
-              <div style="font-size:10px;color:#94a3b8;" id="mv-subtitle">Drag to spin &middot; Scroll/Pinch to zoom &middot; Scrub the Mission Timeline below</div>
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.4px;color:var(--ui-brand);" id="mv-title">NASA MISSION VIZ // GMAT TRAJECTORY THEATER</div>
+              <div style="font-size:10px;color:#a7b0ba;" id="mv-subtitle">Drag to orbit · Scroll/Pinch to zoom · Scrub Mission Timeline below</div>
             </div>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-            <button type="button" id="mv-btn-gmat-training" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(37,99,235,0.6);background:rgba(37,99,235,0.16);color:#f8fafc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">GMAT ISS TRAINING</button>
-            <button type="button" id="mv-btn-cam-sys" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(37,99,235,0.6);background:rgba(37,99,235,0.16);color:#f8fafc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">FULL EARTH VIEW</button>
-            <button type="button" id="mv-btn-cam-craft" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(148,163,184,0.22);background:rgba(8,13,24,0.75);color:#f8fafc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">FOLLOW CRAFT</button>
-            <button type="button" id="mv-btn-cam-target" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(148,163,184,0.22);background:rgba(8,13,24,0.75);color:#f8fafc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">ZOOM TARGET</button>
-            <button type="button" id="mv-btn-gmat" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(52,211,153,0.48);background:rgba(16,185,129,0.16);color:#a7f3d0;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;" title="Download flight path file">FLIGHT PATH FILE</button>
-            <button type="button" id="mv-btn-csa-lab" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(103,232,249,0.48);background:rgba(103,232,249,0.14);color:#67e8f9;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;" title="Open Space Games &amp; Learning Activities">GAMES &amp; TOOLS</button>
-            <button type="button" id="mv-btn-vr" style="padding:5px 10px;border-radius:4px;border:1px solid rgba(148,163,184,0.28);background:rgba(8,13,24,0.75);color:#93c5fd;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">VR MODE</button>
-            <button type="button" id="mv-btn-close" style="padding:5px 12px;border-radius:4px;border:1px solid rgba(220,38,38,0.55);background:rgba(220,38,38,0.14);color:#fecaca;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">EXIT [U]</button>
+            <button type="button" id="mv-btn-cam-sys" style="padding:6px 10px;border-radius:5px;border:1px solid rgba(var(--ui-brand-rgb),0.45);background:rgba(var(--ui-brand-rgb),0.14);color:var(--ui-brand-strong);font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">EARTH / SYSTEM</button>
+            <button type="button" id="mv-btn-cam-craft" style="padding:6px 10px;border-radius:5px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.05);color:#efeee7;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">FOLLOW CRAFT</button>
+            <button type="button" id="mv-btn-cam-target" style="padding:6px 10px;border-radius:5px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.05);color:#efeee7;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">TARGET BODY</button>
+            <button type="button" id="mv-btn-vr" style="padding:6px 10px;border-radius:5px;border:1px solid rgba(var(--ui-brand-rgb),0.5);background:rgba(var(--ui-brand-rgb),0.14);color:var(--ui-brand-strong);font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">🥽 VR MODE</button>
+            <button type="button" id="mv-btn-close" style="padding:6px 12px;border-radius:5px;border:1px solid rgba(255,107,107,0.55);background:rgba(255,107,107,0.16);color:#ff6b6b;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">EXIT [U]</button>
           </div>
         </div>
 
-        <div id="mv-telemetry-card" style="pointer-events:auto;position:absolute;top:74px;left:12px;width:295px;max-width:calc(100vw - 24px);padding:12px;border-radius:4px;background:rgba(8,13,24,0.88);border:1px solid rgba(148,163,184,0.22);backdrop-filter:blur(8px);font-size:10.5px;">
-          <div style="font-size:9.5px;font-weight:700;letter-spacing:1.3px;color:#93c5fd;margin-bottom:8px;">LIVE ORBIT &amp; SIGNAL STATUS</div>
+        <div id="mv-telemetry-card" style="pointer-events:auto;position:absolute;top:76px;left:12px;width:295px;max-width:calc(100vw - 24px);padding:12px;border-radius:8px;background:rgba(6,11,22,0.86);border:1px solid rgba(255,255,255,0.14);backdrop-filter:blur(10px);font-size:10.5px;">
+          <div style="font-size:9.5px;font-weight:700;letter-spacing:1.3px;color:var(--ui-brand);margin-bottom:8px;">ORBITAL DYNAMICS &amp; LINK TELEMETRY</div>
           <div id="mv-telemetry-rows" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;"></div>
           <div id="mv-segment-badges" style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:9px;padding-top:8px;border-top:1px solid rgba(148,163,184,0.16);"></div>
         </div>
@@ -762,13 +759,13 @@
         <div id="mv-timeline-bar" style="pointer-events:auto;position:absolute;bottom:14px;left:12px;right:12px;padding:10px 14px;border-radius:4px;background:rgba(8,13,24,0.9);border:1px solid rgba(148,163,184,0.22);backdrop-filter:blur(8px);">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:7px;">
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-              <button type="button" id="mv-btn-play" style="padding:5px 10px;border-radius:4px;border:1px solid #2563eb;background:rgba(37,99,235,0.2);color:#f8fafc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">PAUSE</button>
-              <button type="button" id="mv-btn-speed" style="padding:5px 9px;border-radius:4px;border:1px solid rgba(148,163,184,0.22);background:rgba(8,13,24,0.75);color:#f8fafc;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">1x</button>
-              <span id="mv-event-active" style="font-size:10px;font-weight:700;color:#86efac;margin-left:4px;">LIFTOFF</span>
+              <button type="button" id="mv-btn-play" style="padding:5px 10px;border-radius:4px;border:1px solid var(--ui-brand);background:rgba(var(--ui-brand-rgb),0.14);color:var(--ui-brand-strong);font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">❚❚ PAUSE</button>
+              <button type="button" id="mv-btn-speed" style="padding:5px 9px;border-radius:4px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.05);color:#efeee7;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;">1x</button>
+              <span id="mv-event-active" style="font-size:10px;font-weight:700;color:#63e6a8;margin-left:4px;">T+0 LAUNCH</span>
             </div>
             <div id="mv-event-chips" style="display:flex;gap:5px;flex-wrap:wrap;"></div>
           </div>
-          <input type="range" id="mv-timeline-slider" min="0" max="1000" value="140" style="width:100%;accent-color:#2563eb;cursor:pointer;" />
+          <input type="range" id="mv-timeline-slider" min="0" max="1000" value="140" style="width:100%;accent-color:var(--ui-brand);cursor:pointer;" />
         </div>
       `;
 
@@ -869,8 +866,8 @@
           const el = this.uiRoot.querySelector(map[k]);
           if (!el) return;
           const active = k === mode;
-          el.style.borderColor = active ? "rgba(103,232,249,0.55)" : "rgba(255,255,255,0.18)";
-          el.style.background = active ? "rgba(103,232,249,0.16)" : "rgba(255,255,255,0.05)";
+          el.style.borderColor = active ? "rgba(var(--ui-brand-rgb),0.55)" : "rgba(255,255,255,0.18)";
+          el.style.background = active ? "rgba(var(--ui-brand-rgb),0.16)" : "rgba(255,255,255,0.05)";
         });
       }
     }
@@ -1115,10 +1112,10 @@
         const altLabel = t.orbit.altitudeKm >= 100000
           ? `${(t.orbit.altitudeKm / 1000).toFixed(0)}k km`
           : `${t.orbit.altitudeKm.toLocaleString()} km`;
-        const orbVel = t.orbit.id === "sun_earth_l2" ? "1.0 km/s (Deep Space)" : t.orbit.id === "lunar_polar_100" ? "1.6 km/s (Moon)" : t.orbit.id === "gto_heo" ? "1.6–10.1 km/s" : "7.6 km/s";
-        const cell = (k, v, c = "#ece7dc") => `
+        const orbVel = t.orbit.id === "sun_earth_l2" ? "1.02 km/s (L2)" : t.orbit.id === "lunar_polar_100" ? "1.63 km/s (LPO)" : t.orbit.id === "gto_heo" ? "1.6–10.1 km/s" : "7.6 km/s";
+        const cell = (k, v, c = "#efeee7") => `
           <div style="padding:5px 7px;border-radius:5px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);">
-            <div style="font-size:8.5px;color:#94a3b8;">${k}</div>
+            <div style="font-size:8.5px;color:#a7b0ba;">${k}</div>
             <div style="font-size:10.5px;font-weight:700;color:${c};margin-top:2px;">${v}</div>
           </div>
         `;
@@ -1139,7 +1136,7 @@
       const segEl = this.uiRoot.querySelector("#mv-segment-badges");
       if (segEl) {
         const seg = (label, ok) => `
-          <div style="text-align:center;padding:4px 2px;border-radius:4px;background:${ok ? "rgba(74,222,128,0.12)" : "rgba(239,68,68,0.15)"};border:1px solid ${ok ? "rgba(74,222,128,0.35)" : "rgba(239,68,68,0.45)"};font-size:8.5px;font-weight:700;color:${ok ? "#86efac" : "#fca5a5"};">
+          <div style="text-align:center;padding:4px 2px;border-radius:4px;background:${ok ? "rgba(74,222,128,0.12)" : "rgba(255,107,107,0.15)"};border:1px solid ${ok ? "rgba(74,222,128,0.35)" : "rgba(255,107,107,0.45)"};font-size:8.5px;font-weight:700;color:${ok ? "#63e6a8" : "#ff6b6b"};">
             ${label}
           </div>
         `;

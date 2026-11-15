@@ -459,7 +459,7 @@ const GROUND_ACTION_ROLES = {
 };
 const MAX_PLAYERS = 6;
 const GAME_MODE = "coop";
-const SUIT_COLORS = ["#67e8f9", "#d0a15c", "#7fb8a6", "#c08a8a", "#9a8fc4", "#f8fafc"];
+const SUIT_COLORS = ["#c9f04b", "#63e6a8", "#ff6b6b", "#7dd3fc", "#8a8194", "#efeee7"];
 
 function getTeamForRole(roleId) {
   return GROUND_ROLES.includes(roleId) ? "ground" : "crew";
@@ -2072,7 +2072,7 @@ io.on("connection", (socket) => {
       user = socket.authUser || await db.getUserById(socket.userId);
     } else {
       const name = String(data.playerName || "Astronaut").replace(/[\u0000-\u001F\u007F<>]/g, "").trim().slice(0, 16) || "Astronaut";
-      const color = /^#[0-9a-fA-F]{6}$/.test(data.suitColor) ? data.suitColor : "#ef4444";
+      const color = /^#[0-9a-fA-F]{6}$/.test(data.suitColor) ? data.suitColor : "#c9f04b";
       const role = normalizeRoleId(data.role, "commander");
       // Guests are session-only; do not grow persistent user tables.
       user = {
@@ -2862,13 +2862,18 @@ io.on("connection", (socket) => {
     if (!seat) {
       return reply({ accepted: false, reason: `Unknown command ${type}` });
     }
-    const ownerId = shuttleSeatOwner(room, seat);
-    if (ownerId !== socket.id) {
-      const owner = ownerId ? room.players[ownerId] : null;
-      return reply({
-        accepted: false,
-        reason: `${SHUTTLE_CREW.info[seat].title} (${owner ? owner.name : "unassigned"}) owns ${type}`
-      });
+    // Shared commands ("all") are deliberately not seat-gated: every crewmember
+    // in the flight can use them (e.g. time acceleration), even if they do not
+    // own one of the four primary seats.
+    if (seat !== "all") {
+      const ownerId = shuttleSeatOwner(room, seat);
+      if (ownerId !== socket.id) {
+        const owner = ownerId ? room.players[ownerId] : null;
+        return reply({
+          accepted: false,
+          reason: `${SHUTTLE_CREW.info[seat].title} (${owner ? owner.name : "unassigned"}) owns ${type}`
+        });
+      }
     }
     let r;
     if (type === "RESTART") {
@@ -4394,7 +4399,7 @@ io.on("connection", (socket) => {
 
     const comm = {
       sender: String(p.name || "Astronaut").slice(0, 16),
-      color: /^#[0-9a-fA-F]{6}$/.test(p.color) ? p.color : "#ef4444",
+      color: /^#[0-9a-fA-F]{6}$/.test(p.color) ? p.color : "#c9f04b",
       role: String(p.role || "commander").slice(0, 16),
       team: p.team || getTeamForRole(p.role),
       teamOnly: false,

@@ -244,7 +244,7 @@
     rightLeg: null,
     nameBadge: null,
     role: "commander",
-    color: "#67e8f9",
+    color: "#c9f04b",
     isEva: false,
     isZeroG: false,
     suitLights: true,
@@ -392,6 +392,8 @@
   // Crew emote wheel state
   let emoteWheelOpen = false;
   let emoteToastTimer = null;
+  let quickDeckOpen = false;
+  let quickDeckTab = "crew";
 
   function setEmoteWheelOpen(open) {
     const wheel = document.getElementById("emote-wheel");
@@ -402,6 +404,73 @@
       wheel.setAttribute("aria-hidden", emoteWheelOpen ? "false" : "true");
     }
     if (btn) btn.classList.toggle("active", emoteWheelOpen);
+  }
+
+  function deckDefaultDetail(tab = quickDeckTab) {
+    return tab === "systems"
+      ? "Ship systems, mission views, and display modes."
+      : "Crew expressions, ready for the whole expedition.";
+  }
+
+  function setDeckDetail(text) {
+    const detail = document.getElementById("deck-detail-text");
+    if (detail) detail.textContent = text || deckDefaultDetail();
+  }
+
+  function setQuickDeckTab(tab) {
+    quickDeckTab = tab === "systems" ? "systems" : "crew";
+    const crewTab = document.getElementById("tab-deck-crew");
+    const systemsTab = document.getElementById("tab-deck-systems");
+    const deckTabs = document.querySelector("#quick-deck .deck-tabs");
+    const crewPanel = document.getElementById("deck-crew-panel");
+    const systemsPanel = document.getElementById("deck-systems-panel");
+    const isCrew = quickDeckTab === "crew";
+    if (crewTab) {
+      crewTab.classList.toggle("active", isCrew);
+      crewTab.setAttribute("aria-selected", String(isCrew));
+    }
+    if (systemsTab) {
+      systemsTab.classList.toggle("active", !isCrew);
+      systemsTab.setAttribute("aria-selected", String(!isCrew));
+    }
+    if (deckTabs) deckTabs.setAttribute("data-tab", quickDeckTab);
+    if (crewPanel) crewPanel.hidden = !isCrew;
+    if (systemsPanel) systemsPanel.hidden = isCrew;
+    setDeckDetail(deckDefaultDetail(quickDeckTab));
+  }
+
+  function setQuickDeckOpen(open, tab) {
+    const deck = document.getElementById("quick-deck");
+    const btn = document.getElementById("btn-quick-deck");
+    quickDeckOpen = Boolean(open);
+    if (tab) setQuickDeckTab(tab);
+    if (deck) {
+      deck.classList.toggle("open", quickDeckOpen);
+      deck.setAttribute("aria-hidden", quickDeckOpen ? "false" : "true");
+    }
+    if (btn) {
+      btn.classList.toggle("active", quickDeckOpen);
+      btn.setAttribute("aria-expanded", String(quickDeckOpen));
+    }
+    document.body.classList.toggle("deck-open", quickDeckOpen);
+    if (quickDeckOpen) {
+      Object.keys(keys).forEach((key) => { keys[key] = false; });
+      const activePanel = document.getElementById(quickDeckTab === "crew" ? "deck-crew-panel" : "deck-systems-panel");
+      const first = activePanel ? activePanel.querySelector(".deck-row") : null;
+      if (first && typeof first.focus === "function") first.focus({ preventScroll: true });
+    }
+  }
+
+  function isFullscreenViewActive() {
+    return Boolean(
+      (window.solarSystem && window.solarSystem.isActive) ||
+      (window.missionViz && window.missionViz.isActive) ||
+      (window.issShowcase && window.issShowcase.isActive) ||
+      (window.vrManager && window.vrManager.isAnyVRActive) ||
+      (window.dockingSim && window.dockingSim.isActive) ||
+      (window.launchCutscene && window.launchCutscene.isPlaying) ||
+      (window.glbManager && window.glbManager.hangarActive)
+    );
   }
 
   function showEmoteToast(def) {
@@ -452,7 +521,7 @@
       ? { w: width, h: height }
       : getViewportSize();
     const isNarrow = size.w <= 900;
-    const isCompact = size.w <= 1024 || size.h <= 760 || isMobile;
+    const isCompact = size.w <= 1024 || size.h <= 700 || isMobile;
 
     if (isMobile) {
       document.body.classList.add("touch-ui");
@@ -559,6 +628,272 @@
     });
   }
 
+  function setupTitleChrome() {
+    const boot = document.getElementById("boot-overlay");
+    if (boot) {
+      let bootSeen = false;
+      try { bootSeen = sessionStorage.getItem("lunaspis_boot_seen") === "1"; } catch (_) { bootSeen = false; }
+      if (bootSeen) {
+        boot.remove();
+      } else {
+        let finished = false;
+        const finishBoot = () => {
+          if (finished) return;
+          finished = true;
+          boot.classList.add("is-done");
+          try { sessionStorage.setItem("lunaspis_boot_seen", "1"); } catch (_) { /* noop */ }
+          setTimeout(() => boot.remove(), 520);
+        };
+        const delay = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 550 : 2100;
+        setTimeout(finishBoot, delay);
+        boot.addEventListener("pointerdown", finishBoot, { once: true });
+        window.addEventListener("keydown", finishBoot, { once: true });
+      }
+    }
+    const dossierBtn = document.getElementById("btn-title-dossier");
+    if (dossierBtn) {
+      dossierBtn.addEventListener("click", () => {
+        const authBtn = document.getElementById("btn-open-auth");
+        if (authBtn) authBtn.click();
+      });
+    }
+    const settingsBtn = document.getElementById("btn-title-settings");
+    if (settingsBtn) {
+      settingsBtn.addEventListener("click", () => {
+        const source = document.getElementById("btn-voice-settings");
+        if (source) source.click();
+      });
+    }
+
+    const navToggle = document.getElementById("btn-title-nav-toggle");
+    const titleNav = document.getElementById("title-primary-nav");
+    const navScrim = document.getElementById("title-nav-scrim");
+    if (navToggle && titleNav) {
+      const setNavOpen = (open) => {
+        titleNav.classList.toggle("is-open", open);
+        if (navScrim) navScrim.classList.toggle("is-open", open);
+        document.body.classList.toggle("title-nav-open", open);
+        navToggle.setAttribute("aria-expanded", String(open));
+        navToggle.setAttribute("aria-label", open ? "Close navigation menu" : "Open navigation menu");
+      };
+      navToggle.addEventListener("click", () => {
+        setNavOpen(!titleNav.classList.contains("is-open"));
+      });
+      if (navScrim) navScrim.addEventListener("click", () => setNavOpen(false));
+      titleNav.querySelectorAll("button").forEach((button) => {
+        button.addEventListener("click", () => setNavOpen(false));
+      });
+      document.addEventListener("pointerdown", (event) => {
+        if (!titleNav.classList.contains("is-open")) return;
+        if (titleNav.contains(event.target) || navToggle.contains(event.target)) return;
+        setNavOpen(false);
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && titleNav.classList.contains("is-open")) {
+          setNavOpen(false);
+        }
+      });
+      window.matchMedia("(min-width: 981px)").addEventListener?.("change", (event) => {
+        if (event.matches) setNavOpen(false);
+      });
+    }
+  }
+
+  function setupPerfIdleState() {
+    const overlay = document.getElementById("perf-overlay");
+    if (!overlay) return;
+    let idleTimer = null;
+    let hovering = false;
+    const clearIdle = () => {
+      document.body.classList.remove("perf-dim");
+      if (idleTimer) clearTimeout(idleTimer);
+      idleTimer = null;
+    };
+    const scheduleIdle = () => {
+      clearIdle();
+      if (hovering) return;
+      idleTimer = setTimeout(() => {
+        if (!document.hidden) document.body.classList.add("perf-dim");
+      }, 6500);
+    };
+    overlay.addEventListener("pointerenter", () => {
+      hovering = true;
+      clearIdle();
+    });
+    overlay.addEventListener("pointerleave", () => {
+      hovering = false;
+      scheduleIdle();
+    });
+    document.addEventListener("pointerdown", scheduleIdle, { passive: true });
+    document.addEventListener("keydown", scheduleIdle, { passive: true });
+    window.addEventListener("gamepadconnected", scheduleIdle);
+    scheduleIdle();
+  }
+
+  let compassAccumulator = 0;
+  const compassForward = new THREE.Vector3();
+
+  function updateHudCompass(delta) {
+    const heading = document.getElementById("hud-compass-heading");
+    if (!heading || !camera) return;
+    compassAccumulator += delta;
+    if (compassAccumulator < 0.08) return;
+    compassAccumulator = 0;
+    camera.getWorldDirection(compassForward);
+    const degrees = ((Math.atan2(compassForward.x, compassForward.z) * 180 / Math.PI) + 360) % 360;
+    const rounded = Math.round(degrees) % 360;
+    heading.textContent = `${String(rounded).padStart(3, "0")}°`;
+  }
+
+  function setupQuickDeck() {
+    const deck = document.getElementById("quick-deck");
+    const btn = document.getElementById("btn-quick-deck");
+    const crewPanel = document.getElementById("deck-crew-panel");
+    const systemsPanel = document.getElementById("deck-systems-panel");
+    if (!deck || !btn || !crewPanel) return;
+
+    const defs = window.ASTRONAUT_EMOTES || [];
+    crewPanel.innerHTML = '<div class="deck-section-label">EXPRESSIONS</div>' + defs.map((def, index) => `
+      <button type="button" class="deck-row" data-emote="${def.id}" data-detail="${def.label} — crew expression" title="${def.label}" style="--row-i:${index}">
+        <span class="deck-row__icon" aria-hidden="true">${def.icon}</span>
+        <span class="deck-row__copy">
+          <span class="deck-row__label">${String(def.label || "").toUpperCase()}</span>
+          <span class="deck-row__sub">Crew expression</span>
+        </span>
+        <span class="deck-row__hint">${index + 1}</span>
+      </button>
+    `).join("");
+
+    // Stagger rows in the static systems panel and annotate them for live detail.
+    if (systemsPanel) {
+      systemsPanel.querySelectorAll(".deck-row").forEach((row, index) => {
+        row.style.setProperty("--row-i", index);
+        const label = row.querySelector(".deck-row__label");
+        const sub = row.querySelector(".deck-row__sub");
+        if (label && !row.getAttribute("data-detail")) {
+          row.setAttribute("data-detail", `${label.textContent}${sub ? ` — ${sub.textContent}` : ""}`);
+        }
+      });
+    }
+
+    btn.addEventListener("click", () => {
+      setQuickDeckOpen(!quickDeckOpen, quickDeckTab);
+      if (window.spaceAudio && typeof window.spaceAudio.playClick === "function") {
+        window.spaceAudio.playClick();
+      }
+    });
+
+    const closeBtn = document.getElementById("btn-deck-close");
+    if (closeBtn) {
+      closeBtn.addEventListener("click", () => setQuickDeckOpen(false));
+    }
+
+    document.querySelectorAll("[data-deck-tab]").forEach((tabBtn) => {
+      tabBtn.addEventListener("click", () => {
+        setQuickDeckTab(tabBtn.getAttribute("data-deck-tab"));
+      });
+    });
+
+    crewPanel.addEventListener("click", (event) => {
+      const target = event.target.closest("[data-emote]");
+      if (!target) return;
+      playLocalEmote(target.getAttribute("data-emote"));
+      setQuickDeckOpen(false);
+    });
+
+    if (systemsPanel) {
+      systemsPanel.addEventListener("click", (event) => {
+        if (event.target.closest(".deck-row")) setQuickDeckOpen(false);
+      });
+    }
+
+    const bindDeckDetail = (panel) => {
+      if (!panel) return;
+      const showRow = (row) => {
+        if (!row || !row.getAttribute("data-detail")) return;
+        setDeckDetail(row.getAttribute("data-detail"));
+      };
+      panel.addEventListener("pointerover", (event) => showRow(event.target.closest(".deck-row")));
+      panel.addEventListener("focusin", (event) => showRow(event.target.closest(".deck-row")));
+      panel.addEventListener("pointerleave", () => setDeckDetail(deckDefaultDetail()));
+      panel.addEventListener("focusout", (event) => {
+        if (!panel.contains(event.relatedTarget)) setDeckDetail(deckDefaultDetail());
+      });
+    };
+    bindDeckDetail(crewPanel);
+    bindDeckDetail(systemsPanel);
+
+    // Drag the mobile sheet down to dismiss it.
+    let deckDragY = 0;
+    let deckDragging = false;
+    const isTouchDeck = () => window.matchMedia && window.matchMedia("(max-width: 900px), (pointer: coarse)").matches;
+    const deckHandle = document.getElementById("deck-grabber") || deck.querySelector(".deck-head");
+    if (deckHandle) {
+      deckHandle.addEventListener("pointerdown", (event) => {
+        if (!isTouchDeck()) return;
+        deckDragging = true;
+        deckDragY = event.clientY;
+        deckHandle.setPointerCapture?.(event.pointerId);
+      });
+      deckHandle.addEventListener("pointermove", (event) => {
+        if (!deckDragging) return;
+        const dy = Math.max(0, event.clientY - deckDragY);
+        deck.style.transform = `translateY(${Math.min(dy, 180)}px)`;
+        deck.style.opacity = String(Math.max(0.55, 1 - dy / 420));
+      });
+      const endDeckDrag = (event) => {
+        if (!deckDragging) return;
+        deckDragging = false;
+        const dy = Math.max(0, (event.clientY || 0) - deckDragY);
+        deck.style.transform = "";
+        deck.style.opacity = "";
+        if (dy > 70) setQuickDeckOpen(false);
+      };
+      deckHandle.addEventListener("pointerup", endDeckDrag);
+      deckHandle.addEventListener("pointercancel", endDeckDrag);
+    }
+
+    document.addEventListener("pointerdown", (event) => {
+      if (!quickDeckOpen) return;
+      if (deck.contains(event.target) || btn.contains(event.target)) return;
+      setQuickDeckOpen(false);
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (!quickDeckOpen) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setQuickDeckOpen(false);
+        return;
+      }
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        moveDeckFocus(event.key === "ArrowDown" ? 1 : -1);
+        return;
+      }
+      if (event.key === "Enter" || event.key === " ") {
+        if (document.activeElement && document.activeElement.classList && document.activeElement.classList.contains("deck-row")) {
+          event.preventDefault();
+          document.activeElement.click();
+        }
+        return;
+      }
+      if (event.key === "Tab") {
+        const focusable = Array.from(deck.querySelectorAll("button:not([disabled])")).filter((el) => el.offsetParent !== null);
+        if (!focusable.length) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    });
+  }
+
   function init() {
     const container = document.getElementById("canvas-container");
     clock = new THREE.Clock();
@@ -649,7 +984,7 @@
     };
 
     // 6. Build Local Player Astronaut Rig
-    buildLocalAstronaut("#67e8f9", "commander", isMobile ? "astronaut_lod1" : "astronaut_lod0");
+    buildLocalAstronaut("#c9f04b", "commander", isMobile ? "astronaut_lod1" : "astronaut_lod0");
 
     // 7. Setup UI & Network Flow
     setupMissionControlFlow();
@@ -683,7 +1018,10 @@
 
     // 9. Input controls & resize/orientation listeners
     setupInputControls();
+    setupQuickDeck();
     setupEmoteWheel();
+    setupTitleChrome();
+    setupPerfIdleState();
     setupMobileUX();
     window.addEventListener("resize", onWindowResize);
     window.addEventListener("orientationchange", () => {
@@ -809,7 +1147,7 @@
   // ============================================================================
   // NASA ASTRONAUT RIG, FLOATING NAMETAGS & FLIGHT SPECIALIZATION
   // ============================================================================
-  function createNameBadgeSprite(name = "Astronaut", color = "#67e8f9", role = "commander", isHost = false, team = "crew") {
+  function createNameBadgeSprite(name = "Astronaut", color = "#c9f04b", role = "commander", isHost = false, team = "crew") {
     const canvas = document.createElement("canvas");
     canvas.width = 512;
     canvas.height = 160;
@@ -818,11 +1156,13 @@
     function drawBadge(n, c, r, h, isSpeaking = false, isMuted = false, isRadio = false, currentTeam = "crew") {
       ctx.clearRect(0, 0, 512, 160);
       const pillX = 36, pillY = 24, pillW = 440, pillH = 112, rad = 24;
+      const themeBrand = (window.UITheme && window.UITheme.palette && window.UITheme.palette.brand) || "#c9f04b";
+      const themeStrong = (window.UITheme && window.UITheme.palette && window.UITheme.palette.brandStrong) || "#e4ff7e";
 
       ctx.save();
-      let glowColor = c || (currentTeam === "crew" ? "#67e8f9" : currentTeam === "bravo" ? "#3b82f6" : "#ef4444");
-      if (isRadio) glowColor = "#f59e0b";
-      else if (isSpeaking) glowColor = "#22c55e";
+      let glowColor = c || (currentTeam === "crew" ? themeBrand : currentTeam === "bravo" ? "#8a8194" : "#ff6b6b");
+      if (isRadio) glowColor = themeBrand;
+      else if (isSpeaking) glowColor = "#63e6a8";
 
       ctx.shadowColor = glowColor;
       ctx.shadowBlur = (isRadio || isSpeaking) ? 30 : 18;
@@ -864,9 +1204,9 @@
 
       const displayName = prefix + String(n || "CREW").toUpperCase();
       ctx.font = "900 34px 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-      if (isRadio) ctx.fillStyle = "#fef08a";
-      else if (isSpeaking) ctx.fillStyle = "#4ade80";
-      else ctx.fillStyle = "#ffffff";
+      if (isRadio) ctx.fillStyle = themeStrong;
+      else if (isSpeaking) ctx.fillStyle = "#63e6a8";
+      else ctx.fillStyle = "#efeee7";
 
       ctx.fillText(displayName, 256, 62);
 
@@ -877,13 +1217,13 @@
 
       ctx.font = "800 22px 'SF Mono', Monaco, Consolas, monospace";
       if (isRadio) {
-        ctx.fillStyle = "#fde047";
+        ctx.fillStyle = themeStrong;
         ctx.fillText("● " + roleBanner + " [RADIO]", 256, 104);
       } else if (isSpeaking) {
-        ctx.fillStyle = "#86efac";
+        ctx.fillStyle = "#63e6a8";
         ctx.fillText("● " + roleBanner + " [PROX]", 256, 104);
       } else {
-        ctx.fillStyle = c || roleMeta.color || "#67e8f9";
+        ctx.fillStyle = c || roleMeta.color || themeBrand;
         ctx.fillText("● " + roleBanner, 256, 104);
       }
     }
@@ -918,7 +1258,7 @@
   }
   window.createNameBadgeSprite = createNameBadgeSprite;
 
-  function createAstronautMesh(suitHexColor = "#67e8f9", role = "commander", name = "Astronaut", isHost = false, modelKey = null, team = "crew", options = {}) {
+  function createAstronautMesh(suitHexColor = "#c9f04b", role = "commander", name = "Astronaut", isHost = false, modelKey = null, team = "crew", options = {}) {
     if (window.glbManager && typeof window.glbManager.createAstronautRig === "function") {
       return window.glbManager.createAstronautRig(suitHexColor, role, name, isHost, modelKey, team, options);
     }
@@ -926,7 +1266,7 @@
     return { root };
   }
 
-  function buildLocalAstronaut(color = "#67e8f9", role = "commander", modelKey = null) {
+  function buildLocalAstronaut(color = "#c9f04b", role = "commander", modelKey = null) {
     const prevPos = (isGameStarted && localCrew.group) ? localCrew.group.position.clone() : null;
     const prevRotY = (isGameStarted && localCrew.group) ? localCrew.group.rotation.y : null;
 
@@ -995,6 +1335,40 @@
   // NASA EXPEDITION BRIEFING, FLIGHT CREDENTIALS & LOBBY CONTROLLER
   // ============================================================================
   let currentAstronaut = null;
+  let screenVeilTimer = null;
+
+  function setAnimatedNumber(el, value, duration = 320) {
+    if (!el) return;
+    const target = Number(value) || 0;
+    const start = Number(el.textContent) || 0;
+    const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion || start === target || typeof requestAnimationFrame !== "function") {
+      el.textContent = String(target);
+      return;
+    }
+    const startedAt = performance.now();
+    const step = (now) => {
+      const progress = Math.min(1, (now - startedAt) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      el.textContent = String(Math.round(start + (target - start) * eased));
+      if (progress < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  function playScreenVeil() {
+    const veil = document.getElementById("screen-transition-veil");
+    if (!veil) return;
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (screenVeilTimer) clearTimeout(screenVeilTimer);
+    veil.classList.remove("is-active");
+    void veil.offsetWidth;
+    veil.classList.add("is-active");
+    screenVeilTimer = setTimeout(() => {
+      veil.classList.remove("is-active");
+      screenVeilTimer = null;
+    }, 340);
+  }
 
   function setupMissionControlFlow() {
     if (!window.netManager) return;
@@ -1020,18 +1394,329 @@
     const btnCopyLink = document.getElementById("btn-copy-invite");
     const btnStartMission = document.getElementById("btn-start-mission");
 
-    function applyAstronautProfile(astro) {
-      currentAstronaut = null;
-      const defaultModel = isMobile ? "astronaut_lod1" : "astronaut_lod0";
-      if (window.netManager) window.netManager.userId = null;
+    // Auth modal elements
+    const modalAuth = document.getElementById("modal-auth");
+    const btnOpenAuth = document.getElementById("btn-open-auth");
+    const btnCloseAuth = document.getElementById("btn-close-auth");
+    const btnAuthLogout = document.getElementById("btn-auth-logout");
+    const btnDossierLogout = document.getElementById("btn-dossier-logout");
 
-      const defName = localStorage.getItem("interfellas_name") || "CDR. Vance";
-      if (inputName) inputName.value = defName;
-      window.netManager.localPlayer.name = defName;
-      window.netManager.localPlayer.color = "#67e8f9";
-      window.netManager.localPlayer.role = "commander";
-      buildLocalAstronaut("#67e8f9", "commander", defaultModel);
+    const tabLogin = document.getElementById("tab-auth-login");
+    const tabRegister = document.getElementById("tab-auth-register");
+    const tabReset = document.getElementById("tab-auth-reset");
+    const tabDossier = document.getElementById("tab-auth-dossier");
+
+    const formLogin = document.getElementById("form-auth-login");
+    const formRegister = document.getElementById("form-auth-register");
+    const formReset = document.getElementById("form-auth-reset");
+    const formDossier = document.getElementById("form-auth-dossier");
+    const authBanner = document.getElementById("auth-msg-banner");
+    const linkGotoReg = document.getElementById("link-goto-register");
+    const linkGotoReset = document.getElementById("link-goto-reset");
+    const linkGotoLoginFromReg = document.getElementById("link-goto-login-from-reg");
+    const linkGotoResetFromReg = document.getElementById("link-goto-reset-from-reg");
+    const linkGotoLoginFromReset = document.getElementById("link-goto-login-from-reset");
+
+    const authStatusTitle = document.getElementById("auth-status-title");
+    const authStatusDesc = document.getElementById("auth-status-desc");
+    const authStatusIcon = document.getElementById("auth-status-icon");
+
+    let regSelectedColor = "#c9f04b";
+    let dossierSelectedColor = "#c9f04b";
+
+    function showAuthBanner(msg, isError = false) {
+      if (!authBanner) return;
+      authBanner.textContent = msg;
+      authBanner.className = `auth-msg-banner ${isError ? 'error' : 'success'}`;
+      authBanner.style.display = "flex";
     }
+
+    function hideAuthBanner() {
+      if (authBanner) authBanner.style.display = "none";
+    }
+
+    function switchAuthTab(tab) {
+      hideAuthBanner();
+      [tabLogin, tabRegister, tabReset, tabDossier].forEach(t => { if (t) t.classList.remove("active"); });
+      [formLogin, formRegister, formReset, formDossier].forEach(f => { if (f) f.style.display = "none"; });
+
+      if (tab === "register") {
+        if (tabRegister) tabRegister.classList.add("active");
+        if (formRegister) formRegister.style.display = "block";
+      } else if (tab === "reset") {
+        if (tabReset) tabReset.classList.add("active");
+        if (formReset) formReset.style.display = "block";
+      } else if (tab === "dossier") {
+        if (tabDossier) tabDossier.classList.add("active");
+        if (formDossier) formDossier.style.display = "block";
+        populateDossierForm();
+      } else {
+        if (tabLogin) tabLogin.classList.add("active");
+        if (formLogin) formLogin.style.display = "block";
+      }
+    }
+
+    if (btnOpenAuth) {
+      btnOpenAuth.addEventListener("click", () => {
+        if (modalAuth) modalAuth.style.display = "flex";
+        switchAuthTab(currentAstronaut ? "dossier" : "login");
+      });
+    }
+    if (btnCloseAuth) btnCloseAuth.addEventListener("click", () => { if (modalAuth) modalAuth.style.display = "none"; });
+    if (linkGotoReg) linkGotoReg.addEventListener("click", (e) => { e.preventDefault(); switchAuthTab("register"); });
+    if (linkGotoReset) linkGotoReset.addEventListener("click", (e) => { e.preventDefault(); switchAuthTab("reset"); });
+    if (linkGotoLoginFromReg) linkGotoLoginFromReg.addEventListener("click", (e) => { e.preventDefault(); switchAuthTab("login"); });
+    if (linkGotoResetFromReg) linkGotoResetFromReg.addEventListener("click", (e) => { e.preventDefault(); switchAuthTab("reset"); });
+    if (linkGotoLoginFromReset) linkGotoLoginFromReset.addEventListener("click", (e) => { e.preventDefault(); switchAuthTab("login"); });
+
+    if (tabLogin) tabLogin.addEventListener("click", () => switchAuthTab("login"));
+    if (tabRegister) tabRegister.addEventListener("click", () => switchAuthTab("register"));
+    if (tabReset) tabReset.addEventListener("click", () => switchAuthTab("reset"));
+    if (tabDossier) tabDossier.addEventListener("click", () => switchAuthTab("dossier"));
+
+    document.querySelectorAll("#reg-color-swatches .lobby-color-btn").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        document.querySelectorAll("#reg-color-swatches .lobby-color-btn").forEach(b => b.classList.remove("active"));
+        e.currentTarget.classList.add("active");
+        regSelectedColor = e.currentTarget.getAttribute("data-color");
+      });
+    });
+
+    document.querySelectorAll("#dossier-color-swatches .lobby-color-btn").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        document.querySelectorAll("#dossier-color-swatches .lobby-color-btn").forEach(b => b.classList.remove("active"));
+        e.currentTarget.classList.add("active");
+        dossierSelectedColor = e.currentTarget.getAttribute("data-color");
+      });
+    });
+
+    function applyAstronautProfile(astro) {
+      currentAstronaut = astro;
+      const defaultModel = isMobile ? "astronaut_lod1" : "astronaut_lod0";
+      if (!astro) {
+        if (authStatusTitle) authStatusTitle.textContent = "GUEST";
+        if (authStatusDesc) authStatusDesc.textContent = "Local session";
+        if (btnOpenAuth) btnOpenAuth.textContent = "SIGN IN";
+        if (btnAuthLogout) btnAuthLogout.style.display = "none";
+        if (tabDossier) tabDossier.style.display = "none";
+        if (window.netManager) window.netManager.userId = null;
+
+        const defName = localStorage.getItem("interfellas_name") || "CDR. Vance";
+        if (inputName) inputName.value = defName;
+        window.netManager.localPlayer.name = defName;
+        window.netManager.localPlayer.color = "#c9f04b";
+        window.netManager.localPlayer.role = "commander";
+        buildLocalAstronaut("#c9f04b", "commander", defaultModel);
+        return;
+      }
+
+      const rank = astro.flight_title || "Commander";
+      const callsign = astro.callsign || astro.username;
+      const color = astro.suit_color || "#c9f04b";
+
+      if (authStatusTitle) authStatusTitle.textContent = `${callsign.toUpperCase()}`;
+      if (authStatusDesc) authStatusDesc.textContent = `${rank.toUpperCase()}`;
+      if (btnOpenAuth) btnOpenAuth.textContent = "DOSSIER";
+      if (btnAuthLogout) btnAuthLogout.style.display = "inline-block";
+      if (tabDossier) tabDossier.style.display = "inline-block";
+
+      if (inputName) inputName.value = callsign;
+
+      const statMissions = document.getElementById("stat-missions");
+      const statVictories = document.getElementById("stat-victories");
+      const statTasks = document.getElementById("stat-tasks");
+      setAnimatedNumber(statMissions, astro.games_played || 0);
+      setAnimatedNumber(statVictories, astro.games_won || 0);
+      setAnimatedNumber(statTasks, astro.tasks_completed || 0);
+
+      if (astro.token && typeof window.netManager.setAuthToken === "function") {
+        window.netManager.setAuthToken(astro.token);
+      }
+      const normalizedRole = window.InterfellasRoles
+        ? window.InterfellasRoles.normalizeRole(astro.preferred_role || rank, "commander")
+        : "commander";
+      window.netManager.userId = astro.id;
+      window.netManager.localPlayer.name = callsign;
+      window.netManager.localPlayer.color = color;
+      window.netManager.localPlayer.role = normalizedRole;
+      if (normalizedRole !== "commander") {
+        window.netManager.explicitRoleSelected = true;
+      }
+      buildLocalAstronaut(color, normalizedRole, defaultModel);
+      if (typeof window.syncLobbySelectionUI === "function") window.syncLobbySelectionUI();
+      if (typeof window.renderHudCrewRoster === "function") window.renderHudCrewRoster();
+    }
+
+    function populateDossierForm() {
+      if (!currentAstronaut) return;
+      const cInput = document.getElementById("dossier-callsign");
+      const tSelect = document.getElementById("dossier-title");
+      const dMissions = document.getElementById("dossier-missions");
+      const dVictories = document.getElementById("dossier-victories");
+      const dTasks = document.getElementById("dossier-tasks");
+
+      if (cInput) cInput.value = currentAstronaut.callsign || currentAstronaut.username;
+      if (tSelect) tSelect.value = currentAstronaut.flight_title || "Commander";
+      if (dMissions) dMissions.textContent = currentAstronaut.games_played || 0;
+      if (dVictories) dVictories.textContent = currentAstronaut.games_won || 0;
+      if (dTasks) dTasks.textContent = currentAstronaut.tasks_completed || 0;
+
+      dossierSelectedColor = currentAstronaut.suit_color || "#c9f04b";
+      document.querySelectorAll("#dossier-color-swatches .lobby-color-btn").forEach(b => {
+        b.classList.toggle("active", b.getAttribute("data-color") === dossierSelectedColor);
+      });
+    }
+
+    if (formLogin) {
+      formLogin.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const username = document.getElementById("login-username").value.trim();
+        const password = document.getElementById("login-password").value;
+        try {
+          const res = await fetch("/api/auth/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password })
+          });
+          const data = await res.json();
+          if (data.success && data.user) {
+            const credential = { ...data.user, token: data.token };
+            localStorage.setItem("nasa_astronaut_credential", JSON.stringify(credential));
+            applyAstronautProfile(credential);
+            showAuthBanner("NASA Flight Credential Authenticated. Welcome aboard!", false);
+            setTimeout(() => { if (modalAuth) modalAuth.style.display = "none"; }, 1000);
+          } else {
+            showAuthBanner(data.error || "Authentication failed.", true);
+          }
+        } catch (err) {
+          showAuthBanner("Server communication error: " + err.message, true);
+        }
+      });
+    }
+
+    if (formRegister) {
+      formRegister.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const username = document.getElementById("reg-username").value.trim();
+        const callsign = document.getElementById("reg-callsign").value.trim();
+        const password = document.getElementById("reg-password").value;
+        const flightTitle = document.getElementById("reg-title").value;
+        try {
+          const res = await fetch("/api/auth/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password, callsign, flightTitle, suitColor: regSelectedColor })
+          });
+          const data = await res.json();
+          if (data.success && data.user) {
+            const credential = { ...data.user, token: data.token };
+            localStorage.setItem("nasa_astronaut_credential", JSON.stringify(credential));
+            window.netManager.explicitRoleSelected = true;
+            applyAstronautProfile(credential);
+            showAuthBanner("Flight Credential Issued! Welcome to the Astronaut Corps.", false);
+            setTimeout(() => { if (modalAuth) modalAuth.style.display = "none"; }, 1000);
+          } else {
+            showAuthBanner(data.error || "Registration failed.", true);
+          }
+        } catch (err) {
+          showAuthBanner("Server communication error: " + err.message, true);
+        }
+      });
+    }
+
+    if (formReset) {
+      formReset.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const username = document.getElementById("reset-username").value.trim();
+        const currentPassword = document.getElementById("reset-current-password").value;
+        const newPassword = document.getElementById("reset-password").value;
+        try {
+          const res = await fetch("/api/auth/reset-password", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, currentPassword, newPassword })
+          });
+          const data = await res.json();
+          if (data.success && data.user) {
+            const credential = { ...data.user, token: data.token };
+            localStorage.setItem("nasa_astronaut_credential", JSON.stringify(credential));
+            applyAstronautProfile(credential);
+            showAuthBanner(data.message || "Password reset successfully.", false);
+            setTimeout(() => { if (modalAuth) modalAuth.style.display = "none"; }, 1000);
+          } else {
+            showAuthBanner(data.error || "Password reset failed.", true);
+          }
+        } catch (err) {
+          showAuthBanner("Server communication error: " + err.message, true);
+        }
+      });
+    }
+
+    if (formDossier) {
+      formDossier.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (!currentAstronaut) return;
+        const callsign = document.getElementById("dossier-callsign").value.trim();
+        const flightTitle = document.getElementById("dossier-title").value;
+        try {
+          const normalizedPreferredRole = window.InterfellasRoles
+            ? window.InterfellasRoles.normalizeRole(flightTitle, "commander")
+            : "commander";
+          const res = await fetch("/api/auth/update-profile", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${currentAstronaut.token || ""}`
+            },
+            body: JSON.stringify({
+              callsign,
+              flightTitle,
+              suitColor: dossierSelectedColor,
+              preferredRole: normalizedPreferredRole
+            })
+          });
+          const data = await res.json();
+          if (data.success && data.user) {
+            const credential = { ...data.user, token: currentAstronaut.token };
+            localStorage.setItem("nasa_astronaut_credential", JSON.stringify(credential));
+            window.netManager.explicitRoleSelected = true;
+            applyAstronautProfile(credential);
+            if (window.netManager.roomId) {
+              window.netManager.customizeAstronaut(callsign, dossierSelectedColor, normalizedPreferredRole, null, null, null, { explicitRole: true });
+            }
+            showAuthBanner("Flight Dossier updated successfully.", false);
+            setTimeout(() => { if (modalAuth) modalAuth.style.display = "none"; }, 1000);
+          } else {
+            showAuthBanner(data.error || "Update failed.", true);
+          }
+        } catch (err) {
+          showAuthBanner("Server communication error: " + err.message, true);
+        }
+      });
+    }
+
+    const doLogout = () => {
+      const stored = localStorage.getItem("nasa_astronaut_credential");
+      let token = null;
+      try {
+        token = stored ? JSON.parse(stored).token : null;
+      } catch (e) {}
+      if (token) {
+        fetch("/api/auth/logout", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${token}` }
+        }).catch(() => {});
+      }
+      localStorage.removeItem("nasa_astronaut_credential");
+      if (window.netManager && typeof window.netManager.setAuthToken === "function") {
+        window.netManager.setAuthToken(null);
+      }
+      if (window.netManager) window.netManager.explicitRoleSelected = false;
+      applyAstronautProfile(null);
+      if (modalAuth) modalAuth.style.display = "none";
+    };
+    if (btnAuthLogout) btnAuthLogout.addEventListener("click", doLogout);
+    if (btnDossierLogout) btnDossierLogout.addEventListener("click", doLogout);
 
     try {
       localStorage.removeItem("nasa_astronaut_credential");
@@ -1056,16 +1741,16 @@
       const statMissions = document.getElementById("stat-missions");
       const statVictories = document.getElementById("stat-victories");
       const statTasks = document.getElementById("stat-tasks");
-      if (statMissions) statMissions.textContent = profile.games_played || 0;
-      if (statVictories) statVictories.textContent = profile.games_won || 0;
-      if (statTasks) statTasks.textContent = profile.tasks_completed || 0;
+      setAnimatedNumber(statMissions, profile.games_played || 0);
+      setAnimatedNumber(statVictories, profile.games_won || 0);
+      setAnimatedNumber(statTasks, profile.tasks_completed || 0);
     });
 
     if (btnHost) {
       btnHost.addEventListener("click", () => {
         const name = inputName ? inputName.value.trim() : (currentAstronaut ? currentAstronaut.callsign : "Commander");
         const color = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.color)
-          || (currentAstronaut ? currentAstronaut.suit_color : "#67e8f9");
+          || (currentAstronaut ? currentAstronaut.suit_color : "#c9f04b");
         window.netManager.createRoom(name, color, null, {
           explicitRole: false,
           isPublic: false,
@@ -1083,7 +1768,7 @@
         }
         const name = inputName ? inputName.value.trim() : (currentAstronaut ? currentAstronaut.callsign : "Crew");
         const color = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.color)
-          || (currentAstronaut ? currentAstronaut.suit_color : "#67e8f9");
+          || (currentAstronaut ? currentAstronaut.suit_color : "#c9f04b");
         window.netManager.joinRoom(code, name, color, null, { explicitRole: false });
       });
     }
@@ -1092,7 +1777,7 @@
       btnQuick.addEventListener("click", () => {
         const name = inputName ? inputName.value.trim() : (currentAstronaut ? currentAstronaut.callsign : "Crew");
         const color = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.color)
-          || (currentAstronaut ? currentAstronaut.suit_color : "#67e8f9");
+          || (currentAstronaut ? currentAstronaut.suit_color : "#c9f04b");
         window.netManager.startSolo(name, color, null, {
           opsMode: standaloneShuttleMode ? "shuttle_flight" : "iss_expedition"
         });
@@ -1353,13 +2038,17 @@
       if (window.location.search && window.history && typeof window.history.replaceState === "function") {
         window.history.replaceState({}, "", window.location.pathname);
       }
+      playScreenVeil();
       if (screenLobby) screenLobby.style.display = "none";
       if (screenGame) screenGame.style.display = "none";
       if (screenMenu) screenMenu.style.display = "flex";
+      document.body.classList.add("menu-active");
     }
 
     window.netManager.on("lobby_returned", (data) => {
       setCrewCommsOpen(false);
+      playScreenVeil();
+      document.body.classList.remove("menu-active");
       cleanupGameWorldForLobby();
       if (window.gameplay && typeof window.gameplay.resetTasks === "function") {
         window.gameplay.resetTasks();
@@ -1492,7 +2181,7 @@
     window.netManager.on("auto_join_url", (roomCode) => {
       if (inputCode) inputCode.value = roomCode;
       const color = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.color)
-        || (currentAstronaut ? currentAstronaut.suit_color : "#67e8f9");
+        || (currentAstronaut ? currentAstronaut.suit_color : "#c9f04b");
       window.netManager.joinRoom(roomCode, inputName ? inputName.value : "Crew", color, null, { explicitRole: false });
     });
 
@@ -1735,7 +2424,7 @@
             const curVol = Math.round((vm.playerVolumes[rp.id] !== undefined ? vm.playerVolumes[rp.id] : 1.0) * 100);
             const row = document.createElement("div");
             row.className = "crewmate-vol-row";
-            const volColor = safeHexColor(rp.color, "#ece7dc");
+            const volColor = safeHexColor(rp.color, "#efeee7");
             const volName = escapeHtml(rp.name || "Crew");
             row.innerHTML = `
               <span class="crewmate-vol-name" style="color:${volColor};">${volName}</span>
@@ -1870,12 +2559,14 @@
     }
 
     // Settings Modal Tabs
-    document.querySelectorAll(".sys-tab-btn").forEach((btn) => {
+    const settingsTabsBar = document.querySelector(".systems-tabs-bar");
+    document.querySelectorAll(".sys-tab-btn").forEach((btn, index) => {
       btn.addEventListener("click", () => {
         const targetId = btn.getAttribute("data-tab");
         document.querySelectorAll(".sys-tab-btn").forEach((b) => b.classList.remove("active"));
         document.querySelectorAll(".sys-tab-content").forEach((c) => c.classList.remove("active"));
         btn.classList.add("active");
+        if (settingsTabsBar) settingsTabsBar.style.setProperty("--tab-index", String(index));
         const targetEl = targetId ? document.getElementById(targetId) : null;
         if (targetEl) targetEl.classList.add("active");
       });
@@ -2034,7 +2725,7 @@
         : (lp.role || "commander");
       lp.role = normRole;
       if (localCrew && (localCrew.role !== normRole || localCrew.color !== lp.color)) {
-        buildLocalAstronaut(lp.color || "#67e8f9", normRole);
+        buildLocalAstronaut(lp.color || "#c9f04b", normRole);
       }
       if (typeof window.syncLobbySelectionUI === "function") window.syncLobbySelectionUI();
       if (typeof window.renderHudCrewRoster === "function") window.renderHudCrewRoster();
@@ -2079,6 +2770,8 @@
       const isSolo = !!(data.solo || (data.room && data.room.isSolo));
       const autoStart = isSolo && !!window.netManager.soloAutoStart;
       window.netManager.soloAutoStart = false;
+      playScreenVeil();
+      document.body.classList.remove("menu-active");
       screenMenu.style.display = "none";
       syncLocalRigWithServer();
       updateLocalBadge();
@@ -2102,6 +2795,11 @@
 
     window.netManager.on("room_joined", (data) => {
       if (inputCode) inputCode.value = "";
+      playScreenVeil();
+      document.body.classList.remove("menu-active");
+      screenMenu.style.display = "none";
+      screenLobby.style.display = "flex";
+      screenGame.style.display = "none";
       if (lobbyRoomCode) lobbyRoomCode.textContent = data.roomId;
       applySoloLobbyChrome(false);
       updateLobbySlots(data.room.players, data.hostId, data.room.status);
@@ -2290,6 +2988,8 @@
     });
 
     window.netManager.on("game_started", (data) => {
+      playScreenVeil();
+      document.body.classList.remove("menu-active");
       screenMenu.style.display = "none";
       screenLobby.style.display = "none";
       preloadGroundCrewModels(data && data.players);
@@ -3161,7 +3861,7 @@
   function syncLobbySelectionUI(explicitPlayers) {
     const net = window.netManager;
     const lp = net && net.localPlayer ? net.localPlayer : {};
-    const myColor = String(lp.color || "#67e8f9").toLowerCase();
+    const myColor = String(lp.color || "#c9f04b").toLowerCase();
     const players = Array.isArray(explicitPlayers)
       ? explicitPlayers
       : (net && net.roomState && Array.isArray(net.roomState.players) ? net.roomState.players : []);
@@ -3268,7 +3968,7 @@
 
     const players = rs && Array.isArray(rs.players) && rs.players.length > 0
       ? rs.players
-      : [{ id: net ? net.socketId : "local", name: lp.name || "YOU", role: myRole, team: localIsGround ? "ground" : "crew", isHost: !!(net && net.isHost), color: lp.color || "#67e8f9" }];
+      : [{ id: net ? net.socketId : "local", name: lp.name || "YOU", role: myRole, team: localIsGround ? "ground" : "crew", isHost: !!(net && net.isHost), color: lp.color || "#c9f04b" }];
 
     const mission = (net && typeof net.getMission === "function" ? net.getMission() : null) || (rs && rs.mission) || {};
     const phase = mission.phase
@@ -3492,7 +4192,7 @@
   }
   window.renderHudCrewRoster = renderHudCrewRoster;
 
-  function safeHexColor(color, fallback = "#ef4444") {
+  function safeHexColor(color, fallback = "#ff6b6b") {
     return typeof color === "string" && /^#[0-9a-fA-F]{6}$/.test(color) ? color : fallback;
   }
 
@@ -3511,7 +4211,7 @@
     const div = document.createElement("div");
     div.className = "lobby-msg";
     const sender = document.createElement("strong");
-    sender.style.color = safeHexColor(comm && comm.color, "#ef4444");
+    sender.style.color = safeHexColor(comm && comm.color, "#ff6b6b");
     sender.textContent = String((comm && comm.sender) || "Crew");
     const sep = document.createTextNode(": ");
     const text = document.createElement("span");
@@ -3857,8 +4557,8 @@
           window.virtualJoyActive = true;
         }
         if (joyHint) {
-          joyHint.textContent = mag > 0.82 ? "SPRINT" : "RUN";
-          joyHint.style.color = mag > 0.82 ? "#67e8f9" : "rgba(154, 164, 174, 0.78)";
+          joyHint.textContent = mag > 0.82 ? "SPRINT" : "MOVE";
+          joyHint.style.color = mag > 0.82 ? "var(--ui-brand)" : "rgba(167, 176, 186, 0.78)";
         }
       };
 
@@ -4430,7 +5130,7 @@
 
     if (fpsVal) {
       fpsVal.textContent = currentFps;
-      const fpsColor = currentFps >= 50 ? "#22c55e" : (currentFps >= 30 ? "#f59e0b" : "#ef4444");
+      const fpsColor = currentFps >= 50 ? "#63e6a8" : (currentFps >= 30 ? "var(--ui-brand)" : "#ff6b6b");
       fpsVal.style.color = fpsColor;
       if (fpsDot) fpsDot.style.background = fpsColor;
     }
@@ -4439,18 +5139,18 @@
     let statusText = "NOMINAL";
     if (pingVal && currentPing !== null) {
       pingVal.textContent = `${currentPing} ms`;
-      let pingColor = "#22c55e";
+      let pingColor = "#63e6a8";
 
       if (currentPing < 80) {
-        pingColor = "#22c55e";
+        pingColor = "#63e6a8";
         statusText = "NOMINAL";
         latencyTier = "nominal";
       } else if (currentPing < 180) {
-        pingColor = "#f59e0b";
+        pingColor = "var(--ui-brand)";
         statusText = "MODERATE";
         latencyTier = "moderate";
       } else {
-        pingColor = "#ef4444";
+        pingColor = "#ff6b6b";
         statusText = "HIGH LATENCY";
         latencyTier = "caution";
       }
@@ -4504,7 +5204,7 @@
     const netDiagJitter = document.getElementById("net-diag-jitter");
     if (netDiagStatus) {
       netDiagStatus.textContent = isConnected ? "ONLINE" : "OFFLINE";
-      netDiagStatus.style.color = isConnected ? "#7fb8a6" : "#c08a8a";
+      netDiagStatus.style.color = isConnected ? "#63e6a8" : "#ff6b6b";
     }
     if (netDiagPing) netDiagPing.textContent = `${currentPing !== null ? currentPing : "--"} ms`;
     if (netDiagJitter) netDiagJitter.textContent = `±${jitterMs} ms`;
@@ -4564,6 +5264,8 @@
     if (window.glbManager && typeof window.glbManager.updateFleet === "function") {
       window.glbManager.updateFleet(delta, elapsed);
     }
+
+    updateHudCompass(delta);
 
     if (window.shipInterior && typeof window.shipInterior.update === "function") {
       window.shipInterior.update(delta, elapsed, camera);

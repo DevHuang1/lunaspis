@@ -2487,36 +2487,10 @@
           ctx.lineTo(s, p);
           ctx.stroke();
         }
-        // Rust and oil blooms.
-        for (let i = 0; i < 8; i++) {
-          const x = Math.random() * s;
-          const y = Math.random() * s;
-          const r = 8 + Math.random() * 26;
-          const grain = ctx.createRadialGradient(x, y, 0, x, y, r);
-          const dark = Math.random() > 0.5;
-          grain.addColorStop(0, dark ? "rgba(20,22,22,0.22)" : "rgba(118,71,34,0.16)");
-          grain.addColorStop(1, "rgba(0,0,0,0)");
-          ctx.fillStyle = grain;
-          ctx.beginPath();
-          ctx.arc(x, y, r, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        // Scuffs and paint chips.
-        for (let i = 0; i < 45; i++) {
-          ctx.fillStyle = Math.random() > 0.5 ? "rgba(224,230,232,0.12)" : "rgba(28,34,38,0.16)";
-          ctx.fillRect(Math.random() * s, Math.random() * s, 1 + Math.random() * 8, 1 + Math.random() * 2);
-        }
-        // Faint weld beads along the panel breaks.
-        ctx.strokeStyle = "rgba(210,216,218,0.09)";
-        ctx.lineWidth = 1;
-        for (let i = 0; i <= 8; i++) {
-          const p = (i / 8) * s;
-          ctx.beginPath();
-          ctx.moveTo(p + 2, 0);
-          ctx.lineTo(p + 2, s);
-          ctx.stroke();
-        }
-      }, 8, 8);
+        ctx.strokeStyle = "rgba(201,240,75,0.55)";
+        ctx.lineWidth = 6;
+        ctx.strokeRect(4, 4, s - 8, s - 8);
+      }, 4, 4);
       const stagingDeckMat = new THREE.MeshStandardMaterial({
         color: 0xffffff,
         map: deckTex,
@@ -3843,10 +3817,10 @@
       const signCtx = signCanvas.getContext("2d");
       signCtx.fillStyle = "#101820";
       signCtx.fillRect(0, 0, 512, 160);
-      signCtx.strokeStyle = "#e2e8f0";
+      signCtx.strokeStyle = "#efeee7";
       signCtx.lineWidth = 8;
       signCtx.strokeRect(8, 8, 496, 144);
-      signCtx.fillStyle = "#f8fafc";
+      signCtx.fillStyle = "#efeee7";
       signCtx.font = "900 82px Arial, Helvetica, sans-serif";
       signCtx.textAlign = "center";
       signCtx.textBaseline = "middle";
@@ -5429,7 +5403,7 @@
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
-      ctx.fillStyle = "#f8fafc";
+      ctx.fillStyle = "#efeee7";
       ctx.font = "800 45px Arial, Helvetica, sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
@@ -6753,7 +6727,7 @@
             </button>
             ${guidance.isGround ? `
               <button type="button" id="btn-sc-comms" class="sc-hud-btn sc-btn-comms" title="Open the shared Earth ↔ Flight crew comms channel">COMMS</button>
-              <button type="button" id="btn-sc-video" class="sc-hud-btn sc-btn-comms" title="Open the live flight-deck crew video link">VIDEO ${window.videoLink && window.videoLink.enabled ? "ON" : "OFF"}</button>
+              <button type="button" id="btn-sc-video" class="sc-hud-btn sc-btn-comms" title="Open the animated 3D flight-deck crew link">3D LINK ${window.videoLink && window.videoLink.enabled ? "ON" : "OFF"}</button>
             ` : ""}
             <button type="button" id="btn-sc-hud-toggle" class="sc-hud-btn sc-btn-collapse" title="${this.hudCollapsed ? (touring ? "Open fast travel destinations" : "Expand Launch Pad Dock") : (touring ? "Hide fast travel destinations" : "Minimize Launch Pad Dock")}">
               ${this.hudCollapsed ? (touring ? "TRAVEL" : "+") : (touring ? "CLOSE" : "-")}
@@ -6870,8 +6844,8 @@
       const btnScVideo = this.hudOverlay.querySelector("#btn-sc-video");
       if (btnScVideo) {
         btnScVideo.addEventListener("click", () => {
-          if (window.videoLink && typeof window.videoLink.startCamera === "function" && !window.videoLink.enabled) {
-            window.videoLink.startCamera();
+          if (window.videoLink && typeof window.videoLink.startLink === "function" && !window.videoLink.enabled) {
+            window.videoLink.startLink();
           }
           this.openLccConsole(true);
         });
@@ -7204,7 +7178,7 @@
             </div>
           </div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-            <button type="button" class="ground-action-btn" id="btn-lcc-video" style="border-color:rgba(74,222,128,0.55);color:#bbf7d0;">${(window.videoLink && window.videoLink.enabled) ? "CAMERA ON" : "START CAMERA"}</button>
+            <button type="button" class="ground-action-btn" id="btn-lcc-video" style="border-color:rgba(74,222,128,0.55);color:#bbf7d0;">${(window.videoLink && window.videoLink.enabled) ? "3D LINK ON" : "START 3D LINK"}</button>
             <button type="button" class="ground-action-btn" id="btn-lcc-comms" style="border-color:rgba(56,189,248,0.65);color:#7dd3fc;">CREW COMMS</button>
             <button type="button" class="ground-action-btn" id="btn-lcc-open-viz">3D PATH VIEW [U]</button>
             <button type="button" class="ground-action-btn" id="btn-lcc-open-planner">MISSION PLAN [M]</button>
@@ -7289,7 +7263,7 @@
       });
       const btnLccVideo = this.lccConsoleOverlay.querySelector("#btn-lcc-video");
       if (btnLccVideo) btnLccVideo.addEventListener("click", () => {
-        if (window.videoLink && typeof window.videoLink.toggleCamera === "function") window.videoLink.toggleCamera();
+        if (window.videoLink && typeof window.videoLink.toggleLink === "function") window.videoLink.toggleLink();
       });
       const cabinVideoSlot = this.lccConsoleOverlay.querySelector("#lcc-cabin-video");
       if (cabinVideoSlot && window.videoLink && typeof window.videoLink.attachCabinView === "function") {

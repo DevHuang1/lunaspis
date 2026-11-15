@@ -2,18 +2,21 @@
   "use strict";
 
   const FALLBACK = {
-    brand: "#d0a15c",
-    brandStrong: "#e7c58c",
-    brandSoft: "rgba(208, 161, 92, 0.12)",
-    brandLine: "rgba(208, 161, 92, 0.42)",
-    brandInk: "#1a1206",
-    ink: "#eceae3",
-    inkMuted: "#a6adb6",
-    inkDim: "#6f7782",
-    ok: "#83a896",
-    warn: "#d0a15c",
-    crit: "#c67979",
-    glassBorder: "rgba(255, 255, 255, 0.13)"
+    brand: "#c9f04b",
+    brandStrong: "#e4ff7e",
+    brandRgb: "201, 240, 75",
+    brandSoft: "rgba(201, 240, 75, 0.12)",
+    brandLine: "rgba(201, 240, 75, 0.42)",
+    brandInk: "#0b1204",
+    ink: "#efeee7",
+    inkMuted: "#a7b0ba",
+    inkDim: "#7a8490",
+    ok: "#63e6a8",
+    warn: "#f5c451",
+    crit: "#ff6b6b",
+    info: "#7dd3fc",
+    data: "#7dd3fc",
+    glassBorder: "rgba(255, 255, 255, 0.10)"
   };
 
   const cssVar = (name, fallback) => {
@@ -25,6 +28,7 @@
   const palette = {
     brand: cssVar("--brand", cssVar("--ui-brand", FALLBACK.brand)),
     brandStrong: cssVar("--brand-strong", cssVar("--ui-brand-strong", FALLBACK.brandStrong)),
+    brandRgb: cssVar("--ui-brand-rgb", FALLBACK.brandRgb),
     brandSoft: cssVar("--brand-soft", cssVar("--ui-brand-soft", FALLBACK.brandSoft)),
     brandLine: cssVar("--brand-line", cssVar("--ui-brand-line", FALLBACK.brandLine)),
     brandInk: cssVar("--brand-ink", FALLBACK.brandInk),
@@ -34,6 +38,8 @@
     ok: cssVar("--state-ok", cssVar("--ui-ok", FALLBACK.ok)),
     warn: cssVar("--ui-warn", FALLBACK.warn),
     crit: cssVar("--state-crit", cssVar("--ui-crit", FALLBACK.crit)),
+    info: cssVar("--ui-info", FALLBACK.info),
+    data: cssVar("--ui-data", FALLBACK.data),
     glassBorder: cssVar("--glass-border", FALLBACK.glassBorder)
   };
 
@@ -67,6 +73,53 @@
     }
   };
 
+  const THEMES = {
+    "flight-lime": { label: "FLIGHT LIME", metaColor: "#080b10" },
+    "gloss-silver": { label: "GLOSS SILVER", metaColor: "#07090c" },
+    "lunar-champagne": { label: "LUNAR CHAMPAGNE", metaColor: "#080a0e" }
+  };
+  const THEME_STORAGE_KEY = "lunaspis_ui_theme";
+
+  function storedTheme() {
+    try {
+      const value = localStorage.getItem(THEME_STORAGE_KEY);
+      return THEMES[value] ? value : "";
+    } catch (_) {
+      return "";
+    }
+  }
+
+  let currentTheme = storedTheme() || document.documentElement.dataset.theme || "flight-lime";
+  if (!THEMES[currentTheme]) currentTheme = "flight-lime";
+  document.documentElement.dataset.theme = currentTheme;
+
+  function updateThemeUI() {
+    document.querySelectorAll("[data-theme-choice]").forEach((button) => {
+      const selected = button.getAttribute("data-theme-choice") === currentTheme;
+      button.classList.toggle("is-active", selected);
+      button.setAttribute("aria-checked", String(selected));
+    });
+    const badge = document.getElementById("theme-val-badge");
+    if (badge) badge.textContent = (THEMES[currentTheme] || THEMES["flight-lime"]).label;
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", (THEMES[currentTheme] || THEMES["flight-lime"]).metaColor);
+  }
+
+  function applyTheme(theme, persist = true) {
+    const next = THEMES[theme] ? theme : "flight-lime";
+    currentTheme = next;
+    document.documentElement.dataset.theme = next;
+    if (persist) {
+      try { localStorage.setItem(THEME_STORAGE_KEY, next); } catch (_) { /* noop */ }
+    }
+    if (window.UITheme && typeof window.UITheme.refreshColors === "function") {
+      window.UITheme.refreshColors();
+    }
+    updateThemeUI();
+    window.dispatchEvent(new CustomEvent("ui-theme-changed", { detail: { theme: next } }));
+    return next;
+  }
+
   let currentInput = "kbm";
   const listeners = new Set();
 
@@ -97,6 +150,10 @@
     if (nav) nav.textContent = glyphs.navigate;
     if (select) select.textContent = glyphs.select;
     if (close) close.textContent = glyphs.close;
+    document.querySelectorAll(".ctl-glyph[data-action]").forEach((el) => {
+      const action = el.getAttribute("data-action");
+      if (glyphs[action]) el.textContent = glyphs[action];
+    });
   }
 
   function onInput(event) {
@@ -128,6 +185,10 @@
 
     window.UITheme = {
       palette,
+      themes: THEMES,
+      color(name = "brand") { return palette[name] || palette.brand; },
+      get theme() { return currentTheme; },
+      setTheme(theme) { return applyTheme(theme, true); },
       get inputMode() { return currentInput; },
       setInputMode,
       prompts: () => prompts[currentInput],
@@ -139,11 +200,15 @@
       refreshColors() {
         palette.brand = cssVar("--brand", palette.brand);
         palette.brandStrong = cssVar("--brand-strong", palette.brandStrong);
+        palette.brandRgb = cssVar("--ui-brand-rgb", palette.brandRgb);
         palette.ink = cssVar("--ink-1", palette.ink);
         palette.inkMuted = cssVar("--ink-2", palette.inkMuted);
         palette.inkDim = cssVar("--ink-3", palette.inkDim);
         palette.ok = cssVar("--state-ok", palette.ok);
         palette.crit = cssVar("--state-crit", palette.crit);
+        palette.warn = cssVar("--ui-warn", palette.warn);
+        palette.info = cssVar("--ui-info", palette.info);
+        palette.data = cssVar("--ui-data", palette.data);
       },
       setQualityClass(preset) {
         const fast = preset === "potato" || preset === "off";
@@ -151,10 +216,26 @@
       }
     };
 
+    applyTheme(currentTheme, false);
+
+    function bindThemeControls() {
+      document.querySelectorAll("[data-theme-choice]").forEach((button) => {
+        button.addEventListener("click", () => {
+          applyTheme(button.getAttribute("data-theme-choice"), true);
+        });
+      });
+      updateThemeUI();
+    }
+
     if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", updatePrompts, { once: true });
+      document.addEventListener("DOMContentLoaded", () => {
+        updatePrompts();
+        bindThemeControls();
+      }, { once: true });
     } else {
       updatePrompts();
+      bindThemeControls();
     }
+    updateThemeUI();
   }
 })();

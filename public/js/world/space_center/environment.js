@@ -304,14 +304,14 @@
       (ctx, w, h) => {
         ctx.fillStyle = "#064e3b";
         ctx.fillRect(0, 0, w, h);
-        ctx.strokeStyle = "#f8fafc";
+        ctx.strokeStyle = "#efeee7";
         ctx.lineWidth = 8;
         ctx.strokeRect(8, 8, w - 16, h - 16);
-        ctx.fillStyle = "#f8fafc";
+        ctx.fillStyle = "#efeee7";
         ctx.font = "900 44px Arial, Helvetica, sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText("KENNEDY SPACE CENTER · LAUNCH PAD 39A →", w * 0.5, h * 0.44);
-        ctx.fillStyle = "#fde047";
+        ctx.fillText("KENNEDY SPACE CENTER · LC-39A  →", w * 0.5, h * 0.44);
+        ctx.fillStyle = "#e4ff7e";
         ctx.font = "700 30px Arial, Helvetica, sans-serif";
         ctx.fillText("ROCKET HALL / CONTROL ROOM AHEAD · CREW ONLY", w * 0.5, h * 0.76);
       },
@@ -329,14 +329,14 @@
       (ctx, w, h) => {
         ctx.fillStyle = "#0f172a";
         ctx.fillRect(0, 0, w, h);
-        ctx.strokeStyle = "#facc15";
+        ctx.strokeStyle = "#e4ff7e";
         ctx.lineWidth = 8;
         ctx.strokeRect(6, 6, w - 12, h - 12);
-        ctx.fillStyle = "#facc15";
+        ctx.fillStyle = "#e4ff7e";
         ctx.font = "900 42px Arial, Helvetica, sans-serif";
         ctx.textAlign = "center";
         ctx.fillText("CAUTION: CRAWLERWAY XING", w * 0.5, h * 0.44);
-        ctx.fillStyle = "#f8fafc";
+        ctx.fillStyle = "#efeee7";
         ctx.font = "700 32px Arial, Helvetica, sans-serif";
         ctx.fillText("HEAVY TRANSPORTER RIGHT OF WAY", w * 0.5, h * 0.76);
       },
@@ -376,17 +376,17 @@
     const drawClockFace = (ctx, w, h) => {
       ctx.fillStyle = "#080c12";
       ctx.fillRect(0, 0, w, h);
-      ctx.strokeStyle = "#e2e8f0";
+      ctx.strokeStyle = "#efeee7";
       ctx.lineWidth = 8;
       ctx.strokeRect(8, 8, w - 16, h - 16);
-      ctx.fillStyle = "#38bdf8";
+      ctx.fillStyle = "#c9f04b";
       ctx.font = "700 32px Arial, Helvetica, sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText("KENNEDY SPACE CENTER · LAUNCH PAD 39A", w * 0.5, 48);
-      ctx.fillStyle = "#facc15";
+      ctx.fillText("KENNEDY SPACE CENTER · LC-39A", w * 0.5, 48);
+      ctx.fillStyle = "#e4ff7e";
       ctx.font = "900 104px Courier New, monospace";
       ctx.fillText("T-00:08:42", w * 0.5, 144);
-      ctx.fillStyle = "#34d399";
+      ctx.fillStyle = "#63e6a8";
       ctx.font = "800 28px Arial, Helvetica, sans-serif";
       ctx.fillText("STAGE 1 GO · BOARDING IN PROGRESS", w * 0.5, 212);
     };
@@ -450,10 +450,10 @@
       (ctx, w, h) => {
         ctx.fillStyle = "#14532d";
         ctx.fillRect(0, 0, w, h);
-        ctx.strokeStyle = "#fef3c7";
+        ctx.strokeStyle = "#efeee7";
         ctx.lineWidth = 6;
         ctx.strokeRect(6, 6, w - 12, h - 12);
-        ctx.fillStyle = "#fef3c7";
+        ctx.fillStyle = "#efeee7";
         ctx.font = "900 40px Arial, Helvetica, sans-serif";
         ctx.textAlign = "center";
         ctx.fillText("CANAVERAL SHORE", w * 0.5, h * 0.42);

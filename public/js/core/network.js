@@ -244,7 +244,7 @@
       this.userProfile = null;
       this.localPlayer = {
         name: localStorage.getItem("interfellas_name") || "Astronaut " + Math.floor(100 + Math.random() * 900),
-        color: "#ef4444",
+        color: "#ff6b6b",
         role: "commander",
         team: "crew",
         ready: false

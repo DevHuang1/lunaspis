@@ -27,7 +27,7 @@
       category: "astronauts",
       role: "commander",
       file: "models/astronaut/astronaut_lod0.glb",
-      defaultColor: "#67e8f9",
+      defaultColor: "#c9f04b",
       targetHeight: 1.90,
       rotateY: 0,
       description: "High-detail SpaceShip NASA spacesuit rig with KTX2 2K PBR textures, Meshopt geometry, and 4 skeletal animation clips (idle, walk, look_around, wave)."
@@ -38,7 +38,7 @@
       category: "astronauts",
       role: "scientist",
       file: "models/astronaut/astronaut_lod1.glb",
-      defaultColor: "#f59e0b",
+      defaultColor: "#c9f04b",
       targetHeight: 1.90,
       rotateY: 0,
       description: "Optimized SpaceShip NASA spacesuit rig with 1K KTX2 textures and 4 skeletal animations for AI crew and multiplayer squad."
@@ -215,7 +215,7 @@
     ctx.arc(w / 2, h * 0.44, h * 0.4, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.strokeStyle = "rgba(103, 232, 249, 0.9)";
+    ctx.strokeStyle = "rgba(201, 240, 75, 0.9)";
     ctx.lineWidth = 6;
     ctx.beginPath();
     ctx.arc(w / 2, h * 0.44, h * 0.36, 0, Math.PI * 2);
@@ -228,7 +228,7 @@
     ctx.lineTo(w * 0.58, h * 0.76);
     ctx.closePath();
     ctx.fill();
-    ctx.strokeStyle = "rgba(103, 232, 249, 0.5)";
+    ctx.strokeStyle = "rgba(201, 240, 75, 0.5)";
     ctx.lineWidth = 3;
     ctx.stroke();
 
@@ -238,7 +238,7 @@
     ctx.fillText(def.icon, w / 2, h * 0.41);
 
     ctx.font = "800 19px 'SF Mono', Monaco, Consolas, monospace";
-    ctx.fillStyle = "rgba(236, 231, 220, 0.96)";
+    ctx.fillStyle = "rgba(239, 238, 231, 0.96)";
     ctx.fillText(def.label.toUpperCase(), w / 2, h * 0.7);
 
     ctx.restore();
@@ -272,6 +272,41 @@
     const worldScale = new window.THREE.Vector3();
     model.getWorldScale(worldScale);
     if (worldScale.x > 0.0001) rig.modelScale = worldScale.x;
+
+    // Snapshot the rest pose so a procedural pose can always be peeled back
+    // before the next skeletal update (see captureBoneQuats below).
+    rig.bonePoseSnapshot = {};
+    Object.keys(bones).forEach((name) => {
+      rig.bonePoseSnapshot[name] = bones[name].quaternion.clone();
+    });
+  }
+
+  // The emote / seated / zero-g poses write directly to bone quaternions after
+  // the AnimationMixer runs. Three's PropertyMixer only writes a bone when its
+  // computed value changed, so a hand bone whose clip pose is static would keep
+  // the last procedural rotation forever after the emote ended. Save the
+  // post-mixer pose each frame and restore it before the next mixer update; the
+  // mixer then either writes a fresh animated value or leaves the correct pose.
+  function captureBoneQuats(rig) {
+    if (!rig || !rig.bones) return;
+    if (!rig.bonePoseSnapshot) rig.bonePoseSnapshot = {};
+    const snapshot = rig.bonePoseSnapshot;
+    Object.keys(rig.bones).forEach((name) => {
+      const bone = rig.bones[name];
+      if (!bone) return;
+      if (!snapshot[name]) snapshot[name] = new window.THREE.Quaternion();
+      snapshot[name].copy(bone.quaternion);
+    });
+  }
+
+  function restoreBoneQuats(rig) {
+    if (!rig || !rig.bones || !rig.bonePoseSnapshot) return;
+    const snapshot = rig.bonePoseSnapshot;
+    Object.keys(rig.bones).forEach((name) => {
+      const bone = rig.bones[name];
+      const quat = snapshot[name];
+      if (bone && quat) bone.quaternion.copy(quat);
+    });
   }
 
   // Returns hand targets/elbow poles/palm orientation in character-local space.
@@ -1029,7 +1064,7 @@
       this.hangarCurrentModel = null;
       this.hangarAutoRotate = true;
       this.hangarWireframe = false;
-      this.hangarColorTest = "#67e8f9";
+      this.hangarColorTest = "#c9f04b";
       this.hangarMouse = { down: false, x: 0, y: 0, rotX: 0.2, rotY: 0.8, dist: 3.5 };
 
       this._initDragAndDrop();
@@ -1156,7 +1191,7 @@
               name: cleanName.toUpperCase(),
               category: "custom",
               file: filename,
-              defaultColor: "#67e8f9",
+              defaultColor: "#c9f04b",
               targetHeight: 1.90,
               isCustom: true,
               gltf,
@@ -1301,7 +1336,7 @@
                 const isStripe = /stripe/i.test(m.name) || /role/i.test(m.name) || /trim/i.test(m.name) || /insignia/i.test(m.name);
                 const isLED = /led/i.test(m.name) || /telemetry/i.test(m.name);
                 if (isStripe || isLED) {
-                  const hex = parseInt(String(suitColor).replace("#", "0x")) || 0x38bdf8;
+                  const hex = parseInt(String(suitColor).replace("#", "0x")) || 0xc9f04b;
                   m.color = new window.THREE.Color(hex);
                   if (m.emissive) {
                     m.emissive = new window.THREE.Color(hex);
@@ -1371,7 +1406,7 @@
      * - Role accent ring at y = 0.035
      * - Overhead billboard nametag and optional helmet lamp
      */
-    createAstronautRig(suitHexColor = "#67e8f9", role = "commander", name = "Astronaut", isHost = false, modelKey = null, team = "crew", options = {}) {
+    createAstronautRig(suitHexColor = "#c9f04b", role = "commander", name = "Astronaut", isHost = false, modelKey = null, team = "crew", options = {}) {
       const root = new window.THREE.Group();
       root.name = `Astronaut_${name}_Rig`;
 
@@ -1390,7 +1425,7 @@
       root.add(shadowMesh);
 
       // Role / player accent ring on the floor
-      const hexVal = parseInt(String(suitHexColor).replace("#", "0x")) || 0x67e8f9;
+      const hexVal = parseInt(String(suitHexColor).replace("#", "0x")) || 0xc9f04b;
       const accentRingMat = new window.THREE.MeshBasicMaterial({
         color: hexVal,
         transparent: true,
@@ -1525,6 +1560,7 @@
 
         cancelEmote: () => {
           rig.emote = null;
+          restoreBoneQuats(rig);
           emoteBubble.sprite.visible = false;
           emoteBubble.sprite.material.opacity = 0;
           if (rig.mixer && rig.actions) {
@@ -1539,6 +1575,10 @@
          * SpaceShip animation clip switcher & procedural fallback update.
          */
         updateAnimation: (delta, isMoving = false, isEva = false, isGrounded = true, customAction = null, isZeroG = false, isSprinting = false, isSeated = false, seatSteer = 0) => {
+          // Undo the previous frame's procedural limb pose before the mixer
+          // runs, otherwise a static clip track leaves the wrist/arm stuck.
+          restoreBoneQuats(rig);
+
           if (rig.emote) {
             rig.emote.elapsed += delta;
             if (rig.emote.elapsed >= rig.emote.def.duration) {
@@ -1622,6 +1662,10 @@
               modelContainer.rotation.z = Math.sin(rig.walkTime * 0.7) * 0.01;
             }
           }
+
+          // Remember the skeletal pose produced by the mixer before any of the
+          // procedural layers below touch the bones.
+          captureBoneQuats(rig);
 
           // Emote-only body offsets are rebuilt every frame. Breakdance
           // applies its own yaw/lateral offset below; every other state keeps
@@ -1723,7 +1767,7 @@
 
         setColor: (newColorHex) => {
           rig.currentColor = newColorHex;
-          const cHex = parseInt(String(newColorHex).replace("#", "0x")) || 0x38bdf8;
+          const cHex = parseInt(String(newColorHex).replace("#", "0x")) || 0xc9f04b;
           if (rig.accentRingMat) {
             rig.accentRingMat.color.setHex(cHex);
           }
@@ -1809,21 +1853,21 @@
       function redraw(n, c, r, h) {
         ctx.clearRect(0, 0, 384, 96);
         ctx.fillStyle = "rgba(11, 18, 33, 0.88)";
-        ctx.strokeStyle = c || "#38bdf8";
+        ctx.strokeStyle = c || "#c9f04b";
         ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.roundRect(8, 8, 368, 80, 12);
         ctx.fill();
         ctx.stroke();
 
-        ctx.fillStyle = "#ffffff";
+        ctx.fillStyle = "#efeee7";
         ctx.font = "bold 28px sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         const title = (h ? "★ " : "") + (n || "Astronaut").toUpperCase();
         ctx.fillText(title, 192, 40);
 
-        ctx.fillStyle = c || "#38bdf8";
+        ctx.fillStyle = c || "#c9f04b";
         ctx.font = "bold 18px sans-serif";
         ctx.fillText((r || "CREW").toUpperCase(), 192, 68);
       }
@@ -2009,7 +2053,12 @@
       });
 
       const statusEl = document.getElementById("hangar-status-text");
-      if (statusEl) statusEl.textContent = `LOADING 3D GEOMETRY (${entry.name})...`;
+      if (statusEl) {
+        statusEl.textContent = `LOADING 3D GEOMETRY (${entry.name})...`;
+        statusEl.classList.add("is-loading");
+        const statusWrap = statusEl.closest(".hangar-viewport-status");
+        if (statusWrap) statusWrap.classList.add("is-loading");
+      }
 
       const url = entry.file;
 
@@ -2049,7 +2098,12 @@
 
         this._updateHangarTelemetry(entry, loadedEntry.meta);
 
-        if (statusEl) statusEl.textContent = `3D MODEL READY • ${entry.name}`;
+        if (statusEl) {
+          statusEl.classList.remove("is-loading");
+          const statusWrap = statusEl.closest(".hangar-viewport-status");
+          if (statusWrap) statusWrap.classList.remove("is-loading");
+          statusEl.textContent = `TELEMETRY READY • ${entry.name}`;
+        }
       };
 
       if (entry.isCustom && this.cache[modelId]) {
@@ -2060,7 +2114,12 @@
         })
           .then(onModelReady)
           .catch((err) => {
-            if (statusEl) statusEl.textContent = `ERROR LOADING 3D MODEL: ${err.message}`;
+            if (statusEl) {
+              statusEl.classList.remove("is-loading");
+              const statusWrap = statusEl.closest(".hangar-viewport-status");
+              if (statusWrap) statusWrap.classList.remove("is-loading");
+              statusEl.textContent = `ERROR LOADING 3D MODEL: ${err.message}`;
+            }
           });
       }
     }
@@ -2171,13 +2230,13 @@
                 <button class="hangar-ctrl-btn" id="hangar-btn-reset-cam" title="Reset Camera">RESET</button>
               </div>
               <div class="hangar-viewport-status">
-                <span class="perf-dot" style="background:#67e8f9;"></span>
+                <span class="perf-dot" style="background:var(--ui-brand);"></span>
                 <span id="hangar-status-text">INITIALIZING 3D ENGINE...</span>
               </div>
             </div>
 
             <div class="hangar-specs-panel">
-              <div style="font-size:9.5px;font-weight:700;letter-spacing:1.8px;color:#67e8f9;text-transform:uppercase;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">MODEL DOSSIER</div>
+              <div style="font-size:9.5px;font-weight:700;letter-spacing:1.8px;color:var(--ui-brand);text-transform:uppercase;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">MODEL DOSSIER</div>
               <div id="hangar-spec-title" class="hangar-spec-title">ASTRONAUT MODEL</div>
               <div id="hangar-spec-desc" class="hangar-spec-desc">Model technical overview and description.</div>
 
@@ -2205,13 +2264,13 @@
               </div>
 
               <div style="margin-top:10px;">
-                <label style="font-size:11px;color:#94a3b8;font-weight:700;display:block;margin-bottom:6px;">TEST SUIT COLOR ACCENT</label>
+                <label style="font-size:11px;color:#a7b0ba;font-weight:700;display:block;margin-bottom:6px;">TEST SUIT COLOR ACCENT</label>
                 <div class="color-swatches" id="hangar-color-swatches">
-                  <button type="button" class="lobby-color-btn" data-color="#ef4444" style="background:#ef4444;" title="Apollo Red"></button>
-                  <button type="button" class="lobby-color-btn" data-color="#3b82f6" style="background:#3b82f6;" title="ESA Blue"></button>
-                  <button type="button" class="lobby-color-btn" data-color="#f59e0b" style="background:#f59e0b;" title="JAXA Gold"></button>
-                  <button type="button" class="lobby-color-btn" data-color="#10b981" style="background:#10b981;" title="EVA Green"></button>
-                  <button type="button" class="lobby-color-btn" data-color="#f8fafc" style="background:#f8fafc;" title="NASA White"></button>
+                  <button type="button" class="lobby-color-btn" data-color="#ff6b6b" style="background:#ff6b6b;" title="Hull Coral"></button>
+                  <button type="button" class="lobby-color-btn" data-color="#8a8194" style="background:#8a8194;" title="Regolith Violet"></button>
+                  <button type="button" class="lobby-color-btn" data-color="#c9f04b" style="background:#c9f04b;" title="Flight Lime"></button>
+                  <button type="button" class="lobby-color-btn" data-color="#63e6a8" style="background:#63e6a8;" title="ECLSS Mint"></button>
+                  <button type="button" class="lobby-color-btn" data-color="#efeee7" style="background:#efeee7;" title="EVA Ivory"></button>
                   <button type="button" class="lobby-color-btn" data-color="#334155" style="background:#334155;" title="Carbon Stealth"></button>
                 </div>
               </div>
@@ -2382,12 +2441,12 @@
           align-items: center;
           flex-direction: column;
           gap: 12px;
-          border: 1px dashed rgba(103, 232, 249, 0.55);
+          border: 1px dashed rgba(var(--ui-brand-rgb), 0.55);
           pointer-events: none;
         `;
         dropOverlay.innerHTML = `
-          <div style="font-size:18px;font-weight:700;letter-spacing:2.4px;color:#ece7dc;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">DROP .GLB / .GLTF MODEL</div>
-          <div style="font-size:12px;color:rgba(154,164,174,0.8);">Inspect, equip as astronaut rig, or spawn in orbit</div>
+          <div style="font-size:18px;font-weight:700;letter-spacing:2.4px;color:#efeee7;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">DROP .GLB / .GLTF MODEL</div>
+          <div style="font-size:12px;color:rgba(166,173,182,0.8);">Inspect, equip as astronaut rig, or spawn in orbit</div>
         `;
         document.body.appendChild(dropOverlay);
         return dropOverlay;

@@ -14,16 +14,16 @@
   "use strict";
 
   const MODEL_TARGET_SIZE = 28;
-  const SELECT_COLOR = "#6fe7ff";
-  const HOVER_COLOR = "#bae6fd";
+  const SELECT_COLOR = "#c9f04b";
+  const HOVER_COLOR = "#e4ff7e";
 
   const PART_CATEGORIES = [
-    { id: "modules", label: "Pressurized modules", color: "#67e8f9" },
-    { id: "power", label: "Truss & power", color: "#fbbf24" },
-    { id: "robotics", label: "Robotics", color: "#c4b5fd" },
-    { id: "science", label: "Science & external", color: "#6ee7b7" },
-    { id: "docking", label: "Docking & airlock", color: "#fda4af" },
-    { id: "logistics", label: "Logistics & stowage", color: "#cbd5e1" }
+    { id: "modules", label: "Pressurized modules", color: "#7dd3fc" },
+    { id: "power", label: "Truss & power", color: "#f5c451" },
+    { id: "robotics", label: "Robotics", color: "#efeee7" },
+    { id: "science", label: "Science & external", color: "#63e6a8" },
+    { id: "docking", label: "Docking & airlock", color: "#ff6b6b" },
+    { id: "logistics", label: "Logistics & stowage", color: "#a7b0ba" }
   ];
 
   const CATEGORY_BY_ID = new Map(PART_CATEGORIES.map((c) => [c.id, c]));
@@ -1084,17 +1084,17 @@
           <div style="display:flex;align-items:center;gap:12px;">
             <span style="display:inline-flex;align-items:center;justify-content:center;padding:3px 6px;border:1px solid rgba(56,189,248,0.4);border-radius:4px;background:rgba(37,99,235,0.16);color:#93c5fd;font-family:'SF Mono',monospace;font-size:10px;font-weight:700;letter-spacing:1px;">ISS</span>
             <div>
-              <div style="font-size:9px;font-weight:700;letter-spacing:2.4px;color:rgba(103,232,249,0.75);text-transform:uppercase;">ORBITAL / MISSION LAB</div>
-              <div style="font-size:14px;font-weight:700;color:#ffffff;">ISS Reference Craft (${ISS_PARTS.length} Curated Components)</div>
+              <div style="font-size:9px;font-weight:700;letter-spacing:2.4px;color:rgba(var(--ui-brand-rgb),0.75);text-transform:uppercase;">ORBITAL / MISSION LAB</div>
+              <div style="font-size:14px;font-weight:700;color:#efeee7;">ISS Reference Craft (${ISS_PARTS.length} Curated Components)</div>
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:8px;">
-            <button id="iss-btn-labels" style="padding:6px 12px;border-radius:4px;border:1px solid ${this.labelsVisible ? "rgba(56,189,248,0.5)" : "rgba(148,163,184,0.22)"};background:${this.labelsVisible ? "rgba(37,99,235,0.2)" : "rgba(255,255,255,0.04)"};color:${this.labelsVisible ? "#f8fafc" : "#cbd5e1"};font-family:'SF Mono',monospace;font-size:10px;font-weight:700;cursor:pointer;">LABELS</button>
-            <button id="iss-btn-rotate" style="padding:6px 12px;border-radius:4px;border:1px solid ${this.autoRotate ? "rgba(56,189,248,0.5)" : "rgba(148,163,184,0.22)"};background:${this.autoRotate ? "rgba(37,99,235,0.2)" : "rgba(255,255,255,0.04)"};color:${this.autoRotate ? "#f8fafc" : "#cbd5e1"};font-family:'SF Mono',monospace;font-size:10px;font-weight:700;cursor:pointer;">AUTO-ROTATE</button>
-            <button id="iss-btn-isolate" ${!this.selectedPartId ? "disabled" : ""} style="padding:6px 12px;border-radius:4px;border:1px solid ${this.isolateSelected ? "rgba(56,189,248,0.5)" : "rgba(148,163,184,0.22)"};background:${this.isolateSelected ? "rgba(37,99,235,0.2)" : "rgba(255,255,255,0.04)"};color:${this.isolateSelected ? "#f8fafc" : "#cbd5e1"};font-family:'SF Mono',monospace;font-size:10px;font-weight:700;cursor:pointer;opacity:${this.selectedPartId ? 1 : 0.4};">ISOLATE</button>
-            <button id="iss-btn-reset" style="padding:6px 12px;border-radius:4px;border:1px solid rgba(148,163,184,0.22);background:rgba(255,255,255,0.04);color:#cbd5e1;font-family:'SF Mono',monospace;font-size:10px;font-weight:700;cursor:pointer;">RESET VIEW</button>
-            <button id="iss-btn-vr" style="padding:6px 12px;border-radius:4px;border:1px solid rgba(56,189,248,0.45);background:rgba(37,99,235,0.16);color:#93c5fd;font-family:'SF Mono',monospace;font-size:10px;font-weight:700;cursor:pointer;">${vrLabel}</button>
-            <button id="iss-btn-return-ship" style="padding:6px 14px;border-radius:4px;border:1px solid #f8fafc;background:#f8fafc;color:#050810;font-family:'SF Mono',monospace;font-size:10px;font-weight:800;cursor:pointer;">RETURN TO SHIP INTERIOR [I]</button>
+            <button id="iss-btn-labels" style="padding:6px 12px;border-radius:18px;border:1px solid ${this.labelsVisible ? "rgba(var(--ui-brand-rgb),0.5)" : "rgba(255,255,255,0.15)"};background:${this.labelsVisible ? "rgba(var(--ui-brand-rgb),0.16)" : "rgba(255,255,255,0.04)"};color:${this.labelsVisible ? "var(--ui-brand-strong)" : "#efeee7"};font-size:10px;font-weight:700;cursor:pointer;">🏷️ LABELS</button>
+            <button id="iss-btn-rotate" style="padding:6px 12px;border-radius:18px;border:1px solid ${this.autoRotate ? "rgba(var(--ui-brand-rgb),0.5)" : "rgba(255,255,255,0.15)"};background:${this.autoRotate ? "rgba(var(--ui-brand-rgb),0.16)" : "rgba(255,255,255,0.04)"};color:${this.autoRotate ? "var(--ui-brand-strong)" : "#efeee7"};font-size:10px;font-weight:700;cursor:pointer;">🔄 AUTO-ROTATE</button>
+            <button id="iss-btn-isolate" ${!this.selectedPartId ? "disabled" : ""} style="padding:6px 12px;border-radius:18px;border:1px solid ${this.isolateSelected ? "rgba(var(--ui-brand-rgb),0.5)" : "rgba(255,255,255,0.15)"};background:${this.isolateSelected ? "rgba(var(--ui-brand-rgb),0.16)" : "rgba(255,255,255,0.04)"};color:${this.isolateSelected ? "var(--ui-brand-strong)" : "#efeee7"};font-size:10px;font-weight:700;cursor:pointer;opacity:${this.selectedPartId ? 1 : 0.4};">🔲 ISOLATE</button>
+            <button id="iss-btn-reset" style="padding:6px 12px;border-radius:18px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.04);color:#efeee7;font-size:10px;font-weight:700;cursor:pointer;">↺ RESET VIEW</button>
+            <button id="iss-btn-vr" style="padding:6px 12px;border-radius:18px;border:1px solid rgba(var(--ui-brand-rgb),0.5);background:rgba(var(--ui-brand-rgb),0.14);color:var(--ui-brand-strong);font-size:10px;font-weight:700;cursor:pointer;">${vrLabel}</button>
+            <button id="iss-btn-return-ship" style="padding:6px 14px;border-radius:18px;border:1px solid var(--ui-brand);background:#8faf2e;color:#efeee7;font-size:10px;font-weight:800;cursor:pointer;">🛸 RETURN TO SHIP INTERIOR [I]</button>
           </div>
         `;
 
@@ -1135,7 +1135,7 @@
           if (!parts.length) return "";
           return `
             <div style="margin-bottom:12px;">
-              <div style="display:flex;align-items:center;gap:6px;padding:4px 8px;font-size:9px;font-weight:700;letter-spacing:1.8px;color:#64748b;text-transform:uppercase;">
+              <div style="display:flex;align-items:center;gap:6px;padding:4px 8px;font-size:9px;font-weight:700;letter-spacing:1.8px;color:#7a8490;text-transform:uppercase;">
                 <span style="width:6px;height:6px;border-radius:50%;background:${cat.color};display:inline-block;"></span>
                 <span>${cat.label}</span>
                 <span style="margin-left:auto;">${parts.length}</span>
@@ -1145,10 +1145,10 @@
                   .map((part) => {
                     const isSel = part.id === this.selectedPartId;
                     return `
-                      <button type="button" class="iss-part-item" data-id="${part.id}" style="width:100%;display:flex;align-items:center;gap:8px;padding:7px 10px;border:none;border-radius:8px;background:${isSel ? "rgba(103,232,249,0.14)" : "transparent"};color:${isSel ? "#cffafe" : "#cbd5e1"};font-size:12px;text-align:left;cursor:pointer;">
+                      <button type="button" class="iss-part-item" data-id="${part.id}" style="width:100%;display:flex;align-items:center;gap:8px;padding:7px 10px;border:none;border-radius:8px;background:${isSel ? "rgba(var(--ui-brand-rgb),0.14)" : "transparent"};color:${isSel ? "var(--ui-brand-strong)" : "#efeee7"};font-size:12px;text-align:left;cursor:pointer;">
                         <span style="width:6px;height:6px;border-radius:50%;background:${cat.color};opacity:${isSel ? 1 : 0.6};"></span>
                         <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${part.shortName}</span>
-                        <span style="font-size:10px;color:#64748b;">›</span>
+                        <span style="font-size:10px;color:#7a8490;">›</span>
                       </button>
                     `;
                   })
@@ -1160,14 +1160,14 @@
 
         leftPanel.innerHTML = `
           <div style="padding:14px;border-bottom:1px solid rgba(255,255,255,0.1);">
-            <div style="font-size:9px;font-weight:700;letter-spacing:2px;color:#64748b;text-transform:uppercase;">STATION MAP</div>
-            <div style="font-size:14px;font-weight:700;color:#ffffff;margin-top:2px;">${ISS_PARTS.length} components</div>
-            <input id="iss-part-search" type="text" value="${this.searchQuery}" placeholder="Search components…" style="margin-top:10px;width:100%;box-sizing:border-box;padding:7px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.04);color:#e2e8f0;font-size:12px;outline:none;" />
+            <div style="font-size:9px;font-weight:700;letter-spacing:2px;color:#7a8490;text-transform:uppercase;">STATION MAP</div>
+            <div style="font-size:14px;font-weight:700;color:#efeee7;margin-top:2px;">${ISS_PARTS.length} components</div>
+            <input id="iss-part-search" type="text" value="${this.searchQuery}" placeholder="Search components…" style="margin-top:10px;width:100%;box-sizing:border-box;padding:7px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.04);color:#efeee7;font-size:12px;outline:none;" />
           </div>
           <div style="flex:1;overflow-y:auto;padding:10px;">
-            ${groupsHtml || '<div style="padding:20px;text-align:center;color:#64748b;font-size:12px;">No matching components.</div>'}
+            ${groupsHtml || '<div style="padding:20px;text-align:center;color:#7a8490;font-size:12px;">No matching components.</div>'}
           </div>
-          <div style="padding:10px 14px;border-top:1px solid rgba(255,255,255,0.1);font-size:10px;color:#64748b;">
+          <div style="padding:10px 14px;border-top:1px solid rgba(255,255,255,0.1);font-size:10px;color:#7a8490;">
             NASA 2011 Reference · ${this.stats.nodes} nodes · ${this.stats.triangles.toLocaleString()} tris
           </div>
         `;
@@ -1197,30 +1197,30 @@
         if (!part) {
           rightPanel.innerHTML = `
             <div style="padding:14px;border-bottom:1px solid rgba(255,255,255,0.1);">
-              <div style="font-size:9px;font-weight:700;letter-spacing:2px;color:#64748b;text-transform:uppercase;">STATION OVERVIEW</div>
-              <div style="font-size:14px;font-weight:700;color:#ffffff;margin-top:2px;">Reference configuration</div>
+              <div style="font-size:9px;font-weight:700;letter-spacing:2px;color:#7a8490;text-transform:uppercase;">STATION OVERVIEW</div>
+              <div style="font-size:14px;font-weight:700;color:#efeee7;margin-top:2px;">Reference configuration</div>
             </div>
             <div style="flex:1;overflow-y:auto;padding:16px;">
-              <div style="font-size:9px;font-weight:700;letter-spacing:2px;color:rgba(103,232,249,0.75);text-transform:uppercase;">LOW EARTH ORBIT · 1998–PRESENT</div>
-              <div style="font-size:20px;font-weight:700;color:#ffffff;margin-top:6px;">${ISS_STATION.name}</div>
-              <div style="font-size:13px;color:#a5f3fc;margin-top:6px;line-height:1.5;">${ISS_STATION.tagline}</div>
-              <div style="font-size:12px;color:#cbd5e1;margin-top:10px;line-height:1.6;">${ISS_STATION.description}</div>
+              <div style="font-size:9px;font-weight:700;letter-spacing:2px;color:rgba(var(--ui-brand-rgb),0.75);text-transform:uppercase;">LOW EARTH ORBIT · 1998–PRESENT</div>
+              <div style="font-size:20px;font-weight:700;color:#efeee7;margin-top:6px;">${ISS_STATION.name}</div>
+              <div style="font-size:13px;color:var(--ui-brand-strong);margin-top:6px;line-height:1.5;">${ISS_STATION.tagline}</div>
+              <div style="font-size:12px;color:#efeee7;margin-top:10px;line-height:1.6;">${ISS_STATION.description}</div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px;">
                 ${ISS_STATION.facts
                   .map(
                     (f) => `
                   <div style="padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.07);background:rgba(255,255,255,0.025);">
-                    <div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:1.4px;">${f.label}</div>
-                    <div style="font-size:12px;font-weight:600;color:#e2e8f0;margin-top:4px;">${f.value}</div>
+                    <div style="font-size:9px;color:#7a8490;text-transform:uppercase;letter-spacing:1.4px;">${f.label}</div>
+                    <div style="font-size:12px;font-weight:600;color:#efeee7;margin-top:4px;">${f.value}</div>
                   </div>
                 `
                   )
                   .join("")}
               </div>
-              <div style="margin-top:16px;padding:12px;border-radius:10px;border:1px solid rgba(103,232,249,0.15);background:rgba(103,232,249,0.05);font-size:11px;color:#94a3b8;line-height:1.5;">
+              <div style="margin-top:16px;padding:12px;border-radius:10px;border:1px solid rgba(var(--ui-brand-rgb),0.15);background:rgba(var(--ui-brand-rgb),0.05);font-size:11px;color:#a7b0ba;line-height:1.5;">
                 ${ISS_STATION.modelNote}
               </div>
-              <button id="iss-btn-inspect-destiny" style="margin-top:16px;width:100%;padding:10px 14px;border-radius:10px;border:1px solid rgba(103,232,249,0.35);background:rgba(103,232,249,0.1);color:#e2e8f0;font-size:12px;font-weight:600;cursor:pointer;text-align:left;display:flex;justify-content:space-between;align-items:center;">
+              <button id="iss-btn-inspect-destiny" style="margin-top:16px;width:100%;padding:10px 14px;border-radius:10px;border:1px solid rgba(var(--ui-brand-rgb),0.35);background:rgba(var(--ui-brand-rgb),0.1);color:#efeee7;font-size:12px;font-weight:600;cursor:pointer;text-align:left;display:flex;justify-content:space-between;align-items:center;">
                 <span>Inspect the Destiny laboratory</span>
                 <span>→</span>
               </button>
@@ -1234,35 +1234,35 @@
           rightPanel.innerHTML = `
             <div style="padding:14px;border-bottom:1px solid rgba(255,255,255,0.1);display:flex;justify-content:space-between;align-items:center;">
               <div>
-                <div style="font-size:9px;font-weight:700;letter-spacing:2px;color:#64748b;text-transform:uppercase;">COMPONENT</div>
-                <div style="font-size:14px;font-weight:700;color:#ffffff;margin-top:2px;">${part.name}</div>
+                <div style="font-size:9px;font-weight:700;letter-spacing:2px;color:#7a8490;text-transform:uppercase;">COMPONENT</div>
+                <div style="font-size:14px;font-weight:700;color:#efeee7;margin-top:2px;">${part.name}</div>
               </div>
-              <button id="iss-btn-clear-sel" style="width:28px;height:28px;border-radius:50%;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.04);color:#94a3b8;cursor:pointer;">✕</button>
+              <button id="iss-btn-clear-sel" style="width:28px;height:28px;border-radius:50%;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.04);color:#a7b0ba;cursor:pointer;">✕</button>
             </div>
             <div style="flex:1;overflow-y:auto;padding:16px;">
               <div style="display:flex;align-items:center;gap:6px;">
-                <span style="width:8px;height:8px;border-radius:50%;background:${cat ? cat.color : "#6fe7ff"};"></span>
-                <span style="font-size:9px;font-weight:700;letter-spacing:1.8px;color:${cat ? cat.color : "#6fe7ff"};text-transform:uppercase;">${cat ? cat.label : "Component"}</span>
+                <span style="width:8px;height:8px;border-radius:50%;background:${cat ? cat.color : "var(--ui-brand)"};"></span>
+                <span style="font-size:9px;font-weight:700;letter-spacing:1.8px;color:${cat ? cat.color : "var(--ui-brand)"};text-transform:uppercase;">${cat ? cat.label : "Component"}</span>
               </div>
-              <div style="font-size:20px;font-weight:700;color:#ffffff;margin-top:8px;">${part.name}</div>
-              <div style="font-size:11px;color:#94a3b8;margin-top:4px;">${part.agency} · ${part.launched}</div>
-              <div style="font-size:13px;color:#cffafe;margin-top:14px;line-height:1.5;">${part.summary}</div>
-              <div style="font-size:12px;color:#cbd5e1;margin-top:10px;line-height:1.6;">${part.description}</div>
+              <div style="font-size:20px;font-weight:700;color:#efeee7;margin-top:8px;">${part.name}</div>
+              <div style="font-size:11px;color:#a7b0ba;margin-top:4px;">${part.agency} · ${part.launched}</div>
+              <div style="font-size:13px;color:var(--ui-brand-strong);margin-top:14px;line-height:1.5;">${part.summary}</div>
+              <div style="font-size:12px;color:#efeee7;margin-top:10px;line-height:1.6;">${part.description}</div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px;">
                 ${facts
                   .map(
                     (f) => `
                   <div style="padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.07);background:rgba(255,255,255,0.025);">
-                    <div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:1.4px;">${f.label}</div>
-                    <div style="font-size:12px;font-weight:600;color:#e2e8f0;margin-top:4px;">${f.value}</div>
+                    <div style="font-size:9px;color:#7a8490;text-transform:uppercase;letter-spacing:1.4px;">${f.label}</div>
+                    <div style="font-size:12px;font-weight:600;color:#efeee7;margin-top:4px;">${f.value}</div>
                   </div>
                 `
                   )
                   .join("")}
               </div>
               <div style="display:flex;gap:8px;margin-top:16px;">
-                <button id="iss-btn-focus-part" style="flex:1;padding:9px 12px;border-radius:4px;border:1px solid rgba(56,189,248,0.45);background:rgba(37,99,235,0.16);color:#f8fafc;font-family:'SF Mono',monospace;font-size:11px;font-weight:700;cursor:pointer;">Focus camera</button>
-                <button id="iss-btn-isolate-part" style="flex:1;padding:9px 12px;border-radius:4px;border:1px solid rgba(148,163,184,0.22);background:rgba(255,255,255,0.04);color:#e2e8f0;font-family:'SF Mono',monospace;font-size:11px;font-weight:700;cursor:pointer;">${this.isolateSelected ? "Show all" : "Isolate"}</button>
+                <button id="iss-btn-focus-part" style="flex:1;padding:9px 12px;border-radius:8px;border:1px solid rgba(var(--ui-brand-rgb),0.4);background:rgba(var(--ui-brand-rgb),0.12);color:var(--ui-brand-strong);font-size:11px;font-weight:700;cursor:pointer;">🎯 Focus camera</button>
+                <button id="iss-btn-isolate-part" style="flex:1;padding:9px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.04);color:#efeee7;font-size:11px;font-weight:700;cursor:pointer;">${this.isolateSelected ? "Show all" : "Isolate"}</button>
               </div>
             </div>
           `;

@@ -1,34 +1,87 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="flight-lime">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="theme-color" content="#05060a" />
+  <meta name="theme-color" content="#080b10" />
+  <script>
+    (function () {
+      try {
+        var theme = localStorage.getItem("lunaspis_ui_theme");
+        if (theme === "gloss-silver" || theme === "flight-lime" || theme === "lunar-champagne") {
+          document.documentElement.dataset.theme = theme;
+        }
+      } catch (_) {}
+    })();
+  </script>
   <title>Lunaspis — Orbital Transit &amp; ISS Simulator</title>
-  <link rel="stylesheet" href="css/style.css?v=4.7.9" />
-  <link rel="stylesheet" href="css/premium.css?v=1.2.4" />
+  <link rel="stylesheet" href="css/style.css?v=6.1.9" />
+  <link rel="stylesheet" href="css/premium.css?v=6.1.9" />
+  <link rel="stylesheet" href="css/flightdeck.css?v=6.1.9" />
+  <link rel="stylesheet" href="css/ui-polish.css?v=6.1.9" />
   <link rel="stylesheet" href="css/academy.css?v=1.1.0" />
   <link rel="stylesheet" href="css/mission_log.css?v=1.0.0" />
-  <link rel="stylesheet" href="css/lunar-glass.css?v=5.1.3" />
+  <link rel="stylesheet" href="css/lunar-glass.css?v=6.1.9" />
   <link rel="stylesheet" href="css/mobile.css?v=1.0.1" />
   <link rel="stylesheet" href="css/desk_guide.css?v=1.0.2" />
   <link rel="stylesheet" href="css/mission_ux.css?v=1.0.1" />
   <link rel="stylesheet" href="css/specialist_mission_glass.css?v=1.0.1" />
   <link rel="stylesheet" href="css/artemis.css?v=1.0.3" />
+  <link rel="preload" href="fonts/chakra-petch-700.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="fonts/ibm-plex-mono-500.woff2" as="font" type="font/woff2" crossorigin />
   <!-- Three.js Engine & 3D GLTF/GLB/Draco/KTX2/Meshopt Loaders -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" integrity="sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu" crossorigin="anonymous"></script>
-  <script src="js/loaders/DRACOLoader.js?v=4.0.0"></script>
-  <script src="js/loaders/KTX2Loader.js?v=4.0.0"></script>
-  <script src="js/loaders/meshopt_decoder.js?v=4.0.0"></script>
-  <script src="js/loaders/GLTFLoader.js?v=4.0.0"></script>
-  <script src="js/loaders/SkeletonUtils.js?v=4.0.0"></script>
+  <script src="js/loaders/DRACOLoader.js?v=6.1.9"></script>
+  <script src="js/loaders/KTX2Loader.js?v=6.1.9"></script>
+  <script src="js/loaders/meshopt_decoder.js?v=6.1.9"></script>
+  <script src="js/loaders/GLTFLoader.js?v=6.1.9"></script>
+  <script src="js/loaders/SkeletonUtils.js?v=6.1.9"></script>
   <!-- Socket.IO Client -->
   <script src="/socket.io/socket.io.js"></script>
 </head>
-<body>
+<body class="menu-active">
+
+  <!-- Icon sprite -->
+  <svg width="0" height="0" style="position:absolute;overflow:hidden;" aria-hidden="true" focusable="false">
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18"/><path d="M12 3a15 15 0 0 0 0 18"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol>
+    <symbol id="i-asteroid" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><circle cx="19" cy="5" r="2"/><circle cx="4" cy="18" r="2.5"/></symbol>
+    <symbol id="i-telescope" viewBox="0 0 24 24"><path d="M2 13l18-7-2 6-16 5z"/><path d="M14 6l4 1"/><path d="M7 15l-2 6"/><path d="M10 14l2 6"/></symbol>
+    <symbol id="i-cubesat" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 3v18M16 3v18M3 8h18M3 16h18"/></symbol>
+    <symbol id="i-flask" viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4A2 2 0 0 0 19 18l-5-9V3"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="7" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2"/><circle cx="17" cy="8" r="2.5"/><path d="M21 21v-1.5a5 5 0 0 0-4-4.9"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+    <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M15 9.5c0-1.4-1.3-2.5-3-2.5s-3 1.1-3 2.5 1.3 2 3 2 3 .9 3 2.5-1.3 2.5-3 2.5-3-1.1-3-2.5"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M3 7h4l2-2h6l2 2h4v12H3z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-vr" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="10" rx="3"/><path d="M12 17v-4"/><circle cx="7" cy="12" r="2"/><circle cx="17" cy="12" r="2"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.65 1.65 0 0 0 15 19.4a1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+    <symbol id="i-leave" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3l9 16H3z"/><path d="M12 9v4M12 17h.01"/></symbol>
+    <symbol id="i-radio" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 16.2a6 6 0 0 0 0-8.4M5 5a10 10 0 0 0 0 14M19 19a10 10 0 0 0 0-14"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></symbol>
+    <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
+    <symbol id="i-orbit" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(-20 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(70 12 12)"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></symbol>
+    <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.1 2.1-2.8-2.8 2.1-2.1z"/></symbol>
+    <symbol id="i-zap" viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 10-12h-7z"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></symbol>
+    <symbol id="i-deck" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+    <symbol id="i-enter" viewBox="0 0 24 24"><path d="M9 10l3 3 3-3"/><path d="M12 13V3"/><path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  </svg>
 
   <!-- Persistent Top Performance Bar (FPS & PING) -->
   <div id="perf-overlay" title="Click to toggle Performance &amp; Connection Info [P] / [F3]">
@@ -83,6 +136,24 @@
     </div>
   </div>
 
+  <!-- FLIGHT SYSTEMS BOOT SEQUENCE -->
+  <div id="boot-overlay" class="boot-overlay" role="status" aria-live="polite">
+    <div class="boot-grid" aria-hidden="true"></div>
+    <div class="boot-emblem" aria-hidden="true">L</div>
+    <div class="boot-copy">
+      <div class="boot-eyebrow">LUNASPIS FLIGHT SYSTEMS</div>
+      <div class="boot-title">SPIN-UP</div>
+      <div class="boot-checks">
+        <span>GNC</span><span>ECLSS</span><span>COMMS</span><span>PROP</span>
+      </div>
+      <div class="boot-track"><span id="boot-track-fill"></span></div>
+      <div class="boot-hint">CLICK OR PRESS ANY KEY TO SKIP</div>
+    </div>
+  </div>
+
+  <!-- Screen transition veil -->
+  <div id="screen-transition-veil" aria-hidden="true"></div>
+
   <!-- 3D WebGL Canvas Layer -->
   <div id="canvas-container"></div>
 
@@ -93,9 +164,19 @@
     <!-- Top Hairline Header -->
     <header class="title-topbar">
       <div class="title-brand">
-        <span class="title-brand-dot"></span>
-        <span>LUNASPIS // SPACE MISSION BUILDER</span>
+        <span class="title-brand-mark" aria-hidden="true">L</span>
+        <span class="title-brand-copy">
+          <strong>LUNASPIS</strong>
+          <small>ORBITAL TRANSIT SYSTEMS</small>
+        </span>
       </div>
+      <div class="title-nav-scrim" id="title-nav-scrim" aria-hidden="true"></div>
+      <nav class="title-nav" id="title-primary-nav" aria-label="Primary">
+        <button type="button" class="title-nav-link is-active">FLIGHT DECK</button>
+        <button type="button" class="title-nav-link" id="btn-open-hangar-menu">HANGAR</button>
+        <button type="button" class="title-nav-link" id="btn-title-dossier">DOSSIER</button>
+        <button type="button" class="title-nav-link" id="btn-title-settings">SETTINGS</button>
+      </nav>
       <div class="title-top-actions">
         <button class="title-chip-btn" id="btn-open-academy" title="How to play, controls &amp; simple cheat sheet [F1]">BEGINNER GUIDE</button>
         <button class="title-chip-btn" id="btn-open-mission-log" title="Past flights, personal bests &amp; shareable mission reports">PAST FLIGHTS</button>
@@ -108,12 +189,28 @@
             <button class="region-opt-btn" id="btn-region-us" type="button" data-region="us" aria-pressed="false">US</button>
           </div>
         </div>
+        <button type="button" class="title-menu-btn" id="btn-title-nav-toggle" aria-controls="title-primary-nav" aria-expanded="false" aria-label="Open navigation menu">
+          <svg class="ui-icon" aria-hidden="true"><use href="#i-menu"></use></svg>
+          <span>MENU</span>
+        </button>
+        <div class="title-status-rail" aria-hidden="true">
+          <span class="status-pill status-pill--ok"><i></i>NET NOMINAL</span>
+          <span class="status-pill">LEO // LUNAR</span>
+        </div>
+        <div id="auth-status-bar" class="title-auth-pill">
+          <span id="auth-status-icon" class="auth-status-dot"></span>
+          <span id="auth-status-title" class="auth-status-title">GUEST</span>
+          <span id="auth-status-desc" class="auth-status-desc" style="display:none;">Local session</span>
+          <button id="btn-open-auth" class="btn-auth-action">SIGN IN</button>
+          <button id="btn-auth-logout" class="btn-auth-action btn-danger-outline" style="display:none;">OUT</button>
+        </div>
+        </div>
       </div>
     </header>
 
     <!-- Bottom-Left Asymmetric Hero Lockup (Leaves 3D Earth & ISS Unobstructed) -->
     <main class="title-hero">
-      <div class="title-eyebrow">SPACE STATION MISSION &middot; 418 KM ABOVE EARTH</div>
+      <div class="title-eyebrow">EXPEDITION CONTROL // 06 CREW</div>
       <h1 class="title-display">LUNASPIS</h1>
       <p class="title-premise">
         Walk through the space station, team up with friends, and build a real space mission.
@@ -125,8 +222,8 @@
       </div>
 
       <div class="title-cta-row">
-        <button class="btn-title-primary" id="btn-quick-play" title="Start a solo mission — Shuttle launch, ISS docking and station ops">PLAY SOLO</button>
-        <button class="btn-title-secondary" id="btn-host-game" title="Create a multiplayer team room and get a code to share">CREATE TEAM</button>
+        <button class="btn-title-primary" id="btn-quick-play" title="Start a solo mission — Shuttle launch, ISS docking and station ops"><span>INITIATE</span><b class="btn-keycap">&#8629;</b></button>
+        <button class="btn-title-secondary" id="btn-host-game" title="Create a multiplayer team room and get a code to share">HOST EXPEDITION</button>
       </div>
 
       <div class="title-join-row">
@@ -142,6 +239,13 @@
         <span>CHECKS <strong id="stat-tasks" class="val-amber">0</strong></span>
       </div>
     </main>
+
+    <footer class="title-control-strip" aria-hidden="true">
+      <span class="ctl-group"><kbd class="ctl-glyph" data-action="navigate">WASD</kbd> NAVIGATE</span>
+      <span class="ctl-group"><kbd class="ctl-glyph" data-action="select">ENTER</kbd> SELECT</span>
+      <span class="ctl-group"><kbd class="ctl-glyph" data-action="close">ESC</kbd> BACK</span>
+      <span class="title-control-meta">LUNASPIS // BUILD 6.0 · LEO &rarr; LUNAR</span>
+    </footer>
   </div>
 
   <!-- ========================================================================
@@ -160,6 +264,11 @@
             <button class="region-opt-btn" id="btn-lobby-region-us" type="button" data-region="us" aria-pressed="false">US</button>
           </div>
         </div>
+      </div>
+      <div class="lobby-step-rail" aria-hidden="true">
+        <span class="is-active"><b>01</b> BRIEF</span>
+        <span><b>02</b> CREW</span>
+        <span><b>03</b> LAUNCH</span>
       </div>
       <div class="lobby-top-actions">
         <button id="btn-lobby-voice" class="btn-lobby-voice">
@@ -269,6 +378,12 @@
   <div class="app-screen" id="screen-game">
     <div id="helmet-visor-overlay"></div>
 
+    <div id="hud-compass" aria-hidden="true">
+      <div class="hud-compass-ticks"></div>
+      <div class="hud-compass-heading" id="hud-compass-heading">000&deg;</div>
+      <div class="hud-compass-label">LEO // TRANSIT</div>
+    </div>
+
     <div id="hud-crosshair">
       <div class="crosshair-dot"></div>
       <div class="crosshair-ring"></div>
@@ -313,7 +428,8 @@
           <span id="hud-checklist-chevron" class="checklist-chevron">&#9662;</span>
         </div>
       </div>
-      <div id="hud-crew-roster" class="hud-crew-roster">
+      <div class="hud-checklist-progress" aria-hidden="true"><span id="hud-checklist-progress-fill"></span></div>
+      <div id="hud-crew-roster" class="hud-crew-roster" hidden>
         <!-- Rendered by main.js: role filters, roster cards and next action -->
       </div>
       <div id="hud-task-list" class="hud-task-list-body">
@@ -336,32 +452,31 @@
     <!-- Top-Right Compact Controls (View, Mic, Hangar, Systems) -->
     <div id="hud-voice-panel">
       <div class="voice-header-row">
-        <button id="btn-camera-mode" class="voice-mic-btn" title="Switch Camera View [C]">
-          <span id="cam-mode-icon">CAM</span>
-          <span id="cam-mode-label">3RD PERSON</span>
+        <button id="btn-camera-mode" class="voice-mic-btn" data-label="CAMERA" title="Camera [C]" aria-label="Switch camera view">
+          <span id="cam-mode-icon" class="voice-btn__icon" aria-hidden="true"></span>
+          <span id="cam-mode-label" class="voice-btn__label">3RD PERSON</span>
         </button>
-        <button id="btn-voice-mic" class="voice-mic-btn" data-sfx="none" title="Mute or Unmute Microphone [M]">
-          <span id="voice-mic-icon">MIC</span>
-          <span id="voice-mic-label">ON</span>
+        <button id="btn-voice-mic" class="voice-mic-btn" data-label="MIC" title="Mute [M]" aria-label="Toggle microphone">
+          <span id="voice-mic-icon" class="voice-btn__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-mic"></use></svg></span>
+          <span id="voice-mic-label" class="voice-btn__label">ON</span>
         </button>
         <button id="btn-crew-comms" class="voice-mic-btn" title="Open the shared Earth ↔ Flight crew comms channel">
           <span>CREW COMMS</span>
           <span id="crew-comms-voice-label">OPEN</span>
         </button>
-        <button id="btn-hud-more" class="voice-mic-btn" title="Show all tools" aria-expanded="false">
-          <span>MORE</span>
-        </button>
         <button id="btn-emote-menu" class="voice-mic-btn" title="Wave &amp; Signals [X]">
           <span>WAVE</span>
         </button>
-        <button id="btn-hud-hangar" class="voice-mic-btn" title="View 3D Spacecraft &amp; Suits [H]">
-          <span>3D MODELS</span>
+        <span class="hud-action-divider" aria-hidden="true"></span>
+        <button id="btn-quick-deck" class="voice-mic-btn" data-label="QUICK DECK" title="Quick Deck [Q] / Emotes [X]" aria-label="Open Quick Deck" aria-haspopup="dialog" aria-expanded="false">
+          <span class="voice-btn__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-deck"></use></svg></span>
+          <span class="voice-btn__label">DECK</span>
+        </button>
+        <button id="btn-hud-more" class="voice-mic-btn" title="Show all tools" aria-expanded="false">
+          <span>MORE</span>
         </button>
         <button id="btn-hud-academy" class="voice-mic-btn" title="How-To-Play Guide &amp; Helpful Tips [F1]">
           <span>HELP [F1]</span>
-        </button>
-        <button id="btn-hud-orbit-viz" class="voice-mic-btn" title="3D Space Flight Path Viewer [U]">
-          <span>3D ORBIT [U]</span>
         </button>
         <button id="btn-hud-cml" class="voice-mic-btn" title="Mission Readiness Guide — 9 Stages from Big Idea to Launch">
           <span>STAGES</span>
@@ -369,17 +484,13 @@
         <button id="btn-hud-nasa-csa" class="voice-mic-btn" title="Play Space Mini-Games, Build a Telescope &amp; Read Simple Guides">
           <span>SPACE GAMES</span>
         </button>
-        <button id="btn-hud-solar" class="voice-mic-btn" title="Explore the 3D Solar System [O]">
-          <span>SOLAR MAP [O]</span>
+        <button id="btn-voice-settings" class="voice-settings-btn" data-label="SETTINGS" title="Settings" aria-label="Settings">
+          <svg class="ui-icon"><use href="#i-settings"></use></svg>
         </button>
-        <button id="btn-hud-vr-main" class="voice-mic-btn" title="Enter Virtual Reality (VR) Mode">
-          <span>VR</span>
-        </button>
-        <button id="btn-voice-settings" class="voice-settings-btn" title="Audio &amp; Graphics Settings">
-          <span>SETTINGS</span>
-        </button>
-        <button id="btn-hud-leave-room" class="voice-mic-btn btn-danger-outline" title="Leave Room">
-          <span>LEAVE</span>
+        <span class="hud-action-divider" aria-hidden="true"></span>
+        <button id="btn-hud-leave-room" class="voice-mic-btn btn-danger-outline" data-label="LEAVE" title="Leave" aria-label="Leave room">
+          <span class="voice-btn__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-leave"></use></svg></span>
+          <span class="voice-btn__label">LEAVE</span>
         </button>
       </div>
       <div class="voice-sub-row">
@@ -392,6 +503,86 @@
     </div>
 
     <div id="hud-swap-banner" class="swap-request-banner swap-banner-hud" style="display:none;"></div>
+
+    <!-- Quick Deck: crew expressions + systems, frosted glass command panel -->
+    <div id="quick-deck" class="glass-panel" role="dialog" aria-modal="false" aria-labelledby="quick-deck-title" aria-hidden="true">
+      <div class="deck-grabber" id="deck-grabber" aria-hidden="true"></div>
+      <div class="deck-head">
+        <span class="deck-emblem" aria-hidden="true"><svg class="ui-icon"><use href="#i-deck"></use></svg></span>
+        <div class="deck-head-copy">
+          <div class="deck-eyebrow">LUNASPIS // COMMAND</div>
+          <div id="quick-deck-title">QUICK DECK</div>
+        </div>
+        <button type="button" class="deck-close" id="btn-deck-close" title="Close [ESC]" aria-label="Close Quick Deck">&times;</button>
+      </div>
+      <div class="deck-tabs" data-tab="crew" role="tablist" aria-label="Quick Deck sections">
+        <span class="deck-tab-indicator" aria-hidden="true"></span>
+        <button type="button" class="deck-tab active" id="tab-deck-crew" data-deck-tab="crew" role="tab" aria-selected="true" aria-controls="deck-crew-panel">CREW</button>
+        <button type="button" class="deck-tab" id="tab-deck-systems" data-deck-tab="systems" role="tab" aria-selected="false" aria-controls="deck-systems-panel">SYSTEMS</button>
+      </div>
+      <div class="deck-detail" id="deck-detail" aria-live="polite">
+        <span class="detail-dot" aria-hidden="true"></span>
+        <span id="deck-detail-text">Crew expressions and ship systems in one place.</span>
+      </div>
+      <div class="deck-body" id="deck-crew-panel" role="tabpanel" aria-labelledby="tab-deck-crew">
+        <!-- Rendered by main.js from ASTRONAUT_EMOTES -->
+      </div>
+      <div class="deck-body" id="deck-systems-panel" role="tabpanel" aria-labelledby="tab-deck-systems" hidden>
+        <div class="deck-section-label">VIEWS</div>
+        <button type="button" id="btn-hud-hangar" class="deck-row" title="Open the 3D model hangar [H]">
+          <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-box"></use></svg></span>
+          <span class="deck-row__copy"><span class="deck-row__label">3D HANGAR</span><span class="deck-row__sub">Inspect and equip GLB models</span></span>
+          <span class="deck-row__hint">H</span>
+        </button>
+        <button type="button" id="btn-deck-interior" class="deck-row" title="Toggle the Lunaspis ship interior [I]">
+          <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-eye"></use></svg></span>
+          <span class="deck-row__copy"><span class="deck-row__label">SHIP INTERIOR</span><span class="deck-row__sub">Six-room transit craft</span></span>
+          <span class="deck-row__hint">I</span>
+        </button>
+        <button type="button" id="btn-deck-iss" class="deck-row" title="Open the 27-part NASA ISS showcase [J]">
+          <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-cubesat"></use></svg></span>
+          <span class="deck-row__copy"><span class="deck-row__label">ISS 3D SHOWCASE</span><span class="deck-row__sub">27 curated station components</span></span>
+          <span class="deck-row__hint">J</span>
+        </button>
+        <button type="button" id="btn-hud-orbit-viz" class="deck-row" title="Open the trajectory theater [U]">
+          <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-orbit"></use></svg></span>
+          <span class="deck-row__copy"><span class="deck-row__label">ORBIT VIZ</span><span class="deck-row__sub">NASA mission trajectory theater</span></span>
+          <span class="deck-row__hint">U</span>
+        </button>
+        <button type="button" id="btn-hud-solar" class="deck-row" title="Open the Solar System Atlas [O]">
+          <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-globe"></use></svg></span>
+          <span class="deck-row__copy"><span class="deck-row__label">SOLAR ATLAS</span><span class="deck-row__sub">Destinations across the system</span></span>
+          <span class="deck-row__hint">O</span>
+        </button>
+        <button type="button" id="btn-deck-moon" class="deck-row" title="Open the 3D lunar touchdown scene [K]">
+          <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-moon"></use></svg></span>
+          <span class="deck-row__copy"><span class="deck-row__label">LUNAR SCENE</span><span class="deck-row__sub">Apollo touchdown on the Moon</span></span>
+          <span class="deck-row__hint">K</span>
+        </button>
+        <div class="deck-section-label">DISPLAY MODES</div>
+        <button type="button" id="btn-hud-vr-main" class="deck-row" title="Toggle WebXR / stereo VR">
+          <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-vr"></use></svg></span>
+          <span class="deck-row__copy"><span class="deck-row__label">VR MODE</span><span class="deck-row__sub">WebXR or side-by-side stereo</span></span>
+          <span class="deck-row__hint">VR</span>
+        </button>
+        <button type="button" id="btn-deck-space-center" class="deck-row" title="Toggle Kennedy Space Center LC-39A [G]">
+          <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-pin"></use></svg></span>
+          <span class="deck-row__copy"><span class="deck-row__label">LC-39A / SHIP</span><span class="deck-row__sub">Ground site and interior transit</span></span>
+          <span class="deck-row__hint">G</span>
+        </button>
+        <div class="deck-section-label">SYSTEM</div>
+        <button type="button" id="btn-deck-settings" class="deck-row" title="Open systems and performance settings">
+          <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-settings"></use></svg></span>
+          <span class="deck-row__copy"><span class="deck-row__label">SYSTEMS SETTINGS</span><span class="deck-row__sub">Audio, graphics, network, display</span></span>
+          <span class="deck-row__hint">ESC</span>
+        </button>
+      </div>
+      <div class="deck-foot">
+        <span><span class="deck-glyph" id="deck-glyph-nav">WASD</span> NAVIGATE</span>
+        <span><span class="deck-glyph" id="deck-glyph-select">&#8629;</span> SELECT</span>
+        <span><span class="deck-glyph" id="deck-glyph-close">ESC</span> CLOSE</span>
+      </div>
+    </div>
 
     <div id="hud-active-speakers"></div>
 
@@ -423,6 +614,13 @@
         <button class="dpad-btn" data-sfx="none" id="dpad-down">&#9660;</button>
         <button class="dpad-btn" data-sfx="none" id="dpad-right">&#9658;</button>
       </div>
+    </div>
+
+    <div id="hud-control-strip" aria-hidden="true">
+      <span class="ctl-group"><kbd class="ctl-glyph" data-action="interact">E</kbd> INTERACT</span>
+      <span class="ctl-group"><kbd class="ctl-glyph" data-action="deck">Q</kbd> DECK</span>
+      <span class="ctl-group"><kbd class="ctl-glyph" data-action="camera">C</kbd> CAMERA</span>
+      <span class="ctl-group"><kbd class="ctl-glyph" data-action="close">ESC</kbd> CLOSE</span>
     </div>
   </div>
 
@@ -542,7 +740,8 @@
         </div>
       </div>
 
-      <div class="systems-tabs-bar">
+      <div class="systems-tabs-bar" style="--tab-index:0;">
+        <span class="sys-tab-indicator" aria-hidden="true"></span>
         <button type="button" class="sys-tab-btn active" data-tab="tab-comms">VOICE CHAT</button>
         <button type="button" class="sys-tab-btn" data-tab="tab-sound">SOUND</button>
         <button type="button" class="sys-tab-btn" data-tab="tab-graphics">GRAPHICS</button>
@@ -713,7 +912,7 @@
           <div class="network-diagnostics-summary">
             <div class="net-diag-col">
               <div class="net-diag-lbl">SERVER</div>
-              <div class="net-diag-val" id="net-diag-status" style="color:#7fb8a6;">ONLINE</div>
+              <div class="net-diag-val" id="net-diag-status" style="color:#63e6a8;">ONLINE</div>
             </div>
             <div class="net-diag-col">
               <div class="net-diag-lbl">DELAY</div>
@@ -727,6 +926,29 @@
         </div>
 
         <div id="tab-display" class="sys-tab-content">
+          <div class="settings-group">
+            <div class="settings-label-row">
+              <label class="settings-label">UI THEME</label>
+              <span id="theme-val-badge" class="settings-val-badge">FLIGHT LIME</span>
+            </div>
+            <div class="theme-picker" role="radiogroup" aria-label="Interface theme">
+              <button type="button" class="theme-card is-active" data-theme-choice="flight-lime" role="radio" aria-checked="true">
+                <span class="theme-swatch theme-swatch--lime" aria-hidden="true"></span>
+                <span class="theme-copy"><b>FLIGHT LIME</b><small>MISSION CONTROL</small></span>
+                <span class="theme-check" aria-hidden="true">&#10003;</span>
+              </button>
+              <button type="button" class="theme-card" data-theme-choice="gloss-silver" role="radio" aria-checked="false">
+                <span class="theme-swatch theme-swatch--silver" aria-hidden="true"></span>
+                <span class="theme-copy"><b>GLOSS SILVER</b><small>FROSTED CHROME</small></span>
+                <span class="theme-check" aria-hidden="true">&#10003;</span>
+              </button>
+              <button type="button" class="theme-card" data-theme-choice="lunar-champagne" role="radio" aria-checked="false">
+                <span class="theme-swatch theme-swatch--champagne" aria-hidden="true"></span>
+                <span class="theme-copy"><b>LUNAR CHAMPAGNE</b><small>WARM BRASS</small></span>
+                <span class="theme-check" aria-hidden="true">&#10003;</span>
+              </button>
+            </div>
+          </div>
           <div class="settings-group">
             <div class="settings-toggle-row">
               <div>
@@ -809,63 +1031,213 @@
     </div>
   </section>
 
+
+  <!-- ========================================================================
+       FLIGHT CREDENTIALS MODAL
+       ======================================================================== -->
+  <div id="modal-auth" class="settings-modal-overlay">
+    <div class="settings-modal-card auth-modal-card">
+      <div class="settings-modal-header">
+        <span class="settings-modal-title">ACCOUNT</span>
+        <button id="btn-close-auth" class="settings-close-btn">&times;</button>
+      </div>
+
+      <div class="auth-tabs-row">
+        <button id="tab-auth-login" class="auth-tab-btn active">SIGN IN</button>
+        <button id="tab-auth-register" class="auth-tab-btn">REGISTER</button>
+        <button id="tab-auth-reset" class="auth-tab-btn">RESET</button>
+        <button id="tab-auth-dossier" class="auth-tab-btn" style="display:none;">DOSSIER</button>
+      </div>
+
+      <div id="auth-msg-banner" class="auth-msg-banner" style="display:none;"></div>
+
+      <div class="settings-modal-body" style="padding-top:14px;">
+        <form id="form-auth-login" class="auth-form-panel">
+          <div class="settings-group">
+            <label class="settings-label">USERNAME</label>
+            <input type="text" id="login-username" class="input-styled" placeholder="Enter username..." required autocomplete="username" />
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">PASSWORD</label>
+            <input type="password" id="login-password" class="input-styled" placeholder="Enter password..." required autocomplete="current-password" />
+          </div>
+          <button type="submit" class="btn-primary form-submit">AUTHENTICATE</button>
+          <div class="auth-links-row">
+            <span>New crew? <a href="#" id="link-goto-register">Register</a></span>
+            <span>&middot;</span>
+            <a href="#" id="link-goto-reset">Reset Password</a>
+          </div>
+        </form>
+
+        <form id="form-auth-register" class="auth-form-panel" style="display:none;">
+          <div class="settings-group">
+            <label class="settings-label">USERNAME</label>
+            <input type="text" id="reg-username" class="input-styled" placeholder="e.g. voss" required minlength="3" autocomplete="username" />
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">CALLSIGN</label>
+            <input type="text" id="reg-callsign" class="input-styled" placeholder="e.g. CDR. Voss" required maxlength="16" />
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">PASSWORD</label>
+            <input type="password" id="reg-password" class="input-styled" placeholder="Minimum 8 characters..." required minlength="8" autocomplete="new-password" />
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">SPECIALIZATION</label>
+            <select id="reg-title" class="settings-select">
+              <option value="Commander">Commander (CMD) — Launch Authority, Docking Pilot &amp; Sim</option>
+              <option value="Flight Engineer">Flight Engineer (ENG) — Pad Arm, RCS, Power &amp; Hull</option>
+              <option value="Science Officer">Science Officer (SCI) — Boresight, Life Support &amp; Lab</option>
+              <option value="Payload Specialist">Payload Specialist (SCI) — Science &amp; ECLSS Ops</option>
+            </select>
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">SUIT ACCENT</label>
+            <div class="color-swatches" id="reg-color-swatches">
+              <button type="button" class="lobby-color-btn active" data-color="#c9f04b" style="background:#c9f04b;" title="Flight Lime"></button>
+              <button type="button" class="lobby-color-btn" data-color="#63e6a8" style="background:#63e6a8;" title="ECLSS Mint"></button>
+              <button type="button" class="lobby-color-btn" data-color="#ff6b6b" style="background:#ff6b6b;" title="Hull Coral"></button>
+              <button type="button" class="lobby-color-btn" data-color="#7dd3fc" style="background:#7dd3fc;" title="Ion Cyan"></button>
+              <button type="button" class="lobby-color-btn" data-color="#8a8194" style="background:#8a8194;" title="Regolith Violet"></button>
+              <button type="button" class="lobby-color-btn" data-color="#efeee7" style="background:#efeee7;" title="EVA Ivory"></button>
+            </div>
+          </div>
+          <button type="submit" class="btn-primary form-submit">ISSUE CREDENTIAL</button>
+          <div class="auth-links-row">
+            <span>Already registered? <a href="#" id="link-goto-login-from-reg">Sign In</a></span>
+            <span>&middot;</span>
+            <a href="#" id="link-goto-reset-from-reg">Reset Password</a>
+          </div>
+        </form>
+
+        <form id="form-auth-reset" class="auth-form-panel" style="display:none;">
+          <div class="settings-group">
+            <label class="settings-label">USERNAME</label>
+            <input type="text" id="reset-username" class="input-styled" placeholder="Enter username..." required autocomplete="username" />
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">CURRENT PASSWORD</label>
+            <input type="password" id="reset-current-password" class="input-styled" placeholder="Enter current password..." required autocomplete="current-password" />
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">NEW PASSWORD</label>
+            <input type="password" id="reset-password" class="input-styled" placeholder="Minimum 8 characters..." required minlength="8" autocomplete="new-password" />
+          </div>
+          <button type="submit" class="btn-primary form-submit">RESET PASSWORD</button>
+          <div class="auth-links-row">
+            <a href="#" id="link-goto-login-from-reset">Back to Sign In</a>
+          </div>
+        </form>
+
+        <form id="form-auth-dossier" class="auth-form-panel" style="display:none;">
+          <div class="dossier-stat-grid">
+            <div class="dossier-stat-box">
+              <span class="dossier-stat-num" id="dossier-missions">0</span>
+              <span class="dossier-stat-lbl">EXPEDITIONS</span>
+            </div>
+            <div class="dossier-stat-box">
+              <span class="dossier-stat-num" id="dossier-victories">0</span>
+              <span class="dossier-stat-lbl">COMPLETED</span>
+            </div>
+            <div class="dossier-stat-box">
+              <span class="dossier-stat-num" id="dossier-tasks">0</span>
+              <span class="dossier-stat-lbl">REPAIRS</span>
+            </div>
+          </div>
+
+          <div class="settings-group" style="margin-top:12px;">
+            <label class="settings-label">CALLSIGN</label>
+            <input type="text" id="dossier-callsign" class="input-styled" maxlength="16" />
+          </div>
+
+          <div class="settings-group">
+            <label class="settings-label">RANK</label>
+            <select id="dossier-title" class="settings-select">
+              <option value="Commander">Commander (CMD) — Launch, Docking Pilot &amp; Command</option>
+              <option value="Flight Engineer">Flight Engineer (ENG) — Pad Arm, RCS, Power &amp; Hull</option>
+              <option value="Science Officer">Science Officer (SCI) — Boresight, Life Support &amp; Lab</option>
+              <option value="Payload Specialist">Payload Specialist (SCI) — Science &amp; ECLSS Ops</option>
+            </select>
+          </div>
+
+          <div class="settings-group">
+            <label class="settings-label">SUIT ACCENT</label>
+            <div class="color-swatches" id="dossier-color-swatches">
+              <button type="button" class="lobby-color-btn" data-color="#c9f04b" style="background:#c9f04b;" title="Flight Lime"></button>
+              <button type="button" class="lobby-color-btn" data-color="#63e6a8" style="background:#63e6a8;" title="ECLSS Mint"></button>
+              <button type="button" class="lobby-color-btn" data-color="#ff6b6b" style="background:#ff6b6b;" title="Hull Coral"></button>
+              <button type="button" class="lobby-color-btn" data-color="#7dd3fc" style="background:#7dd3fc;" title="Ion Cyan"></button>
+              <button type="button" class="lobby-color-btn" data-color="#8a8194" style="background:#8a8194;" title="Regolith Violet"></button>
+              <button type="button" class="lobby-color-btn" data-color="#efeee7" style="background:#efeee7;" title="EVA Ivory"></button>
+            </div>
+          </div>
+
+          <div class="dossier-actions">
+            <button type="submit" class="btn-primary">SAVE DOSSIER</button>
+            <button type="button" id="btn-dossier-logout" class="btn-secondary btn-danger-outline">SIGN OUT</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- NOTIFICATION TOAST -->
   <div id="action-toast">NOTIFICATION</div>
 
   <!-- Core Engine Systems (Lunaspis Shaders, Audio, GLB Assets, Network, Voice & JPL CML) -->
-  <script src="js/core/cinematic_pass.js?v=4.3.2"></script>
-  <script src="js/core/audio_synth.js?v=5.0.2"></script>
-  <script src="js/core/ui_theme.js?v=5.1.3"></script>
-  <script src="js/core/glb_manager.js?v=4.3.5"></script>
-  <script src="js/core/regions.js?v=1.1.0"></script>
-  <script src="js/core/network.js?v=4.11.0"></script>
-  <script src="js/core/voice.js?v=4.5.1"></script>
-  <script src="js/core/video_link.js?v=1.1.0"></script>
-  <script src="js/core/cml_framework.js?v=1.0.0"></script>
+  <script src="js/core/cinematic_pass.js?v=6.1.9"></script>
+  <script src="js/core/audio_synth.js?v=6.1.9"></script>
+  <script src="js/core/ui_theme.js?v=6.1.9"></script>
+  <script src="js/core/glb_manager.js?v=6.1.9"></script>
+  <script src="js/core/regions.js?v=6.1.9"></script>
+  <script src="js/core/network.js?v=6.1.9"></script>
+  <script src="js/core/voice.js?v=6.1.9"></script>
+  <script src="js/core/video_link.js?v=6.2.0"></script>
+  <script src="js/core/cml_framework.js?v=6.1.9"></script>
 
   <!-- 3D World & Environments (Space Center LC-39A, Launch, Docking, Ship Interior, ISS Showcase & Earth) -->
-  <script src="js/world/station_modules.js?v=4.7.3"></script>
-  <script src="js/world/photorealistic_earth.js?v=4.1.1"></script>
-  <script src="js/world/space_center/shared.js?v=4.9.6"></script>
-  <script src="js/world/space_center/environment.js?v=4.9.6"></script>
-  <script src="js/world/space_center/pad.js?v=4.9.6"></script>
-  <script src="js/world/space_center/pad39b.js?v=4.9.5"></script>
-  <script src="js/world/space_center/vab.js?v=4.9.6"></script>
-  <script src="js/world/space_center/lcc.js?v=4.9.5"></script>
-  <script src="js/world/space_center/crawler.js?v=4.9.5"></script>
-  <script src="js/world/space_center/utilities.js?v=4.9.5"></script>
-  <script src="js/world/space_center/site.js?v=4.9.6"></script>
-  <script src="js/world/space_center/open_car.js?v=1.0.9"></script>
-  <script src="js/world/space_center.js?v=5.1.1"></script>
-  <script src="js/world/space_center/ground_map.js?v=1.0.4"></script>
-  <script src="js/world/launch_cutscene.js?v=4.9.3"></script>
-  <script src="js/world/docking_simulator.js?v=4.8.0"></script>
-  <script src="js/world/ship_interior.js?v=4.8.5"></script>
-  <script src="js/world/mission_viz.js?v=1.1.1"></script>
-  <script src="js/world/specialist_planet_mission.js?v=4.3.0"></script>
-  <script src="js/world/solar_system.js?v=3.0.0"></script>
-  <script src="js/world/vr_mode.js?v=1.1.0"></script>
+  <script src="js/world/station_modules.js?v=6.1.9"></script>
+  <script src="js/world/photorealistic_earth.js?v=6.1.9"></script>
+  <script src="js/world/space_center/shared.js?v=6.1.9"></script>
+  <script src="js/world/space_center/environment.js?v=6.1.9"></script>
+  <script src="js/world/space_center/pad.js?v=6.1.9"></script>
+  <script src="js/world/space_center/pad39b.js?v=6.1.9"></script>
+  <script src="js/world/space_center/vab.js?v=6.1.9"></script>
+  <script src="js/world/space_center/lcc.js?v=6.1.9"></script>
+  <script src="js/world/space_center/crawler.js?v=6.1.9"></script>
+  <script src="js/world/space_center/utilities.js?v=6.1.9"></script>
+  <script src="js/world/space_center/site.js?v=6.1.9"></script>
+  <script src="js/world/space_center/open_car.js?v=6.1.9"></script>
+  <script src="js/world/space_center.js?v=6.1.9"></script>
+  <script src="js/world/space_center/ground_map.js?v=6.1.9"></script>
+  <script src="js/world/launch_cutscene.js?v=6.1.9"></script>
+  <script src="js/world/docking_simulator.js?v=6.1.9"></script>
+  <script src="js/world/ship_interior.js?v=6.1.9"></script>
+  <script src="js/world/mission_viz.js?v=6.1.9"></script>
+  <script src="js/world/specialist_planet_mission.js?v=6.1.9"></script>
+  <script src="js/world/solar_system.js?v=6.1.9"></script>
+  <script src="js/world/vr_mode.js?v=6.1.9"></script>
 
   <!-- Shuttle Flight Ops Simulation, World View, SFX, STS_OS HUD & Controller (Nov 14) -->
-  <script src="js/game/shuttle_simulation.js?v=1.0.0"></script>
-  <script src="js/game/shuttle_mission.js?v=1.0.3"></script>
-  <script src="js/world/shuttle_view.js?v=1.0.0"></script>
-  <script src="js/game/shuttle_sfx.js?v=2.0.0"></script>
-  <script src="js/game/shuttle_hud.js?v=1.0.5"></script>
-  <script src="js/game/shuttle_game.js?v=1.0.4"></script>
+  <script src="js/game/shuttle_simulation.js?v=6.1.9"></script>
+  <script src="js/game/shuttle_mission.js?v=6.1.9"></script>
+  <script src="js/world/shuttle_view.js?v=6.1.9"></script>
+  <script src="js/game/shuttle_sfx.js?v=6.1.9"></script>
+  <script src="js/game/shuttle_hud.js?v=6.1.9"></script>
+  <script src="js/game/shuttle_game.js?v=6.1.9"></script>
 
   <!-- Artemis Lunar Expedition (server-authoritative training mission) -->
-  <script src="js/game/artemis_simulation.js?v=1.0.0"></script>
-  <script src="js/game/artemis_mission.js?v=1.0.0"></script>
-  <script src="js/game/artemis_game.js?v=1.0.5"></script>
+  <script src="js/game/artemis_simulation.js?v=6.1.9"></script>
+  <script src="js/game/artemis_mission.js?v=6.1.9"></script>
+  <script src="js/game/artemis_game.js?v=6.1.9"></script>
 
   <!-- Mission Simulation & Main Loop -->
-  <script src="js/game/csa_nasa_resources.js?v=1.1.0"></script>
-  <script src="js/game/iss_side_games.js?v=1.1.0"></script>
-  <script src="js/game/gameplay.js?v=5.1.5"></script>
-  <script src="js/game/mission_academy.js?v=1.2.0"></script>
-  <script src="js/game/mission_log.js?v=1.0.0"></script>
-  <script src="js/game/main.js?v=5.3.0"></script>
+  <script src="js/game/csa_nasa_resources.js?v=6.1.9"></script>
+  <script src="js/game/iss_side_games.js?v=6.1.9"></script>
+  <script src="js/game/gameplay.js?v=6.1.9"></script>
+  <script src="js/game/mission_academy.js?v=6.1.9"></script>
+  <script src="js/game/mission_log.js?v=6.1.9"></script>
+  <script src="js/game/main.js?v=6.1.9"></script>
 
 </body>
 </html>

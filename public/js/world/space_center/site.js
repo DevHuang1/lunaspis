@@ -352,7 +352,7 @@
             color: 0xffffff,
             map: this._makeNoiseTexture(
               "concrete_curb",
-              "#eceae3",
+              "#efeee7",
               ["rgba(170,172,166,0.18)", "rgba(246,246,240,0.18)"],
               null
             ),
@@ -395,7 +395,7 @@
             color: 0xffffff,
             map: this._makeNoiseTexture(
               "lcc_wall",
-              "#eceae3",
+              "#efeee7",
               ["rgba(190,196,204,0.15)", "rgba(255,255,255,0.14)"],
               "vab_panel"
             ),
@@ -740,7 +740,7 @@
       ctx.font = `700 ${options.fontSize || 64}px Arial, Helvetica, sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillStyle = options.color || "#eceae3";
+      ctx.fillStyle = options.color || "#efeee7";
       ctx.fillText(text, 256, 68);
       const texture = new THREE.CanvasTexture(canvas);
       if (THREE.sRGBEncoding !== undefined) texture.encoding = THREE.sRGBEncoding;
@@ -931,7 +931,7 @@
           if (kind === "nasa") {
             ctx.fillStyle = "#0b3d91";
             ctx.fillRect(0, 0, w, h);
-            ctx.strokeStyle = "#eceae3";
+            ctx.strokeStyle = "#efeee7";
             ctx.lineWidth = 10;
             ctx.beginPath();
             ctx.ellipse(w * 0.5, h * 0.5, w * 0.28, h * 0.24, -0.35, 0, Math.PI * 2);
@@ -944,7 +944,7 @@
             ctx.lineTo(w * 0.55, h * 0.45);
             ctx.closePath();
             ctx.fill();
-            ctx.fillStyle = "#eceae3";
+            ctx.fillStyle = "#efeee7";
             ctx.font = "900 92px Arial, Helvetica, sans-serif";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
@@ -952,12 +952,12 @@
           } else {
             const stripeH = h / 13;
             for (let s = 0; s < 13; s++) {
-              ctx.fillStyle = s % 2 === 0 ? "#b22234" : "#eceae3";
+              ctx.fillStyle = s % 2 === 0 ? "#b22234" : "#efeee7";
               ctx.fillRect(0, s * stripeH, w, stripeH + 1);
             }
             ctx.fillStyle = "#3c3b6e";
             ctx.fillRect(0, 0, w * 0.4, stripeH * 7);
-            ctx.fillStyle = "#eceae3";
+            ctx.fillStyle = "#efeee7";
             for (let r = 0; r < 5; r++) {
               for (let c = 0; c < 6; c++) {
                 ctx.beginPath();

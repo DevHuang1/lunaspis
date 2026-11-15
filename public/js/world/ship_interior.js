@@ -150,7 +150,7 @@
       position: [0, 1.02, 0],
       workPosition: [0, 0, 1.5],
       interactRadius: 2.1,
-      color: "#67e8f9",
+      color: "#c9f04b",
       description: "Transit cycle status, resource trends, and crew assignments."
     },
     command: {
@@ -161,8 +161,8 @@
       position: [0, 0.92, -11.2],
       workPosition: [0, 0, -9.5],
       interactRadius: 2.6,
-      color: "#38bdf8",
-      description: "Mission timer, live position, and the Moon landing plan."
+      color: "#7dd3fc",
+      description: "Mission clock, transit telemetry, and the lunar approach plan."
     },
     power: {
       id: "power",
@@ -172,7 +172,7 @@
       position: [-11.2, 0.92, 0],
       workPosition: [-9.5, 0, 0],
       interactRadius: 2.6,
-      color: "#fbbf24",
+      color: "#f5c451",
       description: "Manual bus reroute and battery load balancing."
     },
     "life-support": {
@@ -183,7 +183,7 @@
       position: [11.2, 0.92, 0],
       workPosition: [9.5, 0, 0],
       interactRadius: 2.6,
-      color: "#34d399",
+      color: "#63e6a8",
       description: "Oxygen, CO₂ scrubbing, pressure, and cabin temperature."
     },
     hull: {
@@ -194,7 +194,7 @@
       position: [0, 0.92, 10.4],
       workPosition: [0, 0, 9.1],
       interactRadius: 2.6,
-      color: "#fb7185",
+      color: "#ff6b6b",
       description: "Hull breach seals, pressure doors, and repair drones."
     },
     lander: {
@@ -205,7 +205,7 @@
       position: [0, 0.92, 18.9],
       workPosition: [0, 0, 17.4],
       interactRadius: 2.8,
-      color: "#a78bfa",
+      color: "#efeee7",
       description: "Three-axis descent alignment and touchdown authority."
     },
     "csa-lab": {
@@ -498,7 +498,7 @@
     context.strokeRect(4, 4, width - 8, height - 8);
     context.globalAlpha = 1;
 
-    context.fillStyle = "#ece7dc";
+    context.fillStyle = "#efeee7";
     context.textAlign = "center";
     context.textBaseline = "middle";
     context.font = `600 ${subtext ? 38 : 42}px ui-monospace, SFMono-Regular, Menlo, monospace`;
@@ -3667,7 +3667,7 @@
           const nextTex = createStationLabelTexture({
             text: entry.station.shortLabel,
             subtext: hasFault ? "FAULT" : "READY",
-            accent: hasFault ? "#e08080" : entry.station.color
+            accent: hasFault ? "#ff6b6b" : entry.station.color
           });
           if (entry.labelSpriteMat.map) entry.labelSpriteMat.map.dispose();
           entry.labelSpriteMat.map = nextTex;
@@ -3904,8 +3904,8 @@
         friendMarkers.push(`
           <g transform="translate(${pos[0].toFixed(2)} ${pos[2].toFixed(2)})">
             <title>${safeName}</title>
-            <circle r="1.05" fill="${color}" stroke="#050810" stroke-width="0.32" />
-            <circle r="0.3" fill="rgba(5,8,16,0.72)" />
+            <circle r="1.05" fill="${color}" stroke="#05070a" stroke-width="0.32" />
+            <circle r="0.3" fill="rgba(5,6,10,0.72)" />
           </g>
         `);
         friendLegend.push(`

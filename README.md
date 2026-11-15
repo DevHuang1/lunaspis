@@ -11,7 +11,7 @@ Interfellas/
 │   ├── db.js                      # PostgreSQL / local JSON persistence (users, rooms, tasks, chat)
 │   ├── storage.js                 # Zero-dependency S3 / Railway Object Storage client
 │   ├── voice-signaling.js         # Always-on crew voice relay signaling
-│   └── video-signaling.js         # SDP/ICE relay for the crew video link
+│   └── video-signaling.js         # Presence relay for the camera-free 3D crew link
 ├── scripts/
 │   └── sync_bucket.js             # CLI utility to sync 3D .glb assets to Railway Object Storage
 ├── design-reference/
@@ -19,7 +19,10 @@ Interfellas/
 ├── public/                        # Static frontend (Vanilla Three.js — no Next.js)
 │   ├── index.html                 # Main application shell & responsive HUD overlays
 │   ├── css/
-│   │   └── style.css              # Desktop + mobile responsive styles & touch thumbstick UI
+│   │   ├── style.css              # Desktop + mobile responsive layout & touch thumbstick UI
+│   │   ├── premium.css            # Interface tokens & component system
+│   │   ├── lunar-glass.css        # Flight Lime accent & frosted glass surfaces
+│   │   └── flightdeck.css         # Technical HUD layer, chamfered chrome & Quick Deck
 │   ├── basis/                     # Basis Universal / KTX2 GPU texture transcoder (JS + WASM)
 │   ├── draco/                     # Google Draco 3D mesh decompression workers (JS + WASM)
 │   ├── models/                    # Primary SpaceShip (Lunaspis) 3D GLB assets
@@ -40,7 +43,7 @@ Interfellas/
 │       │   ├── glb_manager.js     # GLB/KTX2/Draco/Meshopt loader, astronaut rig & 3D Hangar Studio
 │       │   ├── network.js         # Socket.IO client state sync & snapshot interpolation
 │       │   ├── voice.js           # Always-on all-crew voice relay
-│       │   ├── video_link.js      # Earth Control ↔ Flight Crew WebRTC video link & 3D flight-deck view
+│       │   ├── video_link.js      # Camera-free animated 3D crew link & flight-deck/control-room views
 │       │   ├── audio_synth.js     # Procedural Web Audio synthesizer & Quindar radio tones
 │       │   └── cinematic_pass.js  # ACES Filmic post-processing shader pass
 │       ├── world/                 # 3D scenes & interactive environments
@@ -86,7 +89,7 @@ Interfellas/
 - **Seeded Mission Anomalies (`getMissionEvent`)**: Every expedition draws a deterministic anomaly from a difficulty-specific deck — cadet maintenance/weather transients, engineer CMEs, DSN outages, reaction-wheel faults and detector degradation, or director-level severe solar storms, network loss, power-bus faults and instrument failures. The same seed produces the same event for the whole crew, and the LDR simulation adds it as a PASS/FAIL phase.
 - **Flight Records & Local Leaderboard (`mission_log.js`)**: Completed runs are saved in the browser with score, scenario, difficulty, science/engineering split, CML, constraints, crew and duration. The **PAST FLIGHTS** panel ranks the top 30, supports JSON export, and copies a shareable mission report. Victory requires a **server-validated** LDR report (design ids, score arithmetic, resource constraints, all phases and seeded anomaly), so records marked ✓ reflect an authoritative mission result.
 - **Crew Emotes & Fresh Expedition Codes**: Wave, salute, dance, laugh, look around, heart, salsa, Footloose, Woo Walk, and Breakdance emotes (`[X]`, `[1]`–`[9]`, `[0]`) combine skeletal animation with two-bone arm/hand IK — heart hands meet above the helmet, laugh hands cover the visor, salsa trades high flourishes with low cross-body sweeps, the Footloose emote kicks and pumps through an arm-swinging line dance, the Woo Walk struts through a bouncy two-step with alternating fist pumps, the Breakdance drops into a one-hand coffee-grinder spin and finishes in a leg-lifted freeze, and every gesture is relayed to crewmates with floating 3D emoji bubbles. **ENTER MISSION** launches a solo expedition, while **HOST CREW** creates a fresh room with a shareable expedition code (or join a crew by entering its code).
-- **Live Earth ↔ Flight Crew Video Link (`video_link.js`)**: Opt-in WebRTC camera call between the LCC and the flight deck. The ship crew gets a compact **EARTH CONTROL** camera feed in the top-left; Earth Control gets a live 3D flight-deck view with up to four seated, animated crew avatars (CDR/PLT/MS1/MS2) and a live camera screen on each seat. Audio stays on the existing all-crew voice relay, and the server only relays SDP/ICE signalling, never video frames. Start it from **CREW COMMS → VIDEO**, the crew-side top-left prompt, or **VIDEO** / **START CAMERA** in the LCC operations console.
+- **Live Earth ↔ Flight Crew 3D Link (`video_link.js`)**: A camera-free, opt-in crew link rendered entirely with animated 3D models. The ship crew gets a compact **EARTH CONTROL** room view with seated, animated Flight Director and Ground Systems avatars; Earth Control gets a live 3D flight-deck view with up to four seated, animated crew avatars (CDR/PLT/MS1/MS2). No camera or microphone permission is requested and no real-world video is transmitted — the server only relays link presence. Audio stays on the existing all-crew voice relay. Start it from **CREW COMMS → LINK**, the crew-side top-left prompt, or **3D LINK** / **START 3D LINK** in the LCC operations console.
 - **Unsuit Earth-Control Crew (`crew_a.glb`, `crew_b.glb`)**: The two Earth Control roles spawn inside the LCC wearing NASA-blue crew uniforms instead of spacesuits. **Flight Director** uses Crew A and **Ground Systems** uses Crew B; station crew keep their spacesuit rigs. Earth Control actions are exclusive: Flight Director owns launch/docking clearance, crew alerts and room pings; Ground Systems owns Earth-dish lock, power routing and science downlink. The server rejects actions from the wrong ground role. Both crew models share the astronaut skeleton and idle/walk/look_around/wave clips, so walking, emotes and name badges work in the control room.
 - **7 NASA Systems Engineering & MDL Consoles (`gameplay.js`, `[E]`, `[K]`)**: Design missions across Earth Climate EO, Lunar South Pole, Asteroid Rendezvous, **COSMOS-L2 Space Telescope** (wavelength-optics-cryo constraints), **NASA CSLI CubeSat 101** (`3U`/`6U`/`12U` mass & 5-year End-of-Mission deorbit rules), and Sandbox mode. Tracks **CML 1–4** maturity, **Launch/Space/Ground/User** segment readiness, Option A vs. Option B trade studies, live 3D Point-Design previews, Risk Matrices, simulated science product plots, NASA/CSA heritage mission matches, and JSON MDL + **GMAT `.script`** export. Each shared station objective is owned by one crew role (Commander, Engineer, Scientist, Specialist); other roles see it locked, and the server rejects completion attempts from the wrong role. Missing roles are covered by the least-loaded stationed role so solo and small crews remain completable.
 - **CSA Digital Games & NASA Space Apps Resource Lab (`csa_nasa_resources.js`)**: Playable in-sim activities built from the Canadian Space Agency's [Digital Games and Activities](https://www.asc-csa.gc.ca/eng/youth-educators/digital-games-and-activities.asp) and NASA resources — **CSA RADARSAT Constellation Mission (RCM)** C-band SAR swath triage (Arctic Maritime Captains, Flood First Responders, Prairie Precision Farmers), **CSA OSIRIS-REx Laser Altimeter (OLA)** Bennu 2cm LiDAR sample-site selector (*Nightingale*, *Osprey*, *Kingfisher*, *Sandpiper*), **CSA Mission: Astronaut** (**Canadarm2 / Dextre** robotics & **Tomatosphere™** space agriculture ECLSS), **NASA Build-It-Yourself Space Telescope** (Levels 1–3 + **CSA JWST FGS/NIRISS**), **NASA CSLI CubeSat 101** 5-phase checklist, and live **NASA GMAT (`.script`)** trajectory script generation.
@@ -94,6 +97,8 @@ Interfellas/
 - **3D NASA Mission Viz & GMAT Trajectory Theater (`mission_viz.js`, `[U]`)**: Inspect Earth/Moon/L2/Asteroid orbital trajectories, Van Allen radiation belts, Earth shadow umbra cones, ground station coverage cones & RF beams, and scrub mission event timelines across all mission phases.
 - **WebXR & Stereo VR Mode (`vr_mode.js`)**: Enter native `immersive-vr` WebXR headsets or universal Desktop/Mobile Side-by-Side Stereo VR (with adjustable IPD & mobile gyro support) for Mission Viz, the 27-part ISS Showcase, and Station exploration.
 - **Interactive VAB High Bay & LCC Firing Room Terminals (`space_center.js`)**: Open the pre-flight MDL Spacecraft Integration Desk inside the VAB and the Flight Dynamics / 3D Mission Viz console inside the LCC during the LC-39A Site Tour (`[E]`). The west-wing firing room is modelled on the Apollo-era reference: warm beige console rows facing a paper world-map and mission-rules wall, a suspended acoustic ceiling, and a central green-CRT Ops console. The reception lobby, tiled restrooms, electrical control room and conference/briefing room are dressed to match, with mission patches, a directory, launch photographs, rack banks, a briefing table and a dedicated Flight Dynamics station. The LCC entrance is keyless: pressing `[E]` at the doors steps the player into the lobby (or back out to the plaza), and the sliding doors part for the transition and close behind them.
+- **Dual UI Themes (Settings → Display → UI Theme)**: Switch instantly between **Flight Lime** mission-control lime and **Gloss Silver** frosted-chrome finishes. The choice persists per browser and applies across the title screen, lobby, HUD, modals, world terminals, and Quick Deck without touching layout or gameplay.
+- **Flight Deck UI Themes**: Switch between Flight Lime, Gloss Silver, and Lunar Champagne in Settings → Display, with frosted glass surfaces, objective progress/status animations, resource-meter target ticks, Quick Deck hover detail, input-aware prompts, and reduced-motion support.
 - **Full site collision**: Every complex contributes solid volumes — 39A mound/masts/propellant farm/kiosk, VAB and its indoor launcher, LCC shell and furniture, gatehouse, press mound, utilities and the whole LC-39B complex. The ground tour slides along them instead of walking through structures.
 - **Full Mobile Compatibility (Width, Height & Performance)**:
   - Dynamic viewport adaptation (`visualViewport`, `100dvw`/`100dvh`, safe-area insets, and portrait-adaptive vertical FOV).
@@ -113,7 +118,7 @@ Interfellas/
 | **Docking Camera** | Drag to orbit, wheel to zoom, double-click to reset, `[V]` chase/cockpit | Drag to orbit, pinch to zoom |
 | **Site Tour** | `SITE TOUR` on the pad HUD, `1`–`8` fast travel (39A, VAB, LCC, crawler, beach, press, Pad 39B, 39B crawler), `T` return to gantry | Tap `SITE TOUR`, then tap a destination |
 | **Ground Consoles** | `[E]` at the Flight Director / Ground Systems desks in the LCC, or the VAB integration desk | Tap the `⚡ ACCESS TERMINAL` prompt |
-| **Live Crew Video** | `VIDEO` in **CREW COMMS** or the LCC operations console (`[C]`) / top-left crew prompt | Tap `VIDEO` or `START CAMERA` |
+| **Live 3D Crew Link** | `LINK` in **CREW COMMS** or the LCC operations console (`[C]`) / top-left crew prompt | Tap `LINK` or `START 3D LINK` |
 | **LCC Entrance** | Walk to the Launch Control Center doors and press `[E]` to step straight inside or back out; the doors part for the step-through and close behind you | Tap `🚪 ENTER LCC` / `🚪 EXIT LCC` |
 | **27-Part NASA ISS 3D Showcase** | `[J]` | Tap `🛰️ ISS 3D` button in HUD |
 | **3D Lunar Touchdown Scene** | `[K]` | Tap `🌕 MOON` button in HUD |
@@ -173,7 +178,7 @@ Module relationships and interior details were also checked against NASA's [stat
 - **DB TLS:** PostgreSQL TLS verification is on by default. Only set `DB_SSL_REJECT_UNAUTHORIZED=false` if your provider requires relaxed verification.
 - **Password changes:** `/api/auth/reset-password` now requires the current password as well as the new one.
 - **Rate limits:** auth endpoints are limited to 20 requests/minute/IP; other APIs to 120/minute/IP; Socket.IO events are throttled per connection. The app trusts one reverse-proxy hop by default (Railway); set `TRUST_PROXY=false` only when running without a proxy.
-- **Video ICE / TURN:** the live crew video link uses WebRTC with public STUN by default. Set `TURN_URLS` (comma-separated), `TURN_USERNAME` and `TURN_CREDENTIAL` on the server to advertise a TURN relay through `/api/video/ice` for restrictive NATs.
+- **3D Crew Link:** the Earth Control ↔ Flight Crew link is rendered with animated 3D models, so it needs no camera permission, WebRTC media, STUN or TURN configuration. The `/api/video/ice` endpoint remains available for older clients but is not used by the current link.
 - **Dependencies:** `npm audit --omit=dev` should be run in CI (currently reports 0 vulnerabilities).
 
 ## 🌐 Server Regions

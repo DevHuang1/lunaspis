@@ -530,9 +530,9 @@
       this.overlayEl.innerHTML = `
         <div class="launch-header-row">
           <div class="launch-badge-card">
-            <div style="font-size:10px;font-weight:700;letter-spacing:1.6px;color:#93c5fd;">LUNASPIS FLIGHT CONTROL &bull; LAUNCH PAD 39A</div>
-            <div class="launch-title-main" style="font-size:14px;font-weight:700;color:#f8fafc;letter-spacing:1px;">ROCKET LIFTOFF &amp; SPACECRAFT RELEASE</div>
-            <div id="launch-crew-banner" style="font-size:10px;font-weight:600;color:#cbd5e1;margin-top:4px;letter-spacing:0.6px;"></div>
+            <div style="font-size:10px;font-weight:900;letter-spacing:1.5px;color:var(--ui-brand);">NASA MISSION CONTROL &bull; KENNEDY LC-39A</div>
+            <div class="launch-title-main" style="font-size:14px;font-weight:900;color:#efeee7;letter-spacing:1px;">EX-01 LAUNCH VEHICLE ASCENT &amp; PAYLOAD DEPLOY</div>
+            <div id="launch-crew-banner" style="font-size:10px;font-weight:700;color:#efeee7;margin-top:4px;letter-spacing:0.6px;"></div>
           </div>
 
           <button id="btn-ff-launch" style="pointer-events:auto;background:rgba(103,232,249,0.14);border:1px solid rgba(103,232,249,0.5);color:#67e8f9;padding:8px 14px;border-radius:6px;font-size:11px;font-weight:800;letter-spacing:0.04em;cursor:pointer;">

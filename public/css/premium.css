@@ -1009,66 +1009,123 @@ body.shuttle-mode-active #modal-station-systems {
   z-index: 4600;
 }
 
-/* ===== UI_Fix (Lunar Glass) layer — merged from origin/UI_Fix ===== */
-
 /* ==========================================================================
-   LUNASPIS — INTERFACE SYSTEM v2
+   LUNASPIS — INTERFACE SYSTEM v3
+   FLIGHT LIME: Apollo mission-control technical HUD, obsidian glass, ivory type.
    Single source of truth for surfaces, type, spacing, state and motion.
    Loaded after style.css. Legacy tokens are aliased for compatibility.
    ========================================================================== */
+
+@font-face {
+  font-family: "Chakra Petch";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../fonts/chakra-petch-500.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Chakra Petch";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../fonts/chakra-petch-600.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Chakra Petch";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../fonts/chakra-petch-700.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../fonts/ibm-plex-mono-400.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../fonts/ibm-plex-mono-500.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../fonts/ibm-plex-mono-600.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
 
 :root {
   color-scheme: dark;
 
   --ui-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --ui-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
+  --ui-font-display: "Chakra Petch", var(--ui-font-sans);
+  --ui-font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
 
-  /* LUNAR BRASS — the single trademark accent */
-  --ui-brand: #d0a15c;
-  --ui-brand-strong: #e7c58c;
-  --ui-brand-soft: rgba(208, 161, 92, 0.12);
-  --ui-brand-line: rgba(208, 161, 92, 0.42);
-  --ui-brand-ink: #1a1206;
+  /* FLIGHT LIME — the single trademark accent */
+  --ui-brand: #c9f04b;
+  --ui-brand-strong: #e4ff7e;
+  --ui-brand-rgb: 201, 240, 75;
+  --ui-brand-button-top: #dcff74;
+  --ui-brand-button-bottom: #b4dd36;
+  --ui-brand-button-hover-top: #efffa8;
+  --ui-brand-button-hover-bottom: #c4ec44;
+  --ui-brand-soft: rgba(var(--ui-brand-rgb), 0.12);
+  --ui-brand-line: rgba(var(--ui-brand-rgb), 0.4);
+  --ui-brand-ink: #0b1204;
+  --ui-brand-dim: #8faf2e;
 
-  --ui-bg: #080a0e;
+  --ui-bg: #080b10;
   --ui-bg-deep: #05070a;
-  --ui-surface: rgba(16, 20, 26, 0.58);
-  --ui-surface-solid: #10141a;
-  --ui-surface-2: rgba(20, 25, 33, 0.66);
-  --ui-surface-3: rgba(32, 38, 48, 0.5);
-  --ui-scrim: rgba(5, 7, 10, 0.74);
+  --ui-surface: rgba(13, 18, 24, 0.66);
+  --ui-surface-solid: #10151c;
+  --ui-surface-2: rgba(18, 24, 31, 0.82);
+  --ui-surface-3: rgba(30, 38, 47, 0.56);
+  --ui-scrim: rgba(4, 6, 9, 0.76);
 
-  --ui-text: #eceae3;
-  --ui-text-muted: #a6adb6;
-  --ui-text-dim: #6f7782;
+  --ui-text: #efeee7;
+  --ui-text-muted: #a7b0ba;
+  --ui-text-dim: #7a8490;
 
   --ui-accent: var(--ui-brand);
   --ui-accent-strong: var(--ui-brand-strong);
   --ui-accent-soft: var(--ui-brand-soft);
   --ui-accent-line: var(--ui-brand-line);
 
-  --ui-amber: var(--ui-brand);
-  --ui-sage: #83a896;
-  --ui-rose: #c67979;
-  --ui-violet: var(--ui-text-muted);
+  --ui-amber: #f5c451;
+  --ui-sage: #63e6a8;
+  --ui-rose: #ff6b6b;
+  --ui-violet: #7dd3fc;
+  --ui-data: #7dd3fc;
 
-  --ui-ok: #83a896;
-  --ui-warn: var(--ui-brand);
-  --ui-crit: #c67979;
+  --ui-ok: #63e6a8;
+  --ui-warn: #f5c451;
+  --ui-crit: #ff6b6b;
+  --ui-info: #7dd3fc;
 
-  --ui-border: rgba(255, 255, 255, 0.13);
-  --ui-border-strong: rgba(255, 255, 255, 0.24);
+  --ui-border: rgba(255, 255, 255, 0.1);
+  --ui-border-strong: rgba(255, 255, 255, 0.22);
   --ui-divider: rgba(255, 255, 255, 0.08);
 
   --ui-glass-tint: var(--ui-surface);
-  --ui-glass-tint-strong: rgba(12, 15, 20, 0.78);
+  --ui-glass-tint-strong: rgba(11, 15, 20, 0.86);
   --ui-glass-tint-light: rgba(255, 255, 255, 0.045);
   --ui-glass-border: var(--ui-border);
-  --ui-glass-border-soft: rgba(255, 255, 255, 0.08);
+  --ui-glass-border-soft: rgba(255, 255, 255, 0.065);
   --ui-glass-highlight: rgba(255, 255, 255, 0.08);
-  --ui-glass-blur: 18px;
-  --ui-glass-saturate: 135%;
-  --ui-glass-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+  --ui-glass-blur: 14px;
+  --ui-glass-saturate: 130%;
+  --ui-glass-shadow: 0 20px 54px rgba(0, 0, 0, 0.42);
 
   --ui-space-1: 8px;
   --ui-space-2: 16px;
@@ -1079,11 +1136,18 @@ body.shuttle-mode-active #modal-station-systems {
   --ui-radius-md: 8px;
   --ui-radius-lg: 12px;
 
+  --ui-chamfer-sm: 6px;
+  --ui-chamfer: 10px;
+  --ui-chamfer-lg: 16px;
+  --ui-frame-line: rgba(255, 255, 255, 0.16);
+
   --ui-dur-fast: 120ms;
-  --ui-dur: 180ms;
+  --ui-dur: 200ms;
+  --ui-dur-slow: 320ms;
   --ui-ease: cubic-bezier(0.2, 0.7, 0.3, 1);
 
   --font-sans: var(--ui-font-sans);
+  --font-display: var(--ui-font-display);
   --font-mono: var(--ui-font-mono);
 
   --bg-obsidian: var(--ui-bg);
@@ -1121,8 +1185,8 @@ body {
 }
 
 ::selection {
-  background: rgba(208, 161, 92, 0.28);
-  color: #eceae3;
+  background: rgba(var(--ui-brand-rgb), 0.28);
+  color: #efeee7;
 }
 
 ::-webkit-scrollbar {
@@ -1289,7 +1353,7 @@ textarea:focus-visible {
 .btn-start-game {
   background: var(--ui-accent);
   border: 1px solid var(--ui-accent);
-  color: #1a1206;
+  color: #0b1204;
 }
 .btn-title-primary:hover,
 .btn-primary:hover,
@@ -1331,7 +1395,7 @@ textarea:focus-visible {
 .btn-title-join:hover {
   border-color: var(--ui-accent-line);
   color: var(--ui-accent-strong);
-  background: rgba(208, 161, 92, 0.07);
+  background: rgba(var(--ui-brand-rgb), 0.07);
 }
 .btn-title-secondary:disabled,
 .btn-secondary:disabled,
@@ -1344,11 +1408,11 @@ textarea:focus-visible {
   background: transparent;
 }
 .btn-danger-outline {
-  border-color: rgba(198, 121, 121, 0.34) !important;
+  border-color: rgba(255, 107, 107, 0.34) !important;
   color: var(--ui-rose) !important;
 }
 .btn-danger-outline:hover {
-  background: rgba(198, 121, 121, 0.12) !important;
+  background: rgba(255, 107, 107, 0.12) !important;
   border-color: var(--ui-rose) !important;
 }
 
@@ -1391,8 +1455,8 @@ textarea:focus-visible {
   color: var(--ui-accent-strong);
 }
 .voice-mic-btn.muted {
-  background: rgba(198, 121, 121, 0.12);
-  border-color: rgba(198, 121, 121, 0.4);
+  background: rgba(255, 107, 107, 0.12);
+  border-color: rgba(255, 107, 107, 0.4);
   color: var(--ui-rose);
 }
 
@@ -1514,15 +1578,15 @@ textarea:focus-visible {
   border-color: var(--ui-accent-line);
   color: var(--ui-accent-strong);
 }
-.badge--amber { background: rgba(208, 161, 92, 0.12); border-color: rgba(208, 161, 92, 0.4); color: #e7c58c; }
-.badge--sage { background: rgba(131, 168, 150, 0.12); border-color: rgba(131, 168, 150, 0.4); color: #83a896; }
-.badge--rose { background: rgba(198, 121, 121, 0.12); border-color: rgba(198, 121, 121, 0.4); color: #c67979; }
-.badge--violet { background: rgba(166, 173, 182, 0.12); border-color: rgba(166, 173, 182, 0.4); color: #a6adb6; }
+.badge--amber { background: rgba(var(--ui-brand-rgb), 0.12); border-color: rgba(var(--ui-brand-rgb), 0.4); color: var(--ui-brand-strong); }
+.badge--sage { background: rgba(99, 230, 168, 0.12); border-color: rgba(99, 230, 168, 0.4); color: #63e6a8; }
+.badge--rose { background: rgba(255, 107, 107, 0.12); border-color: rgba(255, 107, 107, 0.4); color: #ff6b6b; }
+.badge--violet { background: rgba(167, 176, 186, 0.12); border-color: rgba(167, 176, 186, 0.4); color: #a7b0ba; }
 
-.badge-cmd { background: rgba(198, 121, 121, 0.12); border-color: rgba(198, 121, 121, 0.4); color: #c67979; }
-.badge-eng { background: rgba(208, 161, 92, 0.12); border-color: rgba(208, 161, 92, 0.4); color: #e7c58c; }
-.badge-sci { background: rgba(131, 168, 150, 0.12); border-color: rgba(131, 168, 150, 0.4); color: #83a896; }
-.badge-all { background: rgba(166, 173, 182, 0.12); border-color: rgba(166, 173, 182, 0.4); color: #a6adb6; }
+.badge-cmd { background: rgba(255, 107, 107, 0.12); border-color: rgba(255, 107, 107, 0.4); color: #ff6b6b; }
+.badge-eng { background: rgba(var(--ui-brand-rgb), 0.12); border-color: rgba(var(--ui-brand-rgb), 0.4); color: var(--ui-brand-strong); }
+.badge-sci { background: rgba(99, 230, 168, 0.12); border-color: rgba(99, 230, 168, 0.4); color: #63e6a8; }
+.badge-all { background: rgba(167, 176, 186, 0.12); border-color: rgba(167, 176, 186, 0.4); color: #a7b0ba; }
 
 .segmented {
   display: inline-flex;
@@ -1555,9 +1619,9 @@ textarea:focus-visible {
   background: rgba(255, 255, 255, 0.04);
 }
 .difficulty-pill.is-active {
-  background: rgba(208, 161, 92, 0.14);
-  border-color: rgba(208, 161, 92, 0.5);
-  color: #e7c58c;
+  background: rgba(var(--ui-brand-rgb), 0.14);
+  border-color: rgba(var(--ui-brand-rgb), 0.5);
+  color: var(--ui-brand-strong);
 }
 .difficulty-pill:disabled {
   opacity: 0.45;
@@ -1580,12 +1644,12 @@ textarea:focus-visible {
   transition: border-color var(--ui-dur-fast) var(--ui-ease), background-color var(--ui-dur-fast) var(--ui-ease);
 }
 .difficulty-card:hover {
-  border-color: rgba(208, 161, 92, 0.36);
-  background: rgba(208, 161, 92, 0.05);
+  border-color: rgba(var(--ui-brand-rgb), 0.36);
+  background: rgba(var(--ui-brand-rgb), 0.05);
 }
 .difficulty-card.is-active {
-  border-color: rgba(208, 161, 92, 0.5);
-  background: rgba(208, 161, 92, 0.1);
+  border-color: rgba(var(--ui-brand-rgb), 0.5);
+  background: rgba(var(--ui-brand-rgb), 0.1);
 }
 .difficulty-card__title {
   font-family: var(--ui-font-mono);
@@ -1594,7 +1658,7 @@ textarea:focus-visible {
   letter-spacing: 0.06em;
   color: var(--ui-text);
 }
-.difficulty-card.is-active .difficulty-card__title { color: #e7c58c; }
+.difficulty-card.is-active .difficulty-card__title { color: var(--ui-brand-strong); }
 .difficulty-card__desc {
   font-size: 10.5px;
   line-height: 1.4;
@@ -1787,13 +1851,13 @@ textarea:focus-visible {
     transform var(--ui-dur-fast) var(--ui-ease);
 }
 .mission-card:hover:not(:disabled) {
-  border-color: rgba(208, 161, 92, 0.34);
+  border-color: rgba(var(--ui-brand-rgb), 0.34);
   background: rgba(255, 255, 255, 0.035);
   transform: translateY(-1px);
 }
 .mission-card.is-active {
   border-color: var(--ui-accent-line);
-  background: rgba(208, 161, 92, 0.07);
+  background: rgba(var(--ui-brand-rgb), 0.07);
 }
 .mission-card.is-active::before {
   content: "";
@@ -1994,14 +2058,14 @@ textarea:focus-visible {
   transition: border-color var(--ui-dur-fast) var(--ui-ease), background-color var(--ui-dur-fast) var(--ui-ease);
 }
 .lobby-player-pod.occupied {
-  border-color: rgba(208, 161, 92, 0.24);
+  border-color: rgba(var(--ui-brand-rgb), 0.24);
 }
 .lobby-player-pod.empty {
   display: none;
 }
 .lobby-player-pod.empty:hover {
   border-color: var(--ui-accent-line);
-  background: rgba(208, 161, 92, 0.05);
+  background: rgba(var(--ui-brand-rgb), 0.05);
 }
 .pod-card {
   display: flex;
@@ -2045,7 +2109,7 @@ textarea:focus-visible {
   border: 1px solid var(--ui-border);
   color: var(--ui-text-dim);
 }
-.pod-name .pod-tag--host { color: #e7c58c; border-color: rgba(208, 161, 92, 0.4); }
+.pod-name .pod-tag--host { color: var(--ui-brand-strong); border-color: rgba(var(--ui-brand-rgb), 0.4); }
 .pod-name .pod-tag--you { color: var(--ui-accent-strong); border-color: var(--ui-accent-line); }
 .pod-role {
   font-family: var(--ui-font-mono);
@@ -2065,9 +2129,9 @@ textarea:focus-visible {
   padding: 3px 7px;
 }
 .pod-ready-badge.ready {
-  background: rgba(131, 168, 150, 0.12);
-  border-color: rgba(131, 168, 150, 0.4);
-  color: #83a896;
+  background: rgba(99, 230, 168, 0.12);
+  border-color: rgba(99, 230, 168, 0.4);
+  color: #63e6a8;
 }
 .pod-switch {
   flex: 0 0 auto;
@@ -2110,7 +2174,7 @@ textarea:focus-visible {
 }
 .lobby-color-btn.active {
   transform: none;
-  border-color: #eceae3;
+  border-color: #efeee7;
   outline: 2px solid var(--ui-accent);
   outline-offset: 2px;
 }
@@ -2126,8 +2190,8 @@ textarea:focus-visible {
   transition: border-color var(--ui-dur-fast) var(--ui-ease), background-color var(--ui-dur-fast) var(--ui-ease);
 }
 .lobby-role-card:hover {
-  border-color: rgba(208, 161, 92, 0.3);
-  background: rgba(208, 161, 92, 0.04);
+  border-color: rgba(var(--ui-brand-rgb), 0.3);
+  background: rgba(var(--ui-brand-rgb), 0.04);
 }
 .lobby-role-card.active {
   border-color: var(--ui-accent-line);
@@ -2135,15 +2199,15 @@ textarea:focus-visible {
   box-shadow: none;
 }
 .lobby-role-card.active[data-role="engineer"] {
-  border-color: rgba(208, 161, 92, 0.5);
-  background: rgba(208, 161, 92, 0.1);
-  color: #e7c58c;
+  border-color: rgba(245, 196, 81, 0.5);
+  background: rgba(245, 196, 81, 0.1);
+  color: #f5c451;
   box-shadow: none;
 }
 .lobby-role-card.active[data-role="scientist"] {
-  border-color: rgba(131, 168, 150, 0.5);
-  background: rgba(131, 168, 150, 0.1);
-  color: #83a896;
+  border-color: rgba(99, 230, 168, 0.5);
+  background: rgba(99, 230, 168, 0.1);
+  color: #63e6a8;
   box-shadow: none;
 }
 .lobby-role-top { gap: 8px; }
@@ -2173,14 +2237,14 @@ textarea:focus-visible {
   border: 1px solid var(--ui-border);
 }
 .lobby-role-coverage.warn {
-  color: #e7c58c;
-  border-color: rgba(208, 161, 92, 0.34);
-  background: rgba(208, 161, 92, 0.07);
+  color: var(--ui-brand-strong);
+  border-color: rgba(var(--ui-brand-rgb), 0.34);
+  background: rgba(var(--ui-brand-rgb), 0.07);
 }
 .lobby-role-coverage.ready {
-  color: #83a896;
-  border-color: rgba(131, 168, 150, 0.34);
-  background: rgba(131, 168, 150, 0.07);
+  color: #63e6a8;
+  border-color: rgba(99, 230, 168, 0.34);
+  background: rgba(99, 230, 168, 0.07);
 }
 
 .lobby-chat-box {
@@ -2218,7 +2282,7 @@ textarea:focus-visible {
   letter-spacing: 0.08em;
   cursor: pointer;
 }
-.lobby-chat-send:hover { background: rgba(208, 161, 92, 0.18); }
+.lobby-chat-send:hover { background: rgba(var(--ui-brand-rgb), 0.18); }
 
 .lobby-bottom-bar {
   flex: 0 0 auto;
@@ -2263,19 +2327,19 @@ textarea:focus-visible {
 .perf-status-badge {
   font-size: 8.5px;
   padding: 2px 6px;
-  background: rgba(131, 168, 150, 0.12);
-  border-color: rgba(131, 168, 150, 0.34);
-  color: #83a896;
+  background: rgba(99, 230, 168, 0.12);
+  border-color: rgba(99, 230, 168, 0.34);
+  color: #63e6a8;
 }
 .perf-status-badge.perf-moderate {
-  background: rgba(208, 161, 92, 0.12);
-  border-color: rgba(208, 161, 92, 0.34);
-  color: #e7c58c;
+  background: rgba(var(--ui-brand-rgb), 0.12);
+  border-color: rgba(var(--ui-brand-rgb), 0.34);
+  color: var(--ui-brand-strong);
 }
 .perf-status-badge.perf-caution {
-  background: rgba(198, 121, 121, 0.12);
-  border-color: rgba(198, 121, 121, 0.4);
-  color: #c67979;
+  background: rgba(255, 107, 107, 0.12);
+  border-color: rgba(255, 107, 107, 0.4);
+  color: #ff6b6b;
 }
 
 .hud-race-bar-container {
@@ -2371,9 +2435,9 @@ textarea:focus-visible {
 .crew-role-chip.is-unstaffed {
   opacity: 0.55;
 }
-.crew-role-chip--commander { --role-color: #c67979; }
-.crew-role-chip--engineer { --role-color: #e7c58c; }
-.crew-role-chip--scientist { --role-color: #83a896; }
+.crew-role-chip--commander { --role-color: #ff6b6b; }
+.crew-role-chip--engineer { --role-color: #f5c451; }
+.crew-role-chip--scientist { --role-color: #63e6a8; }
 .crew-role-chip-head {
   font-size: 8.5px;
   font-weight: 700;
@@ -2448,12 +2512,12 @@ textarea:focus-visible {
   background: transparent;
 }
 .objective-card:hover {
-  border-color: rgba(208, 161, 92, 0.3);
-  background: rgba(208, 161, 92, 0.04);
+  border-color: rgba(var(--ui-brand-rgb), 0.3);
+  background: rgba(var(--ui-brand-rgb), 0.04);
 }
 .objective-card.is-mine {
-  border-color: rgba(208, 161, 92, 0.34);
-  background: rgba(208, 161, 92, 0.05);
+  border-color: rgba(var(--ui-brand-rgb), 0.34);
+  background: rgba(var(--ui-brand-rgb), 0.05);
 }
 .objective-card.is-mine::before {
   background: var(--ui-accent);
@@ -2497,9 +2561,9 @@ textarea:focus-visible {
   color: var(--ui-accent-strong);
 }
 .objective-card.is-done .objective-card__status {
-  border-color: rgba(131, 168, 150, 0.4);
-  background: rgba(131, 168, 150, 0.12);
-  color: #83a896;
+  border-color: rgba(99, 230, 168, 0.4);
+  background: rgba(99, 230, 168, 0.12);
+  color: #63e6a8;
 }
 .objective-card.is-locked .objective-card__status {
   color: var(--ui-text-dim);
@@ -2541,7 +2605,7 @@ textarea:focus-visible {
   font-family: var(--ui-font-mono);
   font-size: 9.5px;
   line-height: 1.35;
-  color: #e7c58c;
+  color: var(--ui-brand-strong);
 }
 .objective-card__notice .ui-icon { width: 11px; height: 11px; }
 
@@ -2583,7 +2647,7 @@ textarea:focus-visible {
   height: 22px;
   border-radius: 3px;
   background: var(--ui-accent);
-  color: #1a1206;
+  color: #0b1204;
   font-weight: 800;
 }
 
@@ -2620,12 +2684,12 @@ textarea:focus-visible {
   font-weight: 600;
 }
 .active-speaker-tag.speaker-local {
-  border-color: rgba(131, 168, 150, 0.4);
-  color: #83a896;
+  border-color: rgba(99, 230, 168, 0.4);
+  color: #63e6a8;
 }
 .active-speaker-tag.speaker-radio {
-  border-color: rgba(208, 161, 92, 0.4);
-  color: #e7c58c;
+  border-color: rgba(var(--ui-brand-rgb), 0.4);
+  color: var(--ui-brand-strong);
 }
 
 /* ---------- Diagnostics ---------- */
@@ -2940,7 +3004,7 @@ textarea:focus-visible {
 }
 .briefing-objective.is-done .briefing-objective__code,
 .briefing-objective.is-done .briefing-objective__title { color: var(--ui-text-muted); }
-.briefing-objective.is-done .briefing-objective__state { color: #83a896; }
+.briefing-objective.is-done .briefing-objective__state { color: #63e6a8; }
 
 /* ---------- Victory / debrief ---------- */
 
@@ -2996,14 +3060,14 @@ textarea:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 .debrief-stat__value--accent { color: var(--ui-accent-strong); }
-.debrief-stat__value--sage { color: #83a896; }
-.debrief-stat__value--amber { color: #e7c58c; }
+.debrief-stat__value--sage { color: #63e6a8; }
+.debrief-stat__value--amber { color: var(--ui-brand-strong); }
 .debrief-analogue {
   padding: 12px;
   margin-bottom: var(--ui-space-1);
   border-radius: var(--ui-radius-sm);
-  border: 1px solid rgba(166, 173, 182, 0.28);
-  background: rgba(166, 173, 182, 0.07);
+  border: 1px solid rgba(167, 176, 186, 0.28);
+  background: rgba(167, 176, 186, 0.07);
   text-align: left;
   font-size: 12px;
   line-height: 1.5;
@@ -3014,7 +3078,7 @@ textarea:focus-visible {
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.08em;
-  color: #a6adb6;
+  color: #a7b0ba;
   margin-bottom: 4px;
 }
 .debrief-analogue__row {
@@ -3028,7 +3092,7 @@ textarea:focus-visible {
 .debrief-analogue__disposal {
   font-family: var(--ui-font-mono);
   font-size: 9.5px;
-  color: #83a896;
+  color: #63e6a8;
 }
 .debrief-meta {
   display: flex;
@@ -3166,7 +3230,7 @@ textarea:focus-visible {
   background: rgba(255, 255, 255, 0.02);
   transition: border-color var(--ui-dur-fast) var(--ui-ease), background-color var(--ui-dur-fast) var(--ui-ease);
 }
-.hangar-catalog-card:hover { border-color: rgba(208, 161, 92, 0.3); background: rgba(208, 161, 92, 0.04); }
+.hangar-catalog-card:hover { border-color: rgba(var(--ui-brand-rgb), 0.3); background: rgba(var(--ui-brand-rgb), 0.04); }
 .hangar-catalog-card.active {
   border-color: var(--ui-accent-line);
   background: var(--ui-accent-soft);
@@ -3284,9 +3348,9 @@ textarea:focus-visible {
   color: var(--ui-accent-strong);
 }
 .console-role-strip.is-support {
-  border-color: rgba(208, 161, 92, 0.34);
-  background: rgba(208, 161, 92, 0.07);
-  color: #e7c58c;
+  border-color: rgba(var(--ui-brand-rgb), 0.34);
+  background: rgba(var(--ui-brand-rgb), 0.07);
+  color: var(--ui-brand-strong);
 }
 
 /* ---------- World HUDs ---------- */
@@ -3339,9 +3403,9 @@ textarea:focus-visible {
   color: var(--ui-accent-strong);
 }
 .sc-btn-launch {
-  border-color: rgba(208, 161, 92, 0.5);
-  background: rgba(208, 161, 92, 0.1);
-  color: #e7c58c;
+  border-color: rgba(var(--ui-brand-rgb), 0.5);
+  background: rgba(var(--ui-brand-rgb), 0.1);
+  color: var(--ui-brand-strong);
 }
 .sc-status-dot {
   background: var(--ui-accent);
@@ -3360,9 +3424,9 @@ textarea:focus-visible {
   color: var(--ui-text-muted);
 }
 .sc-step-chip.is-done {
-  border-color: rgba(131, 168, 150, 0.4);
-  background: rgba(131, 168, 150, 0.1);
-  color: #83a896;
+  border-color: rgba(99, 230, 168, 0.4);
+  background: rgba(99, 230, 168, 0.1);
+  color: #63e6a8;
 }
 .sc-step-chip.is-active {
   border-color: var(--ui-accent-line);
@@ -3602,6 +3666,126 @@ textarea:focus-visible {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* GLOSS SILVER — alternate metallic glass theme */
+:root[data-theme="gloss-silver"] {
+  --ui-brand: #e7e8e3;
+  --ui-brand-strong: #ffffff;
+  --ui-brand-rgb: 231, 232, 227;
+  --ui-brand-ink: #090b0e;
+  --ui-brand-dim: #a8aaa5;
+  --ui-brand-button-top: #ffffff;
+  --ui-brand-button-bottom: #b9bbb6;
+  --ui-brand-button-hover-top: #ffffff;
+  --ui-brand-button-hover-bottom: #d7d9d4;
+
+  --ui-bg: #07090c;
+  --ui-bg-deep: #05070a;
+  --ui-surface: rgba(20, 23, 27, 0.7);
+  --ui-surface-solid: #15181d;
+  --ui-surface-2: rgba(26, 30, 35, 0.86);
+  --ui-surface-3: rgba(40, 45, 52, 0.58);
+  --ui-scrim: rgba(4, 6, 9, 0.8);
+
+  --ui-text: #f4f4f1;
+  --ui-text-muted: #b2b7be;
+  --ui-text-dim: #858b94;
+
+  --ui-border: rgba(255, 255, 255, 0.16);
+  --ui-border-strong: rgba(255, 255, 255, 0.3);
+  --ui-divider: rgba(255, 255, 255, 0.1);
+
+  --ui-glass-tint: rgba(18, 21, 25, 0.62);
+  --ui-glass-tint-strong: rgba(13, 16, 20, 0.86);
+  --ui-glass-border: rgba(255, 255, 255, 0.16);
+  --ui-glass-border-soft: rgba(255, 255, 255, 0.09);
+  --ui-glass-highlight: rgba(255, 255, 255, 0.14);
+  --ui-glass-blur: 18px;
+  --ui-glass-saturate: 115%;
+  --ui-glass-shadow: 0 24px 64px rgba(0, 0, 0, 0.52);
+}
+
+:root[data-theme="gloss-silver"] .btn-title-primary,
+:root[data-theme="gloss-silver"] .btn-primary,
+:root[data-theme="gloss-silver"] .btn-start-game,
+:root[data-theme="gloss-silver"] .btn-deck-cta,
+:root[data-theme="gloss-silver"] .form-submit,
+:root[data-theme="gloss-silver"] .modal-cta {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+    0 12px 34px rgba(0, 0, 0, 0.42) !important;
+}
+
+:root[data-theme="gloss-silver"] .title-display {
+  background: linear-gradient(180deg, #ffffff 0%, #f0f1ed 34%, #b7bab4 72%, #7c807a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+:root[data-theme="gloss-silver"] body::before,
+:root[data-theme="gloss-silver"] #screen-menu::before,
+:root[data-theme="gloss-silver"] #screen-lobby::before {
+  opacity: 0.45;
+}
+
+/* LUNAR CHAMPAGNE — warm brass alternate theme */
+:root[data-theme="lunar-champagne"] {
+  --ui-brand: #d9b77c;
+  --ui-brand-strong: #efd5a3;
+  --ui-brand-rgb: 217, 183, 124;
+  --ui-brand-ink: #1a1206;
+  --ui-brand-dim: #b0925f;
+  --ui-brand-button-top: #f0d9ac;
+  --ui-brand-button-bottom: #c8a465;
+  --ui-brand-button-hover-top: #f8e6c2;
+  --ui-brand-button-hover-bottom: #d9b77c;
+
+  --ui-bg: #080a0e;
+  --ui-bg-deep: #05070a;
+  --ui-surface: rgba(17, 18, 21, 0.68);
+  --ui-surface-solid: #141414;
+  --ui-surface-2: rgba(23, 23, 25, 0.84);
+  --ui-surface-3: rgba(38, 36, 33, 0.58);
+  --ui-scrim: rgba(4, 5, 7, 0.78);
+
+  --ui-text: #f0eee8;
+  --ui-text-muted: #aab2bb;
+  --ui-text-dim: #7e8792;
+
+  --ui-border: rgba(255, 255, 255, 0.12);
+  --ui-border-strong: rgba(255, 255, 255, 0.26);
+  --ui-divider: rgba(255, 255, 255, 0.09);
+
+  --ui-glass-tint: rgba(16, 17, 20, 0.66);
+  --ui-glass-tint-strong: rgba(12, 13, 16, 0.87);
+  --ui-glass-border: rgba(255, 255, 255, 0.13);
+  --ui-glass-border-soft: rgba(255, 255, 255, 0.075);
+  --ui-glass-highlight: rgba(255, 255, 255, 0.1);
+  --ui-glass-blur: 16px;
+  --ui-glass-saturate: 128%;
+  --ui-glass-shadow: 0 22px 60px rgba(0, 0, 0, 0.48);
+}
+
+:root[data-theme="lunar-champagne"] .title-display {
+  background: linear-gradient(180deg, #fff6e6 0%, #f0ddba 38%, #d9b77c 70%, #8a6c3f 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+:root[data-theme="lunar-champagne"] .btn-title-primary,
+:root[data-theme="lunar-champagne"] .btn-primary,
+:root[data-theme="lunar-champagne"] .btn-start-game,
+:root[data-theme="lunar-champagne"] .btn-deck-cta,
+:root[data-theme="lunar-champagne"] .form-submit,
+:root[data-theme="lunar-champagne"] .modal-cta {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.16),
+    0 12px 34px rgba(217, 183, 124, 0.14) !important;
 }
 
 /* ---------- Ground action buttons: disabled state (restored from local WIP) ---------- */
