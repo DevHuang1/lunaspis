@@ -9,7 +9,6 @@
  */
 (function () {
   "use strict";
-  const LINE_INK = 0xede8dd;   // guidance / orbit lines: thin STS_OS ink white, as in the CubeSat mission
   const T = window.THREE;
   const S = window.ShuttleSim;
   const toR = (v) => new T.Vector3(v[0], v[2], -v[1]);
@@ -46,7 +45,7 @@
       this.nearCam = new T.PerspectiveCamera(60, aspect, 0.5, 2e7);   // m: complete Earth-scale mission route in one pass
       this.camMode = "follow"; this.camModes = ["follow", "bay", "fixed"];
       this.camPos = null; this.objs = {}; this.mixers = []; this.debrisObjs = {}; this.loaded = false; this.disposed = false;
-      this.camOrbit = { yaw: 0, pitch: 0, idle: 0 }; this.zoom = 1; this.showRibbon = true;
+      this.camOrbit = { yaw: 0, pitch: 0, idle: 0 }; this.zoom = 1;
       // The detailed LC-39A site is handed over by the ground game at liftoff so
       // the pad, tower, VAB and surrounding buildings stay in frame instead of
       // cutting to the simplified training pad.
@@ -64,7 +63,7 @@
       this._skyColor = new T.Color();
       this._computedSky = new T.Color();
       this._groundSky = new T.Color(GROUND_SKY);
-      this._buildFar(); this._buildNear(); this._loadModels(); this._buildRibbons();
+      this._buildFar(); this._buildNear(); this._loadModels(); this._loadRoutes();
       this.near.add(this.launchSiteMount);
       this._onResize = () => this.resize();
       window.addEventListener("resize", this._onResize);
@@ -498,56 +497,17 @@
       x.putImageData(img, 0, 0);
       const t = new T.CanvasTexture(c); t.wrapS = t.wrapT = T.RepeatWrapping; return t;
     }
-    // ------------------------------------------------------------------ guidance ribbon
-    // A yellow band that always starts AT the orbiter, leaves along the direction it is actually
-    // going (or pointing, for orbit attitude tasks) and bends onto the reference path, so a
-    // deviation shows as a visible curve. Near scene (metres) for approach/rollout/orbit, far
-    // scene (km) for the long entry track.
-    _buildRibbons() {
-      const geometry = new T.BufferGeometry();
-      geometry.setAttribute("position", new T.BufferAttribute(new Float32Array(32768 * 3), 3));
-      geometry.setDrawRange(0, 0);
-      const material = new T.LineBasicMaterial({ color: LINE_INK, transparent: true, opacity: 0.8, depthTest: true, depthWrite: false });
-      this.routeEarth = { value: new T.Vector3() };
-      // Earth is rendered in a different depth pass. Occlude this one continuous route
-      // analytically, instead of splitting it into competing near/far lines.
-      material.onBeforeCompile = shader => {
-        shader.uniforms.routeEarth = this.routeEarth;
-        shader.vertexShader = "varying vec3 routePosition;\n" + shader.vertexShader;
-        shader.vertexShader = shader.vertexShader.replace("#include <begin_vertex>", "#include <begin_vertex>\nroutePosition = position;");
-        shader.fragmentShader = "uniform vec3 routeEarth; varying vec3 routePosition;\n" + shader.fragmentShader;
-        shader.fragmentShader = shader.fragmentShader.replace("#include <clipping_planes_fragment>", `#include <clipping_planes_fragment>
-          float routeDistance = length(routePosition);
-          vec3 routeRay = routePosition / max(0.001, routeDistance);
-          float along = dot(routeEarth, routeRay);
-          vec3 perpendicular = cross(routeEarth, routeRay);
-          float disc = ${(S.RE - 50) ** 2}.0 - dot(perpendicular, perpendicular);
-          if (along > 0.0 && disc > 0.0 && along - sqrt(disc) < routeDistance - 5.0) discard;`);
-      };
-      this.ribbonNear = new T.Line(geometry, material);
-      this.ribbonNear.frustumCulled = false; this.ribbonNear.renderOrder = 30; this.ribbonNear.visible = false;
-      this.near.add(this.ribbonNear);
+    // ------------------------------------------------------------------ planned mission route
+    _loadRoutes() {
       window.ShuttleRoute.load().then(data => {
         if (this.disposed) return;
         this.routes = Object.fromEntries(Object.entries(data.routes).map(([key, route]) => [key, new window.ShuttleRoute(route)]));
       }).catch(error => console.error("[Shuttle] Planned flight route unavailable:", error));
     }
-    _lineFill(line, pts) {
-      const g = line.geometry, n = pts.length;
-      if (n < 2) { g.setDrawRange(0, 0); line.visible = false; return; }
-      if (g.attributes.position.count < n) g.setAttribute("position", new T.BufferAttribute(new Float32Array(n * 6), 3));
-      const P = g.attributes.position.array;
-      for (let i = 0; i < n; i++) { const p = pts[i]; P[3 * i] = p.x; P[3 * i + 1] = p.y; P[3 * i + 2] = p.z; }
-      g.setDrawRange(0, n); g.attributes.position.needsUpdate = true; line.visible = true;
-    }
-    _updateRibbon(sn, rV, qV, cam, th) {
-      this.ribbonNear.visible = false;
+    _updateRouteAim(sn, rV, qV, th) {
       const route = this.routes && this.routes[sn.variant || "deploy"];
-      if (!this.showRibbon || !route || sn.phase === "debrief") return;
+      if (!route || sn.phase === "debrief") return;
       route.update(sn, rV, th);
-      this.routeEarth.value.copy(toR(S.vec.scl(cam, -1)));
-      const points = route.sample(S.eciToEcef(cam, th));
-      this._lineFill(this.ribbonNear, points.map(p => toR(S.vec.sub(S.ecefToEci(p.toArray(), th), cam))));
       // Keep the existing screen steering arrows aimed along the upcoming route.
       const aim = route.point(Math.min(1, route.anchor + route.right * 0.5));
       const delta = S.vec.sub(S.ecefToEci(aim.toArray(), th), rV), ax = S.quat.qAxes(qV);
@@ -784,7 +744,7 @@
         this.groundGroup.quaternion.setFromRotationMatrix(m);
       }
       this._lastRV = rV; this._lastQV = qV; this._lastV = sn.vehicle.v; this._lastRegime = sn.vehicle.regime;
-      this._updateRibbon(sn, rV, qV, cam, th);
+      this._updateRouteAim(sn, rV, qV, th);
       // Earth (far scene, km) and lights
       this.earth.position.copy(toR(S.vec.scl(cam, -1 / 1000)));
       this.earth.rotation.set(0, th, 0);
@@ -960,7 +920,6 @@
       this.disposed = true; window.removeEventListener("resize", this._onResize);
       const free = (root) => root.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { if (m.map && m.map !== undefined) { /* shared textures are cached by the loader */ } m.dispose(); }); });
       free(this.far); free(this.groundGroup);   // GLB instances share cached geometry: not disposed here
-      this.ribbonNear.geometry.dispose(); this.ribbonNear.material.dispose();
       this.mixers.length = 0;
     }
   }
