@@ -132,12 +132,18 @@ function testMissionValidation() {
 }
 
 function testGeneratedCoreFreshness() {
-  console.log("\n=== 2. GENERATED DESIGN CORE IS IN SYNC WITH THE CLIENT ===");
+  console.log("\n=== 2. GENERATED DESIGN CORE & SUPPLY-CHAIN PINS ===");
   const result = require("child_process").spawnSync(process.execPath, ["scripts/build_mission_design_core.js", "--check"], {
     cwd: ROOT,
     encoding: "utf8"
   });
   check("server/mission_design_core.js matches public/js/game/gameplay.js", result.status === 0, (result.stdout || result.stderr || "").trim());
+  const dockerfile = fs.readFileSync(path.join(ROOT, "Dockerfile"), "utf8");
+  check("GMAT release is pinned by SHA-256",
+    /ARG GMAT_SHA256="[a-f0-9]{64}"/.test(dockerfile) &&
+    dockerfile.includes("sha256sum -c -") &&
+    !dockerfile.includes("md5sum"),
+    "SHA-256 verification present");
 }
 
 // ---------------------------------------------------------------------------
