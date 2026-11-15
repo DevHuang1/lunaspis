@@ -294,7 +294,6 @@ textarea:focus-visible {
 .task-modal-card,
 .settings-modal-card,
 .mission-briefing-card,
-.hangar-modal-card,
 #emote-wheel,
 .active-speaker-tag,
 .hud-diagnostics-deck {
@@ -319,7 +318,6 @@ textarea:focus-visible {
 .btn-lobby-voice,
 .btn-preset,
 .voice-mic-btn,
-.hangar-ctrl-btn,
 .dpad-btn {
   width: auto;
   min-height: 40px;
@@ -369,7 +367,6 @@ textarea:focus-visible {
 .btn-lobby-voice,
 .btn-copy,
 .voice-mic-btn,
-.hangar-ctrl-btn,
 .btn-title-join {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--ui-border);
@@ -380,7 +377,6 @@ textarea:focus-visible {
 .btn-lobby-voice:hover,
 .btn-copy:hover,
 .voice-mic-btn:hover,
-.hangar-ctrl-btn:hover,
 .btn-title-join:hover {
   border-color: var(--ui-accent-line);
   color: var(--ui-accent-strong);
@@ -2122,7 +2118,7 @@ textarea:focus-visible {
   color: var(--ui-text-dim);
 }
 
-/* ---------- Auth, hangar, dossier ---------- */
+/* ---------- Auth, dossier ---------- */
 
 .auth-modal-card { max-width: 460px; }
 .auth-tabs-row {
@@ -2178,54 +2174,6 @@ textarea:focus-visible {
   color: var(--ui-text-dim);
 }
 
-.hangar-modal-card {
-  width: 95%;
-  max-width: 1040px;
-  height: 84vh;
-  max-height: 780px;
-  display: flex;
-  flex-direction: column;
-  border-radius: var(--ui-radius-lg);
-  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.55);
-}
-.hangar-header { padding: 12px var(--ui-space-3); }
-.hangar-tabs-row { background: transparent; border-bottom: 1px solid var(--ui-divider); }
-.hangar-tab-btn {
-  min-height: 40px;
-  font-family: var(--ui-font-mono);
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: var(--ui-text-dim);
-  border-bottom: 2px solid transparent;
-}
-.hangar-tab-btn.active { color: var(--ui-accent-strong); border-bottom-color: var(--ui-accent); }
-.hangar-sidebar { background: var(--ui-bg-deep); border-right: 1px solid var(--ui-divider); }
-.hangar-catalog-list { padding: 10px; gap: 6px; }
-.hangar-catalog-card {
-  padding: 10px 12px;
-  border-radius: var(--ui-radius-sm);
-  border: 1px solid var(--ui-border);
-  background: rgba(255, 255, 255, 0.02);
-  transition: border-color var(--ui-dur-fast) var(--ui-ease), background-color var(--ui-dur-fast) var(--ui-ease);
-}
-.hangar-catalog-card:hover { border-color: rgba(var(--ui-brand-rgb), 0.3); background: rgba(var(--ui-brand-rgb), 0.04); }
-.hangar-catalog-card.active {
-  border-color: var(--ui-accent-line);
-  background: var(--ui-accent-soft);
-}
-.hangar-card-badge {
-  font-size: 9px;
-  padding: 2px 6px;
-  border-radius: 3px;
-  background: var(--ui-accent-soft);
-  color: var(--ui-accent-strong);
-}
-.hangar-card-role { font-size: 9px; color: var(--ui-text-dim); }
-.hangar-card-title { font-size: 12.5px; font-weight: 600; color: var(--ui-text); }
-.hangar-card-desc { font-size: 10.5px; line-height: 1.45; color: var(--ui-text-muted); }
-.hangar-upload-box { border-top: 1px solid var(--ui-divider); padding: 12px; }
-.hangar-ctrl-btn { min-height: 34px; padding: 7px 10px; font-size: 9.5px; }
 
 /* ---------- Emote, toast, mobile controls ---------- */
 
@@ -2501,11 +2449,6 @@ textarea:focus-visible {
   }
   .btn-start-game {
     width: 100%;
-  }
-  .hangar-modal-card {
-    width: 96vw;
-    height: calc(var(--app-height, 100dvh) - 20px);
-    max-height: none;
   }
   .hud-checklist-panel {
     width: 292px;

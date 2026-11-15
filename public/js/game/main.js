@@ -468,8 +468,7 @@
       (window.issShowcase && window.issShowcase.isActive) ||
       (window.vrManager && window.vrManager.isAnyVRActive) ||
       (window.dockingSim && window.dockingSim.isActive) ||
-      (window.launchCutscene && window.launchCutscene.isPlaying) ||
-      (window.glbManager && window.glbManager.hangarActive)
+      (window.launchCutscene && window.launchCutscene.isPlaying)
     );
   }
 
@@ -1893,30 +1892,6 @@
       });
     });
 
-    const btnHangarMenu = document.getElementById("btn-open-hangar-menu");
-    if (btnHangarMenu) {
-      btnHangarMenu.addEventListener("click", () => {
-        if (window.glbManager) window.glbManager.openHangar();
-      });
-    }
-
-    const btnHangarLobby = document.getElementById("btn-open-hangar-lobby");
-    if (btnHangarLobby) {
-      btnHangarLobby.addEventListener("click", () => {
-        if (window.glbManager) window.glbManager.openHangar();
-      });
-    }
-
-    const btnHangarHUD = document.getElementById("btn-hud-hangar");
-    if (btnHangarHUD) {
-      btnHangarHUD.addEventListener("click", () => {
-        if (window.glbManager) {
-          if (window.glbManager.hangarActive) window.glbManager.closeHangar();
-          else window.glbManager.openHangar();
-        }
-      });
-    }
-
     const btnOrbitVizHUD = document.getElementById("btn-hud-orbit-viz");
     if (btnOrbitVizHUD) {
       btnOrbitVizHUD.addEventListener("click", () => {
@@ -1961,10 +1936,6 @@
           window.issShowcase.close();
           return;
         }
-        if (window.glbManager && window.glbManager.hangarActive) {
-          window.glbManager.closeHangar();
-          return;
-        }
         if (window.shipInterior) {
           const visible = window.shipInterior.toggleInterior();
           if (window.showActionToast) {
@@ -1978,7 +1949,6 @@
     if (btnDeckIss) {
       btnDeckIss.addEventListener("click", () => {
         if (window.missionViz && window.missionViz.isActive) window.missionViz.close();
-        if (window.glbManager && window.glbManager.hangarActive) window.glbManager.closeHangar();
         if (window.issShowcase) window.issShowcase.toggle();
       });
     }
@@ -1987,7 +1957,6 @@
     if (btnDeckMoon) {
       btnDeckMoon.addEventListener("click", () => {
         if (window.missionViz && window.missionViz.isActive) window.missionViz.close();
-        if (window.glbManager && window.glbManager.hangarActive) window.glbManager.closeHangar();
         if (window.shipInterior && typeof window.shipInterior.toggleMoonLandingScene === "function") {
           window.shipInterior.toggleMoonLandingScene();
         }
@@ -4399,10 +4368,6 @@
           window.shipInterior.stopMoonLandingScene();
           return;
         }
-        if (window.glbManager && window.glbManager.hangarActive) {
-          window.glbManager.closeHangar();
-          return;
-        }
       }
 
       // Docking owns the keyboard while it is active (RCS + camera keys).
@@ -4411,7 +4376,7 @@
       const tTag = e.target && e.target.tagName ? e.target.tagName : "";
       if (tTag === "INPUT" || tTag === "TEXTAREA" || tTag === "SELECT" || (e.target && e.target.isContentEditable)) return;
 
-      const blockingOverlay = ["modal-academy", "modal-mission-log", "modal-station-systems", "task-modal-overlay", "victory-overlay", "mission-briefing-overlay", "csa-nasa-lab-modal", "iss-sidegame-overlay", "glb-hangar-modal"]
+      const blockingOverlay = ["modal-academy", "modal-mission-log", "modal-station-systems", "task-modal-overlay", "victory-overlay", "mission-briefing-overlay", "csa-nasa-lab-modal", "iss-sidegame-overlay"]
         .some((id) => {
           const el = document.getElementById(id);
           return el && el.style.display && el.style.display !== "none";
@@ -4443,7 +4408,7 @@
       // Solar Atlas is a full-screen takeover; close it before another view hotkey opens.
       if (
         window.solarSystem && window.solarSystem.isActive &&
-        ["KeyU", "KeyJ", "KeyK", "KeyH", "KeyG", "KeyI", "KeyC", "KeyV"].indexOf(e.code) !== -1
+        ["KeyU", "KeyJ", "KeyK", "KeyG", "KeyI", "KeyC", "KeyV"].indexOf(e.code) !== -1
       ) {
         window.solarSystem.close();
       }
@@ -4507,10 +4472,6 @@
           window.issShowcase.close();
           return;
         }
-        if (window.glbManager && window.glbManager.hangarActive) {
-          window.glbManager.closeHangar();
-          return;
-        }
         if (window.spaceCenter && window.spaceCenter.isGroundMode) {
           if (window.showActionToast) window.showActionToast("COMPLETE THE LAUNCH AND DOCKING SEQUENCE TO ENTER THE STATION");
           return;
@@ -4527,7 +4488,6 @@
       if (e.code === "KeyJ" || e.key === "j" || e.key === "J") {
         e.preventDefault();
         if (window.missionViz && window.missionViz.isActive) window.missionViz.close();
-        if (window.glbManager && window.glbManager.hangarActive) window.glbManager.closeHangar();
         if (window.issShowcase) {
           window.issShowcase.toggle();
         }
@@ -4545,19 +4505,8 @@
       if (e.code === "KeyK" || e.key === "k" || e.key === "K") {
         e.preventDefault();
         if (window.missionViz && window.missionViz.isActive) window.missionViz.close();
-        if (window.glbManager && window.glbManager.hangarActive) window.glbManager.closeHangar();
         if (window.shipInterior && typeof window.shipInterior.toggleMoonLandingScene === "function") {
           window.shipInterior.toggleMoonLandingScene();
-        }
-      }
-
-      // 3D Model Hangar & GLB Studio [H]
-      if (e.code === "KeyH" || e.key === "h" || e.key === "H") {
-        e.preventDefault();
-        if (window.missionViz && window.missionViz.isActive) window.missionViz.close();
-        if (window.glbManager) {
-          if (window.glbManager.hangarActive) window.glbManager.closeHangar();
-          else window.glbManager.openHangar();
         }
       }
 
@@ -5393,10 +5342,6 @@
 
     if (window.photorealisticEarth && typeof window.photorealisticEarth.update === "function") {
       window.photorealisticEarth.update(delta, camera);
-    }
-
-    if (window.glbManager && typeof window.glbManager.updateFleet === "function") {
-      window.glbManager.updateFleet(delta, elapsed);
     }
 
     updateHudCompass(delta);

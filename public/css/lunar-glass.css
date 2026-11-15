@@ -151,7 +151,6 @@
 .sc-status-label,
 .dock-telem-lbl,
 .launch-telem-lbl,
-.hangar-stat-lbl,
 .catalog-btn,
 .ss-kicker,
 .ss-kind,
@@ -205,7 +204,6 @@
 .btn-lobby-voice,
 .btn-copy,
 .voice-mic-btn,
-.hangar-ctrl-btn,
 .btn-title-join,
 .sc-hud-btn,
 .dock-assist-btn,
@@ -223,7 +221,6 @@
 .btn-lobby-voice:hover,
 .btn-copy:hover,
 .voice-mic-btn:hover,
-.hangar-ctrl-btn:hover,
 .btn-title-join:hover,
 .sc-hud-btn:hover,
 .dock-assist-btn:hover,
@@ -308,7 +305,6 @@ input[type="range"] {
 .task-modal-card,
 .settings-modal-card,
 .mission-briefing-card,
-.hangar-modal-card,
 #victory-overlay .victory-card,
 #victory-overlay > .victory-panel,
 .active-speaker-tag {
@@ -331,8 +327,7 @@ input[type="range"] {
 
 .settings-modal-card,
 .task-modal-card,
-.mission-briefing-card,
-.hangar-modal-card {
+.mission-briefing-card {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.012)),
     var(--glass-tint-strong) !important;
@@ -1166,7 +1161,6 @@ body.deck-open .hud-race-bar-container {
   .task-modal-card,
   .settings-modal-card,
   .mission-briefing-card,
-  .hangar-modal-card,
   #quick-deck,
   #iss-showcase-topbar,
   #iss-showcase-left,
@@ -1225,8 +1219,7 @@ body.quality-fast .lobby-mission-panel,
 body.quality-fast .lobby-player-pod,
 body.quality-fast .settings-modal-card,
 body.quality-fast .task-modal-card,
-body.quality-fast .mission-briefing-card,
-body.quality-fast .hangar-modal-card {
+body.quality-fast .mission-briefing-card {
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
   background: rgba(13, 17, 22, 0.96) !important;
@@ -1243,8 +1236,7 @@ body.quality-fast .hangar-modal-card {
   .hud-checklist-panel,
   .settings-modal-card,
   .task-modal-card,
-  .mission-briefing-card,
-  .hangar-modal-card {
+  .mission-briefing-card {
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
     background: rgba(12, 15, 20, 0.97) !important;

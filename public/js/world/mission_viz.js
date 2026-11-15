@@ -885,9 +885,6 @@
       if (window.solarSystem && window.solarSystem.isActive) {
         window.solarSystem.close();
       }
-      if (window.glbManager && window.glbManager.hangarActive) {
-        window.glbManager.closeHangar();
-      }
 
       this._savedState = {
         issVisible: window.issGroup ? window.issGroup.visible : true,

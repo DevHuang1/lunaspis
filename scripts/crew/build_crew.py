@@ -2123,7 +2123,7 @@ def wave_pose(arm_obj, P, t):
     set_rot(arm_obj, "chest", rx=-1.0 * k, rz=2.0 * k)
     set_rot(arm_obj, "neck", rx=-1.0 * k, rz=-3.0 * k)
     set_rot(arm_obj, "head", rx=-1.5 * k, rz=-6.0 * k, ry=3.0 * k)
-    set_rot(arm_obj, "shoulder_R", rz=1.5 - 4.0 * k, ry=-1.0 + 12.0 * k)
+    set_rot(arm_obj, "shoulder_R", rz=1.5 - 3.0 * k, ry=-1.0 + 7.0 * k)
     bpy.context.view_layer.update()
     if k < 0.001:
         return
@@ -2139,13 +2139,13 @@ def wave_pose(arm_obj, P, t):
     if 0.16 < t < 0.84:
         osc = sin(2 * pi * 3.1 * (t - 0.16) / 0.68)
     target_wave = S + Vector((
-        -0.155 * P["s"] + 0.018 * P["s"] * osc,
-        -0.100 * P["s"] - 0.006 * P["s"] * abs(osc),
-        0.150 * P["s"] + 0.012 * P["s"] * osc,
+        -0.185 * P["s"] + 0.018 * P["s"] * osc,
+        -0.110 * P["s"] - 0.006 * P["s"] * abs(osc),
+        0.095 * P["s"] + 0.012 * P["s"] * osc,
     ))
     wrist = wrist_idle.lerp(target_wave, k)
 
-    pole_wave = Vector((-1.0, 0.35, -0.15)).normalized()
+    pole_wave = Vector((-1.0, 0.22, -0.38)).normalized()
     pole_idle = (elbow_idle - S)
     if pole_idle.length < 1e-5:
         pole_idle = Vector((-1.0, 0.0, -0.4))

@@ -87,7 +87,6 @@ body.quality-fast::after {
 .btn-lobby-voice,
 .btn-copy,
 .voice-mic-btn,
-.hangar-ctrl-btn,
 .btn-title-join,
 .sc-hud-btn,
 .dock-assist-btn,
@@ -106,7 +105,6 @@ body.quality-fast::after {
 .btn-lobby-voice:hover,
 .btn-copy:hover,
 .voice-mic-btn:hover,
-.hangar-ctrl-btn:hover,
 .btn-title-join:hover,
 .sc-hud-btn:hover,
 .deck-row:hover {
@@ -1460,14 +1458,6 @@ body.menu-active #perf-overlay .perf-divider {
   letter-spacing: 0.18em;
 }
 
-#btn-open-hangar-lobby {
-  order: -1;
-  min-height: 30px;
-  padding: 6px 10px;
-  font-size: 9px;
-  letter-spacing: 0.12em;
-}
-
 .lobby-customizer::-webkit-scrollbar {
   width: 4px;
 }
@@ -1837,7 +1827,6 @@ body.quality-fast.deck-open #canvas-container {
 .settings-modal-card,
 .task-modal-card,
 .mission-briefing-card,
-.hangar-modal-card,
 .auth-modal-card {
   position: relative;
   border-radius: 2px !important;
@@ -1847,7 +1836,6 @@ body.quality-fast.deck-open #canvas-container {
 .settings-modal-card::after,
 .task-modal-card::after,
 .mission-briefing-card::after,
-.hangar-modal-card::after,
 .auth-modal-card::after {
   content: "";
   position: absolute;
@@ -1871,15 +1859,13 @@ body.quality-fast.deck-open #canvas-container {
 }
 
 .sys-tab-btn,
-.auth-tab-btn,
-.hangar-tab-btn {
+.auth-tab-btn {
   border-radius: 0 !important;
   border-bottom: 2px solid transparent !important;
 }
 
 .sys-tab-btn.active,
-.auth-tab-btn.active,
-.hangar-tab-btn.active {
+.auth-tab-btn.active {
   border-bottom-color: var(--ui-brand) !important;
   background: transparent !important;
   color: var(--ui-brand-strong) !important;
@@ -1926,12 +1912,6 @@ input[type="range"] {
 
 .mission-briefing-title {
   letter-spacing: 0.08em;
-}
-
-.hangar-catalog-card,
-.hangar-modal-card,
-.hangar-tab-btn {
-  border-radius: 2px;
 }
 
 #iss-showcase-topbar,

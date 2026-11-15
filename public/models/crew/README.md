@@ -18,15 +18,22 @@ red accents finish the uniform.
 
 - **Units / scale:** metres. The origin is at the feet, centre of the stance.
 - **Orientation:** faces **+Z** in glTF (modelled facing -Y in Blender), **Y up**.
+- **Loader origin:** the catalog entries set `origin: "feet"` so
+  `instantiateModel()` grounds these models instead of applying the generic
+  half-height centering used by the hip-origin astronaut suits.
 - **Skeleton:** 22 deform bones with a standard humanoid hierarchy.
 - **Skinning:** smooth, max 4 influences per vertex. Hands are rigidly bound to
   the hand bones; all arm and leg joints articulate.
 - **Materials:** native glTF PBR materials (base colour, roughness, metallic),
   no external texture files. Double-sided thin prints for crisp decals.
 - **Animations:** four embedded clips, all authored at 30 fps.
-- **Budget:** ~72.7k vertices / ~139k triangles per character (~4.2 MB GLB).
-  The faces, hands and hair carry most of the detail; the body under the
-  uniform is deliberately simpler.
+- **Budget:** ~71k vertices / ~136k triangles for Crew A and ~72k / ~137k
+  for Crew B (~4.1–4.2 MB GLB). The faces, hands and hair carry most of the
+  detail; the body under the uniform is deliberately simpler.
+- **Silhouette:** sloped, raglan-style jersey shoulders and tapered jogger
+  legs replace the earlier puffy sleeve caps and bell-bottom trousers. The
+  face uses almond eye openings, thinner brow/lip geometry and a shorter,
+  wider jaw; the hands have tighter finger spacing and a relaxed curl.
 
 ## Game integration
 
@@ -39,9 +46,9 @@ Earth Control roles:
 | `flight_director` (Mission Boss) | `crew_a.glb` |
 | `ground_capcom` (Earth Radio Helper) | `crew_b.glb` |
 
-Station crew roles always use `astronaut_lod0.glb` / `astronaut_lod1.glb`, even
-if an unsuited model was selected in the hangar. Both crew models share the
-astronaut rig's bone names and `idle`, `walk`, `look_around` and `wave` clips,
+Station crew roles always use `astronaut_lod0.glb` / `astronaut_lod1.glb`. Both
+crew models share the astronaut rig's bone names and `idle`, `walk`,
+`look_around` and `wave` clips,
 so movement, emotes and name badges work without extra animation code.
 
 ## Bones

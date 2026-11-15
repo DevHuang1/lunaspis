@@ -707,8 +707,7 @@ body #space-center-ground-map {
 
   .settings-modal-card,
   .task-modal-card,
-  .mission-briefing-card,
-  .hangar-modal-card {
+  .mission-briefing-card {
     max-width: calc(100vw - 16px);
   }
 

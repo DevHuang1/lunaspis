@@ -22,6 +22,19 @@
   // deck; the Shuttle simulation puts the MLP deck at 12.8 m. Lower the borrowed
   // site by the difference so the boosters meet the launcher instead of clipping.
   const LAUNCH_SITE_OFFSET_Y = -7.4;
+  // Ground-scene look while the borrowed LC-39A site is in frame: the same key
+  // light direction and daylight fill the Space Center uses.
+  const LAUNCH_SUN_LOCAL = (() => { const l = Math.hypot(135, 165, 115); return [135 / l, 165 / l, 115 / l]; })();
+  const GROUND_SKY = 0x74aed4;          // mid-sky colour of the LC-39A sky dome
+  const GROUND_FOG = 0xc4dce8;
+  const GROUND_FOG_DENSITY = 0.00058;
+  const GROUND_SUN_COLOR = new T.Color(0xfff3d8);
+  const SPACE_SUN_COLOR = new T.Color(0xfff4e0);
+  const GROUND_HEMI_SKY = new T.Color(0xb8dfff);
+  const SPACE_HEMI_SKY = new T.Color(0x9ec9ff);
+  const GROUND_HEMI_GROUND = new T.Color(0x526444);
+  const SPACE_HEMI_GROUND = new T.Color(0x223318);
+  const smooth01 = (edge0, edge1, x) => { const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0 || 1))); return t * t * (3 - 2 * t); };
 
   class ShuttleView {
     constructor(renderer) {
@@ -41,6 +54,16 @@
       this.launchSiteMount = new T.Group();
       this.launchSiteMount.name = "LC39A_DetailedLaunchSite";
       this.launchSiteMount.visible = false;
+      // One continuous liftoff: carry the player's ground-camera pose into the
+      // flight view, ease onto the pad vantage, then blend into the chase camera
+      // as the stack clears the tower.
+      this._launchCamAge = 0;
+      this._handoffFov = 60;
+      this.sceneFov = 60;
+      this.launchSunRender = null;
+      this._skyColor = new T.Color();
+      this._computedSky = new T.Color();
+      this._groundSky = new T.Color(GROUND_SKY);
       this._buildFar(); this._buildNear(); this._loadModels(); this._buildRibbons();
       this.near.add(this.launchSiteMount);
       this._onResize = () => this.resize();
@@ -165,7 +188,11 @@
 
     _buildNear() {
       this.sunNear = new T.DirectionalLight(0xfff4e0, 2.2); this.near.add(this.sunNear); this.near.add(this.sunNear.target);
-      this.near.add(new T.HemisphereLight(0x9ec9ff, 0x223318, 0.35));
+      this.hemiNear = new T.HemisphereLight(0x9ec9ff, 0x223318, 0.35); this.near.add(this.hemiNear);
+      this.ambientNear = new T.AmbientLight(0xdbeafe, 0); this.near.add(this.ambientNear);
+      // Ground haze, enabled only while the detailed LC-39A site is in view so
+      // the borrowed Space Center keeps the same atmospheric depth as on foot.
+      this.near.fog = new T.FogExp2(GROUND_FOG, 0);
       // Earth-fixed ground tile around KSC (pad + runway), tangent plane at the midpoint
       const site = S.SITES, latM = (site.pad.lat + site.runway.lat) / 2, lonM = (site.pad.lon + site.runway.lon) / 2;
       this.groundECEF = S.llhToEcef(latM, lonM, -0.3); this.groundBasis = S.enuBasis(latM, lonM);
@@ -210,6 +237,25 @@
       if (!manager || !manager.group) return false;
       this.detachLaunchSite();
       const group = manager.group;
+      manager._launchSiteLent = true;
+      this._launchCamAge = 0;
+      const cam = manager.camera || null;
+      this._handoffFov = cam ? cam.fov : 60;
+      let handoff = null;
+      if (cam) {
+        // Space Center local metres -> the Shuttle view's Earth-fixed frame.
+        group.updateMatrixWorld(true);
+        const inv = new T.Matrix4().copy(group.matrixWorld).invert();
+        const localEye = cam.position.clone().applyMatrix4(inv);
+        const localDir = cam.getWorldDirection(new T.Vector3()).transformDirection(inv);
+        const localUp = new T.Vector3(0, 1, 0).applyQuaternion(cam.quaternion).transformDirection(inv);
+        handoff = {
+          eye: [localEye.x, localEye.y, localEye.z],
+          dir: [localDir.x, localDir.y, localDir.z],
+          up: [localUp.x, localUp.y, localUp.z],
+          fov: cam.fov
+        };
+      }
       const saved = {
         parent: group.parent,
         visible: group.visible,
@@ -231,11 +277,15 @@
       }
       let skyDome = null;
       group.traverse((node) => { if (node && node.name === "SpaceCenterSkyDome") skyDome = node; });
+      const arm = manager.armPivotGroup || null;
       this.launchSite = {
         manager, group, saved,
         deluge: manager.delugeWaterMesh || null,
         steam: manager.steamPlumes || null,
-        skyDome
+        skyDome, handoff,
+        arm,
+        armStart: arm ? arm.rotation.y : 0,
+        armTarget: typeof manager.dockRetractAngle === "number" ? manager.dockRetractAngle : (arm ? arm.rotation.y : 0)
       };
       this.launchSiteMount.add(group);
       group.visible = true;
@@ -244,12 +294,20 @@
       if (this.simplePad) this.simplePad.visible = false;
       if (this.simpleVAB) this.simpleVAB.visible = false;
       this.launchSiteMount.visible = true;
+      // Match the Space Center's daylight key/fill so the borrowed site does not
+      // change colour when the gameplay camera hands over to the flight camera.
+      if (this.sunNear) { this.sunNear.color.setHex(0xfff3d8); this.sunNear.intensity = 1.95; }
+      if (this.hemiNear) { this.hemiNear.color.setHex(0xb8dfff); this.hemiNear.groundColor.setHex(0x526444); this.hemiNear.intensity = 0.68; }
+      if (this.ambientNear) this.ambientNear.intensity = 0.28;
+      if (this.near.fog) this.near.fog.density = GROUND_FOG_DENSITY;
+      this.launchSunRender = null;
       return true;
     }
 
     detachLaunchSite() {
       if (!this.launchSite) return;
       const { manager, group, saved } = this.launchSite;
+      manager._launchSiteLent = false;
       if (group.parent === this.launchSiteMount) this.launchSiteMount.remove(group);
       if (saved.parent) saved.parent.add(group);
       else if (manager.scene) manager.scene.add(group);
@@ -264,6 +322,18 @@
       if (this.simplePad) this.simplePad.visible = true;
       if (this.simpleVAB) this.simpleVAB.visible = true;
       if (this.groundGroup) this.groundGroup.visible = true;
+      // Restore the high-altitude flight lighting / clear sky.
+      if (this.sunNear) { this.sunNear.color.setHex(0xfff4e0); this.sunNear.intensity = 2.2; }
+      if (this.hemiNear) { this.hemiNear.color.setHex(0x9ec9ff); this.hemiNear.groundColor.setHex(0x223318); this.hemiNear.intensity = 0.35; }
+      if (this.ambientNear) this.ambientNear.intensity = 0;
+      if (this.near.fog) this.near.fog.density = 0;
+      this.launchSunRender = null;
+      this._launchCamAge = 0;
+      this._handoffFov = 60;
+      this.sceneFov = 60;
+      for (const cam of [this.nearCam, this.farCam]) {
+        if (cam && cam.fov !== 60) { cam.fov = 60; cam.updateProjectionMatrix(); }
+      }
     }
 
     _sitePointToEci(local, th) {
@@ -276,8 +346,32 @@
       return S.ecefToEci(ecef, th);
     }
 
+    _applyLaunchLighting(alt, th) {
+      if (!this.launchSite) return;
+      // Blend the ground-scene sunlight/fill into the flight renderer's cooler
+      // space lighting only after the detailed site has dropped away below.
+      const k = smooth01(4000, 18000, alt);
+      if (this.sunNear) {
+        this.sunNear.color.copy(GROUND_SUN_COLOR).lerp(SPACE_SUN_COLOR, k);
+        this.sunNear.intensity = 1.95 + (2.2 - 1.95) * k;
+      }
+      if (this.hemiNear) {
+        this.hemiNear.color.copy(GROUND_HEMI_SKY).lerp(SPACE_HEMI_SKY, k);
+        this.hemiNear.groundColor.copy(GROUND_HEMI_GROUND).lerp(SPACE_HEMI_GROUND, k);
+        this.hemiNear.intensity = 0.68 + (0.35 - 0.68) * k;
+      }
+      if (this.ambientNear) this.ambientNear.intensity = 0.28 * (1 - k);
+      if (this.near.fog) this.near.fog.density = GROUND_FOG_DENSITY * (1 - smooth01(2500, 10000, alt));
+      const pad = S.SITES.pad, B = S.enuBasis(pad.lat, pad.lon);
+      const E = S.ecefToEci(B.E, th), N = S.ecefToEci(B.N, th), U = S.ecefToEci(B.U, th);
+      const d = LAUNCH_SUN_LOCAL;
+      const sunEci = S.vec.unit(S.vec.add(S.vec.add(S.vec.scl(E, d[0]), S.vec.scl(U, d[1])), S.vec.scl(N, -d[2])));
+      this.launchSunRender = toR(sunEci);
+    }
+
     _updateLaunchSite(sn, alt, th, cam) {
       if (!this.launchSite) return;
+      this._applyLaunchLighting(alt, th);
       const v = sn.vehicle;
       const visible = (v.regime === "pad" || v.regime === "ascent") && alt < 15000;
       this.launchSiteMount.visible = visible;
@@ -286,11 +380,21 @@
       // The ground scene's sky bubble is only useful from inside it; once the
       // stack climbs out, let the flight renderer's sky/space background show.
       if (this.launchSite.skyDome) this.launchSite.skyDome.visible = alt < 1800;
+      // The ground game normally animates the Orbiter Access Arm in its own
+      // update loop. During the borrowed launch that loop is paused, so swing
+      // the same arm clear of the stack as the countdown reaches zero.
+      const site = this.launchSite;
+      if (site.arm) {
+        const countdown = typeof sn.countdown === "number" ? sn.countdown : null;
+        const retract = (sn.phase === "prelaunch" && countdown !== null)
+          ? 1 - smooth01(0, 8, countdown)
+          : 1;
+        site.arm.rotation.y = site.armStart + (site.armTarget - site.armStart) * retract;
+      }
       // Water deluge and pad steam during ignition, using the detailed pad's
       // existing effects so the ground behaves like the pre-launch scene.
       const eng = v.eng || {};
       const firing = (v.regime === "pad" && (eng.ssme || eng.srb)) || (v.regime === "ascent" && alt < 1400);
-      const site = this.launchSite;
       if (site.deluge && site.deluge.material) site.deluge.material.opacity = firing ? 0.78 : 0;
       if (site.steam) {
         site.steam.forEach((steam, i) => {
@@ -696,10 +800,15 @@
       const sunR = toR(SUN_ECI);
       if (this.earthUniforms) this.earthUniforms.uSunView.value.copy(sunR).applyQuaternion(this.farCam.quaternion.clone().invert()).normalize();
       this.sunFar.position.copy(sunR.clone().multiplyScalar(1e5).add(this.earth.position)); this.sunFar.target = this.earth;
-      this.sunNear.position.copy(sunR.clone().multiplyScalar(1000)); this.sunNear.target.position.set(0, 0, 0);
-      // sky colour by altitude (simple)
+      this.sunNear.position.copy(this.launchSunRender || sunR).multiplyScalar(1000); this.sunNear.target.position.set(0, 0, 0);
+      // Sky colour by altitude. While the borrowed LC-39A site is in frame,
+      // start from the same mid-sky tone as its dome, then ease into the flight
+      // sky as the stack climbs out.
       const k = Math.max(0, Math.min(1, 1 - alt / 70000));
-      this.sky = new T.Color().setRGB(0.02 + 0.33 * k * k, 0.03 + 0.5 * k * k, 0.06 + 0.78 * k * k);
+      const spaceSky = this._skyColor.setRGB(0.02 + 0.33 * k * k, 0.03 + 0.5 * k * k, 0.06 + 0.78 * k * k);
+      this.sky = this.launchSite
+        ? this._computedSky.copy(this._groundSky).lerp(spaceSky, smooth01(1800, 9000, alt))
+        : spaceSky;
       this.stars.material.opacity = 1 - k; this.stars.material.transparent = true;
       // engines
       const eng = v.eng || {};
@@ -772,22 +881,47 @@
         const alt = S.vec.norm(eye) - S.RE;
         if (alt < 3) eye = S.vec.add(eye, S.vec.scl(up, 3 - alt));
       }
-      // Continuous liftoff shot: hold the same north-east pad vantage the ground
-      // game uses, track the climbing stack, then ease into the chase camera as
-      // the vehicle leaves the detailed site. No scene cut is visible.
+      // One continuous liftoff: start from the player's exact ground camera,
+      // ease onto the north-east pad vantage, hold it while the stack clears
+      // the tower, then blend into the chase camera. The detailed LC-39A site
+      // stays visible throughout instead of cutting to the simplified pad.
       const altNow = sn.telemetry.altitudeM;
       if (this.launchSite && (v.regime === "pad" || v.regime === "ascent") && altNow < 12000) {
+        const pad = S.SITES.pad, B = S.enuBasis(pad.lat, pad.lon);
+        const E = S.ecefToEci(B.E, th), N = S.ecefToEci(B.N, th), U = S.ecefToEci(B.U, th);
         const padEye = this._sitePointToEci([96, 46, -72], th);
         const padLook = this._sitePointToEci([0, 42, 0], th);
-        const B = S.enuBasis(S.SITES.pad.lat, S.SITES.pad.lon);
-        const padUp = S.ecefToEci(B.U, th);
-        let k = altNow <= 2500 ? 0 : altNow >= 9000 ? 1 : (altNow - 2500) / 6500;
-        k = k * k * (3 - 2 * k);
-        const track = altNow <= 50 ? 0 : Math.min(1, (altNow - 50) / 1200);
-        const tracked = S.vec.add(S.vec.scl(padLook, 1 - track), S.vec.scl(r, track));
-        eye = S.vec.add(S.vec.scl(padEye, 1 - k), S.vec.scl(eye, k));
-        look = S.vec.add(S.vec.scl(tracked, 1 - k), S.vec.scl(look, k));
-        camUp = S.vec.add(S.vec.scl(padUp, 1 - k), S.vec.scl(camUp, k));
+        const padUp = U;
+        this._launchCamAge += dt;
+        const handoffK = smooth01(0, 1.6, this._launchCamAge);
+        let baseEye = padEye, baseLook = padLook, baseUp = padUp;
+        const handoff = this.launchSite.handoff;
+        if (handoff) {
+          const hEye = this._sitePointToEci(handoff.eye, th);
+          const hd = handoff.dir;
+          const hDir = S.vec.unit(S.vec.add(
+            S.vec.add(S.vec.scl(E, hd[0]), S.vec.scl(U, hd[1])),
+            S.vec.scl(N, -hd[2])
+          ));
+          const hLook = S.vec.add(hEye, S.vec.scl(hDir, 1000));
+          const hu = handoff.up || [0, 1, 0];
+          const hUp = S.vec.unit(S.vec.add(
+            S.vec.add(S.vec.scl(E, hu[0]), S.vec.scl(U, hu[1])),
+            S.vec.scl(N, -hu[2])
+          ));
+          baseEye = S.vec.add(S.vec.scl(hEye, 1 - handoffK), S.vec.scl(padEye, handoffK));
+          baseLook = S.vec.add(S.vec.scl(hLook, 1 - handoffK), S.vec.scl(padLook, handoffK));
+          baseUp = S.vec.add(S.vec.scl(hUp, 1 - handoffK), S.vec.scl(padUp, handoffK));
+        }
+        const track = smooth01(20, 700, altNow);
+        const tracked = S.vec.add(S.vec.scl(baseLook, 1 - track), S.vec.scl(r, track));
+        const climb = smooth01(120, 900, altNow);
+        eye = S.vec.add(S.vec.scl(baseEye, 1 - climb), S.vec.scl(eye, climb));
+        look = S.vec.add(S.vec.scl(tracked, 1 - climb), S.vec.scl(look, climb));
+        camUp = S.vec.add(S.vec.scl(baseUp, 1 - climb), S.vec.scl(camUp, climb));
+        const fov = this._handoffFov + (60 - this._handoffFov) * handoffK;
+        this.sceneFov = fov;
+        if (this.nearCam.fov !== fov) { this.nearCam.fov = fov; this.nearCam.updateProjectionMatrix(); }
       }
       this.camPos = eye;
       const c = this.nearCam, f = this.farCam;
@@ -812,7 +946,7 @@
       r.autoClear = false;
       r.setClearColor(sc.on ? new T.Color(0x000000).lerp(this.sky || new T.Color(0), 0.6) : (this.sky || new T.Color(0x000000)), 1);
       r.clear();
-      const fov = sc.on ? sc.fov : 60;
+      const fov = sc.on ? sc.fov : (this.sceneFov || 60);
       if (this.farCam.fov !== fov) { this.farCam.fov = fov; this.farCam.updateProjectionMatrix(); }
       // planet points of light: fade out once the scope resolves the disk (model larger than the dot)
       const pxDeg = fov / Math.max(1, window.innerHeight);

@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * INTERFELLAS HIGH-PERFORMANCE 3D GLB/glTF ASSET & HANGAR ENGINE (SPACESHIP EDITION)
+ * INTERFELLAS HIGH-PERFORMANCE 3D GLB/glTF ASSET ENGINE (SPACESHIP EDITION)
  * ============================================================================
  * Provides comprehensive, production-grade .glb/.gltf 3D model support ported from
  * SpaceShip (Lunaspis — Orbital / Mission Lab):
@@ -11,9 +11,6 @@
  *    radial ground contact shadow, and role accent ring
  * 2b. Earth Control unsuit crew (crew_a.glb & crew_b.glb) for the two ground roles
  * 3. SpaceShip NASA ISS 3D Models (ISS_stationary_opt.glb & ISS_B.glb) + Orbital Fleet
- * 4. Full-window Drag-and-Drop & File Picker for custom user .glb/.gltf models
- * 5. Interactive 3D Model Hangar & Inspector (real-time 3D turntable, wireframe,
- *    polygon/vertex stats, PBR lighting, 1-click equip and spawn)
  */
 
 (function (window) {
@@ -1045,31 +1042,34 @@
   let sharedDracoLoader = null;
   let sharedKTX2Loader = null;
 
+  /**
+   * Draco ships as WebAssembly plus an asm.js fallback. Some deployments
+   * (and browsers that do not understand `'wasm-unsafe-eval'`) block WASM
+   * compilation through CSP, which silently drops every Draco-compressed
+   * model — including the ISS behind the title screen. Probe compilation
+   * once so the loader can fall back to the plain-JS decoder instead.
+   */
+  function wasmCompilationAllowed() {
+    if (typeof WebAssembly !== "object" || typeof WebAssembly.Module !== "function") {
+      return false;
+    }
+    try {
+      // Smallest possible WebAssembly module header. Compiling it is enough
+      // to trip a CSP directive that disallows WASM.
+      new WebAssembly.Module(new Uint8Array([0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00]));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   class GLBManager {
     constructor() {
       this.catalog = GLB_CATALOG;
       this.cache = {}; // url -> { gltf, meta }
       this.loadingPromises = {}; // url -> Promise
-      this.customModels = {}; // id -> { id, name, gltf, meta, isCustom: true }
       this.selectedAvatarModelId = "astronaut_lod0";
-      this.spawnedFleet = [];
       this.activeMixers = [];
-
-      // Hangar Modal & Turntable State
-      this.hangarActive = false;
-      this.hangarScene = null;
-      this.hangarCamera = null;
-      this.hangarRenderer = null;
-      this.hangarModelGroup = null;
-      this.hangarAnimFrame = null;
-      this.hangarClock = null;
-      this.hangarCurrentModel = null;
-      this.hangarAutoRotate = true;
-      this.hangarWireframe = false;
-      this.hangarColorTest = "#c9f04b";
-      this.hangarMouse = { down: false, x: 0, y: 0, rotX: 0.2, rotY: 0.8, dist: 3.5 };
-
-      this._initDragAndDrop();
     }
 
     /**
@@ -1080,6 +1080,11 @@
         if (!sharedDracoLoader) {
           sharedDracoLoader = new window.THREE.DRACOLoader();
           sharedDracoLoader.setDecoderPath("draco/");
+          if (!wasmCompilationAllowed()) {
+            // The asm.js decoder needs no WebAssembly, so the station,
+            // vehicles and interiors still load when WASM is blocked.
+            sharedDracoLoader.setDecoderConfig({ type: "js" });
+          }
         }
         loader.setDRACOLoader(sharedDracoLoader);
       }
@@ -1101,8 +1106,7 @@
 
     /**
      * Maps a player role to the correct rig. Earth Control roles use the
-     * unsuited crew models; station crew always use a spacesuit rig even if
-     * an unsuited model was selected in the hangar.
+     * unsuited crew models; station crew always use a spacesuit rig.
      */
     getModelIdForRole(role, fallbackModelId = null) {
       const normalized = window.InterfellasRoles
@@ -1166,51 +1170,6 @@
 
       this.loadingPromises[url] = p;
       return p;
-    }
-
-    /**
-     * Parses an ArrayBuffer containing raw .glb binary data (for user drag & drop / file picker).
-     */
-    loadArrayBuffer(arrayBuffer, filename = "custom_model.glb") {
-      return new Promise((resolve, reject) => {
-        if (!window.THREE || !window.THREE.GLTFLoader) {
-          reject(new Error("THREE.GLTFLoader is not available."));
-          return;
-        }
-
-        const loader = new window.THREE.GLTFLoader();
-        this._configureGLTFLoader(loader);
-
-        loader.parse(
-          arrayBuffer,
-          "",
-          (gltf) => {
-            const id = "custom_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
-            const meta = this._analyzeGLTF(gltf, filename);
-            const cleanName = filename.replace(/\.(glb|gltf)$/i, "").replace(/[_-]/g, " ");
-            const item = {
-              id,
-              name: cleanName.toUpperCase(),
-              category: "custom",
-              file: filename,
-              defaultColor: "#c9f04b",
-              targetHeight: 1.90,
-              isCustom: true,
-              gltf,
-              meta,
-              description: `User-imported 3D model (${(arrayBuffer.byteLength / 1024).toFixed(1)} KB, ${meta.triangles.toLocaleString()} triangles).`
-            };
-            this.customModels[id] = item;
-            this.catalog[id] = item;
-            this.cache[id] = { gltf, meta, url: id };
-            resolve(item);
-          },
-          (err) => {
-            console.error("Failed to parse custom GLB ArrayBuffer:", err);
-            reject(err);
-          }
-        );
-      });
     }
 
     /**
@@ -1906,622 +1865,6 @@
         }
       };
       return sprite;
-    }
-
-    spawnOrbitalFleet() {
-      // Lunaspis uses only the 6-room transit craft, ISS reference craft, and Lunar Lander.
-    }
-
-    updateFleet(delta, elapsed) {
-      for (let i = 0; i < this.spawnedFleet.length; i++) {
-        const item = this.spawnedFleet[i];
-        if (item.type === "orbital_satellite" && item.obj) {
-          item.obj.rotation.y += (item.rotSpeed || 0.1) * delta;
-          item.obj.position.y += Math.sin(elapsed * 0.8 + i) * 0.008;
-        }
-      }
-    }
-
-    // ========================================================================
-    // INTERACTIVE 3D GLB MODEL HANGAR & STUDIO (INSPECTOR MODAL)
-    // ========================================================================
-    openHangar(initialModelId = null) {
-      let modal = document.getElementById("glb-hangar-modal");
-      if (!modal) {
-        modal = this._buildHangarModalDOM();
-        document.body.appendChild(modal);
-        this._bindHangarEvents(modal);
-      }
-
-      modal.style.display = "flex";
-      this.hangarActive = true;
-
-      const container = document.getElementById("hangar-viewport-container");
-      if (container && !this.hangarRenderer) {
-        this._initHangarViewport(container);
-      } else if (this.hangarRenderer) {
-        this._onHangarResize();
-      }
-
-      this._renderHangarCatalog();
-
-      const targetId = initialModelId || this.selectedAvatarModelId || "astronaut_lod0";
-      this.selectHangarModel(targetId);
-
-      this._startHangarAnimationLoop();
-    }
-
-    closeHangar() {
-      const modal = document.getElementById("glb-hangar-modal");
-      if (modal) modal.style.display = "none";
-      this.hangarActive = false;
-      if (this.hangarAnimFrame) {
-        cancelAnimationFrame(this.hangarAnimFrame);
-        this.hangarAnimFrame = null;
-      }
-    }
-
-    _initHangarViewport(container) {
-      const width = container.clientWidth || 540;
-      const height = container.clientHeight || 420;
-
-      this.hangarScene = new window.THREE.Scene();
-      this.hangarScene.background = new window.THREE.Color(0x060913);
-
-      this.hangarCamera = new window.THREE.PerspectiveCamera(45, width / height, 0.1, 500);
-      this.hangarCamera.position.set(0, 1.2, 3.5);
-
-      this.hangarRenderer = new window.THREE.WebGLRenderer({ antialias: true, alpha: true });
-      this.hangarRenderer.setSize(width, height);
-      this.hangarRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      this.hangarRenderer.outputEncoding = window.THREE.sRGBEncoding;
-      this.hangarRenderer.toneMapping = window.THREE.ACESFilmicToneMapping;
-      this.hangarRenderer.toneMappingExposure = 1.1;
-      container.appendChild(this.hangarRenderer.domElement);
-
-      const amb = new window.THREE.AmbientLight(0xdbeafe, 1.0);
-      this.hangarScene.add(amb);
-
-      const keyLight = new window.THREE.DirectionalLight(0xfffaed, 2.2);
-      keyLight.position.set(4, 6, 5);
-      this.hangarScene.add(keyLight);
-
-      const fillLight = new window.THREE.DirectionalLight(0x67e8f9, 1.0);
-      fillLight.position.set(-5, 2, -3);
-      this.hangarScene.add(fillLight);
-
-      const rimLight = new window.THREE.DirectionalLight(0x9a8fc4, 0.8);
-      rimLight.position.set(0, -4, -4);
-      this.hangarScene.add(rimLight);
-
-      const grid = new window.THREE.GridHelper(10, 20, 0x3b4856, 0x141a22);
-      grid.position.y = -0.01;
-      this.hangarScene.add(grid);
-
-      this.hangarModelGroup = new window.THREE.Group();
-      this.hangarScene.add(this.hangarModelGroup);
-
-      this.hangarClock = new window.THREE.Clock();
-
-      const dom = this.hangarRenderer.domElement;
-      dom.addEventListener("mousedown", (e) => {
-        this.hangarMouse.down = true;
-        this.hangarMouse.x = e.clientX;
-        this.hangarMouse.y = e.clientY;
-      });
-      window.addEventListener("mousemove", (e) => {
-        if (!this.hangarActive || !this.hangarMouse.down) return;
-        const dx = e.clientX - this.hangarMouse.x;
-        const dy = e.clientY - this.hangarMouse.y;
-        this.hangarMouse.x = e.clientX;
-        this.hangarMouse.y = e.clientY;
-
-        this.hangarMouse.rotY += dx * 0.01;
-        this.hangarMouse.rotX = Math.max(-1.2, Math.min(1.2, this.hangarMouse.rotX + dy * 0.01));
-      });
-      window.addEventListener("mouseup", () => {
-        this.hangarMouse.down = false;
-      });
-      dom.addEventListener("wheel", (e) => {
-        e.preventDefault();
-        this.hangarMouse.dist = Math.max(0.8, Math.min(45.0, this.hangarMouse.dist + e.deltaY * 0.005));
-      }, { passive: false });
-    }
-
-    _onHangarResize() {
-      const container = document.getElementById("hangar-viewport-container");
-      if (!container || !this.hangarRenderer || !this.hangarCamera) return;
-      const w = container.clientWidth;
-      const h = container.clientHeight;
-      this.hangarCamera.aspect = w / h;
-      this.hangarCamera.updateProjectionMatrix();
-      this.hangarRenderer.setSize(w, h);
-    }
-
-    _startHangarAnimationLoop() {
-      const loop = () => {
-        if (!this.hangarActive) return;
-        this.hangarAnimFrame = requestAnimationFrame(loop);
-
-        const delta = this.hangarClock.getDelta();
-
-        if (this.hangarAutoRotate && !this.hangarMouse.down) {
-          this.hangarMouse.rotY += delta * 0.45;
-        }
-
-        const dist = this.hangarMouse.dist;
-        const cy = Math.sin(this.hangarMouse.rotX) * dist + 1.0;
-        const r = Math.cos(this.hangarMouse.rotX) * dist;
-        const cx = Math.sin(this.hangarMouse.rotY) * r;
-        const cz = Math.cos(this.hangarMouse.rotY) * r;
-
-        this.hangarCamera.position.set(cx, cy, cz);
-        this.hangarCamera.lookAt(0, 1.0, 0);
-
-        this.hangarRenderer.render(this.hangarScene, this.hangarCamera);
-      };
-      loop();
-    }
-
-    selectHangarModel(modelId) {
-      const entry = this.catalog[modelId] || this.customModels[modelId];
-      if (!entry) return;
-
-      this.hangarCurrentModel = entry;
-
-      document.querySelectorAll(".hangar-catalog-card").forEach((card) => {
-        card.classList.toggle("active", card.dataset.id === modelId);
-      });
-
-      const statusEl = document.getElementById("hangar-status-text");
-      if (statusEl) {
-        statusEl.textContent = `LOADING 3D GEOMETRY (${entry.name})...`;
-        statusEl.classList.add("is-loading");
-        const statusWrap = statusEl.closest(".hangar-viewport-status");
-        if (statusWrap) statusWrap.classList.add("is-loading");
-      }
-
-      const url = entry.file;
-
-      const onModelReady = (loadedEntry) => {
-        while (this.hangarModelGroup.children.length > 0) {
-          this.hangarModelGroup.remove(this.hangarModelGroup.children[0]);
-        }
-
-        const isAstronaut = entry.category === "astronauts";
-        const targetH = isAstronaut ? 1.90 : (entry.targetHeight || null);
-
-        const inst = this.instantiateModel(modelId, {
-          suitColor: this.hangarColorTest,
-          targetHeight: targetH,
-          groundBottom: true,
-          center: true,
-          enhancePBR: true
-        });
-
-        if (this.hangarWireframe) {
-          inst.traverse((o) => {
-            if (o.isMesh && o.material) {
-              const m = Array.isArray(o.material) ? o.material : [o.material];
-              m.forEach((mat) => { mat.wireframe = true; });
-            }
-          });
-        }
-
-        this.hangarModelGroup.add(inst);
-
-        const box = new window.THREE.Box3().setFromObject(inst);
-        const sz = new window.THREE.Vector3();
-        box.getSize(sz);
-        const maxDim = Math.max(sz.x, sz.y, sz.z);
-        this.hangarMouse.dist = Math.max(2.2, maxDim * 1.8);
-        this.hangarCamera.position.y = sz.y * 0.5;
-
-        this._updateHangarTelemetry(entry, loadedEntry.meta);
-
-        if (statusEl) {
-          statusEl.classList.remove("is-loading");
-          const statusWrap = statusEl.closest(".hangar-viewport-status");
-          if (statusWrap) statusWrap.classList.remove("is-loading");
-          statusEl.textContent = `TELEMETRY READY • ${entry.name}`;
-        }
-      };
-
-      if (entry.isCustom && this.cache[modelId]) {
-        onModelReady(this.cache[modelId]);
-      } else {
-        this.loadGLB(url, (pct) => {
-          if (statusEl) statusEl.textContent = `DOWNLOADING 3D ASSET: ${pct}%...`;
-        })
-          .then(onModelReady)
-          .catch((err) => {
-            if (statusEl) {
-              statusEl.classList.remove("is-loading");
-              const statusWrap = statusEl.closest(".hangar-viewport-status");
-              if (statusWrap) statusWrap.classList.remove("is-loading");
-              statusEl.textContent = `ERROR LOADING 3D MODEL: ${err.message}`;
-            }
-          });
-      }
-    }
-
-    _updateHangarTelemetry(entry, meta) {
-      const titleEl = document.getElementById("hangar-spec-title");
-      const descEl = document.getElementById("hangar-spec-desc");
-      const triEl = document.getElementById("hangar-stat-triangles");
-      const vertEl = document.getElementById("hangar-stat-vertices");
-      const meshEl = document.getElementById("hangar-stat-meshes");
-      const matEl = document.getElementById("hangar-stat-materials");
-      const dimEl = document.getElementById("hangar-stat-dimensions");
-
-      if (titleEl) titleEl.textContent = entry.name;
-      if (descEl) descEl.textContent = entry.description || "Official high-polygon watertight 3D aerospace asset.";
-      if (meta) {
-        if (triEl) triEl.textContent = meta.triangles.toLocaleString();
-        if (vertEl) vertEl.textContent = meta.vertices.toLocaleString();
-        if (meshEl) meshEl.textContent = meta.meshCount.toLocaleString();
-        if (matEl) matEl.textContent = meta.materialCount.toLocaleString();
-        if (dimEl && meta.box && meta.box.size) {
-          const s = meta.box.size;
-          dimEl.textContent = `${s[0].toFixed(2)}m × ${s[1].toFixed(2)}m × ${s[2].toFixed(2)}m`;
-        }
-      }
-    }
-
-    _escapeHtml(value) {
-      return String(value == null ? "" : value)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/\"/g, "&quot;")
-        .replace(/'/g, "&#39;");
-    }
-
-    _renderHangarCatalog(filterCategory = "all") {
-      const container = document.getElementById("hangar-catalog-list");
-      if (!container) return;
-      container.innerHTML = "";
-
-      const renderCard = (item, isCustom = false) => {
-        if (filterCategory !== "all") {
-          if (filterCategory === "custom") {
-            if (!isCustom) return;
-          } else {
-            if (item.category !== filterCategory) return;
-          }
-        }
-
-        const card = document.createElement("div");
-        card.className = "hangar-catalog-card";
-        card.dataset.id = item.id;
-        card.innerHTML = `
-          <div class="hangar-card-header">
-            <span class="hangar-card-badge">${this._escapeHtml((item.category || (isCustom ? "CUSTOM" : "3D")).toUpperCase())}</span>
-            <span class="hangar-card-role">${this._escapeHtml(item.role ? item.role.toUpperCase() : (isCustom ? "UPLOAD" : "ASSET"))}</span>
-          </div>
-          <div class="hangar-card-title">${this._escapeHtml(item.name)}</div>
-          <div class="hangar-card-desc">${this._escapeHtml((item.description || "Custom 3D model asset.").slice(0, 78))}...</div>
-        `;
-        card.addEventListener("click", () => this.selectHangarModel(item.id));
-        container.appendChild(card);
-      };
-
-      Object.keys(this.catalog).forEach((key) => renderCard(this.catalog[key], false));
-      Object.keys(this.customModels).forEach((key) => renderCard(this.customModels[key], true));
-    }
-
-    _buildHangarModalDOM() {
-      const overlay = document.createElement("div");
-      overlay.id = "glb-hangar-modal";
-      overlay.className = "settings-modal-overlay";
-      overlay.style.display = "none";
-      overlay.innerHTML = `
-        <div class="settings-modal-card hangar-modal-card">
-          <div class="settings-modal-header hangar-header">
-            <div>
-              <div class="settings-modal-title">LUNASPIS // 3D ASSET INSPECTOR</div>
-              <div style="font-size:10px;color:rgba(154,164,174,0.75);letter-spacing:1.2px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">DRACO / KTX2 / MESHOPT RIG STUDIO</div>
-            </div>
-            <button class="settings-close-btn" id="hangar-btn-close">&times;</button>
-          </div>
-
-          <div class="hangar-modal-body">
-            <div class="hangar-sidebar">
-              <div class="hangar-tabs-row">
-                <button class="hangar-tab-btn active" data-cat="all">ALL</button>
-                <button class="hangar-tab-btn" data-cat="astronauts">SUITS</button>
-                <button class="hangar-tab-btn" data-cat="crew">CREW</button>
-                <button class="hangar-tab-btn" data-cat="spacecraft">ISS</button>
-                <button class="hangar-tab-btn" data-cat="custom">CUSTOM</button>
-              </div>
-              <div class="hangar-catalog-list" id="hangar-catalog-list"></div>
-              <div class="hangar-upload-box">
-                <input type="file" id="hangar-file-input" accept=".glb,.gltf" style="display:none;" />
-                <button class="btn-secondary" id="hangar-btn-upload" style="width:100%;font-size:10px;padding:8px;">
-                  IMPORT CUSTOM .GLB
-                </button>
-              </div>
-            </div>
-
-            <div class="hangar-viewport-wrapper">
-              <div id="hangar-viewport-container"></div>
-              <div class="hangar-viewport-controls">
-                <button class="hangar-ctrl-btn" id="hangar-btn-wireframe" title="Toggle Wireframe">WIREFRAME</button>
-                <button class="hangar-ctrl-btn active" id="hangar-btn-rotate" title="Toggle Turntable Rotation">AUTO-ROTATE</button>
-                <button class="hangar-ctrl-btn" id="hangar-btn-reset-cam" title="Reset Camera">RESET</button>
-              </div>
-              <div class="hangar-viewport-status">
-                <span class="perf-dot" style="background:var(--ui-brand);"></span>
-                <span id="hangar-status-text">INITIALIZING 3D ENGINE...</span>
-              </div>
-            </div>
-
-            <div class="hangar-specs-panel">
-              <div style="font-size:9.5px;font-weight:700;letter-spacing:1.8px;color:var(--ui-brand);text-transform:uppercase;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">MODEL DOSSIER</div>
-              <div id="hangar-spec-title" class="hangar-spec-title">ASTRONAUT MODEL</div>
-              <div id="hangar-spec-desc" class="hangar-spec-desc">Model technical overview and description.</div>
-
-              <div class="hangar-stats-grid">
-                <div class="hangar-stat-box">
-                  <span class="hangar-stat-lbl">TRIANGLES</span>
-                  <span class="hangar-stat-val" id="hangar-stat-triangles">--</span>
-                </div>
-                <div class="hangar-stat-box">
-                  <span class="hangar-stat-lbl">VERTICES</span>
-                  <span class="hangar-stat-val" id="hangar-stat-vertices">--</span>
-                </div>
-                <div class="hangar-stat-box">
-                  <span class="hangar-stat-lbl">MESHES</span>
-                  <span class="hangar-stat-val" id="hangar-stat-meshes">--</span>
-                </div>
-                <div class="hangar-stat-box">
-                  <span class="hangar-stat-lbl">MATERIALS</span>
-                  <span class="hangar-stat-val" id="hangar-stat-materials">--</span>
-                </div>
-                <div class="hangar-stat-box" style="grid-column:span 2;">
-                  <span class="hangar-stat-lbl">BOUNDING DIMENSIONS (W × H × D)</span>
-                  <span class="hangar-stat-val" id="hangar-stat-dimensions" style="font-size:12px;">--</span>
-                </div>
-              </div>
-
-              <div style="margin-top:10px;">
-                <label style="font-size:11px;color:#a7b0ba;font-weight:700;display:block;margin-bottom:6px;">TEST SUIT COLOR ACCENT</label>
-                <div class="color-swatches" id="hangar-color-swatches">
-                  <button type="button" class="lobby-color-btn" data-color="#ff6b6b" style="background:#ff6b6b;" title="Hull Coral"></button>
-                  <button type="button" class="lobby-color-btn" data-color="#8a8194" style="background:#8a8194;" title="Regolith Violet"></button>
-                  <button type="button" class="lobby-color-btn" data-color="#c9f04b" style="background:#c9f04b;" title="Flight Lime"></button>
-                  <button type="button" class="lobby-color-btn" data-color="#63e6a8" style="background:#63e6a8;" title="ECLSS Mint"></button>
-                  <button type="button" class="lobby-color-btn" data-color="#efeee7" style="background:#efeee7;" title="EVA Ivory"></button>
-                  <button type="button" class="lobby-color-btn" data-color="#334155" style="background:#334155;" title="Carbon Stealth"></button>
-                </div>
-              </div>
-
-              <div style="margin-top:auto;display:flex;flex-direction:column;gap:8px;">
-                <button class="btn-primary" id="hangar-btn-equip" style="width:100%;font-size:12px;padding:12px;">
-                  EQUIP AS MY ASTRONAUT AVATAR
-                </button>
-                <button class="btn-secondary" id="hangar-btn-spawn" style="width:100%;font-size:12px;padding:10px;">
-                  SPAWN IN SPACE ORBIT
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-      return overlay;
-    }
-
-    _bindHangarEvents(modal) {
-      modal.querySelector("#hangar-btn-close").addEventListener("click", () => this.closeHangar());
-
-      modal.querySelectorAll(".hangar-tab-btn").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          modal.querySelectorAll(".hangar-tab-btn").forEach((b) => b.classList.remove("active"));
-          btn.classList.add("active");
-          this._renderHangarCatalog(btn.dataset.cat);
-        });
-      });
-
-      const btnWireframe = modal.querySelector("#hangar-btn-wireframe");
-      btnWireframe.addEventListener("click", () => {
-        this.hangarWireframe = !this.hangarWireframe;
-        btnWireframe.classList.toggle("active", this.hangarWireframe);
-        if (this.hangarCurrentModel) this.selectHangarModel(this.hangarCurrentModel.id);
-      });
-
-      const btnRotate = modal.querySelector("#hangar-btn-rotate");
-      btnRotate.addEventListener("click", () => {
-        this.hangarAutoRotate = !this.hangarAutoRotate;
-        btnRotate.classList.toggle("active", this.hangarAutoRotate);
-      });
-
-      modal.querySelector("#hangar-btn-reset-cam").addEventListener("click", () => {
-        this.hangarMouse.rotX = 0.2;
-        this.hangarMouse.rotY = 0.8;
-      });
-
-      modal.querySelectorAll("#hangar-color-swatches .lobby-color-btn").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          this.hangarColorTest = btn.dataset.color;
-          if (this.hangarCurrentModel) this.selectHangarModel(this.hangarCurrentModel.id);
-        });
-      });
-
-      modal.querySelector("#hangar-btn-equip").addEventListener("click", () => {
-        if (!this.hangarCurrentModel) return;
-
-        if (this.hangarCurrentModel.category === "crew") {
-          if (window.showActionToast) {
-            window.showActionToast(`${this.hangarCurrentModel.name} is an Earth Control crew model. It is assigned automatically to the Flight Director / Ground Systems roles.`);
-          }
-          return;
-        }
-
-        if (this.hangarCurrentModel.category !== "astronauts") {
-          if (window.showActionToast) {
-            window.showActionToast(`${this.hangarCurrentModel.name} is a spacecraft/object. Use 'SPAWN IN SPACE ORBIT' or press [U] to board.`);
-          }
-          return;
-        }
-
-        this.selectedAvatarModelId = this.hangarCurrentModel.id;
-
-        const preservedRoleRaw =
-          (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.role) ||
-          (window.localCrew && window.localCrew.role) ||
-          this.hangarCurrentModel.role ||
-          "commander";
-        const preservedRole = window.InterfellasRoles
-          ? window.InterfellasRoles.normalizeRole(preservedRoleRaw, "commander")
-          : preservedRoleRaw;
-
-        if (window.localCrew && window.localCrew.group && window.buildLocalAstronaut) {
-          window.buildLocalAstronaut(this.hangarColorTest, preservedRole, this.hangarCurrentModel.id);
-        }
-
-        if (window.netManager && window.netManager.customizeAstronaut) {
-          window.netManager.customizeAstronaut(
-            null,
-            this.hangarColorTest,
-            preservedRole,
-            undefined,
-            this.hangarCurrentModel.id,
-            "crew",
-            { explicitRole: !!(window.netManager && window.netManager.explicitRoleSelected) }
-          );
-        }
-
-        if (window.showActionToast) {
-          window.showActionToast(`EQUIPPED 3D MODEL: ${this.hangarCurrentModel.name}`);
-        }
-        this.closeHangar();
-      });
-
-      modal.querySelector("#hangar-btn-spawn").addEventListener("click", () => {
-        if (!this.hangarCurrentModel || !window.scene) return;
-
-        try {
-          const spawnInst = this.instantiateModel(this.hangarCurrentModel.id, {
-            suitColor: this.hangarColorTest,
-            scale: 1.0,
-            castShadow: true,
-            receiveShadow: true
-          });
-
-          const p = (window.localCrew && window.localCrew.group) ? window.localCrew.group.position : { x: 0, y: 2, z: 0 };
-          spawnInst.position.set(p.x + (Math.random() * 20 - 10), p.y + 12 + Math.random() * 5, p.z - 30 + (Math.random() * 10));
-          window.scene.add(spawnInst);
-          this.spawnedFleet.push({ obj: spawnInst, type: "orbital_satellite", rotSpeed: 0.1 });
-
-          if (window.showActionToast) {
-            window.showActionToast(`SPAWNED ${this.hangarCurrentModel.name} INTO LIVE ORBIT!`);
-          }
-          this.closeHangar();
-        } catch (e) {
-          alert("Failed to spawn model: " + e.message);
-        }
-      });
-
-      const fileInput = modal.querySelector("#hangar-file-input");
-      const btnUpload = modal.querySelector("#hangar-btn-upload");
-      btnUpload.addEventListener("click", () => fileInput.click());
-      fileInput.addEventListener("change", (e) => {
-        const file = e.target.files && e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-          this.loadArrayBuffer(evt.target.result, file.name)
-            .then((customItem) => {
-              this._renderHangarCatalog("all");
-              this.selectHangarModel(customItem.id);
-              if (window.showActionToast) {
-                window.showActionToast(`IMPORTED CUSTOM 3D MODEL: ${customItem.name}`);
-              }
-            })
-            .catch((err) => alert("Failed to import .glb: " + err.message));
-        };
-        reader.readAsArrayBuffer(file);
-      });
-    }
-
-    _initDragAndDrop() {
-      let dropOverlay = null;
-
-      const ensureOverlay = () => {
-        if (dropOverlay) return dropOverlay;
-        dropOverlay = document.createElement("div");
-        dropOverlay.id = "glb-drag-drop-overlay";
-        dropOverlay.style.cssText = `
-          display: none;
-          position: fixed;
-          inset: 0;
-          background: rgba(5, 6, 10, 0.92);
-          backdrop-filter: blur(12px);
-          z-index: 999999;
-          justify-content: center;
-          align-items: center;
-          flex-direction: column;
-          gap: 12px;
-          border: 1px dashed rgba(var(--ui-brand-rgb), 0.55);
-          pointer-events: none;
-        `;
-        dropOverlay.innerHTML = `
-          <div style="font-size:18px;font-weight:700;letter-spacing:2.4px;color:#efeee7;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">DROP .GLB / .GLTF MODEL</div>
-          <div style="font-size:12px;color:rgba(166,173,182,0.8);">Inspect, equip as astronaut rig, or spawn in orbit</div>
-        `;
-        document.body.appendChild(dropOverlay);
-        return dropOverlay;
-      };
-
-      window.addEventListener("dragenter", (e) => {
-        if (e.dataTransfer && e.dataTransfer.types && Array.from(e.dataTransfer.types).includes("Files")) {
-          e.preventDefault();
-          const ov = ensureOverlay();
-          ov.style.display = "flex";
-        }
-      });
-
-      window.addEventListener("dragover", (e) => {
-        e.preventDefault();
-      });
-
-      window.addEventListener("dragleave", (e) => {
-        if (e.clientX <= 0 || e.clientY <= 0 || e.clientX >= window.innerWidth || e.clientY >= window.innerHeight) {
-          if (dropOverlay) dropOverlay.style.display = "none";
-        }
-      });
-
-      window.addEventListener("drop", (e) => {
-        e.preventDefault();
-        if (dropOverlay) dropOverlay.style.display = "none";
-
-        const files = e.dataTransfer && e.dataTransfer.files;
-        if (!files || files.length === 0) return;
-
-        const file = files[0];
-        if (!/\.(glb|gltf)$/i.test(file.name)) {
-          if (window.showActionToast) {
-            window.showActionToast("ERROR: Please drop a .glb or .gltf 3D model file.");
-          }
-          return;
-        }
-
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-          this.loadArrayBuffer(evt.target.result, file.name)
-            .then((customItem) => {
-              this.openHangar(customItem.id);
-              if (window.showActionToast) {
-                window.showActionToast(`IMPORTED CUSTOM 3D MODEL: ${customItem.name}`);
-              }
-            })
-            .catch((err) => {
-              console.error("Failed to parse dropped GLB:", err);
-              alert("Failed to parse .glb model: " + err.message);
-            });
-        };
-        reader.readAsArrayBuffer(file);
-      });
     }
   }
 

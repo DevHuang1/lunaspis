@@ -53,6 +53,9 @@
       this.crewBoarded = false;
       this.missionPhase = "gantry";
       this._launchSequenceStarted = false;
+      // True while the Shuttle flight renderer has borrowed this.group for the
+      // liftoff handoff. The ground scene must not hide the borrowed site.
+      this._launchSiteLent = false;
       this._dockingPhaseStarted = false;
       this._stationEntered = false;
       this.siteTourActive = false;
@@ -7742,7 +7745,10 @@
           this._groundObserverLaunch = false;
           document.body.classList.remove("ground-mode-active");
           this._syncSpaceGamesLock();
-          if (this.group) this.group.visible = false;
+          // The Shuttle view may already have borrowed this.group for the
+          // continuous LC-39A liftoff. Keep the exact same pad, tower, VAB and
+          // surrounding buildings visible instead of blanking the site.
+          if (this.group && !this._launchSiteLent) this.group.visible = false;
           if (this.hudOverlay) this.hudOverlay.style.display = "none";
           if (this.stackGroup) this.stackGroup.visible = false;
           if (window.localCrew && window.localCrew.group) window.localCrew.group.visible = false;

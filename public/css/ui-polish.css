@@ -372,7 +372,6 @@ body.menu-active #perf-overlay {
 .settings-modal-card,
 .task-modal-card,
 .mission-briefing-card,
-.hangar-modal-card,
 .auth-modal-card {
   animation: ui-modal-in 220ms var(--ui-ease) both;
 }
@@ -443,25 +442,6 @@ body.menu-active #perf-overlay {
   100% { opacity: 0; }
 }
 
-.hangar-viewport-status {
-  position: relative;
-  overflow: hidden;
-}
-
-.hangar-viewport-status.is-loading::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(var(--ui-brand-rgb), 0.16), transparent);
-  transform: translateX(-100%);
-  animation: ui-shimmer 1.3s linear infinite;
-  pointer-events: none;
-}
-
-@keyframes ui-shimmer {
-  to { transform: translateX(100%); }
-}
-
 /* --------------------------------------------------------------------------
    Focus and reduced motion
    -------------------------------------------------------------------------- */
@@ -503,8 +483,7 @@ body.menu-active #perf-overlay {
   #screen-transition-veil.is-active,
   .deck-row,
   .objective-card.is-newly-done,
-  .lunaspis-res-item.is-new-critical,
-  .hangar-viewport-status.is-loading::after {
+  .lunaspis-res-item.is-new-critical {
     animation: none !important;
   }
 }
