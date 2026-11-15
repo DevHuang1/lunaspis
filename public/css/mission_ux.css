@@ -1,0 +1,1089 @@
+/* ==========================================================================
+   MISSION UX — scannable mission cards + visual mini-game guidance
+   Loaded after the existing theme files so it can quiet older card copy.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Mission cards
+   -------------------------------------------------------------------------- */
+.mission-pick-grid {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.mission-pick-grid.is-lobby {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* The lobby shows four starter missions by default. Keep those cards compact
+   so the full list (including BioNutrients-2) fits the charter panel without
+   forcing a scroll on a standard laptop display. */
+.mission-pick-grid.is-lobby .mission-pick-card {
+  grid-template-columns: 74px minmax(0, 1fr);
+  gap: 8px;
+  padding: 6px;
+}
+
+.mission-pick-grid.is-lobby .mission-pick-card__visual {
+  min-height: 76px;
+}
+
+.mission-pick-grid.is-lobby .mission-pick-card__visual svg {
+  width: 60px;
+  height: 60px;
+}
+
+.mission-pick-grid.is-lobby .mission-pick-card__body {
+  gap: 2px;
+  padding: 0;
+}
+
+.mission-pick-grid.is-lobby .mission-pick-card__goal {
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.mission-pick-grid.is-lobby .mission-pick-card__stats {
+  padding-top: 3px;
+}
+
+.mission-pick-grid.is-hub {
+  grid-template-columns: repeat(auto-fit, minmax(268px, 1fr));
+}
+
+.mission-pick-card {
+  --mission-accent: #67e8f9;
+  position: relative;
+  display: grid;
+  grid-template-columns: clamp(86px, 19%, 116px) minmax(0, 1fr);
+  gap: 10px;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.022);
+  color: #f8fafc;
+  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, sans-serif);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease,
+    transform 120ms ease;
+}
+
+.mission-pick-card:hover:not(:disabled) {
+  border-color: rgba(148, 163, 184, 0.4);
+  background: rgba(255, 255, 255, 0.045);
+  transform: translateY(-1px);
+}
+
+.mission-pick-card.is-active {
+  border-color: var(--mission-accent);
+  background: rgba(103, 232, 249, 0.07);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--mission-accent) 9%, transparent), transparent 62%),
+    rgba(255, 255, 255, 0.025);
+}
+
+.mission-pick-card[aria-disabled="true"] {
+  cursor: default;
+}
+
+.mission-pick-card[aria-disabled="true"]:hover {
+  transform: none;
+}
+
+.mission-pick-card.is-active::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 13px;
+  bottom: 13px;
+  width: 2px;
+  border-radius: 999px;
+  background: var(--mission-accent);
+}
+
+.mission-pick-card:focus-visible,
+.mission-pick-more:focus-visible {
+  outline: 2px solid var(--mission-accent, #67e8f9);
+  outline-offset: 2px;
+}
+
+.mission-pick-card__visual {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 96px;
+  overflow: hidden;
+  border: 1px solid rgba(103, 232, 249, 0.25);
+  border: 1px solid color-mix(in srgb, var(--mission-accent) 25%, transparent);
+  border-radius: 6px;
+  background: #060b16;
+  background:
+    radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--mission-accent) 22%, transparent), transparent 68%),
+    linear-gradient(180deg, rgba(8, 14, 26, 0.92), rgba(3, 7, 14, 0.98));
+  color: var(--mission-accent);
+}
+
+.mission-pick-card__visual::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.22;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 14px 14px;
+  mask-image: radial-gradient(circle at 50% 50%, #000 10%, transparent 76%);
+  pointer-events: none;
+}
+
+.mission-pick-card__visual svg {
+  position: relative;
+  z-index: 1;
+  width: 78px;
+  height: 78px;
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--mission-accent) 28%, transparent));
+}
+
+.mission-pick-card__dest {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: 5px;
+  transform: translateX(-50%);
+  max-width: calc(100% - 8px);
+  overflow: hidden;
+  padding: 2px 5px;
+  border: 1px solid color-mix(in srgb, var(--mission-accent) 36%, transparent);
+  border-radius: 3px;
+  background: rgba(2, 6, 15, 0.86);
+  color: #e2e8f0;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mission-pick-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 3px 2px 3px 0;
+}
+
+.mission-pick-card__top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.mission-pick-card__title {
+  min-width: 0;
+  overflow: hidden;
+  color: #f8fafc;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.55px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mission-pick-card__check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 17px;
+  height: 17px;
+  margin-left: auto;
+  border-radius: 999px;
+  background: var(--mission-accent);
+  color: #050810;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.mission-pick-card__goal {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #cbd5e1;
+  font-size: 11.5px;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.mission-pick-card__signals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 1px;
+}
+
+.mission-pick-signal {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 100%;
+  padding: 2px 5px;
+  overflow: hidden;
+  border: 1px solid rgba(103, 232, 249, 0.16);
+  border-radius: 3px;
+  background: rgba(103, 232, 249, 0.065);
+  color: #a5f3fc;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.28px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mission-pick-signal.is-risk {
+  border-color: rgba(208, 161, 92, 0.2);
+  background: rgba(208, 161, 92, 0.075);
+  color: #fde68a;
+}
+
+.mission-pick-signal svg {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+}
+
+.mission-pick-card__stats {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: auto;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  color: #94a3b8;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 8.5px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.mission-pick-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.mission-pick-stat b {
+  color: #e2e8f0;
+  font-weight: 700;
+}
+
+.mission-pick-stat svg {
+  width: 9px;
+  height: 9px;
+  opacity: 0.8;
+}
+
+.mission-pick-more {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px dashed rgba(148, 163, 184, 0.28);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.018);
+  color: #94a3b8;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.7px;
+  cursor: pointer;
+  transition: border-color 120ms ease, color 120ms ease, background-color 120ms ease;
+}
+
+.mission-pick-more:hover {
+  border-color: rgba(103, 232, 249, 0.45);
+  background: rgba(103, 232, 249, 0.045);
+  color: #e2e8f0;
+}
+
+.mission-pick-more b {
+  color: #67e8f9;
+}
+
+/* Lobby flight-plan strip replaces the old trade-off paragraph. */
+.lobby-flight-plan {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.lobby-flight-plan__label {
+  color: #94a3b8;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.7px;
+}
+
+.lobby-flight-plan__route {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #67e8f9;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.45px;
+}
+
+.lobby-flight-plan__route i {
+  color: #475569;
+  font-style: normal;
+}
+
+/* --------------------------------------------------------------------------
+   2. CSA Lab mini-games
+   -------------------------------------------------------------------------- */
+#iss-sidegame-overlay > div {
+  width: min(820px, 96vw) !important;
+}
+
+#iss-sidegame-body {
+  padding: 12px 16px 16px !important;
+}
+
+.sg-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.sg-you {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #fde68a;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.55px;
+}
+
+.sg-you::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.sg-you.is-dim {
+  color: #94a3b8;
+}
+
+.sg-team {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  color: #64748b;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 8px;
+}
+
+.sg-crew-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 180px;
+  padding: 2px 5px;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.025);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sg-crew-chip b {
+  color: #a5f3fc;
+  font-size: 7px;
+  letter-spacing: 0.4px;
+}
+
+.sg-goal {
+  --sg-accent: #67e8f9;
+  display: grid;
+  grid-template-columns: minmax(0, 0.92fr) minmax(280px, 1.25fr);
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  border: 1px solid rgba(103, 232, 249, 0.3);
+  border: 1px solid color-mix(in srgb, var(--sg-accent) 30%, transparent);
+  border-radius: 8px;
+  background: rgba(2, 6, 15, 0.5);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--sg-accent) 8%, transparent), transparent 62%),
+    rgba(2, 6, 15, 0.5);
+}
+
+.sg-goal-copy {
+  min-width: 0;
+}
+
+.sg-kicker {
+  display: block;
+  color: var(--sg-accent);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 7.5px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.sg-prompt {
+  display: block;
+  margin-top: 2px;
+  color: #f8fafc;
+  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, sans-serif);
+  font-size: clamp(17px, 3vw, 24px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+
+.sg-sub {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+  color: #94a3b8;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 8px;
+  line-height: 1.35;
+}
+
+.sg-sub b {
+  color: var(--sg-accent);
+  font-weight: 800;
+}
+
+.sg-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+  min-width: 0;
+}
+
+.sg-step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 0;
+  padding: 7px 4px 6px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 6px;
+  background: rgba(2, 6, 15, 0.38);
+  color: #64748b;
+  transition: border-color 120ms ease, color 120ms ease, background-color 120ms ease;
+}
+
+.sg-step.is-active {
+  border-color: var(--sg-accent);
+  background: rgba(103, 232, 249, 0.08);
+  background: color-mix(in srgb, var(--sg-accent) 10%, transparent);
+  color: var(--sg-accent);
+  box-shadow: 0 0 0 1px rgba(103, 232, 249, 0.2);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--sg-accent) 20%, transparent);
+}
+
+.sg-step.is-done {
+  border-color: rgba(74, 222, 128, 0.3);
+  background: rgba(22, 163, 74, 0.08);
+  color: #86efac;
+}
+
+.sg-step__num {
+  position: absolute;
+  top: 3px;
+  left: 4px;
+  color: currentColor;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 6.5px;
+  font-weight: 800;
+  opacity: 0.6;
+}
+
+.sg-step__icon {
+  width: 18px;
+  height: 18px;
+}
+
+.sg-step__label {
+  max-width: 100%;
+  overflow: hidden;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 7.5px;
+  font-weight: 800;
+  letter-spacing: 0.38px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sg-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid rgba(103, 232, 249, 0.25);
+  border-radius: 7px;
+  background: #040a14;
+}
+
+.sg-canvas--tomato {
+  border-color: rgba(74, 222, 128, 0.25);
+}
+
+.sg-readout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 7px;
+  color: #cbd5e1;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 8.5px;
+  line-height: 1.3;
+}
+
+.sg-readout b {
+  color: #67e8f9;
+  font-weight: 800;
+}
+
+.sg-readout .is-target {
+  color: #fde047;
+}
+
+.sg-gauges {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.sg-gauge {
+  --band-start: 0%;
+  --band-end: 100%;
+  --value: 0%;
+  --gauge-color: #67e8f9;
+  min-width: 0;
+  padding: 7px 8px 6px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.7);
+}
+
+.sg-gauge.is-out {
+  border-color: rgba(251, 191, 36, 0.35);
+}
+
+.sg-gauge.is-in {
+  border-color: rgba(74, 222, 128, 0.28);
+}
+
+.sg-gauge__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 5px;
+  color: #cbd5e1;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 7.5px;
+  font-weight: 800;
+  letter-spacing: 0.42px;
+}
+
+.sg-gauge__head b {
+  color: #f8fafc;
+  font-size: 10px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.sg-gauge__keys {
+  display: block;
+  margin-top: 1px;
+  color: #64748b;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 6.5px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.sg-gauge__track {
+  position: relative;
+  height: 8px;
+  margin-top: 5px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: rgba(148, 163, 184, 0.16);
+}
+
+.sg-gauge__band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--band-start);
+  width: calc(var(--band-end) - var(--band-start));
+  border-left: 1px solid rgba(74, 222, 128, 0.55);
+  border-right: 1px solid rgba(74, 222, 128, 0.55);
+  background: rgba(74, 222, 128, 0.26);
+}
+
+.sg-gauge__fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: var(--value);
+  background: var(--gauge-color);
+  opacity: 0.25;
+}
+
+.sg-gauge__needle {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  left: var(--value);
+  width: 2px;
+  background: var(--gauge-color);
+  box-shadow: 0 0 5px var(--gauge-color);
+  transform: translateX(-1px);
+}
+
+.sg-gauge__state {
+  display: block;
+  margin-top: 3px;
+  color: #fde68a;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 6.5px;
+  font-weight: 800;
+  letter-spacing: 0.35px;
+}
+
+.sg-gauge.is-in .sg-gauge__state {
+  color: #86efac;
+}
+
+.sg-meters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.sg-meter {
+  padding: 6px 8px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.7);
+}
+
+.sg-meter__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  color: #cbd5e1;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 7.5px;
+  font-weight: 800;
+  letter-spacing: 0.42px;
+}
+
+.sg-meter__head b {
+  color: #f8fafc;
+  font-size: 9.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sg-meter__track {
+  height: 5px;
+  margin-top: 4px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: rgba(148, 163, 184, 0.16);
+}
+
+.sg-meter__fill {
+  height: 100%;
+  width: var(--value);
+  background: var(--meter-color, #4ade80);
+}
+
+.sg-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.sg-controls--arm {
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 0.8fr);
+}
+
+.sg-control-group {
+  min-width: 0;
+  padding: 7px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 6px;
+  background: rgba(2, 6, 15, 0.32);
+}
+
+.sg-control-group.is-yours {
+  border-color: rgba(103, 232, 249, 0.34);
+  border-color: color-mix(in srgb, var(--sg-accent) 34%, transparent);
+  background: rgba(103, 232, 249, 0.04);
+  background: color-mix(in srgb, var(--sg-accent) 5%, transparent);
+}
+
+.sg-control-group__label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  color: #94a3b8;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.55px;
+}
+
+.sg-control-group__label b {
+  color: var(--sg-accent);
+  font-weight: 800;
+}
+
+.sg-control-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-top: 5px;
+}
+
+.sg-btn {
+  min-width: 0;
+  padding: 8px 5px;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 5px;
+  background: rgba(15, 23, 42, 0.85);
+  color: #cbd5e1;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.28px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 100ms ease, color 100ms ease, background-color 100ms ease;
+}
+
+.sg-btn:hover:not(:disabled) {
+  border-color: rgba(103, 232, 249, 0.45);
+  color: #f8fafc;
+}
+
+.sg-btn.is-suggested {
+  border-color: var(--sg-accent);
+  background: rgba(103, 232, 249, 0.1);
+  background: color-mix(in srgb, var(--sg-accent) 12%, transparent);
+  color: #f8fafc;
+  box-shadow: 0 0 0 1px rgba(103, 232, 249, 0.22);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--sg-accent) 22%, transparent);
+  animation: sg-pulse 1.4s ease-in-out infinite;
+}
+
+.sg-btn:disabled {
+  opacity: 0.34;
+  cursor: not-allowed;
+}
+
+.sg-btn--wide {
+  grid-column: 1 / -1;
+}
+
+.sg-status {
+  margin-top: 7px;
+  padding: 7px 9px;
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  border-radius: 6px;
+  background: rgba(251, 191, 36, 0.06);
+  color: #fde68a;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 8.5px;
+  line-height: 1.35;
+}
+
+.sg-status.is-good {
+  border-color: rgba(74, 222, 128, 0.3);
+  background: rgba(22, 163, 74, 0.08);
+  color: #86efac;
+}
+
+.sg-status.is-bad {
+  border-color: rgba(248, 113, 113, 0.3);
+  background: rgba(248, 113, 113, 0.07);
+  color: #fca5a5;
+}
+
+@keyframes sg-pulse {
+  0%, 100% { box-shadow: 0 0 0 1px color-mix(in srgb, var(--sg-accent) 20%, transparent); }
+  50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--sg-accent) 9%, transparent); }
+}
+
+/* --------------------------------------------------------------------------
+   3. CSA / NASA activity cards: short goal + 3 visual steps
+   -------------------------------------------------------------------------- */
+.lab-game-guide {
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 7px;
+  background: rgba(2, 6, 15, 0.35);
+}
+
+.lab-game-guide__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.lab-game-guide__kicker {
+  color: #64748b;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.65px;
+}
+
+.lab-game-guide__goal {
+  color: #f8fafc;
+  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, sans-serif);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.lab-game-guide__steps {
+  display: flex;
+  gap: 9px;
+  margin-top: 6px;
+}
+
+.lab-game-step {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 4px 5px;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.02);
+  color: #64748b;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.28px;
+  line-height: 1.2;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lab-game-step + .lab-game-step {
+  position: relative;
+}
+
+.lab-game-step + .lab-game-step::before {
+  content: "→";
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #475569;
+  font-size: 7px;
+  line-height: 1;
+}
+
+.lab-game-step.is-active {
+  border-color: rgba(103, 232, 249, 0.45);
+  background: rgba(103, 232, 249, 0.08);
+  color: #a5f3fc;
+}
+
+.lab-game-step.is-done {
+  border-color: rgba(74, 222, 128, 0.28);
+  background: rgba(22, 163, 74, 0.07);
+  color: #86efac;
+}
+
+.lab-game-more {
+  margin-top: 6px;
+  color: #94a3b8;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.lab-game-more summary {
+  color: #93c5fd;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 7.5px;
+  font-weight: 800;
+  letter-spacing: 0.45px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.lab-game-more p {
+  margin: 5px 0 0;
+}
+
+/* --------------------------------------------------------------------------
+   4. Responsive
+   -------------------------------------------------------------------------- */
+@media (max-width: 760px) {
+  .mission-pick-grid.is-hub {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mission-pick-card {
+    grid-template-columns: 76px minmax(0, 1fr);
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .mission-pick-card__visual {
+    min-height: 86px;
+  }
+
+  .mission-pick-card__visual svg {
+    width: 66px;
+    height: 66px;
+  }
+
+  .mission-pick-card__goal {
+    font-size: 10.5px;
+    -webkit-line-clamp: 2;
+  }
+
+  .mission-pick-card__title {
+    font-size: 10.5px;
+  }
+
+  .sg-goal {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .sg-prompt {
+    font-size: 20px;
+  }
+
+  .sg-gauges {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sg-controls,
+  .sg-controls--arm {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sg-team {
+    width: 100%;
+  }
+
+  .lobby-flight-plan {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+}
+
+@media (max-width: 430px) {
+  .mission-pick-card {
+    grid-template-columns: 68px minmax(0, 1fr);
+  }
+
+  .mission-pick-card__visual {
+    min-height: 78px;
+  }
+
+  .mission-pick-card__visual svg {
+    width: 58px;
+    height: 58px;
+  }
+
+  .mission-pick-signal {
+    font-size: 6.5px;
+  }
+
+  .sg-steps {
+    gap: 3px;
+  }
+
+  .sg-step {
+    padding: 6px 2px 5px;
+  }
+
+  .sg-step__label {
+    font-size: 6.5px;
+  }
+
+  .sg-btn {
+    font-size: 7.5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mission-pick-card,
+  .mission-pick-more,
+  .sg-step,
+  .sg-btn {
+    transition: none;
+  }
+
+  .sg-btn.is-suggested {
+    animation: none;
+  }
+}

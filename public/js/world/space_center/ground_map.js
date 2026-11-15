@@ -588,14 +588,21 @@
       const nm = window.netManager;
       const remote = nm && nm.remotePlayers ? nm.remotePlayers : {};
       let visibleRemoteCrew = 0;
+      let visibleRemoteCars = 0;
       for (const id in remote) {
         const rp = remote[id];
         if (!rp) continue;
+        const pos = rp.curPos || (rp.mesh && rp.mesh.position ? [rp.mesh.position.x, rp.mesh.position.y, rp.mesh.position.z] : null);
+        if (!pos) continue;
+        // A driving crewmate is represented by their car, not a walking dot.
+        if (rp.driving) {
+          this._drawCar(ctx, pos[0], pos[2], rp.curYaw || 0, true);
+          visibleRemoteCars++;
+          continue;
+        }
         // Hide crewmates who are boarded/in orbit rather than standing on the
         // ground tour (their network position can otherwise be stale).
         if (rp.mesh && rp.mesh.visible === false) continue;
-        const pos = rp.curPos || (rp.mesh && rp.mesh.position ? [rp.mesh.position.x, rp.mesh.position.y, rp.mesh.position.z] : null);
-        if (!pos) continue;
         visibleRemoteCrew++;
         const px = this._mx(pos[0]);
         const py = this._mz(pos[2]);
@@ -617,7 +624,7 @@
 
       // Live counts.
       const crewCount = 1 + visibleRemoteCrew;
-      const carCount = this._parked.length + (car && car.group ? 1 : 0);
+      const carCount = this._parked.length + (car && car.group ? 1 : 0) + visibleRemoteCars;
       if (this.countEl) this.countEl.textContent = `${crewCount} CREW · ${carCount} CARS`;
     }
 

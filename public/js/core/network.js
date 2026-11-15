@@ -382,9 +382,40 @@
         if (window.voiceManager) {
           window.voiceManager.init(this.socket);
         }
+        if (window.videoLink) {
+          window.videoLink.init(this.socket);
+          window.videoLink.setRoom(this.roomId);
+        }
 
         // Sync persistent user profile with server DB
         this.syncUser();
+
+        // Automatically rejoin an active room after a transient disconnect or server restart.
+        if (this.roomId && !this._intentionalLeave) {
+          const savedRoomId = this.roomId;
+          this._autoRejoining = true;
+          const normalized = normalizeRole(this.localPlayer.role, "commander");
+          this.socket.emit(
+            "join_room",
+            {
+              roomId: savedRoomId,
+              playerName: this.localPlayer.name,
+              suitColor: this.localPlayer.color,
+              role: this.explicitRoleSelected ? normalized : "",
+              explicitRole: !!this.explicitRoleSelected,
+              reconnect: true
+            },
+            (res) => {
+              this._autoRejoining = false;
+              if (!res || !res.success) {
+                this.roomId = null;
+                this.roomState = null;
+                this.mission = null;
+                this.emitEvent("rejoin_failed", res || { message: "Session expired." });
+              }
+            }
+          );
+        }
 
         // Check if URL has an explicit ?room=CODE query parameter (only once on initial connect)
         if (!this._didAutoJoinUrl) {
@@ -461,6 +492,7 @@
             targetPitch: p.pitch || 0,
             snapshots: [],
             mesh: null,
+            driving: !!p.driving,
             emoteId: null,
             emoteSerial: 0,
             lastEmoteSerial: 0
@@ -469,6 +501,8 @@
       };
 
       this.socket.on("room_created", (data) => {
+        this._intentionalLeave = false;
+        this._autoRejoining = false;
         applyAuthoritativeRoomMembership(data);
         if (window.voiceManager) {
           if (window.voiceManager.isEnabled && this.socket) {
@@ -476,18 +510,28 @@
           }
           window.voiceManager.connectToExistingRoomPeers();
         }
+        if (window.videoLink) {
+          window.videoLink.init(this.socket);
+          window.videoLink.setRoom(this.roomId);
+        }
         this.emitEvent("room_created", data);
         this._sfxSeeded = false;
         if (window.spaceAudio) window.spaceAudio.play("join");
       });
 
       this.socket.on("room_joined", (data) => {
+        this._intentionalLeave = false;
+        this._autoRejoining = false;
         applyAuthoritativeRoomMembership(data);
         if (window.voiceManager) {
           if (window.voiceManager.isEnabled && this.socket) {
             this.socket.emit("voice_join", { roomId: this.roomId });
           }
           window.voiceManager.connectToExistingRoomPeers();
+        }
+        if (window.videoLink) {
+          window.videoLink.init(this.socket);
+          window.videoLink.setRoom(this.roomId);
         }
         this.emitEvent("room_joined", data);
         this._sfxSeeded = false;
@@ -531,6 +575,7 @@
                 targetPitch: p.pitch || 0,
                 snapshots: [],
                 mesh: null,
+                driving: !!p.driving,
                 emoteId: null,
                 emoteSerial: 0,
                 lastEmoteSerial: 0
@@ -542,6 +587,7 @@
               this.remotePlayers[p.id].team = teamVal;
               this.remotePlayers[p.id].ready = p.ready;
               this.remotePlayers[p.id].modelId = p.modelId || "astronaut_lod1";
+              this.remotePlayers[p.id].driving = !!p.driving;
             }
           } else {
             // Local player update
@@ -679,6 +725,7 @@
         if (typeof data.isEva === "boolean") rp.isEva = data.isEva;
         if (typeof data.suitLights === "boolean") rp.suitLights = data.suitLights;
         if (typeof data.sprinting === "boolean") rp.isSprinting = data.sprinting;
+        if (typeof data.driving === "boolean") rp.driving = data.driving;
       });
 
       this.socket.on("emote_broadcast", (data) => {
@@ -918,6 +965,8 @@
     }
 
     leaveRoom() {
+      this._intentionalLeave = true;
+      this._autoRejoining = false;
       if (this.socket && this.roomId) {
         this.socket.emit("voice_leave", { roomId: this.roomId });
         this.socket.emit("leave_room");
@@ -926,6 +975,9 @@
         for (const peerId in window.voiceManager.peers) {
           window.voiceManager.cleanupPeer(peerId);
         }
+      }
+      if (window.videoLink) {
+        window.videoLink.setRoom(null);
       }
       this.roomId = null;
       this.roomState = null;
@@ -1062,10 +1114,10 @@
       return this.mission || (this.roomState && this.roomState.mission) || null;
     }
 
-    sendPlayerUpdate(pos, yaw, pitch, isEva, suitLights, isSprinting = false) {
+    sendPlayerUpdate(pos, yaw, pitch, isEva, suitLights, isSprinting = false, isDriving = false, force = false) {
       if (!this.connected || !this.roomId) return;
       const now = performance.now();
-      if (now - this.lastSendTime < this.sendInterval) return;
+      if (!force && now - this.lastSendTime < this.sendInterval) return;
 
       let movedSinceLastPacket = false;
       let isTranslating = false;
@@ -1080,7 +1132,8 @@
         const dPitch = Math.abs(pitch - this.lastSentState.pitch);
         const stateSame = (isEva === this.lastSentState.isEva) &&
           (suitLights === this.lastSentState.suitLights) &&
-          (!!isSprinting === this.lastSentState.sprinting);
+          (!!isSprinting === this.lastSentState.sprinting) &&
+          (!!isDriving === this.lastSentState.driving);
 
         // Translation drives the walk animation / extrapolation; yaw still
         // counts for culling so remote avatars turn smoothly in place.
@@ -1109,7 +1162,8 @@
         pitch: pitch,
         isEva: !!isEva,
         suitLights: !!suitLights,
-        sprinting: !!isSprinting
+        sprinting: !!isSprinting,
+        driving: !!isDriving
       };
 
       this.packetsSentThisSec++;
@@ -1120,7 +1174,8 @@
         isEva: !!isEva,
         suitLights: !!suitLights,
         sprinting: !!isSprinting,
-        moving: isTranslating
+        moving: isTranslating,
+        driving: !!isDriving
       });
     }
 

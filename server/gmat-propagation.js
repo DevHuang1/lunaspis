@@ -3,13 +3,17 @@ const path = require("path");
 const { execFile } = require("child_process");
 const { promisify } = require("util");
 
+const gmatQueue = require("./gmat_queue");
 const runFile = promisify(execFile);
-const DEFAULT_CONSOLE = "E:/gmat-R2026a-local/bin/GmatConsole.exe";
+const PROPAGATION_TIMEOUT_MS = Number(process.env.GMAT_TIMEOUT_MS) || 30000;
 
 // GMAT propagates a coast from an authoritative Shuttle snapshot. The game uses
 // an idealized ECI frame, treated as EarthMJ2000Eq for this training estimate.
-async function propagateCoast(snapshot) {
-  const executable = process.env.GMAT_CONSOLE_PATH || DEFAULT_CONSOLE;
+async function propagateCoast(snapshot, options = {}) {
+  const executable = gmatQueue.findGmatExecutable();
+  if (!executable) {
+    throw new Error("GMAT is not configured. Set GMAT_CONSOLE_PATH to the local GmatConsole executable.");
+  }
   await fs.access(executable);
   const { r, v, eng } = snapshot.vehicle;
   if (snapshot.phase === "briefing" || snapshot.phase === "prelaunch" || snapshot.phase === "ascent" || snapshot.telemetry.altitudeM < 150000 || eng.ssme || eng.srb || eng.oms || (snapshot.burn && snapshot.burn.active)) {
@@ -51,9 +55,21 @@ Propagate Coast(Shuttle) {Shuttle.ElapsedSecs = 120};
 Report Prediction Shuttle.X Shuttle.Y Shuttle.Z Shuttle.VX Shuttle.VY Shuttle.VZ;
 `;
     await fs.writeFile(scriptFile, script, "utf8");
-    const result = await runFile(executable, ["--run", scriptFile], {
-      cwd: path.dirname(executable), timeout: 20000, windowsHide: true, maxBuffer: 1024 * 1024
-    });
+    const result = await gmatQueue.enqueue(
+      () =>
+        runFile(executable, ["--run", scriptFile], {
+          cwd: path.dirname(executable),
+          env: gmatQueue.buildGmatChildEnv(executable),
+          timeout: PROPAGATION_TIMEOUT_MS,
+          windowsHide: true,
+          maxBuffer: 1024 * 1024,
+        }),
+      {
+        label: options.label || "coast",
+        queueTimeoutMs: options.queueTimeoutMs,
+        shouldRun: options.shouldRun,
+      }
+    );
     if (!result.stdout.includes("Mission run completed.")) throw new Error("GMAT did not complete the calculation.");
     const output = (await fs.readFile(report, "utf8")).trim().split(/\s+/).map(Number);
     if (output.length !== 6 || !output.every(Number.isFinite)) throw new Error("GMAT returned invalid prediction data.");

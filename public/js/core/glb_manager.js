@@ -163,7 +163,11 @@
     { id: "dance", icon: "DNC", label: "Dance", clip: "idle", duration: 3.8, procedural: "dance", gesture: "dance" },
     { id: "laugh", icon: "LGH", label: "Laugh", clip: "idle", duration: 2.8, procedural: "laugh", gesture: "laugh" },
     { id: "look", icon: "OBS", label: "Look", clip: "look_around", duration: 3.0, gesture: "look" },
-    { id: "heart", icon: "ACK", label: "Roger", clip: "idle", duration: 3.0, procedural: "heart", gesture: "heart" }
+    { id: "heart", icon: "ACK", label: "Roger", clip: "idle", duration: 3.0, procedural: "heart", gesture: "heart" },
+    { id: "salsa", icon: "SLA", label: "Salsa", clip: "idle", duration: 5.4, procedural: "salsa", gesture: "salsa" },
+    { id: "footloose", icon: "FLS", label: "Footloose", clip: "idle", duration: 6.0, procedural: "footloose", gesture: "footloose" },
+    { id: "woowalk", icon: "WOO", label: "Woo Walk", clip: "idle", duration: 6.2, procedural: "woowalk", gesture: "woowalk" },
+    { id: "breakdance", icon: "BRK", label: "Breakdance", clip: "idle", duration: 6.2, procedural: "breakdance" }
   ];
   const EMOTE_BY_ID = {};
   EMOTE_DEFS.forEach((def) => { EMOTE_BY_ID[def.id] = def; });
@@ -354,6 +358,81 @@
         };
       }
 
+      case "salsa": {
+        // Solo salsa styling: hands trade a high flourish and a low cross-body
+        // sweep on the beat while the hips and shoulders work underneath.
+        const beat = Math.sin(t * 8.8);
+        const liftL = 0.5 + 0.5 * beat;
+        const liftR = 1 - liftL;
+        const flick = Math.sin(t * 17.6) * 0.04;
+        return {
+          frame: "model",
+          left: {
+            offset: v(0.24 + 0.13 * (1 - liftL), 0.05 + 0.30 * liftL, 0.18 - 0.05 * liftL),
+            pole: v(1.0, 0.12 + 0.20 * liftL, 0.40),
+            finger: v(0.10 + flick, 1.0, 0.02),
+            palm: v(0, 0, 1)
+          },
+          right: {
+            offset: v(-0.24 - 0.13 * (1 - liftR), 0.05 + 0.30 * liftR, 0.18 - 0.05 * liftR),
+            pole: v(-1.0, 0.12 + 0.20 * liftR, 0.40),
+            finger: v(-0.10 - flick, 1.0, 0.02),
+            palm: v(0, 0, 1)
+          }
+        };
+      }
+
+      case "footloose": {
+        // Footloose line-dance styling: one arm punches high while the other
+        // swings across the body, swapping on every beat over a shoulder bounce.
+        const beat = t * 7.2;
+        const swing = Math.sin(beat);
+        const leftLift = Math.max(0, swing);
+        const rightLift = Math.max(0, -swing);
+        const bounce = Math.abs(swing) * 0.03;
+        const arm = (side, lift) => {
+          const lowX = side * -0.10;
+          const highX = side * 0.30;
+          return {
+            offset: v(lowX + (highX - lowX) * lift, -0.30 + 0.60 * lift + bounce, 0.16),
+            pole: v(side * (1.0 - 0.25 * lift), -0.30 + 0.55 * lift, 0.30),
+            finger: v(side * 0.32 * lift, 1.0, 0.04),
+            palm: v(0, 0, 1)
+          };
+        };
+        return {
+          frame: "model",
+          left: arm(1, leftLift),
+          right: arm(-1, rightLift)
+        };
+      }
+
+      case "woowalk": {
+        // Woo Walk styling: a loose, cocky two-step strut. The elbows stay
+        // bent and out while the fists trade a chest-level pump on each beat.
+        const beat = t * 6.4;
+        const swing = Math.sin(beat);
+        const bounce = Math.abs(swing) * 0.02;
+        const arm = (side, pump) => {
+          const lift = Math.max(0, pump);
+          return {
+            offset: v(
+              side * (0.14 + 0.04 * lift),
+              -0.28 + 0.13 * lift + bounce,
+              0.28 + 0.06 * lift
+            ),
+            pole: v(side * (1.0 + 0.12 * lift), -0.42 + 0.16 * lift, 0.35),
+            finger: v(side * 0.20 * lift, 1.0, 0.06),
+            palm: v(0, 0, 1)
+          };
+        };
+        return {
+          frame: "model",
+          left: arm(1, swing),
+          right: arm(-1, -swing)
+        };
+      }
+
       case "heart": {
         // Both hands meet above the helmet, palms facing each other, elbows
         // rounded out so the arms read as a heart symbol.
@@ -496,6 +575,253 @@
     }
   }
 
+  // Footloose footwork: a raised front kick trades feet on the beat while the
+  // planted leg braces the line-dance stance.
+  const FOOTLOOSE_LEGS = [
+    { side: 1, thigh: "thigh_L", calf: "calf_L", foot: "foot_L", phase: Math.PI },
+    { side: -1, thigh: "thigh_R", calf: "calf_R", foot: "foot_R", phase: 0 }
+  ];
+
+  function applyFootlooseLegPose(rig, elapsed, weight) {
+    const T = window.THREE;
+    if (!T || !rig || !rig.bones || !rig.modelContainer || weight <= 0.002) return;
+    const bones = rig.bones;
+    if (!bones.hips) return;
+
+    rig.root.updateMatrixWorld(true);
+
+    const hipsPos = bones.hips.getWorldPosition(new T.Vector3());
+    const modelQuat = rig.modelContainer.getWorldQuaternion(new T.Quaternion());
+    const scale = rig.modelScale || 1;
+    const point = (x, y, z) => hipsPos.clone()
+      .add(new T.Vector3(x, y, z).multiplyScalar(scale).applyQuaternion(modelQuat));
+
+    const beat = elapsed * 7.2;
+    FOOTLOOSE_LEGS.forEach((limb) => {
+      const thigh = bones[limb.thigh];
+      const calf = bones[limb.calf];
+      const foot = bones[limb.foot];
+      if (!thigh || !calf || !foot) return;
+
+      const kick = Math.max(0, Math.sin(beat + limb.phase));
+      const step = kick * kick;
+
+      const knee = point(
+        limb.side * (0.10 + 0.03 * step),
+        -0.33 + 0.15 * step,
+        0.02 + 0.17 * step
+      );
+      const ankle = point(
+        limb.side * (0.11 + 0.03 * step),
+        -0.66 + 0.30 * step,
+        0.04 + 0.34 * step
+      );
+
+      aimEmoteBone(thigh, calf, knee, weight);
+      aimEmoteBone(calf, foot, ankle, weight);
+    });
+  }
+
+  // Woo Walk footwork: a planted two-step shuffle. One foot lifts and slides
+  // forward while the other braces, then they swap on the beat.
+  const WOOWALK_LEGS = [
+    { side: 1, thigh: "thigh_L", calf: "calf_L", foot: "foot_L", phase: 0 },
+    { side: -1, thigh: "thigh_R", calf: "calf_R", foot: "foot_R", phase: Math.PI }
+  ];
+
+  function applyWooWalkLegPose(rig, elapsed, weight) {
+    const T = window.THREE;
+    if (!T || !rig || !rig.bones || !rig.modelContainer || weight <= 0.002) return;
+    const bones = rig.bones;
+    if (!bones.hips) return;
+
+    rig.root.updateMatrixWorld(true);
+
+    const hipsPos = bones.hips.getWorldPosition(new T.Vector3());
+    const modelQuat = rig.modelContainer.getWorldQuaternion(new T.Quaternion());
+    const scale = rig.modelScale || 1;
+    const point = (x, y, z) => hipsPos.clone()
+      .add(new T.Vector3(x, y, z).multiplyScalar(scale).applyQuaternion(modelQuat));
+
+    const beat = elapsed * 6.4;
+    WOOWALK_LEGS.forEach((limb) => {
+      const thigh = bones[limb.thigh];
+      const calf = bones[limb.calf];
+      const foot = bones[limb.foot];
+      if (!thigh || !calf || !foot) return;
+
+      const step = Math.sin(beat + limb.phase);
+      const lift = Math.max(0, step);
+      const brace = Math.max(0, -step);
+
+      const knee = point(
+        limb.side * (0.10 + 0.025 * step),
+        -0.33 + 0.10 * lift - 0.02 * brace,
+        0.02 + 0.13 * step
+      );
+      const ankle = point(
+        limb.side * (0.11 + 0.03 * step),
+        -0.66 + 0.16 * lift - 0.03 * brace,
+        0.03 + 0.22 * step
+      );
+
+      aimEmoteBone(thigh, calf, knee, weight);
+      aimEmoteBone(calf, foot, ankle, weight);
+    });
+  }
+
+  // Breakdance windmill: the crewmate drops into a one-hand coffee-grinder
+  // spin, scissoring the legs around the hips, holds a low freeze, then pops
+  // back up. The hips are pinned in world space while the skeleton yaws, so
+  // the body pivots around the planted hand instead of orbiting the model's
+  // foot origin. The same pose also reads as a weightless spin in zero-g.
+  const BREAKDANCE_LIMBS = [
+    { side: 1, palmSign: 1, upper: "upperarm_L", fore: "forearm_L", hand: "hand_L", thigh: "thigh_L", calf: "calf_L", foot: "foot_L" },
+    { side: -1, palmSign: -1, upper: "upperarm_R", fore: "forearm_R", hand: "hand_R", thigh: "thigh_R", calf: "calf_R", foot: "foot_R" }
+  ];
+
+  function breakdanceRamp(t, start, end) {
+    const x = Math.max(0, Math.min(1, (t - start) / (end - start)));
+    return x * x * (3 - 2 * x);
+  }
+
+  function aimBreakdanceHand(hand, fingerDir, palmDir, palmSign, weight) {
+    const T = window.THREE;
+    const finger = fingerDir.clone().normalize();
+    const palm = palmDir.clone().addScaledVector(finger, -palmDir.dot(finger));
+    if (palm.lengthSq() < 1e-8) return;
+    palm.normalize().multiplyScalar(palmSign);
+    const zAxis = new T.Vector3().crossVectors(palm, finger).normalize();
+    const xAxis = new T.Vector3().crossVectors(finger, zAxis).normalize();
+    const handQuat = new T.Quaternion().setFromRotationMatrix(
+      new T.Matrix4().makeBasis(xAxis, finger, zAxis)
+    );
+    aimEmoteHand(hand, handQuat, weight);
+  }
+
+  function applyBreakdancePose(rig, elapsed, weight) {
+    const T = window.THREE;
+    if (!T || !rig || !rig.bones || !rig.modelContainer || weight <= 0.002) return;
+    const bones = rig.bones;
+    if (!bones.hips || !bones.chest) return;
+
+    rig.root.updateMatrixWorld(true);
+    const restHip = bones.hips.getWorldPosition(new T.Vector3());
+
+    // Drop in, spin two full turns, freeze, then rise. The spin ends on a
+    // full revolution so standing up never snaps the astronaut to a new
+    // heading.
+    const down = breakdanceRamp(elapsed, 0.08, 0.85)
+      * (1 - breakdanceRamp(elapsed, 5.45, 6.15));
+    const spin = breakdanceRamp(elapsed, 0.65, 4.85) * Math.PI * 4;
+    const tilt = (1.42 + Math.sin(elapsed * 4.6) * 0.035) * down;
+    const roll = 0.24 * down;
+
+    const mc = rig.modelContainer;
+    mc.position.set(0, 0, 0);
+    mc.rotation.order = "YXZ";
+    mc.rotation.set(tilt, spin, roll);
+    rig.root.updateMatrixWorld(true);
+
+    // Pin the hips near the avatar root so the legs sweep around the planted
+    // hand instead of the model's foot pivot. Easing from the standing hip
+    // position keeps the drop-in and the rise from popping.
+    const rootPos = rig.root.getWorldPosition(new T.Vector3());
+    const rootQuat = rig.root.getWorldQuaternion(new T.Quaternion());
+    const rootUp = new T.Vector3(0, 1, 0).applyQuaternion(rootQuat);
+    const rootLeft = new T.Vector3(1, 0, 0).applyQuaternion(rootQuat);
+    const rootForward = new T.Vector3(0, 0, 1).applyQuaternion(rootQuat);
+    const worldDown = rootUp.clone().negate();
+    const scale = rig.modelScale || 1;
+
+    const targetHip = rootPos.clone().addScaledVector(
+      rootUp,
+      (0.47 + Math.sin(elapsed * 11.0) * 0.025) * scale
+    );
+    const desiredHip = restHip.clone().lerp(targetHip, down);
+    const spunHip = bones.hips.getWorldPosition(new T.Vector3());
+    mc.position.add(
+      desiredHip.clone().sub(spunHip).applyQuaternion(rootQuat.clone().invert())
+    );
+    rig.root.updateMatrixWorld(true);
+
+    const hipPos = bones.hips.getWorldPosition(new T.Vector3());
+    const chestPos = bones.chest.getWorldPosition(new T.Vector3());
+    const modelQuat = mc.getWorldQuaternion(new T.Quaternion());
+    const poseWeight = weight * down;
+    const point = (origin, x, y, z) => origin.clone().add(
+      new T.Vector3(x, y, z).multiplyScalar(scale).applyQuaternion(modelQuat)
+    );
+
+    const scissor = Math.sin(elapsed * 7.7);
+    const freeze = breakdanceRamp(elapsed, 4.85, 5.25)
+      * (1 - breakdanceRamp(elapsed, 5.45, 6.0));
+
+    BREAKDANCE_LIMBS.forEach((limb) => {
+      const thigh = bones[limb.thigh];
+      const calf = bones[limb.calf];
+      const foot = bones[limb.foot];
+      if (!thigh || !calf || !foot) return;
+
+      const extended = limb.side > 0;
+      const knee = extended
+        ? point(hipPos, 0.18, -0.36 - 0.04 * scissor, 0.05)
+        : point(hipPos, -0.18, -0.36 + 0.04 * scissor, 0.10);
+      const ankle = extended
+        ? point(hipPos, 0.26, -0.74 - 0.14 * scissor, 0.18)
+        : point(hipPos, -0.28, -0.74 + 0.14 * scissor, -0.02);
+
+      // The legs scissor up into the closing freeze.
+      if (freeze > 0.001) {
+        const lift = freeze * (extended ? 0.85 : 0.55);
+        const liftedKnee = extended
+          ? point(hipPos, 0.18, -0.32, -0.02)
+          : point(hipPos, -0.16, -0.36, 0.12);
+        const liftedAnkle = extended
+          ? point(hipPos, 0.26, -0.62, -0.45)
+          : point(hipPos, -0.24, -0.70, -0.18);
+        knee.lerp(liftedKnee, lift);
+        ankle.lerp(liftedAnkle, lift);
+      }
+
+      aimEmoteBone(thigh, calf, knee, poseWeight);
+      aimEmoteBone(calf, foot, ankle, poseWeight);
+    });
+
+    // The left hand stays planted near the root while the right arm punches
+    // out to the side, so the silhouette reads as a spin and not a fall.
+    const upperL = bones.upperarm_L;
+    const foreL = bones.forearm_L;
+    const handL = bones.hand_L;
+    if (upperL && foreL && handL) {
+      const shoulderL = upperL.getWorldPosition(new T.Vector3());
+      // Plant the glove under the shoulder so the arm can genuinely reach the
+      // floor while the body sweeps around it.
+      const support = shoulderL.clone()
+        .addScaledVector(rootLeft, 0.03 * scale)
+        .addScaledVector(rootForward, 0.05 * scale);
+      support.y = rootPos.y + 0.06 * scale;
+      const elbowL = shoulderL.clone()
+        .addScaledVector(rootLeft, 0.12 * scale)
+        .addScaledVector(rootUp, -0.22 * scale);
+      aimEmoteBone(upperL, foreL, elbowL, poseWeight);
+      aimEmoteBone(foreL, handL, support, poseWeight);
+      aimBreakdanceHand(handL, rootForward, worldDown, BREAKDANCE_LIMBS[0].palmSign, poseWeight);
+    }
+
+    const upperR = bones.upperarm_R;
+    const foreR = bones.forearm_R;
+    const handR = bones.hand_R;
+    if (upperR && foreR && handR) {
+      const wave = Math.sin(elapsed * 5.8) * 0.06;
+      const freeHand = point(chestPos, -0.64, 0.22 + wave, -0.02);
+      const freeElbow = point(chestPos, -0.34, 0.08 + wave * 0.4, 0.14);
+      aimEmoteBone(upperR, foreR, freeElbow, poseWeight);
+      aimEmoteBone(foreR, handR, freeHand, poseWeight);
+      aimBreakdanceHand(handR, rootForward, worldDown, BREAKDANCE_LIMBS[1].palmSign, poseWeight);
+    }
+  }
+
   // Limb chains used by the zero-g sculling pose. Astronauts aboard the ISS
   // drift instead of walking, so the arms sweep slowly and the legs trail and
   // flutter rather than running through a planted walk cycle.
@@ -577,6 +903,85 @@
         aimEmoteBone(thigh, calf, kneeTarget, weight);
         aimEmoteBone(calf, foot, footTarget, weight);
       }
+    });
+  }
+
+  // Seated driver pose for the open-top NASA car. The astronaut GLB is a
+  // standing humanoid, so the hips stay over the seat while the thighs are
+  // aimed forward, the knees bend over the sill and the hands reach the wheel.
+  const SEATED_SIDES = [
+    { side: 1, upper: "upperarm_L", fore: "forearm_L", hand: "hand_L", thigh: "thigh_L", calf: "calf_L", foot: "foot_L", toe: "toe_L" },
+    { side: -1, upper: "upperarm_R", fore: "forearm_R", hand: "hand_R", thigh: "thigh_R", calf: "calf_R", foot: "foot_R", toe: "toe_R" }
+  ];
+
+  function applySeatedPose(rig, weight, steer = 0) {
+    const T = window.THREE;
+    if (!T || !rig || !rig.bones || !rig.modelContainer || weight <= 0.002) return;
+    const bones = rig.bones;
+    if (!bones.hips || !bones.spine) return;
+
+    rig.root.updateWorldMatrix(true, true);
+    const rootQ = rig.root.getWorldQuaternion(new T.Quaternion());
+    const forward = new T.Vector3(0, 0, 1).applyQuaternion(rootQ);
+    const up = new T.Vector3(0, 1, 0).applyQuaternion(rootQ);
+    const left = new T.Vector3(1, 0, 0).applyQuaternion(rootQ);
+    const xAxis = new T.Vector3(1, 0, 0);
+    const leanBone = (bone, angle) => {
+      if (!bone) return;
+      bone.quaternion.multiply(new T.Quaternion().setFromAxisAngle(xAxis, angle * weight));
+    };
+
+    // Recline the torso against the seat back. The mixer rewrites the spine
+    // quaternions every frame, so this stays a stable relative lean.
+    if (rig.mixer) {
+      leanBone(bones.spine, -0.10);
+      leanBone(bones.spine1, -0.05);
+      leanBone(bones.chest, -0.03);
+    }
+
+    SEATED_SIDES.forEach((limb) => {
+      const thigh = bones[limb.thigh];
+      const calf = bones[limb.calf];
+      const foot = bones[limb.foot];
+      const toe = bones[limb.toe];
+      if (!thigh || !calf || !foot) return;
+
+      const hip = thigh.getWorldPosition(new T.Vector3());
+      const knee = hip.clone()
+        .addScaledVector(forward, 0.38)
+        .addScaledVector(up, -0.02)
+        .addScaledVector(left, limb.side * 0.02);
+      const ankle = knee.clone()
+        .addScaledVector(forward, 0.26)
+        .addScaledVector(up, -0.08);
+      const toeTarget = ankle.clone()
+        .addScaledVector(forward, 0.16)
+        .addScaledVector(up, -0.02);
+
+      aimEmoteBone(thigh, calf, knee, weight);
+      aimEmoteBone(calf, foot, ankle, weight);
+      if (toe) aimEmoteBone(foot, toe, toeTarget, weight);
+    });
+
+    SEATED_SIDES.forEach((limb) => {
+      const upper = bones[limb.upper];
+      const fore = bones[limb.fore];
+      const hand = bones[limb.hand];
+      if (!upper || !fore || !hand) return;
+
+      const shoulder = upper.getWorldPosition(new T.Vector3());
+      const wrist = rig.root.localToWorld(new T.Vector3(
+        limb.side * 0.14 + steer * 0.05,
+        1.19,
+        0.80
+      ));
+      const elbow = shoulder.clone()
+        .addScaledVector(forward, 0.22)
+        .addScaledVector(up, -0.12)
+        .addScaledVector(left, limb.side * 0.05);
+
+      aimEmoteBone(upper, fore, elbow, weight);
+      aimEmoteBone(fore, hand, wrist, weight);
     });
   }
 
@@ -1092,6 +1497,8 @@
         zeroGMoveBlend: 0,
         zeroGT: 0,
         wasZeroG: false,
+        seatedBlend: 0,
+        wasSeated: false,
 
         playEmote: (emoteId) => {
           const def = EMOTE_BY_ID[emoteId];
@@ -1131,13 +1538,20 @@
         /**
          * SpaceShip animation clip switcher & procedural fallback update.
          */
-        updateAnimation: (delta, isMoving = false, isEva = false, isGrounded = true, customAction = null, isZeroG = false, isSprinting = false) => {
+        updateAnimation: (delta, isMoving = false, isEva = false, isGrounded = true, customAction = null, isZeroG = false, isSprinting = false, isSeated = false, seatSteer = 0) => {
           if (rig.emote) {
             rig.emote.elapsed += delta;
             if (rig.emote.elapsed >= rig.emote.def.duration) {
               rig.cancelEmote();
             }
           }
+
+          // Blend into and out of the seated driver pose. A seated crewmate
+          // must not float, so zero-g always wins if both are requested.
+          const seatTarget = isSeated && !isZeroG ? 1 : 0;
+          rig.seatedBlend += (seatTarget - rig.seatedBlend) * Math.min(1, delta * 8);
+          if (rig.seatedBlend < 0.002) rig.seatedBlend = 0;
+          const seated = rig.seatedBlend > 0.01;
 
           // Blend into and out of the floating pose so entering the ISS does
           // not snap the astronaut between a walk cycle and a weightless drift.
@@ -1150,14 +1564,16 @@
 
           // A ground shadow and floor ring would travel through the air with a
           // floating crewmate; hide them until the astronaut is walking again.
-          if (floating) {
+          const hideGroundDecals = floating || seated;
+          if (hideGroundDecals) {
             if (rig.shadowMesh) rig.shadowMesh.visible = false;
             if (rig.accentRing) rig.accentRing.visible = false;
-          } else if (rig.wasZeroG) {
+          } else if (rig.wasZeroG || rig.wasSeated) {
             if (rig.shadowMesh) rig.shadowMesh.visible = true;
             if (rig.accentRing) rig.accentRing.visible = true;
           }
           rig.wasZeroG = floating;
+          rig.wasSeated = seated;
 
           const emoteClip = rig.emote && rig.emote.def.clip ? rig.emote.def.clip : null;
           const emoteSpeed = rig.emote && rig.emote.def.clipSpeed ? rig.emote.def.clipSpeed : 1;
@@ -1207,6 +1623,25 @@
             }
           }
 
+          // Emote-only body offsets are rebuilt every frame. Breakdance
+          // applies its own yaw/lateral offset below; every other state keeps
+          // the skeleton aligned with the root.
+          modelContainer.rotation.order = "XYZ";
+          modelContainer.rotation.y = 0;
+          modelContainer.position.x = 0;
+          modelContainer.position.z = 0;
+
+          // Sit the driver in the seat and put their hands on the wheel. This
+          // runs after the mixer so the idle clip still provides subtle torso
+          // motion while the legs and arms hold the driving pose.
+          if (rig.seatedBlend > 0.002) {
+            const seatBlend = rig.seatedBlend;
+            modelContainer.position.y *= (1 - seatBlend);
+            modelContainer.rotation.x *= (1 - seatBlend);
+            modelContainer.rotation.z *= (1 - seatBlend);
+            applySeatedPose(rig, seatBlend, seatSteer);
+          }
+
           // Weightless body attitude: a slow drift/roll with a gentle forward
           // lean once the crewmate pushes off along the module.
           if (rig.zeroGBlend > 0.002) {
@@ -1230,6 +1665,26 @@
               modelContainer.position.y += Math.abs(Math.sin(t * 9.0)) * 0.085;
               modelContainer.rotation.z += Math.sin(t * 6.2) * 0.2;
               modelContainer.rotation.x += Math.sin(t * 4.4) * 0.05;
+            } else if (def.procedural === "salsa") {
+              // Cuban-motion hips: a quick side-to-side sway with a lighter
+              // counter-bounce and a slight lean accent on each beat.
+              modelContainer.position.y += Math.abs(Math.sin(t * 8.8)) * 0.045;
+              modelContainer.rotation.z += Math.sin(t * 8.8) * 0.16;
+              modelContainer.rotation.x += Math.sin(t * 4.4) * 0.04;
+            } else if (def.procedural === "footloose") {
+              // Big line-dance bounce: the body leans into each arm swing and
+              // rebounds off the beat while the feet trade kicks.
+              const beat = t * 7.2;
+              modelContainer.position.y += Math.abs(Math.sin(beat)) * 0.07;
+              modelContainer.rotation.z += Math.sin(beat * 0.5) * 0.17;
+              modelContainer.rotation.x += Math.sin(beat) * 0.055;
+            } else if (def.procedural === "woowalk") {
+              // Two-step swagger: quick foot bounce, lazy shoulder dip, and a
+              // little lean into each fist pump.
+              const beat = t * 6.4;
+              modelContainer.position.y += Math.abs(Math.sin(beat)) * 0.065;
+              modelContainer.rotation.z += Math.sin(beat * 0.5) * 0.14;
+              modelContainer.rotation.x += 0.02 + Math.sin(beat) * 0.03;
             } else if (def.procedural === "laugh") {
               modelContainer.position.y += Math.abs(Math.sin(t * 17.0)) * 0.03;
               modelContainer.rotation.x += Math.sin(t * 19.0) * 0.05;
@@ -1241,6 +1696,17 @@
 
             // Layer the hand/arm IK gesture on top of the animated body.
             applyEmoteHandPose(rig, t, def, alpha);
+
+            // Footloose also kicks; leave the legs alone while seated so the
+            // driver keeps their feet on the pedals.
+            if (def.procedural === "footloose" && !seated) {
+              applyFootlooseLegPose(rig, t, alpha);
+            } else if (def.procedural === "woowalk" && !seated) {
+              applyWooWalkLegPose(rig, t, alpha);
+            } else if (def.procedural === "breakdance" && !seated) {
+              // The breakdance drives the whole body, arms and legs together.
+              applyBreakdancePose(rig, t, alpha);
+            }
 
             const sprite = emoteBubble.sprite;
             const pop = 0.5 + 0.5 * Math.min(1, t / 0.16);

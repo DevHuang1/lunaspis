@@ -283,6 +283,11 @@ async function initDatabase() {
           updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
       `);
+      await client.query(`ALTER TABLE game_rooms ADD COLUMN IF NOT EXISTS state_json JSONB;`);
+      await client.query(`ALTER TABLE game_rooms ADD COLUMN IF NOT EXISTS ops_mode VARCHAR(32) DEFAULT 'iss_expedition';`);
+      await client.query(`ALTER TABLE game_rooms ADD COLUMN IF NOT EXISTS is_solo BOOLEAN DEFAULT FALSE;`);
+      await client.query(`ALTER TABLE game_rooms ADD COLUMN IF NOT EXISTS server_region VARCHAR(32);`);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_game_rooms_region_status ON game_rooms(server_region, status);`);
 
       // 3. Room Members table
       await client.query(`
@@ -781,33 +786,172 @@ async function getTopAstronauts(limit = 10) {
 /**
  * Creates or updates a game room record.
  */
-async function upsertGameRoom(roomId, hostId, status = "lobby", totalTasks = 9, isPublic = true) {
+async function upsertGameRoom(roomId, hostId, status = "lobby", totalTasks = 9, isPublic = true, meta = {}) {
+  const opsMode = meta && meta.opsMode ? String(meta.opsMode).slice(0, 32) : null;
+  const isSolo = meta && typeof meta.isSolo === "boolean" ? meta.isSolo : null;
+  const serverRegion = meta && meta.serverRegion ? String(meta.serverRegion).slice(0, 32) : null;
+
   if (pool) {
     try {
       await pool.query(`
-        INSERT INTO game_rooms (room_id, host_id, status, total_tasks, is_public, updated_at)
-        VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+        INSERT INTO game_rooms (room_id, host_id, status, total_tasks, is_public, ops_mode, is_solo, server_region, updated_at)
+        VALUES ($1, $2, $3, $4, $5, COALESCE($6, 'iss_expedition'), COALESCE($7, FALSE), $8, CURRENT_TIMESTAMP)
         ON CONFLICT (room_id) DO UPDATE SET
           host_id = EXCLUDED.host_id,
           status = EXCLUDED.status,
+          total_tasks = EXCLUDED.total_tasks,
+          is_public = EXCLUDED.is_public,
+          ops_mode = COALESCE($6, game_rooms.ops_mode),
+          is_solo = COALESCE($7, game_rooms.is_solo),
+          server_region = COALESCE($8, game_rooms.server_region),
           updated_at = CURRENT_TIMESTAMP
-      `, [roomId, hostId, status, totalTasks, isPublic]);
+      `, [roomId, hostId, status, totalTasks, isPublic, opsMode, isSolo, serverRegion]);
     } catch (e) {
       console.error("[DB] Error in upsertGameRoom:", e.message);
     }
     return;
   }
 
+  const prev = memoryStore.game_rooms[roomId] || {};
   memoryStore.game_rooms[roomId] = {
+    ...prev,
     room_id: roomId,
     host_id: hostId,
     status: status,
     total_tasks: totalTasks,
-    completed_tasks: memoryStore.game_rooms[roomId]?.completed_tasks || 0,
+    completed_tasks: prev.completed_tasks || 0,
     is_public: isPublic,
+    ops_mode: opsMode || prev.ops_mode || "iss_expedition",
+    is_solo: typeof isSolo === "boolean" ? isSolo : !!prev.is_solo,
+    server_region: serverRegion || prev.server_region || null,
+    created_at: prev.created_at || new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
   saveLocalStore();
+}
+
+/**
+ * Persists full recoverable room and mission state for restarts/redeploys.
+ */
+async function saveGameRoomSnapshot(roomId, snapshot = {}) {
+  const hostId = String(snapshot.hostId || "system").slice(0, 128);
+  const status = String(snapshot.status || "lobby").slice(0, 32);
+  const totalTasks = Number.isFinite(Number(snapshot.totalTasks)) ? Number(snapshot.totalTasks) : 9;
+  const completedTasks = Number.isFinite(Number(snapshot.completedTasks)) ? Number(snapshot.completedTasks) : 0;
+  const isPublic = snapshot.isPublic !== false;
+  const opsMode = String(snapshot.opsMode || "iss_expedition").slice(0, 32);
+  const isSolo = !!snapshot.isSolo;
+  const serverRegion = snapshot.serverRegion ? String(snapshot.serverRegion).slice(0, 32) : null;
+  const stateJson = snapshot.state && typeof snapshot.state === "object" ? snapshot.state : null;
+
+  if (pool) {
+    try {
+      await pool.query(`
+        INSERT INTO game_rooms (
+          room_id, host_id, status, total_tasks, completed_tasks, is_public,
+          ops_mode, is_solo, server_region, state_json, updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, CURRENT_TIMESTAMP)
+        ON CONFLICT (room_id) DO UPDATE SET
+          host_id = EXCLUDED.host_id,
+          status = EXCLUDED.status,
+          total_tasks = EXCLUDED.total_tasks,
+          completed_tasks = EXCLUDED.completed_tasks,
+          is_public = EXCLUDED.is_public,
+          ops_mode = EXCLUDED.ops_mode,
+          is_solo = EXCLUDED.is_solo,
+          server_region = COALESCE(EXCLUDED.server_region, game_rooms.server_region),
+          state_json = EXCLUDED.state_json,
+          updated_at = CURRENT_TIMESTAMP
+      `, [
+        roomId,
+        hostId,
+        status,
+        totalTasks,
+        completedTasks,
+        isPublic,
+        opsMode,
+        isSolo,
+        serverRegion,
+        stateJson ? JSON.stringify(stateJson) : null
+      ]);
+    } catch (e) {
+      console.error("[DB] Error in saveGameRoomSnapshot:", e.message);
+    }
+    return;
+  }
+
+  const prev = memoryStore.game_rooms[roomId] || {};
+  memoryStore.game_rooms[roomId] = {
+    ...prev,
+    room_id: roomId,
+    host_id: hostId,
+    status,
+    total_tasks: totalTasks,
+    completed_tasks: completedTasks,
+    is_public: isPublic,
+    ops_mode: opsMode,
+    is_solo: isSolo,
+    server_region: serverRegion || prev.server_region || null,
+    state_json: stateJson ? JSON.parse(JSON.stringify(stateJson)) : null,
+    created_at: prev.created_at || new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+  saveLocalStore();
+}
+
+/**
+ * Loads active or recently persisted rooms for server recovery on startup.
+ */
+async function loadActiveGameRooms(serverRegion = null, maxAgeMinutes = 180) {
+  const safeMaxAge = Math.max(5, Math.min(1440, Number(maxAgeMinutes) || 180));
+  const regionFilter = serverRegion ? String(serverRegion).slice(0, 32) : null;
+
+  if (pool) {
+    try {
+      const res = regionFilter
+        ? await pool.query(`
+            SELECT room_id, host_id, status, total_tasks, completed_tasks, is_public,
+                   ops_mode, is_solo, server_region, state_json, created_at, updated_at
+            FROM game_rooms
+            WHERE status != 'finished'
+              AND state_json IS NOT NULL
+              AND server_region = $2
+              AND updated_at > NOW() - MAKE_INTERVAL(mins => $1)
+            ORDER BY updated_at DESC
+            LIMIT 100
+          `, [safeMaxAge, regionFilter])
+        : await pool.query(`
+            SELECT room_id, host_id, status, total_tasks, completed_tasks, is_public,
+                   ops_mode, is_solo, server_region, state_json, created_at, updated_at
+            FROM game_rooms
+            WHERE status != 'finished'
+              AND state_json IS NOT NULL
+              AND updated_at > NOW() - MAKE_INTERVAL(mins => $1)
+            ORDER BY updated_at DESC
+            LIMIT 100
+          `, [safeMaxAge]);
+      return res.rows;
+    } catch (e) {
+      console.error("[DB] Error in loadActiveGameRooms:", e.message);
+      return [];
+    }
+  }
+
+  const cutoffMs = Date.now() - safeMaxAge * 60 * 1000;
+  return Object.values(memoryStore.game_rooms)
+    .filter((r) => {
+      if (!r || !r.state_json || r.status === "finished") return false;
+      if (regionFilter && r.server_region && r.server_region !== regionFilter) return false;
+      const updatedMs = r.updated_at ? Date.parse(r.updated_at) : 0;
+      return !updatedMs || updatedMs >= cutoffMs;
+    })
+    .sort((a, b) => Date.parse(b.updated_at || 0) - Date.parse(a.updated_at || 0))
+    .slice(0, 100)
+    .map((r) => ({
+      ...r,
+      state_json: JSON.parse(JSON.stringify(r.state_json))
+    }));
 }
 
 /**
@@ -972,21 +1116,36 @@ async function logChatMessage(roomId, sender, color, role, message) {
 /**
  * Gets active rooms with player count and metadata.
  */
-async function getActiveRoomsList() {
+async function getActiveRoomsList(serverRegion = null) {
+  const regionFilter = serverRegion ? String(serverRegion).slice(0, 32) : null;
   if (pool) {
     try {
-      const res = await pool.query(`
-        SELECT r.room_id, r.status, r.total_tasks, r.completed_tasks, r.created_at,
-               COUNT(m.user_id) AS player_count
-        FROM game_rooms r
-        LEFT JOIN room_members m ON r.room_id = m.room_id
-        WHERE r.status != 'finished'
-          AND r.is_public = TRUE
-          AND r.updated_at > NOW() - INTERVAL '30 minutes'
-        GROUP BY r.room_id, r.status, r.total_tasks, r.completed_tasks, r.created_at
-        ORDER BY r.created_at DESC
-        LIMIT 20
-      `);
+      const res = regionFilter
+        ? await pool.query(`
+            SELECT r.room_id, r.status, r.total_tasks, r.completed_tasks, r.ops_mode, r.created_at,
+                   COUNT(m.user_id) AS player_count
+            FROM game_rooms r
+            LEFT JOIN room_members m ON r.room_id = m.room_id
+            WHERE r.status != 'finished'
+              AND r.is_public = TRUE
+              AND (r.server_region = $1 OR r.server_region IS NULL)
+              AND r.updated_at > NOW() - INTERVAL '30 minutes'
+            GROUP BY r.room_id, r.status, r.total_tasks, r.completed_tasks, r.ops_mode, r.created_at
+            ORDER BY r.created_at DESC
+            LIMIT 20
+          `, [regionFilter])
+        : await pool.query(`
+            SELECT r.room_id, r.status, r.total_tasks, r.completed_tasks, r.ops_mode, r.created_at,
+                   COUNT(m.user_id) AS player_count
+            FROM game_rooms r
+            LEFT JOIN room_members m ON r.room_id = m.room_id
+            WHERE r.status != 'finished'
+              AND r.is_public = TRUE
+              AND r.updated_at > NOW() - INTERVAL '30 minutes'
+            GROUP BY r.room_id, r.status, r.total_tasks, r.completed_tasks, r.ops_mode, r.created_at
+            ORDER BY r.created_at DESC
+            LIMIT 20
+          `);
       return res.rows;
     } catch (e) {
       console.error("[DB] Error in getActiveRoomsList:", e.message);
@@ -995,7 +1154,7 @@ async function getActiveRoomsList() {
 
   // Local fallback
   return Object.values(memoryStore.game_rooms)
-    .filter((r) => r.is_public !== false)
+    .filter((r) => r.is_public !== false && r.status !== "finished" && (!regionFilter || !r.server_region || r.server_region === regionFilter))
     .map(r => {
       const count = Object.values(memoryStore.room_members).filter(m => m.room_id === r.room_id).length;
       return {
@@ -1021,6 +1180,8 @@ module.exports = {
   incrementUserStats,
   getTopAstronauts,
   upsertGameRoom,
+  saveGameRoomSnapshot,
+  loadActiveGameRooms,
   upsertRoomMember,
   removeRoomMember,
   recordRoomTaskCompletion,

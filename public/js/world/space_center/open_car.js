@@ -34,6 +34,7 @@
       this.group = null;
       this.body = null;
       this.driver = null;
+      this.driverSeat = null;
       this.driverSuitMat = null;
       this.steerWheel = null;
       this.steerWheelPivot = null;
@@ -217,6 +218,38 @@
       }
     }
 
+    /**
+     * Visual-only clone used for crewmates driving their own car. The clone
+     * shares body geometry with the local car and exposes a driver-seat anchor
+     * so the remote crew rig can be placed in the cockpit.
+     */
+    createRemoteVisual() {
+      const T = window.THREE;
+      if (!T || !this.group) return null;
+      const visual = this.group.clone(true);
+      visual.name = "SpaceCenter_OpenCar_Remote";
+      visual.position.set(0, 0, 0);
+      visual.rotation.set(0, 0, 0);
+      visual.visible = false;
+
+      const label = visual.getObjectByName("OpenCarLabel");
+      if (label && label.parent) label.parent.remove(label);
+
+      const body = visual.getObjectByName("OpenCar_Body");
+      if (body) {
+        body.position.set(0, 0, 0);
+        body.rotation.set(0, 0, 0);
+      }
+
+      // The placeholder driver is local-only; remote cars receive the actual
+      // crewmate rig at the seat anchor below.
+      const driver = visual.getObjectByName("OpenCar_Driver");
+      if (driver && driver.parent) driver.parent.remove(driver);
+
+      visual.userData.driverSeat = visual.getObjectByName("OpenCar_DriverSeat") || body || visual;
+      return visual;
+    }
+
     _buildMaterials() {
       const T = window.THREE;
       const M = (opts) => new T.MeshStandardMaterial(opts);
@@ -281,7 +314,7 @@
       // Park outside the LCC entrance for Earth Control, and by Pad 39A for
       // flight crew. Each client gets a car in its own operating zone.
       const candidates = groundCrew
-        ? [[0, 9], [8, 9], [-8, 9], [12, 4], [-12, 4], [0, 15]]
+        ? [[0, -24], [5, -22], [-5, -22], [0, 9], [8, 9], [-8, 9], [12, 4], [-12, 4], [0, 15]]
         : [[8, -8], [-8, -8], [10, 1], [-10, 1], [8, 8], [-8, 8]];
       for (const candidate of candidates) {
         const x = padSpawn.x + candidate[0];
@@ -314,25 +347,52 @@
 
     _buildParkingPad() {
       const T = window.THREE;
+      const area = new T.Group();
+      area.name = "OpenCarParkingArea";
+      area.position.set(this.spawn.x, this.spawn.y, this.spawn.z);
+      this.sc.group.add(area);
+      this.parkingPad = area;
+
       const pad = new T.Mesh(
         new T.BoxGeometry(7.2, 0.08, 6.4),
         new T.MeshStandardMaterial({ color: 0x8d969e, roughness: 0.94, metalness: 0.03 })
       );
       pad.name = "OpenCarParkingPad";
-      pad.position.set(this.spawn.x, this.spawn.y - 0.04, this.spawn.z);
+      pad.position.set(0, -0.04, 0);
       pad.receiveShadow = true;
-      this.sc.group.add(pad);
+      area.add(pad);
 
       const stripeMat = new T.MeshStandardMaterial({ color: 0xf4f4ee, roughness: 0.8 });
       [-2.3, 2.3].forEach((ox) => {
         const stripe = new T.Mesh(new T.BoxGeometry(0.16, 0.025, 4.6), stripeMat);
-        stripe.position.set(this.spawn.x + ox, this.spawn.y + 0.005, this.spawn.z);
-        this.sc.group.add(stripe);
+        stripe.position.set(ox, 0.005, 0);
+        area.add(stripe);
       });
       const stopMat = new T.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.8 });
       const stop = new T.Mesh(new T.BoxGeometry(5.2, 0.025, 0.16), stopMat);
-      stop.position.set(this.spawn.x, this.spawn.y + 0.005, this.spawn.z - 2.55);
-      this.sc.group.add(stop);
+      stop.position.set(0, 0.005, -2.55);
+      area.add(stop);
+    }
+
+    /**
+     * Moves an already-built car between the LCC parking area (Earth Control)
+     * and Pad 39A (flight crew). Role changes happen after the car is built in
+     * some lobby/co-op flows, so rebuilding is not an option.
+     */
+    reparkForLocalRole() {
+      if (!this.group || this.isDriving) return false;
+      const next = this._computeSpawnNearGroundSpawn();
+      if (!next) return false;
+      const moved = Math.hypot(next.x - this.spawn.x, next.z - this.spawn.z) > 0.5;
+      this.spawn = next;
+      this.yaw = next.yaw;
+      this.group.position.set(next.x, next.y, next.z);
+      this.group.rotation.y = next.yaw;
+      if (this.parkingPad) this.parkingPad.position.set(next.x, next.y, next.z);
+      if (this._netPos) this._netPos.set(next.x, next.y, next.z);
+      this._camInitialised = false;
+      if (typeof this._updateHud === "function") this._updateHud();
+      return moved;
     }
 
     _box(parent, w, h, d, x, y, z, material, name, rotation) {
@@ -583,6 +643,15 @@
       driver.visible = false;
       this.body.add(driver);
       this.driver = driver;
+
+      // The real crewmate rig (astronaut/ground-crew GLB) is positioned over
+      // this anchor. Its rest hips are 0.906 m above the rig origin, which puts
+      // them at the seat base height (0.98 m above the car floor).
+      const seat = new T.Group();
+      seat.name = "OpenCar_DriverSeat";
+      seat.position.set(-0.44, 0.074, -0.24);
+      this.body.add(seat);
+      this.driverSeat = seat;
 
       // Torso settles into the seat; helmet sits just above the windshield belt.
       this._box(driver, 0.44, 0.56, 0.32, 0, 0.32, 0, suit, "DriverTorso");
@@ -1274,7 +1343,10 @@
       this.lookPitch = 0;
       this._lookDragging = false;
       this._camInitialised = false;
-      if (this.driver) this.driver.visible = !this.firstPerson;
+      if (this.driver) this.driver.visible = false;
+      if (window.localCrew && window.localCrew.group) {
+        window.localCrew.group.visible = !this.firstPerson;
+      }
       if (this.camBtn) {
         this.camBtn.textContent = this.firstPerson ? "CAM · 1ST" : "CAM · 3RD";
         this.camBtn.classList.toggle("is-active", this.firstPerson);
@@ -1317,11 +1389,11 @@
 
       if (window.localCrew && window.localCrew.group) {
         this.localCrewWasVisible = window.localCrew.group.visible;
-        window.localCrew.group.visible = false;
+        window.localCrew.group.visible = !this.firstPerson;
       }
 
       this._applyDriverSuit();
-      if (this.driver) this.driver.visible = !this.firstPerson;
+      if (this.driver) this.driver.visible = false;
       if (this.label) this.label.visible = false;
 
       // A flight-crew member stepping out of the gantry uses the ground-level
@@ -1341,7 +1413,8 @@
       if (window.gameplay && typeof window.gameplay.showToast === "function") {
         window.gameplay.showToast("NASA OPEN CAR READY · W/S THROTTLE · A/D STEER · SHIFT BOOST · SPACE DRIFT/BRAKE · C VIEW · [E] EXIT");
       }
-      this._syncLocalCrewPose();
+      this._syncLocalCrewPose(true);
+      this._updateDriverAnimation(1 / 60);
       this._updateHud();
       return true;
     }
@@ -1371,7 +1444,11 @@
       if (window.localCrew && window.localCrew.group) {
         window.localCrew.group.visible = true;
         window.localCrew.group.position.set(exitPos.x, exitY, exitPos.z);
-        window.localCrew.group.rotation.y = this.yaw;
+        window.localCrew.group.rotation.set(0, this.yaw, 0);
+      }
+      if (this._netPos) {
+        this._netPos.set(exitPos.x, exitY, exitPos.z);
+        this._broadcastPose(this._netPos, this.yaw, false, true);
       }
       if (typeof window.setCameraYawPitch === "function") {
         window.setCameraYawPitch(this.yaw, 0.02);
@@ -1382,6 +1459,7 @@
       if (window.gameplay && typeof window.gameplay.showToast === "function") {
         window.gameplay.showToast("OPEN CAR PARKED · WALK BACK UP TO IT AND PRESS [E] TO DRIVE");
       }
+      this._clearDriverPose();
       this._updateHud();
       return true;
     }
@@ -1407,7 +1485,13 @@
       if (this.label) this.label.visible = true;
       if (window.localCrew && window.localCrew.group) {
         window.localCrew.group.visible = this.sc.isGroundMode && !this.sc.crewBoarded;
+        window.localCrew.group.rotation.set(0, window.localCrew.group.rotation.y, 0);
       }
+      if (this._netPos && this.group) {
+        this._netPos.copy(this.group.position);
+        this._broadcastPose(this._netPos, this.yaw, false, true);
+      }
+      this._clearDriverPose();
       this._updateHud();
     }
 
@@ -1637,6 +1721,7 @@
       }
 
       this._syncLocalCrewPose();
+      this._updateDriverAnimation(delta);
     }
 
     _idle(delta) {
@@ -1714,17 +1799,61 @@
       return false;
     }
 
-    _syncLocalCrewPose() {
+    _syncLocalCrewPose(force = false) {
       if (!this._netPos) return;
       const p = this.group.position;
       this._netPos.set(p.x, p.y, p.z);
       if (window.localCrew && window.localCrew.group) {
-        window.localCrew.group.position.copy(this._netPos);
-        window.localCrew.group.rotation.y = this.yaw;
+        if (this.driverSeat) {
+          // The seat anchor is inside the suspension body, so the crewmate
+          // follows the car's pitch/roll as well as its yaw.
+          this.group.updateWorldMatrix(true, true);
+          this.driverSeat.getWorldPosition(window.localCrew.group.position);
+          this.driverSeat.getWorldQuaternion(window.localCrew.group.quaternion);
+        } else {
+          window.localCrew.group.position.copy(this._netPos);
+          window.localCrew.group.rotation.y = this.yaw;
+        }
+        // Entering the car while the on-foot camera was in first person leaves
+        // the rig's model container hidden; restore it for the external view.
+        if (window.localCrew.rig && window.localCrew.rig.modelContainer) {
+          window.localCrew.rig.modelContainer.visible = true;
+        }
+        if (window.localCrew.rig && window.localCrew.rig.emoteBubble) {
+          window.localCrew.rig.emoteBubbleHidden = false;
+        }
+        window.localCrew.group.visible = !this.firstPerson;
       }
-      if (window.netManager && typeof window.netManager.sendPlayerUpdate === "function") {
-        window.netManager.sendPlayerUpdate(this._netPos, this.yaw, 0.03, false, false);
+      this._broadcastPose(this._netPos, this.yaw, true, force);
+    }
+
+    _updateDriverAnimation(delta) {
+      const crew = window.localCrew;
+      if (!this.isDriving || !crew || !crew.rig || typeof crew.rig.updateAnimation !== "function") return;
+      crew.rig.updateAnimation(delta, false, crew.isEva, true, null, false, false, true, this.steer);
+    }
+
+    /**
+     * Restores the local crew rig to its standing animation immediately after
+     * leaving the car, so the astronaut does not blend out of the seat pose
+     * while already standing at the door.
+     */
+    _clearDriverPose() {
+      const crew = window.localCrew;
+      if (!crew || !crew.rig) return;
+      crew.rig.seatedBlend = 0;
+      crew.rig.wasSeated = false;
+      if (crew.rig.shadowMesh) crew.rig.shadowMesh.visible = true;
+      if (crew.rig.accentRing) crew.rig.accentRing.visible = true;
+      if (typeof crew.rig.updateAnimation === "function") {
+        crew.rig.updateAnimation(1 / 60, false, crew.isEva, true, null, false, false, false, 0);
       }
+    }
+
+    _broadcastPose(pos, yaw, driving, force) {
+      if (!pos) return;
+      if (!window.netManager || typeof window.netManager.sendPlayerUpdate !== "function") return;
+      window.netManager.sendPlayerUpdate(pos, yaw, 0.03, false, false, false, !!driving, !!force);
     }
 
     // =========================================================================
@@ -1736,6 +1865,7 @@
       const p = this.group.position;
 
       if (this.firstPerson) {
+        if (window.localCrew && window.localCrew.group) window.localCrew.group.visible = false;
         if (this.driver) this.driver.visible = false;
         if (!this._camHead && T) {
           this._camHead = new T.Vector3();
@@ -1769,7 +1899,10 @@
         return;
       }
 
-      if (this.driver && this.isDriving) this.driver.visible = true;
+      if (this.driver) this.driver.visible = false;
+      if (window.localCrew && window.localCrew.group && this.isDriving) {
+        window.localCrew.group.visible = true;
+      }
       const speedRatio = Math.min(1, Math.abs(this.speed) / MAX_BOOST_SPEED);
       const distance = 7.4 + speedRatio * 1.0 + (this.boosting ? 0.6 : 0);
       const height = 3.35 + speedRatio * 0.2;

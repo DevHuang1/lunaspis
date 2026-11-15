@@ -813,10 +813,10 @@
               <span style="width:9px;height:9px;border-radius:50%;background:#67e8f9;box-shadow:0 0 8px #67e8f9;flex-shrink:0;"></span>
               <div>
                 <div style="font-family:var(--font-mono,monospace);font-size:14px;font-weight:800;letter-spacing:0.8px;color:#f8fafc;">
-                  SPACE GAMES, ACTIVITIES &amp; BEGINNER MISSION GUIDES
+                  SPACE MINI-GAMES &amp; GUIDES
                 </div>
-                <div style="font-size:12.5px;color:#94a3b8;line-height:1.45;margin-top:3px;">
-                  No space background needed! Play interactive mini-games and explore how real NASA &amp; Canadian Space Agency missions work.
+                <div style="font-family:var(--font-mono,monospace);font-size:10px;color:#94a3b8;line-height:1.45;margin-top:3px;letter-spacing:0.55px;">
+                  PLAY · BUILD · FLY
                 </div>
               </div>
             </div>
@@ -845,10 +845,10 @@
       if (!tabsBar || !body) return;
 
       const tabs = [
-        { id: "csa", label: "1. 🇨🇦 SPACE MINI-GAMES (EARTH, ASTEROID & PLANTS)" },
-        { id: "telescope", label: "2. 🔭 BUILD A SPACE TELESCOPE GAME" },
-        { id: "gmat", label: "3. 🛰️ SPACECRAFT CHECKLIST & FLIGHT PLAN" },
-        { id: "resources", label: "4. 📚 ALL 9 LEARNING GUIDES & LINKS" }
+        { id: "csa", label: "1. 🎮 MINI-GAMES" },
+        { id: "telescope", label: "2. 🔭 TELESCOPE" },
+        { id: "gmat", label: "3. 🛰️ FLIGHT PLAN" },
+        { id: "resources", label: "4. 📚 GUIDES" }
       ];
 
       tabsBar.innerHTML = tabs.map((tab) => {
@@ -887,6 +887,17 @@
       const sec = RCM_SECTORS[st.rcmSectorId] || RCM_SECTORS.maritime_arctic;
       const beamMatch = st.rcmBeamId === sec.recommendedBeam;
       const site = BENNU_CANDIDATE_SITES[st.bennuSiteId] || BENNU_CANDIDATE_SITES.nightingale;
+      const rcmSteps = [
+        { label: "1 PICK WHO", state: "is-done" },
+        { label: "2 PICK ZOOM", state: beamMatch ? "is-done" : "is-active" },
+        { label: "3 MATCH", state: beamMatch ? "is-done" : "" }
+      ];
+      const bennuSteps = [
+        { label: "1 PICK CRATER", state: "is-done" },
+        { label: "2 CHECK TILT", state: site.tagSafe ? "is-done" : "is-active" },
+        { label: "3 LAND", state: site.recommended ? "is-done" : site.tagSafe ? "is-active" : "" }
+      ];
+      const bennuGoal = site.recommended ? "BEST SITE FOUND" : site.tagSafe ? "SAFE TO LAND" : "TOO STEEP";
 
       body.innerHTML = `
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;">
@@ -894,15 +905,26 @@
           <div style="padding:16px 18px;border-radius:10px;background:rgba(15,23,42,0.75);border:1px solid rgba(52,211,153,0.35);">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
               <span style="font-family:monospace;font-size:12px;font-weight:700;color:#6ee7b7;">
-                🇨🇦 GAME 1 · HELP PEOPLE ON EARTH WITH SATELLITE RADAR
+                🇨🇦 GAME 1 · EARTH RADAR
               </span>
               <span style="font-family:monospace;font-size:10.5px;padding:3px 8px;border-radius:4px;background:rgba(52,211,153,0.16);color:#6ee7b7;">
                 SEES THROUGH CLOUDS &amp; NIGHT
               </span>
             </div>
-            <p style="font-size:12.5px;color:#cbd5e1;margin:0 0 10px 0;line-height:1.55;">
-              Normal cameras can't see through thick storm clouds or in the dark. Canada's <strong>RADARSAT</strong> satellites bounce harmless radio waves off the ground to see day or night! Pick who you want to help, then choose the best camera zoom:
-            </p>
+            <div class="lab-game-guide">
+              <div class="lab-game-guide__head">
+                <span class="lab-game-guide__kicker">GOAL</span>
+                <span class="lab-game-guide__goal">${beamMatch ? "SECTOR READY" : "MATCH RADAR TO PEOPLE"}</span>
+              </div>
+              <div class="lab-game-guide__steps">
+                ${rcmSteps.map((step) => `<span class="lab-game-step ${step.state}">${step.label}</span>`).join("")}
+              </div>
+            </div>
+            <details class="lab-game-more">
+              <summary>WHY RADAR SEES THROUGH CLOUDS</summary>
+              <p>Normal cameras can't see through thick storm clouds or in the dark. Canada's <strong>RADARSAT</strong> satellites bounce harmless radio waves off the ground to see day or night.</p>
+            </details>
+            <div style="height:8px;"></div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
               ${Object.values(RCM_SECTORS).map((s) => `
                 <button type="button" class="lab-rcm-sec" data-id="${s.id}" style="padding:7px 11px;border-radius:5px;border:1px solid ${st.rcmSectorId === s.id ? "#34d399" : "rgba(255,255,255,0.14)"};background:${st.rcmSectorId === s.id ? "rgba(52,211,153,0.2)" : "rgba(0,0,0,0.35)"};color:#ece7dc;font-family:monospace;font-size:11px;font-weight:700;cursor:pointer;">
@@ -922,25 +944,40 @@
               `).join("")}
             </div>
             <canvas id="csa-rcm-canvas" width="440" height="125" style="width:100%;height:130px;border-radius:6px;border:1px solid rgba(52,211,153,0.3);display:block;margin-bottom:10px;"></canvas>
-            <div style="font-size:12px;color:${beamMatch ? "#86efac" : "#fde68a"};line-height:1.5;">
-              <strong>${sec.role}:</strong> ${sec.targetDesc}<br/>
-              <span style="color:#94a3b8;">${sec.sarSignature}</span>
+            <div class="sg-readout">
+              <span>ZOOM <b>${beamMatch ? "MATCH" : "CHECK"}</b></span>
+              <span class="${beamMatch ? "is-target" : ""}">${beamMatch ? "PEOPLE HELPED" : "TRY ANOTHER ZOOM"}</span>
             </div>
+            <details class="lab-game-more">
+              <summary>WHAT THIS SECTOR NEEDS</summary>
+              <p><strong>${sec.role}:</strong> ${sec.targetDesc} ${sec.sarSignature}</p>
+            </details>
           </div>
 
           <!-- CARD 2: ASTEROID SAMPLE SITE PICKER -->
           <div style="padding:16px 18px;border-radius:10px;background:rgba(15,23,42,0.75);border:1px solid rgba(251,191,36,0.35);">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
               <span style="font-family:monospace;font-size:12px;font-weight:700;color:#fde047;">
-                🇨🇦 GAME 2 · PICK A SAFE LANDING SPOT ON AN ASTEROID
+                🇨🇦 GAME 2 · ASTEROID LANDER
               </span>
               <span style="font-family:monospace;font-size:10.5px;padding:3px 8px;border-radius:4px;background:rgba(251,191,36,0.16);color:#fde047;">
                 3D LASER SCANNER
               </span>
             </div>
-            <p style="font-size:12.5px;color:#cbd5e1;margin:0 0 10px 0;line-height:1.55;">
-              Asteroid Bennu is covered in giant boulders! Before NASA's spacecraft could touch down to vacuum up a cup of dirt, a Canadian 3D laser scanner mapped every rock. Click all 4 craters below to find the safest, most interesting spot:
-            </p>
+            <div class="lab-game-guide">
+              <div class="lab-game-guide__head">
+                <span class="lab-game-guide__kicker">GOAL</span>
+                <span class="lab-game-guide__goal">${bennuGoal}</span>
+              </div>
+              <div class="lab-game-guide__steps">
+                ${bennuSteps.map((step) => `<span class="lab-game-step ${step.state}">${step.label}</span>`).join("")}
+              </div>
+            </div>
+            <details class="lab-game-more">
+              <summary>WHY TILT MATTERS</summary>
+              <p>Asteroid Bennu is covered in giant boulders. A Canadian 3D laser scanner maps every rock; the spacecraft can only touch down where the ground is flat enough.</p>
+            </details>
+            <div style="height:8px;"></div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
               ${Object.values(BENNU_CANDIDATE_SITES).map((s) => `
                 <button type="button" class="lab-bennu-site" data-id="${s.id}" style="padding:9px 11px;border-radius:6px;border:1px solid ${st.bennuSiteId === s.id ? "#fbbf24" : "rgba(255,255,255,0.14)"};background:${st.bennuSiteId === s.id ? "rgba(251,191,36,0.18)" : "rgba(0,0,0,0.35)"};color:#ece7dc;text-align:left;cursor:pointer;">
@@ -950,10 +987,15 @@
               `).join("")}
             </div>
             <canvas id="csa-ola-canvas" width="440" height="125" style="width:100%;height:130px;border-radius:6px;border:1px solid rgba(251,191,36,0.3);display:block;margin-bottom:10px;"></canvas>
-            <div style="font-size:12px;color:${site.tagSafe ? "#a7f3d0" : "#fecaca"};line-height:1.5;">
-              <strong>${site.name}:</strong> ${site.summary}<br/>
-              <span style="color:#94a3b8;">${site.boulderHazard}</span>
+            <div class="sg-readout">
+              <span>TILT <b>${site.slopeDeg}°</b></span>
+              <span>WATER <b>${site.hydrationPct}%</b></span>
+              <span class="${site.tagSafe ? "is-target" : ""}">${site.tagSafe ? "SAFE <10°" : "TOO STEEP"}</span>
             </div>
+            <details class="lab-game-more">
+              <summary>FULL LASER SCAN</summary>
+              <p><strong>${site.name}:</strong> ${site.summary} ${site.boulderHazard}</p>
+            </details>
           </div>
         </div>
 
@@ -961,36 +1003,51 @@
         <div style="margin-top:16px;padding:16px 18px;border-radius:10px;background:rgba(15,23,42,0.75);border:1px solid rgba(103,232,249,0.3);">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
             <span style="font-family:monospace;font-size:12px;font-weight:700;color:#67e8f9;">
-              🇨🇦 ACTIVITY 3 · ROBOT ARMS IN SPACE &amp; GROWING SPACE TOMATOES
+              🇨🇦 ACTIVITY 3 · CSA LAB
             </span>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
               <button type="button" id="btn-lab-open-iss-canadarm" style="padding:7px 12px;border-radius:5px;border:1px solid rgba(103,232,249,0.5);background:rgba(103,232,249,0.14);color:#67e8f9;font-family:monospace;font-size:11px;font-weight:700;cursor:pointer;">
-                SEE CANADARM2 ON THE 3D SPACE STATION [J]
+                VIEW CSA LAB [J]
               </button>
               <button type="button" id="btn-lab-apply-csa-preset" style="padding:7px 12px;border-radius:5px;border:1px solid rgba(52,211,153,0.5);background:rgba(52,211,153,0.16);color:#86efac;font-family:monospace;font-size:11px;font-weight:700;cursor:pointer;">
-                ADD THESE TOOLS TO MY SPACECRAFT
+                ADD CSA TOOLS
               </button>
             </div>
           </div>
-          <div style="margin-bottom:12px;padding:9px 11px;border-radius:6px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.3);font-size:11.5px;line-height:1.5;color:#fecaca;">
-            <strong>CO-OP ON THE ISS:</strong> walk to the <strong>CSA LAB</strong> console in Kibo, near the Science and Freezer desks.
-            One crew member drives Canadarm2 while a second calls the latch; another pair can run the Tomatosphere greenhouse together.
-          </div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;font-size:12.5px;line-height:1.55;color:#cbd5e1;">
-            <div style="padding:12px 14px;border-radius:8px;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.08);">
-              <div style="font-family:monospace;font-size:11.5px;font-weight:700;color:#93c5fd;margin-bottom:6px;">CANADARM2 &amp; DEXTRE (THE SPACE STATION'S ROBOT HELPER)</div>
-              <div>Imagine a 17-meter robotic arm that can crawl like an inchworm along the outside of the Space Station! It catches visiting cargo ships, repairs equipment outside, and helps astronauts during spacewalks.</div>
-              <div style="margin-top:8px;font-family:monospace;font-size:11px;color:#86efac;">STATUS: Robot Hand Ready &amp; Locked On</div>
+          <div class="lab-game-guide">
+            <div class="lab-game-guide__head">
+              <span class="lab-game-guide__kicker">GOAL</span>
+              <span class="lab-game-guide__goal">RUN THE CSA LAB</span>
             </div>
-            <div style="padding:12px 14px;border-radius:8px;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.08);">
-              <div style="font-family:monospace;font-size:11.5px;font-weight:700;color:#86efac;margin-bottom:6px;">TOMATOSPHERE™ (GROWING FRESH FOOD IN SPACE)</div>
-              <div>On long trips to the Moon or Mars, astronauts need fresh food and oxygen! Millions of students have helped test how tomato seeds sprout after flying in space. Plants also clean the air and boost crew mood.</div>
-              <div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-                <span style="font-family:monospace;font-size:11px;color:#fde047;">Seeds Sprouted: ${st.tomatosphereGerminationPct}% (Makes Fresh Air &amp; Food)</span>
-                <button type="button" id="btn-toggle-tomatosphere" style="padding:6px 11px;border-radius:5px;border:1px solid rgba(74,222,128,0.45);background:rgba(22,163,74,0.2);color:#86efac;font-family:monospace;font-size:11px;font-weight:700;cursor:pointer;">
-                  ${st.tomatosphereActive ? "GREENHOUSE ON" : "TURN ON GREENHOUSE"}
+            <div class="lab-game-guide__steps">
+              <span class="lab-game-step is-active">1 WALK TO KIBO</span>
+              <span class="lab-game-step">2 TAKE A SEAT</span>
+              <span class="lab-game-step">3 RUN A GAME</span>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px;font-size:12px;line-height:1.45;color:#cbd5e1;">
+            <div style="padding:10px 12px;border-radius:8px;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.08);">
+              <div style="font-family:monospace;font-size:11px;font-weight:700;color:#93c5fd;">CANADARM2</div>
+              <div style="margin-top:3px;">17 m arm · 2 seats: ARM + LATCH</div>
+              <div style="margin-top:6px;font-family:monospace;font-size:9.5px;color:#86efac;">READY · ALIGN, EXTEND, LATCH</div>
+              <details class="lab-game-more">
+                <summary>HOW IT WORKS</summary>
+                <p>The arm crawls along the Station, catches cargo ships, and helps during spacewalks. One crew drives, one calls the latch.</p>
+              </details>
+            </div>
+            <div style="padding:10px 12px;border-radius:8px;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.08);">
+              <div style="font-family:monospace;font-size:11px;font-weight:700;color:#86efac;">TOMATOSPHERE™</div>
+              <div style="margin-top:3px;">2 seats: WATER + CLIMATE</div>
+              <div style="margin-top:6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+                <span style="font-family:monospace;font-size:9.5px;color:#fde047;">SPROUTED ${st.tomatosphereGerminationPct}%</span>
+                <button type="button" id="btn-toggle-tomatosphere" style="padding:5px 9px;border-radius:5px;border:1px solid rgba(74,222,128,0.45);background:rgba(22,163,74,0.2);color:#86efac;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">
+                  ${st.tomatosphereActive ? "ON" : "TURN ON"}
                 </button>
               </div>
+              <details class="lab-game-more">
+                <summary>HOW IT WORKS</summary>
+                <p>Students test how tomato seeds sprout after spaceflight. Keep water, light, and temperature in the green band to grow fresh food and oxygen.</p>
+              </details>
             </div>
           </div>
         </div>

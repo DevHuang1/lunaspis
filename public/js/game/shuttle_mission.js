@@ -661,6 +661,57 @@
       return out;
     }
   }
+  const PERSISTED_FIELDS = [
+    "serial",
+    "missionId",
+    "revision",
+    "eventSeq",
+    "phase",
+    "countdown",
+    "st",
+    "obj",
+    "failure",
+    "result",
+    "exited",
+    "paused",
+    "warpReq",
+    "warp",
+    "acc",
+    "checkpoints",
+    "retries",
+    "rejections",
+    "failures",
+    "messages",
+    "guid",
+    "flags",
+    "plan",
+    "touchdown",
+    "integrity",
+    "handoffAtOrbit",
+    "handoffReady",
+    "assistLog",
+    "prev",
+  ];
+  ShuttleMission.prototype.serializeState = function () {
+    const out = {};
+    for (const key of PERSISTED_FIELDS) {
+      if (this[key] !== undefined) {
+        out[key] = JSON.parse(JSON.stringify(this[key]));
+      }
+    }
+    return out;
+  };
+  ShuttleMission.fromSerializedState = function (raw, opts) {
+    if (!raw || typeof raw !== "object") return null;
+    const baseOpts = Object.assign({ handoffAtOrbit: !!raw.handoffAtOrbit }, opts || {});
+    const inst = new ShuttleMission(baseOpts);
+    for (const key of PERSISTED_FIELDS) {
+      if (Object.prototype.hasOwnProperty.call(raw, key) && raw[key] !== undefined) {
+        inst[key] = JSON.parse(JSON.stringify(raw[key]));
+      }
+    }
+    return inst;
+  };
   // ---- reference path for the on-screen guidance ribbon ("where the orbiter should go")
   //   rwy : runway-frame points [x, y, h] (approach, rollout)
   //   ecef: Earth-fixed points [x, y, z] m along the great circle to KSC, descending (entry)

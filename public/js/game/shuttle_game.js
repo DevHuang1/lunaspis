@@ -152,7 +152,7 @@
             hud.gmatMessage = "Connect to the flight before requesting GMAT.";
             return;
           }
-          this.net.socket.timeout(25000).emit("shuttle_gmat_coast", (error, result) => {
+          this.net.socket.timeout(60000).emit("shuttle_gmat_coast", (error, result) => {
             if (this.hud !== hud) return;
             hud.gmatLoading = false;
             if (error || !result) hud.gmatMessage = "GMAT request timed out.";

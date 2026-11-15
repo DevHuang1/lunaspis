@@ -131,6 +131,85 @@
     }
   };
 
+  // Compact, scannable mission identity used by both the lobby and the
+  // Mission Architecture desk. The old two-sentence pitches are still
+  // available through scenario.summary for briefing/detail views, but the
+  // picker leads with destination, job, risk, one short goal and two numbers.
+  const STARTER_MISSION_IDS = ["lunar_south_pole", "earth_climate", "cubesat_101"];
+
+  const MISSION_PRESENTATION = {
+    earth_climate: {
+      title: "ICE WATCH",
+      destination: "EARTH",
+      job: "TRACK ICE",
+      risk: "WIDE ORBIT",
+      goal: "Watch ice, oceans, and air.",
+      accent: "#60a5fa",
+      art: "earth",
+      riskIcon: "orbit"
+    },
+    lunar_south_pole: {
+      title: "ICE HUNTER",
+      destination: "MOON",
+      job: "FIND WATER",
+      risk: "DEEP SPACE",
+      goal: "Find ice in dark polar craters.",
+      accent: "#67e8f9",
+      art: "moon",
+      riskIcon: "signal"
+    },
+    asteroid_rendezvous: {
+      title: "ROCK EXPLORER",
+      destination: "ASTEROID",
+      job: "MAP SURFACE",
+      risk: "LONG TRIP",
+      goal: "Map an asteroid's rocks and path.",
+      accent: "#d0a15c",
+      art: "asteroid",
+      riskIcon: "clock"
+    },
+    space_telescope: {
+      title: "DEEP TELESCOPE",
+      destination: "DEEP SPACE",
+      job: "SEE STARS",
+      risk: "KEEP COLD",
+      goal: "See faint planets around other stars.",
+      accent: "#a78bfa",
+      art: "telescope",
+      riskIcon: "thermo"
+    },
+    cubesat_101: {
+      title: "POCKET SAT",
+      destination: "LOW ORBIT",
+      job: "BUILD SAT",
+      risk: "TINY BUDGET",
+      goal: "Build a shoebox satellite that lasts.",
+      accent: "#7fb8a6",
+      art: "cubesat",
+      riskIcon: "wallet"
+    },
+    bionutrients_2: {
+      title: "VITAMIN LAB",
+      destination: "STATION",
+      job: "GROW YEAST",
+      risk: "KEEP WARM",
+      goal: "Water, warm and freeze yeast for Vitamin A.",
+      accent: "#fb7185",
+      art: "bio",
+      riskIcon: "thermo"
+    },
+    sandbox: {
+      title: "FREE BUILD",
+      destination: "ANYWHERE",
+      job: "EXPERIMENT",
+      risk: "NO LIMITS",
+      goal: "Mix any parts with a huge budget.",
+      accent: "#94a3b8",
+      art: "sandbox",
+      riskIcon: "spark"
+    }
+  };
+
   const WAVELENGTH_BANDS = {
     uv_optical: {
       id: "uv_optical",
@@ -1086,6 +1165,7 @@
       this._pdGroup = null;
       this._pdLastKey = "";
       this._pdAnimId = 0;
+      this.missionPickerExpanded = false;
 
       this.telemetry = this.evaluateMissionDesign();
       this.resources = {
@@ -1097,6 +1177,7 @@
 
       this.activeTask = null;
       this.nearbyTask = null;
+      this.nearbyMissionDiorama = false;
       this.activeCleanup = null;
     }
 
@@ -1131,6 +1212,362 @@
         isBioPayload: !!scenario.isBioPayload,
         tradeoffTip: scenario.tradeoffTip || ""
       }));
+    }
+
+    getMissionPresentation(scenarioId) {
+      const fallback = {
+        title: "MISSION",
+        destination: "SPACE",
+        job: "EXPLORE",
+        risk: "UNKNOWN",
+        goal: "Choose a destination and a science goal.",
+        accent: "#67e8f9",
+        art: "moon",
+        riskIcon: "signal"
+      };
+      return Object.assign({}, fallback, MISSION_PRESENTATION[scenarioId] || {});
+    }
+
+    getStarterMissionIds() {
+      return STARTER_MISSION_IDS.slice();
+    }
+
+    renderMissionPickCard(scenario, options = {}) {
+      if (!scenario) return "";
+      const p = this.getMissionPresentation(scenario.id);
+      const active = !!options.active;
+      const canSelect = options.canSelect !== false;
+      const budgetM = Number.isFinite(options.budgetM)
+        ? Math.max(0, Math.round(options.budgetM))
+        : Math.max(0, Math.round(Number(scenario.baseBudgetM) || 0));
+      const months = Math.max(0, Math.round(Number(scenario.targetLifetimeMonths) || 0));
+      const extraClass = options.className ? ` ${options.className}` : "";
+      return `
+        <button type="button" class="mission-pick-card md-scenario-card${active ? " is-active" : ""}${extraClass}"
+          data-id="${this._escapeHtml(scenario.id)}"
+          data-scenario-id="${this._escapeHtml(scenario.id)}"
+          aria-pressed="${active}"
+          aria-disabled="${canSelect ? "false" : "true"}"
+          title="${this._escapeHtml(scenario.summary || p.goal)}"
+          style="--mission-accent:${this._escapeHtml(p.accent)};">
+          <span class="mission-pick-card__visual" aria-hidden="true">
+            ${this._missionArt(p.art)}
+            <span class="mission-pick-card__dest">${this._escapeHtml(p.destination)}</span>
+          </span>
+          <span class="mission-pick-card__body">
+            <span class="mission-pick-card__top">
+              <span class="mission-pick-card__title">${this._escapeHtml(p.title)}</span>
+              ${active ? `<span class="mission-pick-card__check" aria-hidden="true">&#10003;</span>` : ""}
+            </span>
+            <span class="mission-pick-card__goal">${this._escapeHtml(p.goal)}</span>
+            <span class="mission-pick-card__signals">
+              <span class="mission-pick-signal">${this._missionSignalIcon("target")}${this._escapeHtml(p.job)}</span>
+              <span class="mission-pick-signal is-risk">${this._missionSignalIcon(p.riskIcon)}${this._escapeHtml(p.risk)}</span>
+            </span>
+            <span class="mission-pick-card__stats">
+              <span class="mission-pick-stat">${this._missionStatIcon("budget")}<b>$${budgetM}M</b></span>
+              <span class="mission-pick-stat">${this._missionStatIcon("clock")}<b>${months} MO</b></span>
+            </span>
+          </span>
+        </button>
+      `;
+    }
+
+    _missionArt(kind) {
+      const common = `viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg"`;
+      if (kind === "earth") {
+        return `<svg ${common}>
+          <circle cx="48" cy="47" r="26" fill="currentColor" opacity=".13"/>
+          <path d="M26 37c5-3 11-2 14 2 4 4 2 9 6 12 3 2 7 1 9 5 2 4-1 8-5 10-9 4-19-1-24-9-3-6-3-14 0-20Z" fill="currentColor" opacity=".52"/>
+          <path d="M55 25c7 1 12 6 15 11-4 2-8 1-11-1-3-3-4-6-4-10Z" fill="currentColor" opacity=".38"/>
+          <path d="M20 65c8 8 19 11 30 8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" opacity=".55"/>
+          <circle cx="48" cy="47" r="26" stroke="currentColor" stroke-width="1.5" opacity=".8"/>
+          <ellipse cx="48" cy="48" rx="41" ry="13" transform="rotate(-18 48 48)" stroke="currentColor" stroke-width="1" stroke-dasharray="2 4" opacity=".5"/>
+          <circle cx="16" cy="57" r="2" fill="#fde68a"/>
+          <path d="M73 24l1.2 3.4L78 28.5l-3.8 1.1L73 33l-1.2-3.4L68 28.5l3.8-1.1L73 24Z" fill="#fde68a"/>
+        </svg>`;
+      }
+      if (kind === "asteroid") {
+        return `<svg ${common}>
+          <path d="M29 36l10-10 17-3 12 6 8 13-3 17-11 10-18 2-13-9-5-13 3-13Z" fill="currentColor" opacity=".16"/>
+          <path d="M29 36l10-10 17-3 12 6 8 13-3 17-11 10-18 2-13-9-5-13 3-13Z" stroke="currentColor" stroke-width="1.5" opacity=".85"/>
+          <circle cx="38" cy="38" r="6" fill="currentColor" opacity=".32"/>
+          <circle cx="54" cy="55" r="4" fill="currentColor" opacity=".4"/>
+          <circle cx="43" cy="57" r="2.5" fill="currentColor" opacity=".28"/>
+          <path d="M18 21c12-10 30-12 44-3" stroke="currentColor" stroke-width="1" stroke-dasharray="2 4" opacity=".5"/>
+          <path d="M57 16l5 2-2 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" opacity=".7"/>
+          <path d="M70 20l1.1 3.1L74 24.2l-2.9.9L70 28l-1.1-2.9L66 24.2l2.9-1.1L70 20Z" fill="#fde68a"/>
+        </svg>`;
+      }
+      if (kind === "telescope") {
+        return `<svg ${common}>
+          <path d="M25 55l27-19 10 15-27 19z" fill="currentColor" opacity=".17"/>
+          <path d="M25 55l27-19 10 15-27 19z" stroke="currentColor" stroke-width="1.5" opacity=".9"/>
+          <path d="M52 36l6-4 10 15-6 4M25 55l-3 6M62 51l3 6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" opacity=".7"/>
+          <circle cx="59" cy="31" r="6" fill="currentColor" opacity=".22" stroke="currentColor" stroke-width="1.2"/>
+          <path d="M20 72h56M32 72l4-9M64 72l-4-9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity=".55"/>
+          <path d="M72 20l1.3 3.5L77 24.8l-3.7 1.3L72 30l-1.3-3.9L67 24.8l3.7-1.3L72 20Z" fill="#fde68a"/>
+          <circle cx="80" cy="39" r="1.5" fill="#fde68a"/>
+        </svg>`;
+      }
+      if (kind === "cubesat") {
+        return `<svg ${common}>
+          <rect x="33" y="38" width="30" height="24" rx="3" fill="currentColor" opacity=".16"/>
+          <rect x="33" y="38" width="30" height="24" rx="3" stroke="currentColor" stroke-width="1.5" opacity=".9"/>
+          <rect x="35" y="46" width="26" height="8" fill="currentColor" opacity=".35"/>
+          <path d="M33 43H18v14h15M63 43h15v14H63" fill="currentColor" opacity=".17"/>
+          <path d="M33 43H18v14h15M63 43h15v14H63" stroke="currentColor" stroke-width="1.3" opacity=".8"/>
+          <path d="M25 43v14M71 43v14" stroke="currentColor" stroke-width=".9" opacity=".45"/>
+          <path d="M48 38V24M48 24l7-5M48 24l-7-5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" opacity=".8"/>
+          <circle cx="48" cy="19" r="2" fill="#fde68a"/>
+          <path d="M20 72c12-6 26-8 40-5" stroke="currentColor" stroke-width="1" stroke-dasharray="2 4" opacity=".4"/>
+        </svg>`;
+      }
+      if (kind === "bio") {
+        return `<svg ${common}>
+          <circle cx="48" cy="48" r="35" fill="currentColor" opacity=".045"/>
+          <path d="M38 24h20l5 44c.7 6.2-3.6 11-9.6 11h-10.8c-6 0-10.3-4.8-9.6-11l5-44Z" fill="currentColor" opacity=".13"/>
+          <path d="M38 24h20l5 44c.7 6.2-3.6 11-9.6 11h-10.8c-6 0-10.3-4.8-9.6-11l5-44Z" stroke="currentColor" stroke-width="1.5" opacity=".9"/>
+          <path d="M41 30h14" stroke="currentColor" stroke-width="1.1" opacity=".55"/>
+          <path d="M27 25c-3.2 4.3-4.8 6.8-4.8 9.1a4.8 4.8 0 0 0 9.6 0c0-2.3-1.6-4.8-4.8-9.1Z" fill="#67e8f9" opacity=".9"/>
+          <path d="M25 34c.2 1.2 1 2 2.1 2.3" stroke="#e0f2fe" stroke-width=".8" stroke-linecap="round" opacity=".9"/>
+          <circle cx="44" cy="47" r="2" fill="#86efac"/>
+          <circle cx="52" cy="55" r="2.4" fill="#fb923c"/>
+          <circle cx="45" cy="62" r="1.6" fill="#fb923c"/>
+          <circle cx="53" cy="41" r="1.3" fill="#86efac"/>
+          <g transform="translate(66 34)">
+            <path d="M0 0v18a5 5 0 1 0 6 0V0a3 3 0 0 0-6 0Z" fill="#fbbf24" fill-opacity=".14" stroke="#fbbf24" stroke-width="1.1"/>
+            <path d="M3 4v14" stroke="#fbbf24" stroke-width="1.6" stroke-linecap="round"/>
+            <circle cx="3" cy="22" r="2.6" fill="#fbbf24"/>
+          </g>
+          <g transform="translate(68 72)" stroke="#67e8f9" stroke-width="1.2" stroke-linecap="round" opacity=".9">
+            <path d="M0-6V6M-5.2-3L5.2 3M-5.2 3L5.2-3"/>
+          </g>
+          <path d="M26 60l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9.9-2.6Z" fill="#fde68a" opacity=".9"/>
+        </svg>`;
+      }
+      if (kind === "sandbox") {
+        return `<svg ${common}>
+          <circle cx="48" cy="49" r="25" stroke="currentColor" stroke-width="1" stroke-dasharray="3 4" opacity=".5"/>
+          <path d="M31 60l17-27 17 27H31Z" fill="currentColor" opacity=".14"/>
+          <path d="M31 60l17-27 17 27H31Z" stroke="currentColor" stroke-width="1.5" linejoin="round" opacity=".85"/>
+          <path d="M48 33v19M40 55h16" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity=".6"/>
+          <circle cx="72" cy="27" r="8" stroke="currentColor" stroke-width="1.2" opacity=".65"/>
+          <path d="M72 21v12M66 27h12" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity=".8"/>
+          <circle cx="21" cy="36" r="2" fill="#fde68a"/>
+          <path d="M26 70l1.1 3.1L30 74.2l-2.9.9L26 78l-1.1-2.9L22 74.2l2.9-1.1L26 70Z" fill="#fde68a"/>
+        </svg>`;
+      }
+      return `<svg ${common}>
+        <circle cx="48" cy="45" r="27" fill="currentColor" opacity=".12"/>
+        <path d="M22 54c5 14 19 23 34 20 8-1.5 15-6 20-13-8 4-18 5-28 1-9-4-16-11-20-20-4 4-7 8-6 12Z" fill="currentColor" opacity=".22"/>
+        <circle cx="48" cy="45" r="27" stroke="currentColor" stroke-width="1.5" opacity=".8"/>
+        <circle cx="38" cy="36" r="5" fill="currentColor" opacity=".5"/>
+        <circle cx="58" cy="50" r="3.5" fill="currentColor" opacity=".4"/>
+        <circle cx="43" cy="57" r="2.5" fill="currentColor" opacity=".35"/>
+        <path d="M18 76h60" stroke="currentColor" stroke-width="1" opacity=".25"/>
+        <path d="M28 72l4-7 4 7M32 65v11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M65 30l1.2 3.4L70 34.5l-3.8 1.1L65 39l-1.2-3.4L60 34.5l3.8-1.1L65 30Z" fill="#fde68a"/>
+      </svg>`;
+    }
+
+    renderBioMissionStoryboard(variant = "hub") {
+      const panels = [
+        {
+          kicker: "01 · LAUNCH",
+          title: "Fly the yeast kit",
+          copy: "Sealed dry yeast pouches ride a cargo ship to the Station.",
+          accent: "#67e8f9",
+          art: `<svg viewBox="0 0 220 132" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M14 108c30-2 54-12 72-30 16-16 34-26 58-31" stroke="#67e8f9" stroke-width="1.1" stroke-dasharray="3 5" opacity=".45"/>
+            <path d="M8 132c8-24 30-38 58-36" stroke="#38bdf8" stroke-width="1.2" opacity=".3"/>
+            <circle cx="25" cy="28" r="1.2" fill="#e2e8f0" opacity=".55"/>
+            <circle cx="47" cy="18" r=".9" fill="#e2e8f0" opacity=".4"/>
+            <circle cx="188" cy="96" r="1" fill="#e2e8f0" opacity=".45"/>
+            <circle cx="205" cy="30" r="1.4" fill="#fde68a" opacity=".8"/>
+            <g stroke="#94a3b8" stroke-width="1.2" opacity=".85">
+              <rect x="165" y="18" width="34" height="9" rx="2.5" fill="#1e293b"/>
+              <path d="M151 22h14M199 22h14M143 14v16M207 14v16" opacity=".65"/>
+              <rect x="173" y="9" width="18" height="5" rx="1.5" fill="#334155"/>
+            </g>
+            <g transform="translate(64 50) rotate(-22)">
+              <rect x="0" y="0" width="64" height="28" rx="9" fill="#0f172a" stroke="#cbd5e1" stroke-width="1.3"/>
+              <rect x="14" y="-9" width="36" height="9" rx="3" fill="#111827" stroke="#67e8f9" stroke-width="1.2"/>
+              <path d="M6 14h52" stroke="#475569" stroke-width="1"/>
+              <rect x="17" y="5" width="30" height="17" rx="4" fill="#fb7185" fill-opacity=".14" stroke="#fb7185" stroke-width="1.2"/>
+              <circle cx="25" cy="13.5" r="1.7" fill="#fb7185"/>
+              <circle cx="32" cy="10" r="1.2" fill="#fb7185"/>
+              <circle cx="38" cy="16" r="1.4" fill="#fb7185"/>
+              <path d="M-5 6h5v15h-5zM64 6h5v15h-5z" fill="#1d4ed8" fill-opacity=".28" stroke="#60a5fa" stroke-width="1"/>
+            </g>
+            <g transform="translate(26 72) rotate(7)">
+              <rect x="0" y="0" width="26" height="34" rx="6" fill="#fb7185" fill-opacity=".1" stroke="#fb7185" stroke-width="1.2"/>
+              <path d="M6 7h14" stroke="#fda4af" stroke-width="1.1" opacity=".8"/>
+              <circle cx="10" cy="17" r="1.3" fill="#fda4af"/>
+              <circle cx="16" cy="21" r="1.1" fill="#fda4af"/>
+              <circle cx="13" cy="27" r="1" fill="#86efac"/>
+            </g>
+          </svg>`
+        },
+        {
+          kicker: "02 · HYDRATE",
+          title: "Add clean water",
+          copy: "Filtered water wakes the sleeping yeast inside each pouch.",
+          accent: "#38bdf8",
+          art: `<svg viewBox="0 0 220 132" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M26 116h168" stroke="#475569" stroke-width="1" opacity=".35"/>
+            <path d="M78 30h64l8 69c.8 8-5 14-13 14H83c-8 0-14-6-13-14l8-69Z" fill="#67e8f9" fill-opacity=".06" stroke="#67e8f9" stroke-width="1.5"/>
+            <path d="M78 30h64" stroke="#a5f3fc" stroke-width="1.2" opacity=".9"/>
+            <rect x="92" y="21" width="36" height="9" rx="3" fill="#0f172a" stroke="#67e8f9" stroke-width="1.1" opacity=".95"/>
+            <path d="M74 84c11 4 23 6 36 6 14 0 27-2 39-6l2 15c.8 8-5 14-13 14H83c-8 0-14-6-13-14l2-15Z" fill="#38bdf8" fill-opacity=".18"/>
+            <g transform="translate(104 2)">
+              <rect x="0" y="0" width="12" height="26" rx="3" fill="#e2e8f0" fill-opacity=".12" stroke="#cbd5e1" stroke-width="1.1"/>
+              <rect x="2" y="13" width="8" height="11" rx="2" fill="#67e8f9" fill-opacity=".45"/>
+              <path d="M6 26v12" stroke="#cbd5e1" stroke-width="1.3"/>
+              <path d="M-2 0h16" stroke="#cbd5e1" stroke-width="2.2" stroke-linecap="round"/>
+              <path d="M0 4h12" stroke="#94a3b8" stroke-width="1" opacity=".6"/>
+            </g>
+            <g transform="translate(88 34)">
+              <circle cx="0" cy="0" r="8" fill="#0f172a" stroke="#a5f3fc" stroke-width="1.1"/>
+              <path d="M-6-4L6 4M-6 4L6-4" stroke="#67e8f9" stroke-width=".8" opacity=".7"/>
+            </g>
+            <g fill="#86efac">
+              <circle cx="96" cy="62" r="2.2"/>
+              <circle cx="110" cy="70" r="1.6"/>
+              <circle cx="124" cy="60" r="2"/>
+              <circle cx="117" cy="83" r="1.4"/>
+            </g>
+            <g fill="#7dd3fc" opacity=".85">
+              <path class="bio-drift" d="M132 52c-2.6 3.4-4 5.6-4 7.5a4 4 0 0 0 8 0c0-1.9-1.4-4.1-4-7.5Z"/>
+              <path class="bio-drift bio-drift--slow" d="M91 84c-2 2.6-3 4.3-3 5.8a3 3 0 0 0 6 0c0-1.5-1-3.2-3-5.8Z" opacity=".7"/>
+            </g>
+            <path d="M146 40c8 2 13 7 16 14" stroke="#67e8f9" stroke-width="1" stroke-dasharray="2 4" opacity=".4"/>
+            <circle cx="166" cy="58" r="2" fill="#67e8f9" opacity=".5"/>
+          </svg>`
+        },
+        {
+          kicker: "03 · WARM & SHAKE",
+          title: "Hold 30°C",
+          copy: "Warm the pouches, then shake for one minute at hour six.",
+          accent: "#fbbf24",
+          art: `<svg viewBox="0 0 220 132" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="22" y="76" width="176" height="40" rx="12" fill="#f59e0b" fill-opacity=".08" stroke="#fbbf24" stroke-opacity=".5"/>
+            <path d="M38 96h144" stroke="#fbbf24" stroke-opacity=".18"/>
+            <g transform="translate(70 50) rotate(-5)">
+              <rect x="0" y="0" width="88" height="44" rx="11" fill="#fb7185" fill-opacity=".1" stroke="#fb7185" stroke-width="1.3"/>
+              <path d="M13 9h62" stroke="#fda4af" stroke-width="1.1" opacity=".7"/>
+              <circle class="bio-pulse" cx="29" cy="25" r="2.2" fill="#fb923c"/>
+              <circle class="bio-pulse bio-pulse--slow" cx="42" cy="31" r="1.6" fill="#fb923c"/>
+              <circle class="bio-pulse" cx="53" cy="23" r="1.9" fill="#fb923c"/>
+              <circle class="bio-pulse bio-pulse--slow" cx="64" cy="33" r="1.4" fill="#fb923c"/>
+              <circle cx="35" cy="36" r="1.3" fill="#86efac"/>
+              <circle cx="74" cy="24" r="1.2" fill="#86efac"/>
+            </g>
+            <g transform="translate(164 26)">
+              <circle cx="0" cy="0" r="21" fill="#0f172a" stroke="#fbbf24" stroke-opacity=".65" stroke-width="1.3"/>
+              <path d="M0-11V7" stroke="#fbbf24" stroke-width="2.2" stroke-linecap="round"/>
+              <circle cx="0" cy="11" r="4.4" fill="#fbbf24"/>
+              <path d="M-13 12a13 13 0 0 1 26 0" stroke="#fbbf24" stroke-opacity=".3" stroke-width="1.4"/>
+              <path d="M-15-8l-3-3M15-8l3-3" stroke="#fbbf24" stroke-opacity=".45" stroke-width="1.2" stroke-linecap="round"/>
+            </g>
+            <g transform="translate(56 32)" stroke="#fbbf24" stroke-linecap="round">
+              <path d="M0 0c-8 6-11 16-7 25" stroke-width="1.2" opacity=".55"/>
+              <path d="M0 0c8 6 11 16 7 25" stroke-width="1.2" opacity=".55"/>
+              <path d="M-6-6c-12 9-16 24-10 37" stroke-width="1" opacity=".25"/>
+              <path d="M-6-6c12 9 16 24 10 37" stroke-width="1" opacity=".25"/>
+            </g>
+            <g transform="translate(98 16)">
+              <circle cx="0" cy="0" r="10" stroke="#fde68a" stroke-width="1.2" opacity=".8"/>
+              <path d="M0-5V0l4 2.5" stroke="#fde68a" stroke-width="1.3" stroke-linecap="round"/>
+            </g>
+            <path d="M26 118c16-5 32-7 48-6" stroke="#fbbf24" stroke-width="1" stroke-dasharray="2 4" opacity=".35"/>
+          </svg>`
+        },
+        {
+          kicker: "04 · FREEZE & TEST",
+          title: "Save it for Earth",
+          copy: "Freeze at −80°C, then measure Vitamin A back in the lab.",
+          accent: "#fb7185",
+          art: `<svg viewBox="0 0 220 132" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <g transform="translate(20 26)">
+              <rect x="0" y="0" width="86" height="82" rx="11" fill="#0ea5e9" fill-opacity=".07" stroke="#67e8f9" stroke-opacity=".55" stroke-width="1.3"/>
+              <rect x="10" y="12" width="66" height="36" rx="6" fill="#082f49" stroke="#38bdf8" stroke-opacity=".45"/>
+              <path d="M20 20h46" stroke="#67e8f9" stroke-opacity=".3"/>
+              <rect x="30" y="23" width="26" height="18" rx="4" fill="#fb7185" fill-opacity=".16" stroke="#fb7185" stroke-width="1.1"/>
+              <circle cx="37" cy="31" r="1.4" fill="#fda4af"/>
+              <circle cx="44" cy="35" r="1.1" fill="#fda4af"/>
+              <g transform="translate(43 66)">
+                <g class="bio-snow" stroke="#a5f3fc" stroke-width="1.4" stroke-linecap="round">
+                  <path d="M0-10V10M-8.6-5L8.6 5M-8.6 5L8.6-5"/>
+                  <path d="M0-10l-3 3M0-10l3 3M0 10l-3-3M0 10l3-3" opacity=".65"/>
+                </g>
+              </g>
+              <path d="M14 77h58" stroke="#67e8f9" stroke-opacity=".25"/>
+            </g>
+            <path d="M112 70h22" stroke="#67e8f9" stroke-width="1.1" stroke-dasharray="3 4" opacity=".7"/>
+            <path d="M134 66l6 4-6 4" stroke="#67e8f9" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+            <g transform="translate(154 26)">
+              <path d="M8 2h26v58c0 10-26 10-26 0V2Z" fill="#e2e8f0" fill-opacity=".04" stroke="#94a3b8" stroke-width="1.2"/>
+              <path d="M9 43h24v17c0 9-24 9-24 0V43Z" fill="#fb923c" fill-opacity=".55"/>
+              <path d="M21 2v11" stroke="#94a3b8" stroke-width="1.1" opacity=".55"/>
+              <path d="M8 2h26" stroke="#cbd5e1" stroke-width="1.4"/>
+              <circle cx="16" cy="51" r="1.4" fill="#fdba74"/>
+              <circle cx="25" cy="56" r="1.1" fill="#fdba74"/>
+              <circle cx="20" cy="61" r=".9" fill="#fdba74"/>
+              <path d="M0 82c9-6 20-9 31-9" stroke="#38bdf8" stroke-opacity=".3" stroke-width="1"/>
+              <path d="M-3 90h40" stroke="#475569" stroke-opacity=".45"/>
+            </g>
+            <g stroke="#67e8f9" stroke-width="1.1" stroke-linecap="round" opacity=".55">
+              <path d="M196 30v10M191 35h10M192.5 31.5l7 7M199.5 31.5l-7 7"/>
+            </g>
+          </svg>`
+        }
+      ];
+      return `
+        <div class="bio-story bio-story--${this._escapeHtml(variant)}" role="list" aria-label="BioNutrients-2 steps: launch, hydrate, warm and shake, freeze and test">
+          ${panels.map((panel) => `
+            <article class="bio-story__card" role="listitem" style="--step-accent:${panel.accent};">
+              <div class="bio-story__visual" aria-hidden="true">${panel.art}</div>
+              <div class="bio-story__body">
+                <span class="bio-story__kicker">${this._escapeHtml(panel.kicker)}</span>
+                <h4>${this._escapeHtml(panel.title)}</h4>
+                <p>${this._escapeHtml(panel.copy)}</p>
+              </div>
+            </article>
+          `).join("")}
+        </div>
+      `;
+    }
+
+    _missionSignalIcon(kind) {
+      const attrs = `viewBox="0 0 12 12" fill="none" aria-hidden="true"`;
+      if (kind === "target") {
+        return `<svg ${attrs}><circle cx="6" cy="6" r="4" stroke="currentColor" stroke-width="1.1"/><circle cx="6" cy="6" r="1.3" fill="currentColor"/><path d="M6 0v1.8M6 10.2V12M0 6h1.8M10.2 6H12" stroke="currentColor" stroke-width="1.1"/></svg>`;
+      }
+      if (kind === "orbit") {
+        return `<svg ${attrs}><ellipse cx="6" cy="6" rx="5" ry="2.4" transform="rotate(-24 6 6)" stroke="currentColor" stroke-width="1.1"/><circle cx="6" cy="6" r="1.5" fill="currentColor"/><circle cx="10" cy="3.4" r="1" fill="currentColor"/></svg>`;
+      }
+      if (kind === "clock") {
+        return `<svg ${attrs}><circle cx="6" cy="6" r="4.4" stroke="currentColor" stroke-width="1.1"/><path d="M6 3.2V6l1.9 1.2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>`;
+      }
+      if (kind === "thermo") {
+        return `<svg ${attrs}><path d="M5 6.7V2a1 1 0 0 1 2 0v4.7a2.5 2.5 0 1 1-2 0Z" stroke="currentColor" stroke-width="1.1"/><path d="M6 4v4.4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>`;
+      }
+      if (kind === "wallet") {
+        return `<svg ${attrs}><rect x="1.5" y="3" width="9" height="6.4" rx="1.2" stroke="currentColor" stroke-width="1.1"/><path d="M1.5 4.6h9" stroke="currentColor" stroke-width="1.1"/><circle cx="8.7" cy="7" r=".9" fill="currentColor"/></svg>`;
+      }
+      if (kind === "spark") {
+        return `<svg ${attrs}><path d="M6 1l1.2 3.8L11 6 7.2 7.2 6 11 4.8 7.2 1 6l3.8-1.2L6 1Z" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>`;
+      }
+      return `<svg ${attrs}><path d="M2 8.5a4 4 0 0 1 0-5M10 3.5a4 4 0 0 1 0 5M4 7a2 2 0 0 1 0-2M8 5a2 2 0 0 1 0 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><circle cx="6" cy="6" r="1" fill="currentColor"/></svg>`;
+    }
+
+    _missionStatIcon(kind) {
+      const attrs = `viewBox="0 0 12 12" fill="none" aria-hidden="true"`;
+      if (kind === "budget") {
+        return `<svg ${attrs}><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.1"/><path d="M7.4 4.4H5.3a1.2 1.2 0 0 0 0 2.4h1.4a1.2 1.2 0 0 1 0 2.4H4.4M6 3v6" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>`;
+      }
+      return `<svg ${attrs}><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.1"/><path d="M6 3.2V6l1.9 1.2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>`;
     }
 
     getDifficultyCatalog() {
@@ -1421,6 +1858,21 @@
     // ========================================================================
     // INTEGRATED SYSTEMS ENGINEERING PHYSICS & RESOURCE SOLVER
     // ========================================================================
+    _syncMissionDiorama(telemetry) {
+      if (!telemetry || !window.shipInterior ||
+        typeof window.shipInterior.setMissionDioramaScenario !== "function") return;
+      const bio = telemetry.bioTelemetry;
+      window.shipInterior.setMissionDioramaScenario(telemetry.scenario.id, {
+        bagId: bio && bio.bag ? bio.bag.id : null,
+        thermalId: bio && bio.thermal ? bio.thermal.id : null,
+        yieldOk: !!(bio && bio.yieldOk),
+        incubateTempC: bio && bio.thermal ? bio.thermal.incubateTempC : null,
+        storageTempC: bio && bio.thermal ? bio.thermal.storageTempC : null,
+        cubesatFormId: telemetry.cubesatForm ? telemetry.cubesatForm.id : null,
+        wavelengthId: telemetry.wavelength ? telemetry.wavelength.id : null
+      });
+    }
+
     evaluateMissionDesign() {
       const md = this.missionDesign;
       const scenario = MISSION_SCENARIOS[md.scenarioId] || MISSION_SCENARIOS.lunar_south_pole;
@@ -1854,6 +2306,7 @@
         baseTelemetry.cmlLabel = cmlEval.reachedTitle;
       }
 
+      this._syncMissionDiorama(baseTelemetry);
       return baseTelemetry;
     }
 
@@ -3701,7 +4154,9 @@
       const btnUse = document.getElementById("btn-proximity-use");
       if (btnUse) {
         btnUse.addEventListener("click", () => {
-          if (this.nearbyTask) {
+          if (this.nearbyMissionDiorama) {
+            this.inspectMissionDiorama();
+          } else if (this.nearbyTask) {
             this.openTaskModal(this.nearbyTask);
           } else if (this.nearbySideGame && window.issSideGames) {
             window.issSideGames.open(this.nearbySideGame === "csa-lab" ? "canadarm" : this.nearbySideGame);
@@ -3736,6 +4191,8 @@
           if (window.issSideGames && window.issSideGames.isOpen) return;
           if (this.activeTask) {
             this.closeTaskModal();
+          } else if (this.nearbyMissionDiorama) {
+            this.inspectMissionDiorama();
           } else if (this.nearbyTask) {
             this.openTaskModal(this.nearbyTask);
           } else if (this.nearbySideGame && window.issSideGames) {
@@ -3780,20 +4237,38 @@
         }
       }
 
+      const diorama = window.shipInterior && window.shipInterior.missionDiorama;
+      let payloadCloser = false;
+      if (diorama && diorama.root && window.shipInterior.isInteriorActive) {
+        const payloadDistance = Math.hypot(
+          playerPos.x - diorama.root.position.x,
+          playerPos.z - diorama.root.position.z
+        );
+        payloadCloser = payloadDistance < 1.65 && (!closest || payloadDistance < minDistance);
+        if (payloadCloser) closest = null;
+      }
+
       const sideGame = window.issSideGames && typeof window.issSideGames.getNearby === "function"
         ? window.issSideGames.getNearby(playerPos)
         : null;
       const sideGameCloser = !!(sideGame && (!closest || sideGame.distance < minDistance));
-      if (sideGameCloser) closest = null;
+      if (sideGameCloser) {
+        closest = null;
+        payloadCloser = false;
+      }
       this.nearbyTask = closest;
       this.nearbySideGame = sideGameCloser ? sideGame.id : null;
+      this.nearbyMissionDiorama = payloadCloser;
 
       const btnUse = document.getElementById("btn-proximity-use");
       const labelUse = document.getElementById("proximity-task-label");
       const crosshair = document.getElementById("hud-crosshair");
 
       if (btnUse && labelUse) {
-        if (sideGameCloser) {
+        if (this.nearbyMissionDiorama) {
+          btnUse.style.display = "flex";
+          labelUse.textContent = "[E] INSPECT MISSION PAYLOAD";
+        } else if (sideGameCloser) {
           btnUse.style.display = "flex";
           labelUse.textContent = "[E] OPEN CSA LAB · CANADARM2 / TOMATOSPHERE";
         } else if (closest) {
@@ -3809,11 +4284,33 @@
       }
 
       if (crosshair) {
-        if (closest || sideGameCloser) {
+        if (closest || sideGameCloser || this.nearbyMissionDiorama) {
           crosshair.classList.add("target-locked");
         } else {
           crosshair.classList.remove("target-locked");
         }
+      }
+    }
+
+    inspectMissionDiorama() {
+      const t = this.evaluateMissionDesign();
+      this.telemetry = t;
+      const presentation = this.getMissionPresentation(t.scenario.id);
+      let detail = "";
+      if (t.scenario.isBioPayload && t.bioTelemetry) {
+        const bio = t.bioTelemetry;
+        detail = `${bio.yieldOk ? "VITAMIN A GOAL MET" : "YIELD NEEDS WORK"} · ${bio.thermal.incubateTempC}°C / ${bio.thermal.storageTempC}°C · ${bio.protocol.replicates} BAGS`;
+      } else if (t.scenario.isCubesat) {
+        detail = `${String(t.cubesatForm.name || "CUBESAT").toUpperCase()} · ${t.dryMassKg} KG · ${t.overallScore}/100`;
+      } else if (t.scenario.requiresWavelength) {
+        detail = `${t.wavelength.shortLabel} · ${t.telescopeOk ? "COLD OPTICS READY" : "CHECK COOLING"} · ${t.scienceScore}/100 SCI`;
+      } else {
+        detail = `${t.orbit.name} · ${t.overallScore}/100 · ${t.lv.name}`;
+      }
+      this.showToast(`${presentation.destination} · ${presentation.title} — ${detail}`);
+      if (window.spaceAudio) window.spaceAudio.playClick();
+      if (window.shipInterior && typeof window.shipInterior.pingMissionDiorama === "function") {
+        window.shipInterior.pingMissionDiorama();
       }
     }
 
@@ -4019,71 +4516,29 @@
         const modalTitle = document.getElementById("task-modal-title");
         if (modalTitle) modalTitle.textContent = "MAIN HUB · MISSION GOAL";
 
-        const SCENARIO_QUICK = {
-          earth_climate: {
-            question: "How fast are ice sheets, oceans, and the atmosphere changing?",
-            keyNeed: "Cameras + radar",
-            science: "Science to pack: Optical · Radar · Altimetry · Spectrometer"
-          },
-          lunar_south_pole: {
-            question: "Where is hidden water ice at the Moon's South Pole?",
-            keyNeed: "Ice-sensing tools",
-            science: "Science to pack: Neutron · Altimetry · Spectrometer · Optical"
-          },
-          asteroid_rendezvous: {
-            question: "What is this asteroid made of, and where is it drifting?",
-            keyNeed: "Mineral + dust mappers",
-            science: "Science to pack: Spectrometer · Altimetry · Magnetometer · Neutron"
-          },
-          space_telescope: {
-            question: "What can distant stars and planets tell us about the universe?",
-            keyNeed: "Telescope + cooling",
-            science: "Science to pack: Optical · Spectrometer"
-          },
-          cubesat_101: {
-            question: "Can a student-built satellite do useful science?",
-            keyNeed: "Tiny science payload",
-            science: "Science to pack: Optical · Magnetometer"
-          },
-          bionutrients_2: {
-            question: "Can astronauts grow Vitamin A on the Space Station?",
-            keyNeed: "Yeast kit + freezer",
-            science: "Mission special: a yeast kit, bag, recipe, and freezer plan"
-          },
-          sandbox: {
-            question: "What happens when you mix any parts you like?",
-            keyNeed: "No rules",
-            science: "Open playground: no fixed science target"
-          }
-        };
-
-        const scenarioCards = Object.values(MISSION_SCENARIOS)
-          .map((sc) => {
-            const active = md.scenarioId === sc.id;
-            const quick = SCENARIO_QUICK[sc.id] || { question: sc.summary, keyNeed: "", science: "" };
-            const budget = Math.round(sc.baseBudgetM * t.difficulty.budgetMultiplier);
-            return `
-              <button type="button" class="md-scenario-card${active ? " is-active" : ""}" data-id="${sc.id}" aria-pressed="${active}">
-                <span class="md-scenario-top">
-                  <span class="md-scenario-badge">${sc.badge}</span>
-                  ${active ? `<span class="md-selected-tag">SELECTED</span>` : ""}
-                </span>
-                <span class="md-scenario-name">${sc.name}</span>
-                <span class="md-scenario-question">${quick.question}</span>
-                <span class="md-facts">
-                  <span class="md-fact">$${budget}M budget</span>
-                  <span class="md-fact">${sc.targetLifetimeMonths} months</span>
-                  <span class="md-fact">${quick.keyNeed}</span>
-                </span>
-                <span class="md-scenario-more">
-                  <span class="md-more-label">WHY THIS MISSION</span>
-                  <span>${sc.summary}</span>
-                  ${quick.science ? `<span class="md-more-meta">${quick.science}</span>` : ""}
-                </span>
-              </button>
-            `;
-          })
+        const allScenarios = Object.values(MISSION_SCENARIOS);
+        const starterIds = this.getStarterMissionIds();
+        let visibleIds = this.missionPickerExpanded
+          ? allScenarios.map((sc) => sc.id)
+          : starterIds.filter((id) => !!MISSION_SCENARIOS[id]);
+        if (!this.missionPickerExpanded && md.scenarioId && !visibleIds.includes(md.scenarioId) && MISSION_SCENARIOS[md.scenarioId]) {
+          visibleIds = [md.scenarioId, ...visibleIds.filter((id) => id !== md.scenarioId)].slice(0, Math.max(starterIds.length, 1));
+        }
+        const scenarioCards = visibleIds
+          .map((id) => MISSION_SCENARIOS[id])
+          .filter(Boolean)
+          .map((sc) => this.renderMissionPickCard(sc, {
+            active: md.scenarioId === sc.id,
+            budgetM: Math.round(sc.baseBudgetM * t.difficulty.budgetMultiplier)
+          }))
           .join("");
+        const moreMissions = allScenarios.length > starterIds.length
+          ? `<button type="button" class="mission-pick-more" id="btn-md-more-missions" aria-expanded="${this.missionPickerExpanded}" aria-controls="md-mission-pick-grid">
+              ${this.missionPickerExpanded
+                ? `SHOW ${starterIds.length} STARTERS`
+                : `<b>ALL ${allScenarios.length}</b> MISSIONS`}
+            </button>`
+          : "";
 
         const DIFF_QUICK = {
           cadet: { label: "Beginner", sub: "Extra room and friendly hints", facts: ["+25% budget", "Friendly hints"] },
@@ -4182,16 +4637,10 @@
                 <span class="md-step-tag">MISSION SPECIAL</span>
                 <div class="md-step-titles">
                   <h3 id="md-hub-special-title">Grow Vitamin A on the Space Station</h3>
-                  <p>Three moves: launch dry yeast, grow it with clean water and warmth, then freeze it for lab tests.</p>
+                  <p>Four moves: launch dry yeast, wake it with clean water, warm and shake it, then freeze it for Earth lab tests.</p>
                 </div>
               </div>
-              <div class="md-bio-route">
-                <span class="md-bio-step"><b>1 · LAUNCH</b><small>Sealed dry yeast pouches</small></span>
-                <span class="md-bio-arrow">→</span>
-                <span class="md-bio-step"><b>2 · GROW</b><small>Filtered water · 30°C · 6h shake</small></span>
-                <span class="md-bio-arrow">→</span>
-                <span class="md-bio-step"><b>3 · TEST</b><small>Freeze at −80°C · measure Vitamin A</small></span>
-              </div>
+              ${this.renderBioMissionStoryboard("hub")}
               <p class="md-step-note">Goal: 12+ bags · at least 3 mg/L Vitamin A · each bag under 250 g and 300 mL.</p>
               <div class="md-special-grid">
                 ${Object.values(BIO_ORGANISM_OPTIONS).map((org) => {
@@ -4255,12 +4704,12 @@
             <header class="md-hub-hero">
               <div class="md-hub-hero-copy">
                 <span class="md-hub-kicker">MISSION SETUP · DESK 1 OF 7</span>
-                <h2>Pick the question this mission will answer.</h2>
-                <p>One goal sets your budget, trip length, and the science your team must pack. Difficulty changes how much spare room you get. You can change this later.</p>
+                <h2>Pick a mission.</h2>
+                <p>3 starters. Open the full list anytime.</p>
               </div>
               <div class="md-hub-hero-side">
-                <button type="button" id="btn-arch-apply-rec" class="md-safe-btn">Use a safe starter setup</button>
-                <span class="md-hero-hint">Fills all 7 desks with a working plan.</span>
+                <button type="button" id="btn-arch-apply-rec" class="md-safe-btn">AUTO-FILL A SAFE PLAN</button>
+                <span class="md-hero-hint">FILLS ALL 7 DESKS</span>
               </div>
             </header>
 
@@ -4274,11 +4723,11 @@
               <div class="md-step-head">
                 <span class="md-step-tag">MISSION GOAL</span>
                 <div class="md-step-titles">
-                  <h3 id="md-hub-goal-title">What should this mission discover?</h3>
-                  <p>Choose one question. The right science tools come later.</p>
+                  <h3 id="md-hub-goal-title">Pick a mission</h3>
+                  <p>Destination, job, and risk at a glance.</p>
                 </div>
               </div>
-              <div class="md-scenario-grid">${scenarioCards}</div>
+              <div class="md-scenario-grid mission-pick-grid is-hub" id="md-mission-pick-grid">${scenarioCards}${moreMissions}</div>
             </section>
 
             ${specializationHtml}
@@ -4287,8 +4736,8 @@
               <div class="md-step-head">
                 <span class="md-step-tag">DIFFICULTY</span>
                 <div class="md-step-titles">
-                  <h3 id="md-hub-diff-title">How much room do you want for mistakes?</h3>
-                  <p>Difficulty changes budget and safety margins — not the mission goal.</p>
+                  <h3 id="md-hub-diff-title">How much help?</h3>
+                  <p>Changes budget and safety margins.</p>
                 </div>
               </div>
               <div class="md-diff-grid">${diffBtns}</div>
@@ -4328,6 +4777,15 @@
             render();
           });
         });
+
+        const moreMissionsBtn = container.querySelector("#btn-md-more-missions");
+        if (moreMissionsBtn) {
+          moreMissionsBtn.addEventListener("click", () => {
+            this.missionPickerExpanded = !this.missionPickerExpanded;
+            if (window.spaceAudio) window.spaceAudio.playClick();
+            render();
+          });
+        }
 
         container.querySelectorAll(".md-bioorg-card").forEach((card) => {
           card.addEventListener("click", () => {
@@ -6232,6 +6690,7 @@
       this._renderResourceMeters();
       this.activeTask = null;
       this.nearbyTask = null;
+      this.nearbyMissionDiorama = false;
       this.lastSyncedTaskCount = 0;
       if (window.shipInterior && window.shipInterior.isMoonLandingActive) {
         window.shipInterior.toggleMoonLandingScene(false);

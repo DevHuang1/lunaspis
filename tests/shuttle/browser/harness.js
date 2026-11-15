@@ -1,6 +1,6 @@
 // Test-only Playwright harness for the Shuttle browser playtests.
 // Playwright is NOT a project dependency; use a locally available install (e.g. NODE_PATH=$(npm root -g)).
-// Start the server with the documented local overrides first (see docs/progress.md), then:
+// Start the server with the documented local overrides first, then:
 //   SHUTTLE_URL=http://localhost:3137 node tests/shuttle/browser/run_full.js
 // If the CDN copy of three.js r128 is unreachable from the test machine, set THREE_JS_PATH to a local
 // three.min.js r128 file; the page request is then fulfilled from that file (test-only routing).

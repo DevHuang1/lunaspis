@@ -4673,7 +4673,7 @@
             y: 0.3,
             radius: 4.6,
             label: "E · CONTROL ROOM SUPPORT",
-            shortAction: "CONTROL ROOM · PATH & RADIO [E]",
+            shortAction: "CONTROL ROOM · PATH & COMMS [E]",
             action: "orbit",
             color: 0x67e8f9
           },
@@ -5497,8 +5497,13 @@
 
       if (Array.isArray(this.facilityTerminals)) {
         const showFacility = !!(this.isGroundMode && (this.siteTourActive || isGround));
+        const crewPos = window.localCrew && window.localCrew.group ? window.localCrew.group.position : null;
         this.facilityTerminals.forEach((term) => {
-          animate(term.marker, showFacility);
+          // Show a waypoint while approaching, then clear it once the operator is
+          // close enough to use the desk. Several LCC terminals sit within a few
+          // metres of each other, so keeping all labels up at once fills the room.
+          const dist = crewPos ? Math.hypot(crewPos.x - term.x, crewPos.z - term.z) : Infinity;
+          animate(term.marker, showFacility && dist > 6.0 && dist < 26.0);
         });
       }
     }
@@ -5597,6 +5602,9 @@
       const spawn = isGround
         ? this._groundLccSpawnForIndex(this._localGroundIndex())
         : this._groundSpawnForIndex(this._localPlayerIndex());
+      if (this.openCar && typeof this.openCar.reparkForLocalRole === "function" && !this.openCar.isDriving) {
+        this.openCar.reparkForLocalRole();
+      }
       if (window.localCrew && window.localCrew.group) {
         window.localCrew.group.visible = isGround ? true : !this.crewBoarded;
         window.localCrew.group.position.set(spawn.x, spawn.y, spawn.z);
@@ -5669,6 +5677,73 @@
       }
       // 5. Default ground level everywhere else
       return 0.2;
+    }
+
+    /**
+     * Keeps the Earth Control third-person orbit camera inside the LCC firing
+     * room. Ground roles work at desks and partitions, so a camera that clips
+     * through a wall or the drop ceiling instantly breaks the room illusion.
+     * Returns a point pulled toward the operator whenever the requested camera
+     * position would leave the interior or enter a structural collider.
+     */
+    cameraSafePosition(head, desired) {
+      const THREE = window.THREE;
+      if (!THREE || !head || !desired) return desired;
+      if (!this.isGroundMode || !this._isLocalGroundCrew()) return desired;
+      const inLcc = (x, z) => x > -214.1 && x < -145.9 && z > 157.6 && z < 202.4;
+      if (!inLcc(head.x, head.z) || head.y > 10.0) return desired;
+
+      const floorY = 0.70;
+      const ceilY = 21.2;
+      const target = desired.clone();
+      target.x = Math.max(-214.1, Math.min(-145.9, target.x));
+      target.z = Math.max(157.6, Math.min(202.4, target.z));
+      target.y = Math.max(floorY, Math.min(ceilY, target.y));
+
+      if (!this._lccCameraColliders) {
+        const boxes = (this.site && this.site.boxColliders) || [];
+        this._lccCameraColliders = boxes.filter((b) => b && /^LCC|^MCC/.test(String(b.name || "")));
+      }
+      const colliders = this._lccCameraColliders;
+      if (!colliders.length) return target;
+
+      const pad = 0.22;
+      const blockedAt = (x, y, z) => {
+        for (const b of colliders) {
+          if (b.disabled) continue;
+          const structural = /wall|partition|divider/i.test(String(b.name || ""));
+          if (!structural && y > 2.45) continue;
+          if (b.rotated) {
+            const dx = x - b.cx;
+            const dz = z - b.cz;
+            const lx = dx * b.cos - dz * b.sin;
+            const lz = dx * b.sin + dz * b.cos;
+            if (Math.abs(lx) < b.halfW + pad && Math.abs(lz) < b.halfD + pad) return true;
+          } else if (x > b.minX - pad && x < b.maxX + pad && z > b.minZ - pad && z < b.maxZ + pad) {
+            return true;
+          }
+        }
+        return false;
+      };
+
+      // March outward from the operator. The first obstruction caps the boom.
+      const steps = 14;
+      let safeT = 1.0;
+      for (let i = 2; i <= steps; i++) {
+        const t = i / steps;
+        const x = head.x + (target.x - head.x) * t;
+        const y = head.y + (target.y - head.y) * t;
+        const z = head.z + (target.z - head.z) * t;
+        if (blockedAt(x, y, z)) {
+          safeT = Math.max(0.16, (i - 1) / steps);
+          break;
+        }
+      }
+      return new THREE.Vector3(
+        head.x + (target.x - head.x) * safeT,
+        head.y + (target.y - head.y) * safeT,
+        head.z + (target.z - head.z) * safeT
+      );
     }
 
     _resolveSiteTourCollision(currentPos, proposedPos) {
@@ -6177,6 +6252,11 @@
       const nm = window.netManager;
       const players = nm && nm.roomState && Array.isArray(nm.roomState.players) ? nm.roomState.players : [];
       const roles = window.InterfellasRoles;
+      const myRole = roles && nm && nm.localPlayer
+        ? roles.normalizeRole(nm.localPlayer.role, "flight_director")
+        : (nm && nm.localPlayer ? nm.localPlayer.role : "flight_director");
+      if (myRole === "ground_capcom") return 1;
+      if (myRole === "flight_director") return 0;
       const groundPlayers = players.filter((p) => p && (p.team === "ground" || (roles && roles.isGroundRole(p.role))));
       if (!groundPlayers.length || !nm || !nm.socketId) return 0;
       const idx = groundPlayers.findIndex((p) => p.id === nm.socketId);
@@ -6184,9 +6264,12 @@
     }
 
     _groundLccSpawnForIndex(index = 0) {
+      // Line each Earth Control role up behind its own firing-room station and
+      // face north toward the launch wall, main screen, and console monitors.
+      // Yaw 0 faces south at the entrance/lobby wall.
       const spots = [
-        { x: -204.5, y: 0.25, z: 185.5, yaw: Math.PI },
-        { x: -201.5, y: 0.25, z: 185.5, yaw: Math.PI }
+        { x: -208.3, y: 0.24, z: 185.5, yaw: Math.PI },
+        { x: -197.7, y: 0.24, z: 185.5, yaw: Math.PI }
       ];
       return spots[((index % spots.length) + spots.length) % spots.length];
     }
@@ -6365,11 +6448,24 @@
       const isGround = this._isLocalGroundCrew();
       const gs = crewState.groundSupport || {};
       const pollActive = !!(crewState.launchPollAt && !gs.goNoGoLaunch);
+      const roles = window.InterfellasRoles;
+      const nm = window.netManager;
+      const roleRaw = nm && nm.localPlayer ? nm.localPlayer.role : "commander";
+      const roleId = roles && typeof roles.normalizeRole === "function" ? roles.normalizeRole(roleRaw, "commander") : String(roleRaw || "commander");
+      const roleMeta = roles && typeof roles.getRoleMeta === "function"
+        ? roles.getRoleMeta(roleId)
+        : { short: "CREW", label: "Crew", color: "#93c5fd", padDuty: "Earth Control", dockDuty: "Earth Control", stationDuty: "Earth Control" };
+      const roleDuty = this.missionPhase === "docking"
+        ? (roleMeta.dockDuty || roleMeta.padDuty || "Earth Control")
+        : (this.missionPhase === "station"
+          ? (roleMeta.stationDuty || roleMeta.padDuty || "Earth Control")
+          : (roleMeta.padDuty || "Earth Control"));
       const tourSpawns = (window.SpaceCenterModules && window.SpaceCenterModules.SITE_TOUR_SPAWNS) || [];
       const step1Done = this.dockLocked;
       const step2Done = this.crewBoarded;
 
       const camPos = (window.localCrew && window.localCrew.group) ? window.localCrew.group.position : (this.camera ? this.camera.position : null);
+      const insideLcc = !!camPos && camPos.x > -214.4 && camPos.x < -145.6 && camPos.z > 157.4 && camPos.z < 202.6 && camPos.y < 10.0;
       const elevX = -34 + (this._elevatorConfig ? this._elevatorConfig.x : -8.2);
       const elevZ = (this._elevatorConfig ? this._elevatorConfig.z : -4.0);
       const nearElevator = camPos ? Math.hypot(camPos.x - elevX, camPos.z - elevZ) < 14.0 : false;
@@ -6428,7 +6524,10 @@
             statusText = "LAUNCH CHECK READY · GIVE FINAL OK IN CONTROL CONSOLE [C]";
             statusColor = "#fbbf24";
           } else {
-            statusText = `EARTH CONTROL ROOM · CREW ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · OPS CONSOLE [C]`;
+            const crewLabel = crewState.crewTotal > 0
+              ? `CREW ABOARD ${crewState.aboardCount}/${crewState.crewTotal}`
+              : "NO FLIGHT CREW IN ROOM";
+            statusText = `EARTH CONTROL · ${roleMeta.short} · ${crewLabel} · OPS CONSOLE [C]`;
             statusColor = gs.goNoGoLaunch ? "#86efac" : "#93c5fd";
           }
         } else if (this.missionPhase === "launch") {
@@ -6440,7 +6539,7 @@
             : "APPROACHING STATION · APPROVE DOCKING [C]";
           statusColor = gs.dockingClearance ? "#86efac" : "#fbbf24";
         } else {
-          statusText = "IN SPACE · HELP STATION CREW & RADIO DATA · CONSOLE [C]";
+          statusText = "IN SPACE · HELP STATION CREW & DOWNLINK DATA · CONSOLE [C]";
           statusColor = "#86efac";
         }
       } else if (this.isLaunching) {
@@ -6510,6 +6609,13 @@
         roster: crewState.roster,
         flightRoster: crewState.flightRoster,
         groundRoster: crewState.groundRoster,
+        groundTotal: crewState.groundTotal || 0,
+        roleId,
+        roleLabel: roleMeta.label || roleMeta.title || "Crew",
+        roleShort: roleMeta.short || "CREW",
+        roleColor: roleMeta.color || "#93c5fd",
+        roleDuty,
+        insideLcc,
         armOwnerLabel,
         launchAuthLabel,
         autoLaunchRemaining: this.autoLaunchRemaining,
@@ -6626,7 +6732,7 @@
               </button>
             ` : guidance.isGround ? `
               <button type="button" id="btn-sc-lcc-console" class="sc-hud-btn ${this.lccConsoleOpen ? "sc-btn-launch" : "sc-btn-term"}">
-                ${this.lccConsoleOpen ? "CLOSE OPS [C]" : (guidance.pollActive ? "GIVE OK [C]" : "CONTROL ROOM [C]")}
+                ${this.lccConsoleOpen ? "CLOSE OPS [C]" : (guidance.pollActive ? "GIVE LIFTOFF OK [C]" : (guidance.insideLcc ? "OPS CONSOLE [C]" : "REMOTE OPS [C]"))}
               </button>
               <button type="button" id="btn-sc-elv-act" class="sc-hud-btn sc-btn-elv" style="display:${guidance.nearElevator ? "inline-flex" : "none"};">
                 ${guidance.isAtGround ? (touchUI ? "🗼 TO TOP DECK" : "🗼 TO TOP DECK [3/T]") : (guidance.isAtTop ? (touchUI ? "🛗 TO GROUND" : "🛗 TO GROUND [1]") : "🛗 ELEVATOR [G/E]")}
@@ -6645,6 +6751,10 @@
             <button type="button" id="btn-sc-car" class="sc-hud-btn sc-btn-car" title="${this.openCar && this.openCar.isDriving ? "Exit the NASA ground car" : "Get into the NASA ground car for your zone"}">
               ${touchUI ? (this.openCar && this.openCar.isDriving ? "EXIT CAR" : "CAR") : (this.openCar && this.openCar.isDriving ? "EXIT CAR" : "CAR")}
             </button>
+            ${guidance.isGround ? `
+              <button type="button" id="btn-sc-comms" class="sc-hud-btn sc-btn-comms" title="Open the shared Earth ↔ Flight crew comms channel">COMMS</button>
+              <button type="button" id="btn-sc-video" class="sc-hud-btn sc-btn-comms" title="Open the live flight-deck crew video link">VIDEO ${window.videoLink && window.videoLink.enabled ? "ON" : "OFF"}</button>
+            ` : ""}
             <button type="button" id="btn-sc-hud-toggle" class="sc-hud-btn sc-btn-collapse" title="${this.hudCollapsed ? (touring ? "Open fast travel destinations" : "Expand Launch Pad Dock") : (touring ? "Hide fast travel destinations" : "Minimize Launch Pad Dock")}">
               ${this.hudCollapsed ? (touring ? "TRAVEL" : "+") : (touring ? "CLOSE" : "-")}
             </button>
@@ -6653,16 +6763,34 @@
 
         <div class="sc-hud-body" style="display:${this.hudCollapsed ? "none" : "flex"};">
           ${touring ? tourGrid : `
+            ${guidance.isGround ? `
+              <div class="sc-ground-role-card" style="--sc-role-color:${guidance.roleColor};">
+                <div class="sc-ground-role-main">
+                  <span class="sc-ground-role-chip">${guidance.roleShort}</span>
+                  <div class="sc-ground-role-copy">
+                    <div class="sc-ground-role-name">${guidance.roleLabel}</div>
+                    <div class="sc-ground-role-duty">${guidance.roleDuty}</div>
+                  </div>
+                </div>
+                <div class="sc-ground-role-metrics">
+                  <span><b>${guidance.crewTotal ? `${guidance.aboardCount}/${guidance.crewTotal}` : "NONE"}</b> FLIGHT CREW</span>
+                  <span><b>${guidance.groundTotal}</b> EARTH CREW</span>
+                  <span class="sc-ground-role-loc">${guidance.insideLcc ? "LCC FIRING ROOM" : "KSC GROUND"}</span>
+                </div>
+              </div>
+            ` : ""}
             <div class="sc-hud-tools">
-              <button type="button" id="btn-sc-ground" class="sc-hud-btn sc-btn-elv" title="Ride Elevator to Pad Ground Level [1]">
-                ${touchUI ? "🛗 GROUND" : "🛗 GROUND [1]"}
-              </button>
-              <button type="button" id="btn-sc-gantry" class="sc-hud-btn sc-btn-gantry" title="Ride Elevator to Spacecraft Gantry [2]">
-                ${touchUI ? "🚀 GANTRY" : "🚀 GANTRY [2]"}
-              </button>
-              <button type="button" id="btn-sc-top-deck" class="sc-hud-btn sc-btn-top" title="Ride Elevator to Tower Top Observation Deck [3/T]">
-                ${touchUI ? "🗼 TOP DECK" : "🗼 TOP DECK [3/T]"}
-              </button>
+              ${guidance.insideLcc ? "" : `
+                <button type="button" id="btn-sc-ground" class="sc-hud-btn sc-btn-elv" title="Ride Elevator to Pad Ground Level [1]">
+                  ${touchUI ? "🛗 GROUND" : "🛗 GROUND [1]"}
+                </button>
+                <button type="button" id="btn-sc-gantry" class="sc-hud-btn sc-btn-gantry" title="Ride Elevator to Spacecraft Gantry [2]">
+                  ${touchUI ? "🚀 GANTRY" : "🚀 GANTRY [2]"}
+                </button>
+                <button type="button" id="btn-sc-top-deck" class="sc-hud-btn sc-btn-top" title="Ride Elevator to Tower Top Observation Deck [3/T]">
+                  ${touchUI ? "🗼 TOP DECK" : "🗼 TOP DECK [3/T]"}
+                </button>
+              `}
               <button type="button" id="btn-sc-mission-plan" class="sc-hud-btn sc-btn-plan">
                 ${touchUI ? "DESIGN" : "DESIGN [M]"}
               </button>
@@ -6728,6 +6856,25 @@
       const btnCrewCar = this.hudOverlay.querySelector("#btn-sc-car");
       if (btnCrewCar) {
         btnCrewCar.addEventListener("click", () => this.toggleCrewCar());
+      }
+
+      const btnScComms = this.hudOverlay.querySelector("#btn-sc-comms");
+      if (btnScComms) {
+        btnScComms.addEventListener("click", () => {
+          if (window.crewComms && typeof window.crewComms.openPanel === "function") {
+            window.crewComms.openPanel();
+          }
+        });
+      }
+
+      const btnScVideo = this.hudOverlay.querySelector("#btn-sc-video");
+      if (btnScVideo) {
+        btnScVideo.addEventListener("click", () => {
+          if (window.videoLink && typeof window.videoLink.startCamera === "function" && !window.videoLink.enabled) {
+            window.videoLink.startCamera();
+          }
+          this.openLccConsole(true);
+        });
       }
 
       const btnLccConsole = this.hudOverlay.querySelector("#btn-sc-lcc-console");
@@ -6945,7 +7092,7 @@
       if (btnLcc) {
         btnLcc.textContent = this.lccConsoleOpen
           ? "CLOSE OPS [C]"
-          : (guidance.pollActive ? "GIVE OK [C]" : "CONTROL ROOM [C]");
+          : (guidance.pollActive ? "GIVE LIFTOFF OK [C]" : (guidance.insideLcc ? "OPS CONSOLE [C]" : "REMOTE OPS [C]"));
       }
 
       const stepsRow = this.hudOverlay.querySelector("#sc-guidance-steps");
@@ -6999,6 +7146,8 @@
         this.lccConsoleOverlay.style.display = next ? "flex" : "none";
         if (next) {
           this._renderLccConsole();
+        } else if (window.videoLink && typeof window.videoLink.detachCabinView === "function") {
+          window.videoLink.detachCabinView();
         }
       }
       this._renderGroundHUD();
@@ -7021,6 +7170,12 @@
       if (!this.lccConsoleOverlay || !this.lccConsoleOpen) return;
       const crewState = this._crewAboardState();
       const gs = crewState.groundSupport || {};
+      const roles = window.InterfellasRoles;
+      const roleRaw = window.netManager && window.netManager.localPlayer ? window.netManager.localPlayer.role : "flight_director";
+      const roleId = roles && typeof roles.normalizeRole === "function" ? roles.normalizeRole(roleRaw, "flight_director") : String(roleRaw || "flight_director");
+      const roleMeta = roles && typeof roles.getRoleMeta === "function"
+        ? roles.getRoleMeta(roleId)
+        : { label: "Earth Control", short: "BOSS", color: "#38bdf8" };
       const pollActive = !!(crewState.launchPollAt && !gs.goNoGoLaunch);
       const phaseUpper = String(this.missionPhase || "gantry").toUpperCase();
       const sum = (window.gameplay && typeof window.gameplay.getGroundTelemetrySummary === "function")
@@ -7043,12 +7198,14 @@
       this.lccConsoleOverlay.innerHTML = `
         <div class="ground-lcc-header">
           <div>
-            <div style="font-family:var(--font-mono);font-size:11px;letter-spacing:1.2px;color:#93c5fd;">EARTH CONTROL CENTER · ROOM 4</div>
+            <div style="font-family:var(--font-mono);font-size:11px;letter-spacing:1.2px;color:#93c5fd;">EARTH CONTROL CENTER · ROOM 4 · <span style="color:${roleMeta.color};font-weight:900;">${String(roleMeta.label || "Earth Control").toUpperCase()}</span></div>
             <div id="lcc-live-telemetry-readout" style="font-size:13.5px;font-weight:700;color:#f8fafc;margin-top:3px;">
               STAGE: ${phaseUpper} · TASKS ${sum.completed}/${sum.total} · READY ${sum.readiness}%
             </div>
           </div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <button type="button" class="ground-action-btn" id="btn-lcc-video" style="border-color:rgba(74,222,128,0.55);color:#bbf7d0;">${(window.videoLink && window.videoLink.enabled) ? "CAMERA ON" : "START CAMERA"}</button>
+            <button type="button" class="ground-action-btn" id="btn-lcc-comms" style="border-color:rgba(56,189,248,0.65);color:#7dd3fc;">CREW COMMS</button>
             <button type="button" class="ground-action-btn" id="btn-lcc-open-viz">3D PATH VIEW [U]</button>
             <button type="button" class="ground-action-btn" id="btn-lcc-open-planner">MISSION PLAN [M]</button>
             <button type="button" class="ground-action-btn" id="btn-lcc-cml-review" style="border-color:rgba(251,191,36,0.55);color:#fde68a;">FRESH-EYES REVIEW</button>
@@ -7064,7 +7221,11 @@
         ` : ""}
 
         <div class="ground-lcc-grid">
-          <div class="ground-lcc-card">
+          <div class="ground-lcc-card" style="grid-column:1/-1;padding:0;overflow:hidden;background:#02070d;">
+            <div id="lcc-cabin-video" style="width:100%;"></div>
+          </div>
+
+          <div class="ground-lcc-card${roleId === "flight_director" ? " is-role-focus" : ""}">
             <div style="font-family:var(--font-mono);font-size:11.5px;letter-spacing:1px;color:#94a3b8;">LAUNCH & DOCKING OK · FLIGHT DIRECTOR</div>
             <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.goNoGoLaunch, pollActive)}" ${this._groundActionLockAttrs("go_nogo_launch")} data-lcc-op="go_nogo_launch" style="text-align:left;padding:9px 12px;font-size:11.5px;">
               ${gs.goNoGoLaunch ? `LIFTOFF APPROVED (${gs.goNoGoBy || "GROUND"})` : (pollActive ? "CHECK ACTIVE: GIVE LIFTOFF OK" : "PRE-APPROVE LIFTOFF")}
@@ -7093,10 +7254,10 @@
             </div>
           </div>
 
-          <div class="ground-lcc-card">
+          <div class="ground-lcc-card${roleId === "ground_capcom" ? " is-role-focus" : ""}">
             <div style="font-family:var(--font-mono);font-size:11.5px;letter-spacing:1px;color:#94a3b8;">GROUND TEAM HELP & BOOSTS · GROUND SYSTEMS</div>
             <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.dsnLocked)}" ${this._groundActionLockAttrs("dsn_lock")} data-lcc-op="dsn_lock" style="text-align:left;padding:9px 12px;font-size:11.5px;">
-              ${gs.dsnLocked ? `EARTH RADIO LOCKED (${gs.dsnLockedBy || "GROUND"})` : "TURN ON BIG EARTH RADIO DISH (+SIGNAL)"}
+              ${gs.dsnLocked ? `EARTH DISH LOCKED (${gs.dsnLockedBy || "GROUND"})` : "LOCK BIG EARTH DISH TRACKING (+SIGNAL)"}
             </button>
             <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.powerRouted)}" ${this._groundActionLockAttrs("power_route")} data-lcc-op="power_route" style="text-align:left;padding:9px 12px;font-size:11.5px;">
               ${gs.powerRouted ? `SOLAR POWER BOOST ON (${gs.powerRoutedBy || "GROUND"})` : "SEND EXTRA SOLAR POWER TRACKING (+POWER)"}
@@ -7120,6 +7281,20 @@
 
       const btnClose = this.lccConsoleOverlay.querySelector("#btn-lcc-close");
       if (btnClose) btnClose.addEventListener("click", () => this.openLccConsole(false));
+      const btnLccComms = this.lccConsoleOverlay.querySelector("#btn-lcc-comms");
+      if (btnLccComms) btnLccComms.addEventListener("click", () => {
+        if (window.crewComms && typeof window.crewComms.openPanel === "function") {
+          window.crewComms.openPanel();
+        }
+      });
+      const btnLccVideo = this.lccConsoleOverlay.querySelector("#btn-lcc-video");
+      if (btnLccVideo) btnLccVideo.addEventListener("click", () => {
+        if (window.videoLink && typeof window.videoLink.toggleCamera === "function") window.videoLink.toggleCamera();
+      });
+      const cabinVideoSlot = this.lccConsoleOverlay.querySelector("#lcc-cabin-video");
+      if (cabinVideoSlot && window.videoLink && typeof window.videoLink.attachCabinView === "function") {
+        window.videoLink.attachCabinView(cabinVideoSlot);
+      }
       const btnViz = this.lccConsoleOverlay.querySelector("#btn-lcc-open-viz");
       if (btnViz) btnViz.addEventListener("click", () => {
         if (window.missionViz && typeof window.missionViz.toggle === "function") window.missionViz.toggle();
@@ -7163,14 +7338,23 @@
 
     syncLocalRoleChange() {
       const isGround = this._isLocalGroundCrew();
+      if (isGround) {
+        // Earth Control never boards the spacecraft. Clear any stale boarding
+        // flag left over from a role swap so the pad spectator camera can never
+        // hijack a ground operator's LCC view.
+        this.crewBoarded = false;
+      }
       if (!isGround && this.lccConsoleOpen) {
         this.lccConsoleOpen = false;
         if (this.lccConsoleOverlay) this.lccConsoleOverlay.style.display = "none";
       }
-      if (this.isGroundMode && this.missionPhase === "gantry" && !this.crewBoarded && window.localCrew && window.localCrew.group) {
+      if (this.isGroundMode && !this.crewBoarded && window.localCrew && window.localCrew.group && (isGround || this.missionPhase === "gantry")) {
         const spawn = isGround
           ? this._groundLccSpawnForIndex(this._localGroundIndex())
           : this._groundSpawnForIndex(this._localPlayerIndex());
+        if (this.openCar && typeof this.openCar.reparkForLocalRole === "function" && !this.openCar.isDriving) {
+          this.openCar.reparkForLocalRole();
+        }
         window.localCrew.group.visible = true;
         window.localCrew.group.position.set(spawn.x, spawn.y, spawn.z);
         window.localCrew.group.rotation.y = spawn.yaw;
@@ -7180,6 +7364,7 @@
       }
       this._renderGroundHUD();
       if (this.lccConsoleOpen) this._renderLccConsole();
+      if (typeof window.renderHudCrewRoster === "function") window.renderHudCrewRoster();
       this._syncSpaceGamesLock();
     }
 
@@ -7360,12 +7545,12 @@
       const nm = window.netManager;
       if (!nm || !nm.roomState || !Array.isArray(nm.roomState.players)) return;
       const roles = window.InterfellasRoles;
-      let groundIdx = 0;
       let flightIdx = 0;
       nm.roomState.players.forEach((player) => {
         if (!player) return;
         const isGround = player.team === "ground" || (roles && typeof roles.isGroundRole === "function" && roles.isGroundRole(player.role));
-        const roleSlot = isGround ? groundIdx++ : flightIdx++;
+        const groundRoleSlot = roles && typeof roles.normalizeRole === "function" && roles.normalizeRole(player.role, "commander") === "ground_capcom" ? 1 : 0;
+        const roleSlot = isGround ? groundRoleSlot : flightIdx++;
         if (player.id === nm.socketId) return;
         const rp = nm.remotePlayers && nm.remotePlayers[player.id];
         if (!rp) return;
@@ -7654,6 +7839,9 @@
       const spawn = isGround
         ? this._groundLccSpawnForIndex(this._localGroundIndex())
         : this._groundSpawnForIndex(this._localPlayerIndex());
+      if (this.openCar && typeof this.openCar.reparkForLocalRole === "function" && !this.openCar.isDriving) {
+        this.openCar.reparkForLocalRole();
+      }
       if (window.localCrew && window.localCrew.group) {
         window.localCrew.group.visible = isGround ? true : !this.crewBoarded;
         window.localCrew.group.position.set(spawn.x, spawn.y, spawn.z);
@@ -7699,6 +7887,9 @@
           window.gameplay.showToast("GROUND CAR UNAVAILABLE DURING BOARDING / LAUNCH");
         }
         return false;
+      }
+      if (typeof this.openCar.reparkForLocalRole === "function") {
+        this.openCar.reparkForLocalRole();
       }
       const entered = this.openCar.enter();
       if (!entered && window.gameplay && typeof window.gameplay.showToast === "function") {
