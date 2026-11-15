@@ -6187,7 +6187,7 @@
           <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
               <button type="button" id="btn-sim-lunar-3d" style="padding:9px 12px;border-radius:6px;border:1px solid rgba(var(--ui-brand-rgb),0.5);background:rgba(var(--ui-brand-rgb),0.12);color:var(--ui-brand-strong);font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
-                🌕 LUNAR 3D [K]
+                🌕 LUNAR 3D
               </button>
               <button type="button" id="btn-sim-export-json" style="padding:9px 12px;border-radius:6px;border:1px solid rgba(var(--ui-brand-rgb),0.5);background:rgba(var(--ui-brand-rgb),0.12);color:var(--ui-brand);font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
                 💾 EXPORT MDL (.JSON)

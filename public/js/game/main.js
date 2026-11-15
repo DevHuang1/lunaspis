@@ -8,7 +8,7 @@
  * - Draco, KTX2/Basis Universal, and Meshopt GLTF 2.0 3D asset pipeline
  * - SpaceShip NASA Astronaut rigs (astronaut_lod0.glb & astronaut_lod1.glb)
  * - 27-Part Interactive NASA ISS Reference Showcase [J]
- * - 3D Lunar Touchdown Scene (MoonLandingScene) [K]
+ * - 3D Lunar Touchdown Scene (MoonLandingScene)
  * - 6 Console Mini-Games with live 4-resource telemetry & FaultBeacons
  * - Full Mobile Compatibility: Dynamic Viewport Width/Height (visualViewport +
  *   portrait/landscape FOV scaling), Multi-Touch Analog Thumbstick + Right-Thumb
@@ -4362,7 +4362,7 @@
       // Solar Atlas is a full-screen takeover; close it before another view hotkey opens.
       if (
         window.solarSystem && window.solarSystem.isActive &&
-        ["KeyU", "KeyJ", "KeyK", "KeyH", "KeyG", "KeyI", "KeyC", "KeyV"].indexOf(e.code) !== -1
+        ["KeyU", "KeyJ", "KeyH", "KeyG", "KeyI", "KeyC", "KeyV"].indexOf(e.code) !== -1
       ) {
         window.solarSystem.close();
       }
@@ -4457,16 +4457,6 @@
         e.preventDefault();
         if (window.missionViz && typeof window.missionViz.toggle === "function") {
           window.missionViz.toggle();
-        }
-      }
-
-      // 3D Lunar Touchdown Scene [K]
-      if (e.code === "KeyK" || e.key === "k" || e.key === "K") {
-        e.preventDefault();
-        if (window.missionViz && window.missionViz.isActive) window.missionViz.close();
-        if (window.glbManager && window.glbManager.hangarActive) window.glbManager.closeHangar();
-        if (window.shipInterior && typeof window.shipInterior.toggleMoonLandingScene === "function") {
-          window.shipInterior.toggleMoonLandingScene();
         }
       }
 

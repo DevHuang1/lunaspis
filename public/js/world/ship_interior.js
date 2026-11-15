@@ -3697,8 +3697,8 @@
         <button id="btn-toggle-iss-showcase" style="background:rgba(15,23,42,0.88);border:1px solid rgba(148,163,184,0.22);color:#e2e8f0;font-size:9px;font-weight:700;letter-spacing:1.2px;padding:4px 9px;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;" title="Look around the 27-part 3D Space Station model [J]">
           STATION 3D [J]
         </button>
-        <button id="btn-toggle-lunar-scene" style="background:rgba(15,23,42,0.88);border:1px solid rgba(148,163,184,0.22);color:#94a3b8;font-size:9px;font-weight:700;letter-spacing:1.2px;padding:4px 9px;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;" title="Toggle 3D Lunar Touchdown Scene [K]">
-          MOON [K]
+        <button id="btn-toggle-lunar-scene" style="background:rgba(15,23,42,0.88);border:1px solid rgba(148,163,184,0.22);color:#94a3b8;font-size:9px;font-weight:700;letter-spacing:1.2px;padding:4px 9px;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;" title="Toggle 3D Lunar Touchdown Scene">
+          MOON
         </button>
         <button id="btn-toggle-mission-viz" style="background:rgba(37,99,235,0.22);border:1px solid rgba(59,130,246,0.48);color:#f8fafc;font-size:9px;font-weight:700;letter-spacing:1.2px;padding:4px 9px;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;" title="Open 3D Orbit & Earth Map View [U]">
           3D ORBIT [U]
