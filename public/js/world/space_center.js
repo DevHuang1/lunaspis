@@ -9,8 +9,8 @@
  *      automatically when a crew member walks up to it.
  *    - The crew walk the bridge freely and board with [E]/[B] at the orbiter
  *      hatch. Before liftoff they can step back onto the bridge with [E]/[B].
- *    - Once every connected astronaut is aboard, the automatic liftoff
- *      countdown begins after a short safety pause.
+ *    - Once every connected astronaut is aboard, Earth Control clearance is
+ *      required when ground crew are present; otherwise liftoff is automatic.
  * 3. Pre-Launch Flight Deck & Liftoff Ignition:
  *    - Triggers sound suppression water deluge, SSME + SRB ignition, and launches
  *      into the 3D Ascent Cutscene -> Player-Controlled Orbital Docking ->
@@ -93,6 +93,15 @@
       this.hudCollapsed = false;
       this.lccConsoleOverlay = null;
       this.lccConsoleOpen = false;
+      this.lccTelemetryTab = "flight";
+      this._lccTelemetryNet = null;
+      this._lccTelemetryHandler = null;
+      this._lccTelemetrySnapshot = null;
+      this._lccTelemetryReceivedAt = 0;
+      this.lccMessages = [];
+      this.lccUnreadMessages = 0;
+      this._lccChatNet = null;
+      this._lccChatHandler = null;
       this._localPollSentAt = 0;
       this._autoLaunchPollSent = false;
       this._groundObserverLaunch = false;
@@ -4640,8 +4649,8 @@
             z: 180.5,
             y: 0.3,
             radius: 3.2,
-            label: "E · EARTH CONTROL OPS CONSOLE",
-            shortAction: "OPEN CONTROL CONSOLE [E]",
+            label: "CONTROL CENTER CONSOLE",
+            shortAction: "OPEN CONTROL CENTER [E]",
             action: "lcc_console",
             color: 0x3b82f6
           },
@@ -5312,7 +5321,10 @@
       if (!term) return;
       if (window.spaceAudio) window.spaceAudio.playClick();
       if (term.action === "lcc_console") {
-        this.openLccConsole(true);
+        const opened = this.openLccConsole(true);
+        if (!opened && window.gameplay && typeof window.gameplay.showToast === "function") {
+          window.gameplay.showToast("LCC CONSOLE UNAVAILABLE · ENTER THE SITE TOUR TO VIEW THE FIRING ROOM");
+        }
         return;
       }
       if (term.action === "mission") {
@@ -5589,6 +5601,9 @@
       this._hudCollapsedBeforeTour = null;
       this._syncSpaceGamesLock();
       const isGround = this._isLocalGroundCrew();
+      // A flight-crew visitor can inspect the firing-room console during the
+      // tour, but it must not stay on screen after returning to the tower.
+      if (!isGround && this.lccConsoleOpen) this.openLccConsole(false);
       const spawn = isGround
         ? this._groundLccSpawnForIndex(this._localGroundIndex())
         : this._groundSpawnForIndex(this._localPlayerIndex());
@@ -6235,6 +6250,7 @@
       }
       if (this.missionPhase !== "gantry") return false;
       const state = crewState || this._crewAboardState();
+      if (state.hasOnlineGround) return !!(state.allAboard && !state.launchPollAt);
       return !!(this.crewBoarded || (state && state.aboardCount > 0));
     }
 
@@ -6363,7 +6379,7 @@
       if (!this.isGroundMode) return;
 
       const isGround = this._isLocalGroundCrew();
-      if (this.lccConsoleOpen && isGround) {
+      if (this.lccConsoleOpen && (isGround || this.siteTourActive)) {
         this._lccSyncAccumulator += delta;
         if (this._lccSyncAccumulator >= 0.35) {
           this._lccSyncAccumulator = 0;
@@ -6404,19 +6420,27 @@
 
       const crewState = this._crewAboardState();
       if (this.dockLocked && crewState.allAboard && !this._launchSequenceStarted) {
-        if (this.autoLaunchRemaining === null) {
-          this.autoLaunchRemaining = crewState.isLocalLaunchAuthority ? 5.0 : 6.2;
-          if (window.spaceAudio) window.spaceAudio.playCountdownBeep(true);
-          if (window.gameplay && typeof window.gameplay.showToast === "function") {
-            window.gameplay.showToast("ALL CREW ABOARD · AUTOMATIC LIFTOFF IN 5 SECONDS");
-          }
-        }
-        this.autoLaunchRemaining -= delta;
-        if (this.autoLaunchRemaining <= 0) {
-          this.autoLaunchRemaining = 0;
-          if (!this._autoLaunchPollSent) {
+        if (crewState.hasOnlineGround) {
+          this.autoLaunchRemaining = null;
+          if (!crewState.launchPollAt && !this._autoLaunchPollSent) {
             this._autoLaunchPollSent = true;
             this.startLaunchCountdown();
+          }
+        } else {
+          if (this.autoLaunchRemaining === null) {
+            this.autoLaunchRemaining = crewState.isLocalLaunchAuthority ? 5.0 : 6.2;
+            if (window.spaceAudio) window.spaceAudio.playCountdownBeep(true);
+            if (window.gameplay && typeof window.gameplay.showToast === "function") {
+              window.gameplay.showToast("ALL CREW ABOARD · AUTOMATIC LIFTOFF IN 5 SECONDS");
+            }
+          }
+          this.autoLaunchRemaining -= delta;
+          if (this.autoLaunchRemaining <= 0) {
+            this.autoLaunchRemaining = 0;
+            if (!this._autoLaunchPollSent) {
+              this._autoLaunchPollSent = true;
+              this.startLaunchCountdown();
+            }
           }
         }
       } else {
@@ -6511,13 +6535,16 @@
           statusColor = "#60a5fa";
         } else if (this.missionPhase === "gantry") {
           if (pollActive) {
-            statusText = "LAUNCH CHECK READY · GIVE FINAL OK IN CONTROL CONSOLE [C]";
+            statusText = "ALL ASTRONAUTS ABOARD · GIVE FINAL LIFTOFF OK IN CONTROL CONSOLE [C]";
             statusColor = "#fbbf24";
           } else {
             const crewLabel = crewState.crewTotal > 0
               ? `CREW ABOARD ${crewState.aboardCount}/${crewState.crewTotal}`
               : "NO FLIGHT CREW IN ROOM";
-            statusText = `EARTH CONTROL · ${roleMeta.short} · ${crewLabel} · OPS CONSOLE [C]`;
+            const launchStatus = crewState.allAboard
+              ? "WAITING FOR FLIGHT CREW REQUEST"
+              : "WAITING FOR ALL ASTRONAUTS TO BOARD";
+            statusText = `EARTH CONTROL · ${roleMeta.short} · ${crewLabel} · ${launchStatus} · OPS CONSOLE [C]`;
             statusColor = gs.goNoGoLaunch ? "#86efac" : "#93c5fd";
           }
         } else if (this.missionPhase === "launch") {
@@ -6537,8 +6564,8 @@
         statusColor = "#f87171";
       } else if (pollActive) {
         statusText = touchUI
-          ? "WAITING ON EARTH CONTROL OK · TAP LAUNCH TO OVERRIDE"
-          : "WAITING ON EARTH CONTROL OK (8s) · PRESS [L] AGAIN TO LAUNCH NOW";
+          ? "WAITING FOR FLIGHT DIRECTOR LIFTOFF OK"
+          : "WAITING FOR FLIGHT DIRECTOR LIFTOFF OK · NO OVERRIDE";
         statusColor = "#fbbf24";
       } else if (isAtGround && !step2Done) {
         statusText = "LAUNCH PAD · REACH TOWER TOP: PRESS [3] OR [T] · BRIDGE LEVEL: PRESS [2]";
@@ -6563,7 +6590,9 @@
       } else if (crewState.allAboard) {
         statusText = gs.goNoGoLaunch
           ? `CLEAR FOR LIFTOFF · CREW ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · STARTING...`
-          : `CREW ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · CHECKING WITH GROUND...${stepOutHint}`;
+          : crewState.hasOnlineGround
+            ? `CREW ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · ${pollActive ? "WAITING FOR EARTH CONTROL GO" : "REQUESTING EARTH CONTROL GO"}${stepOutHint}`
+            : `CREW ABOARD ${crewState.aboardCount}/${crewState.crewTotal} · CHECKING WITH GROUND...${stepOutHint}`;
         statusColor = "#86efac";
       } else {
         const waitingOn = unboardedNames.length ? `WAIT: ${unboardedNames.join(", ")} · ` : "";
@@ -6596,6 +6625,7 @@
         aboardCount: crewState.aboardCount,
         crewTotal: crewState.crewTotal,
         allAboard: crewState.allAboard,
+        hasOnlineGround: crewState.hasOnlineGround,
         roster: crewState.roster,
         flightRoster: crewState.flightRoster,
         groundRoster: crewState.groundRoster,
@@ -6639,9 +6669,12 @@
       return roles.getRoleMeta(allowed[0]).label;
     }
 
-    _groundActionLockAttrs(type) {
-      if (this._groundActionAllowed(type)) return "";
-      return `disabled title="${this._groundActionOwnerLabel(type)} only"`;
+    _groundActionLockAttrs(type, ready = true) {
+      if (!this._groundActionAllowed(type)) {
+        return `disabled title="${this._groundActionOwnerLabel(type)} only"`;
+      }
+      if (!ready) return 'disabled title="Wait until all astronauts are aboard and request launch clearance"';
+      return "";
     }
 
     _triggerGroundAction(type, extra = {}) {
@@ -6732,7 +6765,7 @@
                 ${guidance.isAtGround ? (touchUI ? "🗼 TO TOP DECK" : "🗼 TO TOP DECK [3/T]") : (guidance.isAtTop ? (touchUI ? "🛗 TO GROUND" : "🛗 TO GROUND [1]") : "🛗 ELEVATOR [G/E]")}
               </button>
               <button type="button" id="btn-sc-launch" class="sc-hud-btn sc-btn-launch" style="display:${guidance.canLaunchNow ? "inline-flex" : "none"};">
-                ${guidance.pollActive ? (touchUI ? "OVERRIDE LAUNCH" : "OVERRIDE [L]") : (touchUI ? "LAUNCH" : "LAUNCH [L]")}
+                ${guidance.hasOnlineGround ? (touchUI ? "REQUEST GO" : "REQUEST GO [L]") : (touchUI ? "LAUNCH" : "LAUNCH [L]")}
               </button>
               <button type="button" id="btn-sc-boarding" class="sc-hud-btn sc-btn-term" style="display:${guidance.canBoard || guidance.canUnboard ? "inline-flex" : "none"};">
                 ${guidance.canUnboard ? (touchUI ? "STEP OUT" : "STEP OUT [E/B]") : (touchUI ? "BOARD" : "BOARD [E/B]")}
@@ -6806,8 +6839,8 @@
 
             ${guidance.isGround ? `
               <div class="sc-ground-ops-strip">
-                <button type="button" id="btn-gop-gonogo" class="ground-action-btn ${this._groundOpButtonAttrs(gs.goNoGoLaunch, guidance.pollActive)}" ${this._groundActionLockAttrs("go_nogo_launch")} data-ground-op="go_nogo_launch">
-                  ${gs.goNoGoLaunch ? "LIFTOFF OK'D" : (guidance.pollActive ? "APPROVE LIFTOFF" : "PRE-APPROVE LIFTOFF")}
+                <button type="button" id="btn-gop-gonogo" class="ground-action-btn ${this._groundOpButtonAttrs(gs.goNoGoLaunch, guidance.pollActive)}" ${this._groundActionLockAttrs("go_nogo_launch", guidance.pollActive && guidance.allAboard)} data-ground-op="go_nogo_launch">
+                  ${gs.goNoGoLaunch ? "LIFTOFF OK'D" : (guidance.pollActive ? "APPROVE LIFTOFF" : (guidance.allAboard ? "WAITING FOR CREW REQUEST" : "WAITING FOR ASTRONAUTS"))}
                 </button>
                 <button type="button" id="btn-gop-dock" class="ground-action-btn ${this._groundOpButtonAttrs(gs.dockingClearance, this.missionPhase === "docking" && !gs.dockingClearance)}" ${this._groundActionLockAttrs("docking_clearance")} data-ground-op="docking_clearance">
                   ${gs.dockingClearance ? "DOCKING OK'D" : "APPROVE DOCKING"}
@@ -7050,8 +7083,8 @@
       const btnLaunch = this.hudOverlay.querySelector("#btn-sc-launch");
       if (btnLaunch) {
         btnLaunch.style.display = guidance.canLaunchNow ? "inline-flex" : "none";
-        btnLaunch.textContent = guidance.pollActive
-          ? (guidance.touchUI ? "OVERRIDE LAUNCH" : "OVERRIDE [L]")
+        btnLaunch.textContent = guidance.hasOnlineGround
+          ? (guidance.touchUI ? "REQUEST GO" : "REQUEST GO [L]")
           : (guidance.touchUI ? "LAUNCH" : "LAUNCH [L]");
       }
 
@@ -7114,7 +7147,11 @@
       }
       applyChip(
         "sc-step-3",
-        guidance.allAboard ? "3 · AUTO LIFTOFF" : (guidance.canLaunchNow ? "3 · LAUNCH [L]" : "3 · LIFTOFF"),
+        guidance.allAboard
+          ? (guidance.hasOnlineGround
+            ? (guidance.pollActive ? "3 · WAIT FOR FLIGHT DIRECTOR GO" : "3 · REQUESTING EARTH CONTROL GO")
+            : "3 · AUTO LIFTOFF")
+          : (guidance.canLaunchNow ? "3 · LAUNCH [L]" : "3 · LIFTOFF"),
         this.isLaunching,
         guidance.canLaunchNow && !this.isLaunching,
         {
@@ -7126,25 +7163,34 @@
     }
 
     toggleLccConsole() {
-      this.openLccConsole(!this.lccConsoleOpen);
+      return this.openLccConsole(!this.lccConsoleOpen);
     }
 
     openLccConsole(open = true) {
-      const next = !!open && this._isLocalGroundCrew() && this.isGroundMode;
+      // Earth Control owns the live actions, but flight crew on the LC-39A site
+      // tour can inspect the firing-room console. Actions stay role-locked via
+      // _groundActionAllowed(), so opening the display never grants control.
+      const canView = this.isGroundMode && (this._isLocalGroundCrew() || this.siteTourActive);
+      const next = !!open && canView;
       this.lccConsoleOpen = next;
       if (this.lccConsoleOverlay) {
         this.lccConsoleOverlay.style.display = next ? "flex" : "none";
         if (next) {
+          this._bindLccShuttleTelemetry();
+          this._bindLccCrewChat();
+          this.lccUnreadMessages = 0;
           this._renderLccConsole();
         } else if (window.videoLink && typeof window.videoLink.detachCabinView === "function") {
           window.videoLink.detachCabinView();
         }
       }
       this._renderGroundHUD();
+      return next;
     }
 
     _syncLccConsoleLive() {
       if (!this.lccConsoleOverlay || !this.lccConsoleOpen) return;
+      this._renderLccTelemetry();
       const mapWrap = this.lccConsoleOverlay.querySelector("#lcc-live-floorplan");
       if (mapWrap && window.shipInterior && typeof window.shipInterior.renderExternalFloorplanHtml === "function") {
         mapWrap.innerHTML = window.shipInterior.renderExternalFloorplanHtml(190);
@@ -7231,6 +7277,169 @@
       });
     }
 
+    _lccPhaseLabel(phase) {
+      const labels = {
+        gantry: "Launch pad",
+        launch: "Launch & ascent",
+        docking: "Docking",
+        station: "Station operations",
+        debrief: "Debrief"
+      };
+      return labels[phase] || String(phase || "Launch pad").replace(/_/g, " ");
+    }
+
+    _bindLccShuttleTelemetry() {
+      const net = window.netManager;
+      if (!net || typeof net.on !== "function") return;
+      if (this._lccTelemetryNet !== net) {
+        if (this._lccTelemetryNet && this._lccTelemetryHandler && typeof this._lccTelemetryNet.off === "function") {
+          this._lccTelemetryNet.off("shuttle_state", this._lccTelemetryHandler);
+        }
+        this._lccTelemetryNet = net;
+        this._lccTelemetryHandler = (snapshot) => {
+          this._lccTelemetrySnapshot = snapshot || null;
+          this._lccTelemetryReceivedAt = Date.now();
+          if (this.lccConsoleOpen) this._renderLccTelemetry(snapshot);
+        };
+        net.on("shuttle_state", this._lccTelemetryHandler);
+      }
+      if (net.snapshot && net.snapshot.telemetry) {
+        this._lccTelemetrySnapshot = net.snapshot;
+        if (!this._lccTelemetryReceivedAt) this._lccTelemetryReceivedAt = Date.now();
+      }
+    }
+
+    _bindLccCrewChat() {
+      const net = window.netManager;
+      if (!net) return;
+      if (this._lccChatNet !== net) {
+        if (this._lccChatNet && this._lccChatHandler && typeof this._lccChatNet.off === "function") {
+          this._lccChatNet.off("chat_message", this._lccChatHandler);
+        }
+        this._lccChatNet = net;
+        this._lccChatHandler = (message) => {
+          if (!message || !String(message.text || "").trim()) return;
+          const key = `${message.timestamp || 0}|${message.sender || ""}|${message.text || ""}`;
+          if (!this.lccMessages.some((item) => item._key === key)) {
+            const isFlight = message.team === "crew" || (window.InterfellasRoles && typeof window.InterfellasRoles.isGroundRole === "function" && !window.InterfellasRoles.isGroundRole(message.role));
+            this.lccMessages.push({ ...message, _key: key, _isFlight: isFlight });
+            this.lccMessages = this.lccMessages.slice(-40);
+            if (isFlight && !this.lccConsoleOpen) this.lccUnreadMessages += 1;
+          }
+          this._renderLccMessages();
+        };
+        if (typeof net.on === "function") net.on("chat_message", this._lccChatHandler);
+      }
+
+      const history = net.roomState && Array.isArray(net.roomState.chatHistory) ? net.roomState.chatHistory : [];
+      if (history.length && !this.lccMessages.length) {
+        this.lccMessages = history.slice(-40).map((message) => {
+          const key = `${message.timestamp || 0}|${message.sender || ""}|${message.text || ""}`;
+          const isFlight = message.team === "crew" || (window.InterfellasRoles && typeof window.InterfellasRoles.isGroundRole === "function" && !window.InterfellasRoles.isGroundRole(message.role));
+          return { ...message, _key: key, _isFlight: isFlight };
+        });
+      }
+    }
+
+    _renderLccMessages() {
+      const root = this.lccConsoleOverlay && this.lccConsoleOverlay.querySelector("#lcc-console-message-list");
+      const badge = this.lccConsoleOverlay && this.lccConsoleOverlay.querySelector("#lcc-console-message-count");
+      if (!root) return;
+      if (badge) {
+        badge.textContent = this.lccUnreadMessages ? `${this.lccUnreadMessages} NEW` : "LIVE";
+        badge.classList.toggle("has-new", this.lccUnreadMessages > 0);
+      }
+      const messages = this.lccMessages.slice(-6).reverse();
+      if (!messages.length) {
+        root.innerHTML = '<div class="lcc-message-empty">No crew messages yet. Flight crew messages will appear here automatically.</div>';
+        return;
+      }
+      const esc = (value) => String(value == null ? "" : value).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+      root.innerHTML = messages.map((message) => {
+        const incoming = !!message._isFlight;
+        const role = esc(message.role || (incoming ? "Flight crew" : "Ground control"));
+        const time = Number(message.timestamp) ? new Date(Number(message.timestamp)).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "NOW";
+        return `<article class="lcc-message${incoming ? " is-flight" : " is-ground"}"><div class="lcc-message-meta"><strong>${esc(message.sender || (incoming ? "Flight crew" : "Ground control"))}</strong><span>${incoming ? "FROM SHIP" : "GROUND"} · ${role}</span><time>${esc(time)}</time></div><p>${esc(message.text)}</p></article>`;
+      }).join("");
+    }
+
+    _renderLccTelemetry(snapshot) {
+      const root = this.lccConsoleOverlay && this.lccConsoleOverlay.querySelector("#lcc-shuttle-telemetry");
+      if (!root) return;
+      const net = window.netManager;
+      const sn = snapshot || this._lccTelemetrySnapshot || (net && net.snapshot && net.snapshot.telemetry ? net.snapshot : null);
+      const content = root.querySelector("#lcc-shuttle-telemetry-content");
+      const sync = root.querySelector("#lcc-shuttle-telemetry-sync");
+      const nav = root.querySelector("#lcc-shuttle-telemetry-tabs");
+      if (!sn || !sn.telemetry) {
+        if (sync) sync.textContent = "WAITING FOR SHUTTLE DOWNLINK";
+        if (content) content.innerHTML = '<div class="sync-banner">Shuttle telemetry will appear here when the flight vehicle begins transmitting. Crew assignments and flight data share the same live mission snapshot.</div>';
+        if (nav) nav.querySelectorAll("button").forEach((button) => button.disabled = true);
+        return;
+      }
+      this._lccTelemetrySnapshot = sn;
+      if (!this._lccTelemetryReceivedAt) this._lccTelemetryReceivedAt = Date.now();
+      if (nav) nav.querySelectorAll("button").forEach((button) => {
+        button.disabled = false;
+        button.setAttribute("aria-pressed", String(button.dataset.lccTelemetryTab === this.lccTelemetryTab));
+      });
+
+      const esc = (value) => String(value == null ? "" : value).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+      const hasNumber = (value) => value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
+      const fmt = (value, decimals = 0) => hasNumber(value) ? Number(value).toFixed(decimals) : "—";
+      const t = sn.telemetry || {}, v = sn.vehicle || {}, eng = v.eng || {}, cfg = v.cfg || {}, res = sn.resources || {}, pay = sn.payload || {};
+      const phase = String(sn.phase || "flight").replace(/_/g, " ").toUpperCase();
+      const seconds = Math.max(0, Math.floor(Number(sn.met) || 0));
+      const met = sn.phase === "prelaunch" ? `T-${fmt(sn.countdown)} S` : sn.met == null ? "—" : `T+${String(Math.floor(seconds / 3600)).padStart(2, "0")}:${String(Math.floor(seconds / 60) % 60).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+      const altitudeKm = hasNumber(t.altitudeM) ? Number(t.altitudeM) / 1000 : NaN;
+      const altitude = Number.isFinite(altitudeKm) ? (Math.abs(altitudeKm) >= 20 ? fmt(altitudeKm, 1) : fmt(t.altitudeM)) : "—";
+      const altitudeUnit = Number.isFinite(altitudeKm) && Math.abs(altitudeKm) >= 20 ? "KM" : "M";
+      const pressure = hasNumber(t.dynPressPa) ? `${fmt(Number(t.dynPressPa) / 1000, 1)} KPA` : "—";
+      const speed = (value) => `${fmt(value)} M/S`;
+      const metric = (label, value) => `<div class="ground-lcc-telemetry-metric"><span>${esc(label)}</span><strong>${value}</strong></div>`;
+      const cell = (label, value) => `<div class="ground-lcc-data-cell"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`;
+      const grid = (rows) => `<div class="ground-lcc-data-grid">${rows.map(([label, value]) => cell(label, value)).join("")}</div>`;
+      const crew = sn.crew || {};
+      const crewSeats = [["cdr", "COMMANDER"], ["plt", "PILOT"], ["ms1", "MISSION SPECIALIST 1"], ["ms2", "MISSION SPECIALIST 2"]];
+      const next = sn.guidance && sn.guidance.next || {};
+      const receivedAge = Math.max(0, Date.now() - this._lccTelemetryReceivedAt);
+      const linkStatus = sn.paused ? "PAUSED" : receivedAge < 3000 ? "LIVE" : "STALE DOWNLINK";
+      if (sync) sync.textContent = `${linkStatus} · ${esc(sn.missionId || "SHUTTLE")} · SIM ${fmt(sn.simTime, 1)} S · ${met} · ${(Object.values(crew).filter((seat) => seat && seat.name).length)}/4 CREW`;
+
+      if (this.lccTelemetryTab === "systems") {
+        const rows = [
+          ["SSME", eng.ssme ? "FIRING" : "OFF"], ["SRB", eng.srb ? "FIRING" : "OFF"], ["OMS", eng.oms ? "FIRING" : "OFF"],
+          ["THROTTLE", `${fmt((Number(eng.throttle) || 0) * 100)}%`], ["BOOSTERS", cfg.srb ? "ATTACHED" : "SEPARATED"], ["EXTERNAL TANK", cfg.et ? "ATTACHED" : "SEPARATED"],
+          ["GEAR", v.gear >= 1 ? "DOWN" : v.gearCmd ? "MOVING" : "UP"], ["SPEED BRAKE", `${fmt((Number(v.sb) || 0) * 100)}%`], ["CARGO DOORS", `${fmt((Number(v.doors) || 0) * 100)}%`],
+          ["PAYLOAD POWER", pay.power ? "ON" : "OFF"], ["PAYLOAD CHECKOUT", pay.checkout || "—"], ["PAYLOAD READY", pay.ready ? "YES" : "NO"], ["PAYLOAD STATE", pay.released ? "RELEASED" : pay.attached ? "ATTACHED" : "SEPARATED"],
+          ["OMS FUEL", `${fmt(res.oms, 1)} KG`], ["RCS FUEL", `${fmt(res.rcs, 1)} KG`], ["ET FUEL", `${fmt(res.et, 1)} KG`], ["SRB FUEL", `${fmt(res.srb, 1)} KG`], ["PAYLOAD MASS", `${fmt(res.payloadKg, 1)} KG`],
+          ["WARP", `${fmt(sn.warp)}× / ${fmt(sn.warpMax)}× MAX`], ["INTEGRITY", sn.integrity || "NORMAL"]
+        ];
+        content.innerHTML = grid(rows);
+      } else if (this.lccTelemetryTab === "crew") {
+        const roster = crewSeats.map(([key, label]) => {
+          const seat = crew[key] || {};
+          return `<article class="ground-lcc-crew-card"><strong>${label}</strong><span>${esc(seat.name || "AWAITING CREW")}</span><span>${seat.filled ? "CONNECTED · ABOARD" : "SEAT COVERED BY FLIGHT CONTROL"}</span></article>`;
+        }).join("");
+        const eventRows = (sn.messages || []).slice(-5).reverse().map((message) => `<div class="ground-lcc-data-cell"><span>${esc(fmt(message.t, 1))} S · ${esc(message.level || "FLIGHT")}</span><strong>${esc(message.text)}</strong></div>`).join("") || '<div class="ground-lcc-data-cell"><span>FLIGHT LOG</span><strong>No flight messages yet</strong></div>';
+        content.innerHTML = `<div class="ground-lcc-crew-grid">${roster}</div><div class="sync-banner">CREW AND TELEMETRY ARE FROM THE SAME SERVER SNAPSHOT · NEXT ACTION: ${esc(next.seat || "CREW")} · ${esc(next.text || "Awaiting flight instruction")}</div><div class="ground-lcc-data-grid">${eventRows}</div>`;
+      } else if (this.lccTelemetryTab === "raw") {
+        content.innerHTML = `<pre class="ground-lcc-raw-snapshot">${esc(JSON.stringify(sn, null, 2))}</pre>`;
+      } else if (this.lccTelemetryTab === "controls") {
+        content.innerHTML = '<div class="sync-banner">GROUND CONTROL IS MONITORING THE LIVE SHUTTLE DOWNLINK. Flight command authority remains with the crew aboard. Use CREW COMMS in the console header to coordinate directly.</div>';
+      } else {
+        const primaryValue = altitude;
+        const status = sn.failure ? `FLIGHT STOPPED · ${sn.failure.reason}` : sn.paused ? "FLIGHT PAUSED" : phase;
+        const flightRows = [
+          ["ORBIT SPEED", speed(t.inertialSpeedMps)], ["VERTICAL SPEED", speed(t.verticalSpeedMps)], ["MACH", fmt(t.mach, 2)], ["DYNAMIC PRESSURE", pressure],
+          ["FLIGHT PATH", `${fmt(Number(t.flightPathRad) * 180 / Math.PI, 1)}°`], ["BANK", `${fmt(Number(t.bankRad) * 180 / Math.PI, 1)}°`], ["ANGLE OF ATTACK", `${fmt(Number(t.angleOfAttackRad) * 180 / Math.PI, 1)}°`],
+          ["G LOAD", `${fmt(t.loadG, 2)} G`], ["HEAT", `${fmt(t.heat)} W/CM²`], ["APOAPSIS", hasNumber(t.apoapsisAltitudeM) ? `${fmt(Number(t.apoapsisAltitudeM) / 1000, 1)} KM` : "—"],
+          ["PERIAPSIS", hasNumber(t.periapsisAltitudeM) ? `${fmt(Number(t.periapsisAltitudeM) / 1000, 1)} KM` : "—"], ["SATELLITE RANGE", hasNumber(pay.range) ? `${fmt(pay.range, 1)} M` : "—"]
+        ];
+        content.innerHTML = `<div class="ground-lcc-telemetry-main"><div class="ground-lcc-led-wrap"><span class="ground-lcc-led-label">${v.regime === "ground" ? "LANDING SPEED" : "SHUTTLE ALTITUDE"} · ${esc(status)}</span><strong class="ground-lcc-led-value">${esc(v.regime === "ground" ? fmt(t.eas, 1) : primaryValue)}</strong><span class="ground-lcc-led-unit">${v.regime === "ground" ? "M/S" : altitudeUnit}</span></div><div class="ground-lcc-telemetry-metrics">${metric("AIR SPEED", speed(t.airspeedMps))}${metric("MACH", fmt(t.mach, 2))}${metric("VERTICAL SPEED", speed(t.verticalSpeedMps))}${metric("AIR LOAD", pressure)}</div></div>${grid(flightRows)}`;
+      }
+    }
+
     _renderLccConsole() {
       if (!this.lccConsoleOverlay || !this.lccConsoleOpen) return;
       const crewState = this._crewAboardState();
@@ -7260,6 +7469,46 @@
         { id: "HULL", label: "HULL · RADIO DISH" }
       ];
 
+      const telemetryPanel = `
+        <section class="ground-lcc-telemetry lcc-telemetry" id="lcc-shuttle-telemetry" aria-label="Live shuttle downlink">
+          <div class="ground-lcc-telemetry-head">
+            <div><div class="ground-lcc-telemetry-title">Shuttle flight data</div><div class="ground-lcc-telemetry-subtitle">AUTO TELEMETRY · CREW STATUS IN SAME PACKET</div></div>
+            <div class="ground-lcc-telemetry-sync" id="lcc-shuttle-telemetry-sync">Waiting for downlink</div>
+          </div>
+          <div class="ground-lcc-data-route" aria-label="Telemetry route">
+            <div><span>1</span><strong>SHUTTLE</strong><small>Flight computer</small></div><i aria-hidden="true">›</i>
+            <div><span>2</span><strong>MISSION SERVER</strong><small>15 updates/s · crew status included</small></div><i aria-hidden="true">›</i>
+            <div><span>3</span><strong>GROUND LCC</strong><small>Latest packet displayed</small></div>
+          </div>
+          <div class="ground-lcc-telemetry-note"><strong>DATA ONLY</strong><span>No cabin video. Crew voice and messages use Crew Comms.</span></div>
+          <nav class="ground-lcc-telemetry-tabs" id="lcc-shuttle-telemetry-tabs" role="tablist" aria-label="Shuttle telemetry views">
+            <button type="button" role="tab" aria-pressed="true" data-lcc-telemetry-tab="flight">Flight</button>
+            <button type="button" role="tab" aria-pressed="false" data-lcc-telemetry-tab="systems">Systems</button>
+            <button type="button" role="tab" aria-pressed="false" data-lcc-telemetry-tab="crew">Crew &amp; log</button>
+            <button type="button" role="tab" aria-pressed="false" data-lcc-telemetry-tab="raw">Full data</button>
+            <button type="button" role="tab" aria-pressed="false" data-lcc-telemetry-tab="controls">Your role</button>
+          </nav>
+          <div class="ground-lcc-telemetry-content" id="lcc-shuttle-telemetry-content"></div>
+        </section>`;
+
+      const messagesPanel = `
+        <section class="lcc-panel lcc-message-panel" aria-label="Crew messages">
+          <div class="lcc-panel-head">
+            <div><h3>Flight crew messages</h3><p class="lcc-panel-sub">Messages from the ship appear here automatically.</p></div>
+            <span class="lcc-message-count" id="lcc-console-message-count">LIVE</span>
+          </div>
+          <div class="lcc-message-list" id="lcc-console-message-list" aria-live="polite"></div>
+          <div class="lcc-message-quick" aria-label="Quick replies">
+            <button type="button" data-lcc-quick-msg="STATUS REPORT?">Status?</button>
+            <button type="button" data-lcc-quick-msg="COPY THAT">Copy</button>
+            <button type="button" data-lcc-quick-msg="HOLD — STAND BY">Hold</button>
+          </div>
+          <form class="lcc-message-compose" id="lcc-console-message-form">
+            <input id="lcc-console-message-input" type="text" maxlength="140" autocomplete="off" placeholder="Reply to the flight crew…" aria-label="Reply to the flight crew" />
+            <button type="submit">Send</button>
+          </form>
+        </section>`;
+
       this.lccConsoleOverlay.innerHTML = `
         <div class="ground-lcc-header">
           <div>
@@ -7277,6 +7526,10 @@
             <button type="button" class="ground-action-btn" id="btn-lcc-close">CLOSE [C]</button>
           </div>
         </div>
+
+        ${telemetryPanel}
+
+        ${messagesPanel}
 
         ${pingValid ? `
           <div class="ground-ping-banner">
@@ -7309,8 +7562,8 @@
 
           <div class="ground-lcc-card${roleId === "flight_director" ? " is-role-focus" : ""}">
             <div style="font-family:var(--font-mono);font-size:11.5px;letter-spacing:1px;color:#94a3b8;">LAUNCH & DOCKING OK · FLIGHT DIRECTOR</div>
-            <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.goNoGoLaunch, pollActive)}" ${this._groundActionLockAttrs("go_nogo_launch")} data-lcc-op="go_nogo_launch" style="text-align:left;padding:9px 12px;font-size:11.5px;">
-              ${gs.goNoGoLaunch ? `LIFTOFF APPROVED (${gs.goNoGoBy || "GROUND"})` : (pollActive ? "CHECK ACTIVE: GIVE LIFTOFF OK" : "PRE-APPROVE LIFTOFF")}
+            <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.goNoGoLaunch, pollActive)}" ${this._groundActionLockAttrs("go_nogo_launch", pollActive && crewState.allAboard)} data-lcc-op="go_nogo_launch" style="text-align:left;padding:9px 12px;font-size:11.5px;">
+              ${gs.goNoGoLaunch ? `LIFTOFF APPROVED (${gs.goNoGoBy || "GROUND"})` : (pollActive ? "GIVE LIFTOFF GO · ALL ASTRONAUTS ABOARD" : (crewState.allAboard ? "WAITING FOR FLIGHT CREW REQUEST" : "WAITING FOR ALL ASTRONAUTS TO BOARD"))}
             </button>
             <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.dockingClearance, this.missionPhase === "docking" && !gs.dockingClearance)}" ${this._groundActionLockAttrs("docking_clearance")} data-lcc-op="docking_clearance" style="text-align:left;padding:9px 12px;font-size:11.5px;">
               ${gs.dockingClearance ? `DOCKING PATH CLEARED (${gs.dockingClearanceBy || "GROUND"})` : "APPROVE SAFE DOCKING PATH"}
@@ -7379,6 +7632,24 @@
       if (cabinVideoSlot && window.videoLink && typeof window.videoLink.attachCabinView === "function") {
         window.videoLink.attachCabinView(cabinVideoSlot);
       }
+      const messageForm = this.lccConsoleOverlay.querySelector("#lcc-console-message-form");
+      const messageInput = this.lccConsoleOverlay.querySelector("#lcc-console-message-input");
+      const sendGroundMessage = (value) => {
+        const text = String(value || "").trim();
+        if (!text || !window.netManager || typeof window.netManager.sendChat !== "function") return;
+        window.netManager.sendChat(text);
+        if (messageInput) {
+          messageInput.value = "";
+          messageInput.focus();
+        }
+      };
+      if (messageForm) messageForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        sendGroundMessage(messageInput && messageInput.value);
+      });
+      this.lccConsoleOverlay.querySelectorAll("[data-lcc-quick-msg]").forEach((btn) => {
+        btn.addEventListener("click", () => sendGroundMessage(btn.dataset.lccQuickMsg));
+      });
       const btnViz = this.lccConsoleOverlay.querySelector("#btn-lcc-open-viz");
       if (btnViz) btnViz.addEventListener("click", () => {
         if (window.missionViz && typeof window.missionViz.toggle === "function") window.missionViz.toggle();
@@ -7413,6 +7684,16 @@
         });
       });
       this._syncLccConsoleLive();
+      this.lccConsoleOverlay.querySelectorAll("[data-lcc-telemetry-tab]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          this.lccTelemetryTab = btn.dataset.lccTelemetryTab || "flight";
+          this._renderLccTelemetry();
+        });
+      });
+      this._bindLccShuttleTelemetry();
+      this._bindLccCrewChat();
+      this._renderLccTelemetry();
+      this._renderLccMessages();
     }
 
     _syncSpaceGamesLock() {
@@ -7519,8 +7800,12 @@
           const touchUI = !!(window.isMobileDevice || (window.matchMedia && window.matchMedia("(pointer: coarse), (hover: none)").matches));
           window.gameplay.showToast(
             crewState.allAboard
-              ? "CREW MEMBER BOARDED & HATCH SEALED · AUTOMATIC LIFTOFF SEQUENCE"
-              : `CREW MEMBER BOARDED (${crewState.aboardCount}/${crewState.crewTotal}) · ${touchUI ? "TAP LAUNCH NOW" : "PRESS [L] OR CLICK LAUNCH NOW"} TO START WITHOUT WAITING`
+              ? (crewState.hasOnlineGround
+                ? "ALL ASTRONAUTS ABOARD · REQUESTING LIFTOFF CLEARANCE FROM EARTH CONTROL"
+                : "CREW MEMBER BOARDED & HATCH SEALED · AUTOMATIC LIFTOFF SEQUENCE")
+              : (crewState.hasOnlineGround
+                ? `CREW MEMBER BOARDED (${crewState.aboardCount}/${crewState.crewTotal}) · WAIT FOR ALL ASTRONAUTS TO BOARD`
+                : `CREW MEMBER BOARDED (${crewState.aboardCount}/${crewState.crewTotal}) · ${touchUI ? "TAP LAUNCH NOW" : "PRESS [L] OR CLICK LAUNCH NOW"} TO START WITHOUT WAITING`)
           );
         }
         if (broadcast && window.netManager && typeof window.netManager.boardSpacecraft === "function") {
@@ -8005,11 +8290,18 @@
         : null;
       if (!isGround && activeMission && activeMission.flightMode === "shuttle_docking") {
         if (!fromNetwork) {
-          if (broadcast && window.netManager && typeof window.netManager.requestLaunch === "function") {
-            window.netManager.requestLaunch();
+          const nm = window.netManager;
+          const crewState = this._crewAboardState();
+          const clearancePending = !!(crewState.hasOnlineGround && activeMission.launchPollAt);
+          if (!clearancePending && broadcast && nm && typeof nm.requestLaunch === "function") {
+            nm.requestLaunch();
           }
           if (window.gameplay && typeof window.gameplay.showToast === "function") {
-            window.gameplay.showToast("LAUNCH REQUEST SENT — SHUTTLE FLIGHT BEGINS WHEN EARTH CONTROL CLEARS LIFTOFF");
+            window.gameplay.showToast(crewState.hasOnlineGround
+              ? (clearancePending
+                ? "WAITING FOR FLIGHT DIRECTOR LIFTOFF GO · NO OVERRIDE"
+                : "ALL ASTRONAUTS ABOARD · LAUNCH REQUEST SENT TO EARTH CONTROL")
+              : "LAUNCH REQUEST SENT · SHUTTLE FLIGHT STARTING");
           }
           this._renderGroundHUD();
         }
@@ -8019,25 +8311,22 @@
       if (!fromNetwork) {
         if (isGround) return;
         const nm = window.netManager;
-        const room = nm && nm.roomState;
         const mission = nm && typeof nm.getMission === "function" ? nm.getMission() : null;
-        const gs = (mission && mission.groundSupport) || {};
-        const roles = window.InterfellasRoles;
-        const hasGround = !!(room && Array.isArray(room.players) && room.players.some((p) => p && (p.team === "ground" || (roles && roles.isGroundRole(p.role)))));
+        const crewState = this._crewAboardState();
+        const hasGround = !!crewState.hasOnlineGround;
 
-        if (nm && nm.roomId && hasGround && !gs.goNoGoLaunch) {
+        if (nm && nm.roomId && hasGround) {
           const pollPending = !!(mission && mission.launchPollAt);
-          if (broadcast && typeof nm.requestLaunch === "function") {
+          if (!pollPending && broadcast && typeof nm.requestLaunch === "function") {
             nm.requestLaunch();
           }
-          if (!pollPending || (Date.now() - this._localPollSentAt < 1200)) {
-            if (!pollPending) this._localPollSentAt = Date.now();
-            if (window.gameplay && typeof window.gameplay.showToast === "function") {
-              window.gameplay.showToast("LIFTOFF CHECK SENT TO EARTH CONTROL (8s AUTO-START · PRESS [L] AGAIN TO LAUNCH NOW)");
-            }
-            this._renderGroundHUD();
-            return;
+          if (!pollPending) this._localPollSentAt = Date.now();
+          if (window.gameplay && typeof window.gameplay.showToast === "function") {
+            window.gameplay.showToast(pollPending
+              ? "WAITING FOR FLIGHT DIRECTOR LIFTOFF GO · NO OVERRIDE"
+              : "ALL ASTRONAUTS ABOARD · LAUNCH REQUEST SENT TO EARTH CONTROL");
           }
+          this._renderGroundHUD();
           return;
         }
       }

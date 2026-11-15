@@ -2788,7 +2788,7 @@
         if (typeof window.gameplay.showToast === "function") {
           const actor = ev.byName || "EARTH CONTROL";
           if (ev.type === "go_nogo_poll") {
-            window.gameplay.showToast("ASKING EARTH CONTROL FOR LAUNCH OK · 8s TO REPLY");
+            window.gameplay.showToast("ALL ASTRONAUTS ABOARD · REQUESTING FINAL LIFTOFF CLEARANCE FROM EARTH CONTROL");
           } else if (ev.type === "go_nogo_launch") {
             window.gameplay.showToast(`${actor}: LAUNCH CLEARED FOR LIFTOFF!`);
           } else if (ev.type === "docking_clearance") {
@@ -2805,6 +2805,8 @@
             const owner = ev.requiredRoleLabel || "The assigned Earth Control role";
             window.gameplay.showToast(`[ROLE LOCK] ${String(owner).toUpperCase()} ONLY · ${ev.message || "THIS CONTROL IS NOT YOURS"}`);
           } else if (ev.type === "board_blocked_ground" && ev.message) {
+            window.gameplay.showToast(ev.message);
+          } else if (ev.type === "launch_clearance_wait" && ev.message) {
             window.gameplay.showToast(ev.message);
           } else if (ev.type === "reset_denied") {
             window.gameplay.showToast(ev.message || "Only the host or commander can reset the shared mission.");
@@ -3991,7 +3993,7 @@
     let callout = "";
     if (localIsGround) {
       if (phase === "gantry") {
-        callout = `<strong>GROUND CONTROL ROOM:</strong> Watch crew boarding (${boarded.length}/${flightPlayers.length}) · Open Ground Desk [C] for Launch Clearance &amp; live updates. All-crew voice + CREW COMMS are always open.`;
+        callout = `<strong>GROUND CONTROL ROOM:</strong> Wait for every astronaut to board (${boarded.length}/${flightPlayers.length}), then approve the Flight Crew's liftoff request in Ground Desk [C]. All-crew voice + CREW COMMS are always open.`;
       } else if (phase === "launch") {
         callout = `<strong>LIFTOFF WATCH:</strong> Watch rocket liftoff from Ground Control · Turn on Dish Lock &amp; Solar Routing in Ground Desk [C].`;
       } else if (phase === "docking") {
@@ -4017,8 +4019,10 @@
         callout = `<strong>WAITING ON CREW (${boarded.length}/${flightPlayers.length}):</strong> Waiting for <strong>${escapeHtml(unboarded.join(", "))}</strong>. Launch Lead: ${escapeHtml(cmdHolder ? cmdHolder.name : "Host")} (${escapeHtml(cmdMeta.short)}).`;
       } else {
         callout = mission.launchPollAt && !gs.goNoGoLaunch
-          ? `<strong>LAUNCH CHECK:</strong> Waiting for Ground Control GO (auto-clears in 8s) · Press [L] again to launch right now.`
-          : `<strong>READY FOR LIFTOFF:</strong> Whole crew aboard! Press [L] or click Launch to begin the countdown.`;
+          ? `<strong>EARTH CONTROL CLEARANCE:</strong> All astronauts are aboard. Waiting for the Flight Director's GO; launch cannot be overridden.`
+          : groundPlayers.length > 0
+            ? `<strong>EARTH CONTROL CLEARANCE:</strong> All astronauts are aboard. Sending the launch request; wait for the Flight Director's GO.`
+            : `<strong>READY FOR LIFTOFF:</strong> Whole crew aboard! Press [L] or click Launch to begin the countdown.`;
       }
     } else if (phase === "launch") {
       const cmdHolder = flightPlayers.find((p) => rolesApi && rolesApi.normalizeRole(p.role) === "commander") || flightPlayers[0];

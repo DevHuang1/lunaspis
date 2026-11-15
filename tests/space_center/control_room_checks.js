@@ -21,12 +21,23 @@ const window = { netManager: { connected: true, snapshot, socket: {
 vm.runInNewContext(fs.readFileSync(path.join(__dirname, "../../public/js/world/space_center.js"), "utf8"), { window, console });
 const control = window.spaceCenter;
 const elements = new Map();
+const elementFor = selector => {
+  if (!elements.has(selector)) {
+    elements.set(selector, {
+      textContent: "",
+      innerHTML: "",
+      disabled: false,
+      dataset: {},
+      querySelector: nested => elementFor(nested),
+      querySelectorAll: () => [],
+      setAttribute: () => {}
+    });
+  }
+  return elements.get(selector);
+};
 control.lccConsoleOpen = true;
 control.missionPhase = "launch";
-control.lccConsoleOverlay = { querySelector(selector) {
-  if (!elements.has(selector)) elements.set(selector, { textContent: "", disabled: false });
-  return elements.get(selector);
-} };
+control.lccConsoleOverlay = { querySelector: elementFor };
 const get = selector => elements.get(selector);
 
 control._syncLccConsoleLive();

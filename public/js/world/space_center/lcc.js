@@ -122,6 +122,9 @@
       site.box(g, width + 0.3, 0.6, 0.12, x, floorTop + 0.52, z + depth / 2 + 0.07, retroConsoleDark, `${name}_Front`);
       site.box(g, width + 0.34, 0.06, 0.18, x, floorTop + 0.83, z + depth / 2 + 0.09, retroBrown, `${name}_Trim`);
       site.box(g, width + 0.1, 0.08, 0.16, x, floorTop + 0.2, z + depth / 2 + 0.06, retroBrown, `${name}_Kick`);
+      // Keep the walk collider paired with the rendered console dimensions so
+      // each firing-room desk remains solid if its layout is adjusted later.
+      site.addBoxCollider(x, z, width + 0.34, depth + 0.2, `MCC ${name} desk`);
     };
 
     const addMonitor = (x, z, width, height, screenMat, name) => {
@@ -1064,7 +1067,6 @@
 
     addPottedPlant(-190.8, 200.2, 1.0);
     addPottedPlant(-169.2, 200.2, 1.0);
-    addPottedPlant(-190.6, 192.8, 0.75);
 
     // Freestanding directory near the entrance.
     site.box(g, 0.12, 1.9, 0.12, cx + 5.6, floorTop + 0.95, 200.2, retroCharcoal, "LobbyDirectoryPost");
@@ -1224,7 +1226,6 @@
     }
     site.cyl(g, 0.22, 0.55, -180.75, floorTop + 0.3, 186.6, retroCharcoal, 10, "RestroomTrashBin");
     addPottedPlant(-180.95, 181.0, 0.75);
-
     // 4. Electrical Control Room (center-east)
     site.box(g, 11.9, 0.02, 29.4, -173.7, floorTop + 0.012, 172.95, retroIndustrial, "ElectricalFloor");
     for (const [fx, fz] of [[-176.0, 165.0], [-171.0, 172.0], [-174.0, 181.0]]) {
@@ -1754,14 +1755,8 @@
     site.addBoxCollider(cx + 8.85, 188, 5.7, 0.6, "LCC lobby wall");
     site.addBoxCollider(cx, 172.65, 0.6, 30.1, "LCC utility divider");
 
-    // Firing-room consoles and all interior furniture are solid.
-    site.addBoxCollider(cx - 28.7, 162.4, 7.4, 2.0, "MCC front console bank west");
-    site.addBoxCollider(cx - 17.3, 162.4, 7.4, 2.0, "MCC front console bank east");
-    site.addBoxCollider(cx - 28.7, 169.4, 7.4, 2.0, "MCC middle console bank west");
-    site.addBoxCollider(cx - 17.3, 169.4, 7.4, 2.0, "MCC middle console bank east");
-    site.addBoxCollider(cx - 28.3, 175.8, 7.4, 2.6, "MCC flight director console");
-    site.addBoxCollider(cx - 17.7, 175.8, 7.4, 2.6, "MCC ground systems console");
-    site.addBoxCollider(cx, 176.6, 2.9, 2.8, "MCC firing room ops console");
+    // Firing-room desks register colliders beside their geometry above.
+    // Keep the remaining equipment and interior furniture solid here.
     site.addBoxCollider(-213.7, 194.0, 1.1, 1.3, "MCC equipment cabinet");
     site.addBoxCollider(-213.7, 198.0, 1.1, 1.3, "MCC equipment cabinet");
     site.addBoxCollider(cx, 192.6, 6.8, 2.0, "LCC reception desk");

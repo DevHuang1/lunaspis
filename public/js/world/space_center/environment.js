@@ -474,7 +474,7 @@
       // Road & VAB plaza accents
       [-126, 232, 1.1, 4], [-234, 232, 1.05, 7],
       [-92, 540, 1.15, 5], [32, 540, 1.1, 8],
-      [-105, 294, 1.0, 2], [-315, 282, 1.1, 9]
+      [-315, 282, 1.1, 9]
     ];
     palmCoords.forEach(([px, pz, scale, seed]) => {
       site.palmTree(g, px, pz, scale, seed, 0);
