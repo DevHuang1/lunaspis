@@ -34,9 +34,20 @@ function findGmatExecutable() {
 
 /**
  * Build child-process environment variables so GmatConsole resolves bundled shared libraries.
+ *
+ * Only a small allow-list of non-sensitive variables is inherited. The GMAT
+ * binary must never receive database credentials, object-storage keys or session
+ * secrets just because the parent process has them.
  */
 function buildGmatChildEnv(exePath) {
-  const env = { ...process.env };
+  const allowed = [
+    "PATH", "HOME", "TMPDIR", "TMP", "TEMP", "LANG", "LC_ALL", "USER", "LOGNAME",
+    "SystemRoot", "WINDIR", "COMSPEC", "PATHEXT"
+  ];
+  const env = {};
+  for (const key of allowed) {
+    if (process.env[key] != null) env[key] = process.env[key];
+  }
   if (!exePath || process.platform === "win32") {
     return env;
   }

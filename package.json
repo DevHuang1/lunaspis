@@ -7,7 +7,15 @@
     "start": "node server.js",
     "dev": "node server.js",
     "storage:sync": "node scripts/sync_bucket.js",
-    "test:artemis": "node tests/artemis/run_checks.js"
+    "mission-core:build": "node scripts/build_mission_design_core.js",
+    "mission-core:check": "node scripts/build_mission_design_core.js --check",
+    "test:artemis": "node tests/artemis/run_checks.js",
+    "test:cml": "node tests/cml/run_checks.js",
+    "test:persistence": "node tests/persistence/run_checks.js",
+    "test:regions": "node tests/regions/run_checks.js",
+    "test:shuttle": "node tests/shuttle/run_checks.js",
+    "test:space-center": "node tests/space_center/run_checks.js",
+    "test:security": "node tests/security/run_checks.js"
   },
   "keywords": [
     "threejs",

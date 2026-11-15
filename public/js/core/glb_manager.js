@@ -54,6 +54,7 @@
       defaultColor: "#0b3d91",
       targetHeight: 1.90,
       rotateY: 0,
+      origin: "feet",
       description: "Broad-shouldered ground controller in the NASA-blue jersey and pants. No spacesuit. Uses the same humanoid bone names and idle / walk / look_around / wave clips as the astronaut rigs."
     },
     "crew_b": {
@@ -65,6 +66,7 @@
       defaultColor: "#0b3d91",
       targetHeight: 1.77,
       rotateY: 0,
+      origin: "feet",
       description: "Ground controller in the NASA-blue jersey and pants. No spacesuit. Uses the same humanoid bone names and idle / walk / look_around / wave clips as the astronaut rigs."
     },
 
@@ -1791,20 +1793,39 @@
       };
 
       const loadModelIntoRig = (modelId, color) => {
-        const chosenId = modelId || modelKey || this.selectedAvatarModelId || "astronaut_lod0";
+        let chosenId = modelId || modelKey || this.selectedAvatarModelId || "astronaut_lod0";
+        let catalogEntry = this.catalog[chosenId];
+        if (!catalogEntry) {
+          // Never treat an unknown/remote model id as a URL fetch. Only the
+          // local catalog is allowed to supply asset paths.
+          for (const fallbackId of [this.selectedAvatarModelId, "astronaut_lod1", "astronaut_lod0"]) {
+            if (fallbackId && this.catalog[fallbackId]) {
+              chosenId = fallbackId;
+              catalogEntry = this.catalog[fallbackId];
+              break;
+            }
+          }
+        }
+        if (!catalogEntry) {
+          console.warn(`[GLBManager] Unknown astronaut model "${chosenId}"; using procedural rig.`);
+          return;
+        }
         rig.currentModelId = chosenId;
-
-        const catalogEntry = this.catalog[chosenId];
-        const url = catalogEntry ? catalogEntry.file : chosenId;
+        const url = catalogEntry.file;
 
         this.loadGLB(url)
           .then((entry) => {
             const hasAnims = !!(entry.gltf.animations && entry.gltf.animations.length > 0);
+            // Crew A/B are authored feet-at-origin. The generic centering path
+            // is for the astronaut suits (authored around their hips), and
+            // shifting a feet-origin model by half its height buries the legs
+            // in the LCC floor. Ground those models instead.
+            const feetOrigin = !!(catalogEntry && catalogEntry.origin === "feet");
             const model = this.instantiateModel(chosenId, {
               suitColor: color,
               targetHeight: (catalogEntry && catalogEntry.targetHeight) || 1.90,
-              groundBottom: !hasAnims,
-              center: true,
+              groundBottom: feetOrigin ? true : !hasAnims,
+              center: !feetOrigin,
               castShadow: options.castShadow !== false,
               receiveShadow: options.receiveShadow !== false
             });

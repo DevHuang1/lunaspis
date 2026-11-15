@@ -2,21 +2,21 @@
   "use strict";
 
   const FALLBACK = {
-    brand: "#c9f04b",
-    brandStrong: "#e4ff7e",
-    brandRgb: "201, 240, 75",
-    brandSoft: "rgba(201, 240, 75, 0.12)",
-    brandLine: "rgba(201, 240, 75, 0.42)",
-    brandInk: "#0b1204",
-    ink: "#efeee7",
-    inkMuted: "#a7b0ba",
-    inkDim: "#7a8490",
+    brand: "#e7e8e3",
+    brandStrong: "#ffffff",
+    brandRgb: "231, 232, 227",
+    brandSoft: "rgba(231, 232, 227, 0.12)",
+    brandLine: "rgba(231, 232, 227, 0.4)",
+    brandInk: "#090b0e",
+    ink: "#f4f4f1",
+    inkMuted: "#b2b7be",
+    inkDim: "#858b94",
     ok: "#63e6a8",
     warn: "#f5c451",
     crit: "#ff6b6b",
     info: "#7dd3fc",
     data: "#7dd3fc",
-    glassBorder: "rgba(255, 255, 255, 0.10)"
+    glassBorder: "rgba(255, 255, 255, 0.16)"
   };
 
   const cssVar = (name, fallback) => {
@@ -74,10 +74,11 @@
   };
 
   const THEMES = {
-    "flight-lime": { label: "FLIGHT LIME", metaColor: "#080b10" },
     "gloss-silver": { label: "GLOSS SILVER", metaColor: "#07090c" },
+    "flight-lime": { label: "FLIGHT LIME", metaColor: "#080b10" },
     "lunar-champagne": { label: "LUNAR CHAMPAGNE", metaColor: "#080a0e" }
   };
+  const DEFAULT_THEME = "gloss-silver";
   const THEME_STORAGE_KEY = "lunaspis_ui_theme";
 
   function storedTheme() {
@@ -89,8 +90,8 @@
     }
   }
 
-  let currentTheme = storedTheme() || document.documentElement.dataset.theme || "flight-lime";
-  if (!THEMES[currentTheme]) currentTheme = "flight-lime";
+  let currentTheme = storedTheme() || document.documentElement.dataset.theme || DEFAULT_THEME;
+  if (!THEMES[currentTheme]) currentTheme = DEFAULT_THEME;
   document.documentElement.dataset.theme = currentTheme;
 
   function updateThemeUI() {
@@ -100,13 +101,13 @@
       button.setAttribute("aria-checked", String(selected));
     });
     const badge = document.getElementById("theme-val-badge");
-    if (badge) badge.textContent = (THEMES[currentTheme] || THEMES["flight-lime"]).label;
+    if (badge) badge.textContent = (THEMES[currentTheme] || THEMES[DEFAULT_THEME]).label;
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", (THEMES[currentTheme] || THEMES["flight-lime"]).metaColor);
+    if (meta) meta.setAttribute("content", (THEMES[currentTheme] || THEMES[DEFAULT_THEME]).metaColor);
   }
 
   function applyTheme(theme, persist = true) {
-    const next = THEMES[theme] ? theme : "flight-lime";
+    const next = THEMES[theme] ? theme : DEFAULT_THEME;
     currentTheme = next;
     document.documentElement.dataset.theme = next;
     if (persist) {
@@ -201,6 +202,9 @@
         palette.brand = cssVar("--brand", palette.brand);
         palette.brandStrong = cssVar("--brand-strong", palette.brandStrong);
         palette.brandRgb = cssVar("--ui-brand-rgb", palette.brandRgb);
+        palette.brandSoft = cssVar("--brand-soft", cssVar("--ui-brand-soft", palette.brandSoft));
+        palette.brandLine = cssVar("--brand-line", cssVar("--ui-brand-line", palette.brandLine));
+        palette.brandInk = cssVar("--brand-ink", cssVar("--ui-brand-ink", palette.brandInk));
         palette.ink = cssVar("--ink-1", palette.ink);
         palette.inkMuted = cssVar("--ink-2", palette.inkMuted);
         palette.inkDim = cssVar("--ink-3", palette.inkDim);
@@ -209,6 +213,7 @@
         palette.warn = cssVar("--ui-warn", palette.warn);
         palette.info = cssVar("--ui-info", palette.info);
         palette.data = cssVar("--ui-data", palette.data);
+        palette.glassBorder = cssVar("--glass-border", cssVar("--ui-border", palette.glassBorder));
       },
       setQualityClass(preset) {
         const fast = preset === "potato" || preset === "off";

@@ -241,7 +241,7 @@
       if (window.missionViz && window.missionViz.isActive) return true;
       if (window.issShowcase && window.issShowcase.isActive) return true;
       if (window.vrManager && window.vrManager.isAnyVRActive) return true;
-      const overlays = ["mission-briefing-overlay", "modal-academy", "modal-mission-log", "modal-auth", "modal-station-systems", "task-modal-overlay", "victory-overlay"];
+      const overlays = ["mission-briefing-overlay", "modal-academy", "modal-mission-log", "modal-station-systems", "task-modal-overlay", "victory-overlay"];
       for (const id of overlays) {
         const node = document.getElementById(id);
         if (node && node.style && node.style.display && node.style.display !== "none") return true;
@@ -487,6 +487,24 @@
       feature("rect", -142.6, -583.7, 9, 7, { fill: "#27313c", stroke: "#94a3b8" });
       feature("rect", -71.5, -709.2, 20, 14, { fill: "#27313c", stroke: "#94a3b8" });
       feature("rect", -119.9, -600.3, 26, 38, { fill: "#64748b", stroke: "#e2e8f0" });
+
+      // Grounds detail: support campus, VAB warehouses, fire rescue, LETF,
+      // hazmat store, barge shed and the overflow parking lots.
+      feature("rect", -395, 235, 64, 26, { fill: "#203a52", stroke: "#94a3b8" });
+      feature("rect", -305, 228, 34, 20, { fill: "#1c3b58", stroke: "#67e8f9" });
+      feature("rect", -70, 250, 34, 22, { fill: "#3a1f22", stroke: "#f87171" });
+      feature("rect", -185, 550, 46, 30, { fill: "#223b45", stroke: "#94a3b8" });
+      feature("rect", 150, 560, 38, 30, { fill: "#203a52", stroke: "#7dd3fc" });
+      feature("rect", -180, 132, 12, 8, { fill: "#3b3323", stroke: "#fbbf24" });
+      feature("rect", -930, 165, 16, 10, { fill: "#27313c", stroke: "#94a3b8" });
+      this._fillWorldRect(ctx, -277, 252, 44, 30, "rgba(50, 58, 70, 0.75)");
+      this._fillWorldRect(ctx, 189, 245, 26, 34, "rgba(50, 58, 70, 0.75)");
+      this._fillWorldRect(ctx, -207, 505, 44, 14, "rgba(50, 58, 70, 0.75)");
+      this._fillWorldRect(ctx, -474, 220, 18, 30, "rgba(50, 58, 70, 0.75)");
+      this._label(ctx, "LOGISTICS", -350, 235, 0, 0, 5, "#93c5fd");
+      this._label(ctx, "FIRE 39", -70, 250, 0, 0, 5, "#fca5a5");
+      this._label(ctx, "WAREHOUSE", -185, 550, 0, 0, 5, "#cbd5e1");
+      this._label(ctx, "LETF", 150, 560, 0, 0, 5, "#93c5fd");
 
       // Labels.
       this._label(ctx, "VAB", VAB.x, VAB.z, 0, 0, 7, "#e2e8f0");

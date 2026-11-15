@@ -385,7 +385,7 @@ body.menu-active #perf-overlay {
   position: absolute;
   left: 0;
   bottom: 0;
-  width: 25%;
+  width: calc(100% / var(--tab-count, 5));
   height: 2px;
   background: var(--ui-brand);
   transform: translateX(calc(var(--tab-index, 0) * 100%));

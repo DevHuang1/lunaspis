@@ -52,6 +52,21 @@ async function verifyPassword(password, stored) {
   }
 }
 
+// A syntactically valid scrypt record used to keep login timing roughly equal
+// for existing and non-existing usernames. This prevents account enumeration
+// from response latency.
+const DUMMY_PASSWORD_HASH = (() => {
+  const salt = crypto.randomBytes(16).toString("hex");
+  return `${salt}:${crypto.scryptSync("lunaspis-dummy-password", salt, 64).toString("hex")}`;
+})();
+
+const MAX_USERNAME_LENGTH = 32;
+const MAX_PASSWORD_LENGTH = 128;
+
+function normalizeUsername(raw) {
+  return String(raw || "").trim().toLowerCase().replace(/[\u0000-\u001F\u007F<>]/g, "");
+}
+
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 function normalizeRoleId(rawRole, fallback = "commander") {
@@ -361,21 +376,28 @@ async function initDatabase() {
  * Registers a new astronaut credential.
  */
 async function registerUser({ username, password, callsign, flightTitle = "Commander", suitColor = "#ef4444" }) {
-  const cleanUsername = String(username || "").trim().toLowerCase().replace(/[\u0000-\u001F\u007F<>]/g, "");
+  const cleanUsername = normalizeUsername(username);
   const cleanCallsign = String(callsign || username || "").replace(/[\u0000-\u001F\u007F<>]/g, "").trim().slice(0, 24) || cleanUsername;
   const cleanTitle = String(flightTitle || "Commander").replace(/[\u0000-\u001F\u007F<>]/g, "").trim().slice(0, 32) || "Commander";
   const normalizedRole = normalizeRoleId(cleanTitle, "commander");
   const cleanColor = /^#[0-9a-fA-F]{6}$/.test(String(suitColor || "")) ? String(suitColor) : "#ef4444";
 
   if (!cleanUsername || cleanUsername.length < 3) {
-    return { success: false, error: "Username must be at least 3 characters." };
+    return { success: false, error: "Username must be between 3 and 32 characters." };
+  }
+  if (cleanUsername.length > MAX_USERNAME_LENGTH) {
+    return { success: false, error: "Username must be between 3 and 32 characters." };
   }
   if (!password || String(password).length < 8) {
     return { success: false, error: "Password must be at least 8 characters." };
   }
+  if (String(password).length > MAX_PASSWORD_LENGTH) {
+    return { success: false, error: "Password is too long." };
+  }
 
   const passHash = await hashPassword(password);
   const userId = `astro_${cleanUsername}`;
+  const duplicateError = "Unable to register this callsign. Please sign in or choose a different callsign.";
 
   if (pool) {
     try {
@@ -385,7 +407,7 @@ async function registerUser({ username, password, callsign, flightTitle = "Comma
         [cleanUsername, userId]
       );
       if (existing.rows.length > 0) {
-        return { success: false, error: "Astronaut callsign already registered. Please sign in or reset password." };
+        return { success: false, error: duplicateError };
       }
 
       // Clean up any uncredentialed guest records with this username or ID
@@ -402,7 +424,7 @@ async function registerUser({ username, password, callsign, flightTitle = "Comma
       `, [userId, cleanUsername, passHash, cleanCallsign, cleanTitle, cleanColor, normalizedRole]);
 
       if (!res.rows[0]) {
-        return { success: false, error: "Astronaut callsign already registered. Please sign in." };
+        return { success: false, error: duplicateError };
       }
       return { success: true, user: sanitizeUser(res.rows[0]) };
     } catch (err) {
@@ -416,7 +438,7 @@ async function registerUser({ username, password, callsign, flightTitle = "Comma
     u => ((u.username && u.username.toLowerCase() === cleanUsername) || u.id === userId) && u.password_hash
   );
   if (exists) {
-    return { success: false, error: "Astronaut callsign already registered. Please sign in." };
+    return { success: false, error: duplicateError };
   }
 
   // Remove any uncredentialed guest entry
@@ -452,10 +474,11 @@ async function registerUser({ username, password, callsign, flightTitle = "Comma
  * Authenticates an astronaut with username & password.
  */
 async function loginUser(username, password) {
-  const cleanUsername = String(username || "").trim().toLowerCase().replace(/[\u0000-\u001F\u007F<>]/g, "");
+  const cleanUsername = normalizeUsername(username);
   if (!cleanUsername || !password) {
     return { success: false, error: "Username and password are required." };
   }
+  const invalid = { success: false, error: "Invalid username or password." };
 
   if (pool) {
     try {
@@ -464,11 +487,13 @@ async function loginUser(username, password) {
         [cleanUsername, `astro_${cleanUsername}`]
       );
       if (res.rows.length === 0) {
-        return { success: false, error: "Invalid username or password." };
+        // Equalize response timing for unknown accounts.
+        await verifyPassword(password, DUMMY_PASSWORD_HASH);
+        return invalid;
       }
       const user = res.rows[0];
       if (!(await verifyPassword(password, user.password_hash))) {
-        return { success: false, error: "Invalid username or password." };
+        return invalid;
       }
 
       await pool.query("UPDATE users SET last_seen_at = CURRENT_TIMESTAMP WHERE id = $1", [user.id]);
@@ -486,10 +511,11 @@ async function loginUser(username, password) {
     u => ((u.username && u.username.toLowerCase() === cleanUsername) || u.id === `astro_${cleanUsername}`) && u.password_hash
   );
   if (!user) {
-    return { success: false, error: "Invalid username or password." };
+    await verifyPassword(password, DUMMY_PASSWORD_HASH);
+    return invalid;
   }
   if (!(await verifyPassword(password, user.password_hash))) {
-    return { success: false, error: "Invalid username or password." };
+    return invalid;
   }
 
   user.last_seen_at = new Date().toISOString();
@@ -505,12 +531,15 @@ async function loginUser(username, password) {
  * Requires the current password for existing credentialed accounts.
  */
 async function resetPassword(username, currentPassword, newPassword) {
-  const cleanUsername = String(username || "").trim().toLowerCase().replace(/[\u0000-\u001F\u007F<>]/g, "");
-  if (!cleanUsername || cleanUsername.length < 3) {
-    return { success: false, error: "Username must be at least 3 characters." };
+  const cleanUsername = normalizeUsername(username);
+  if (!cleanUsername || cleanUsername.length < 3 || cleanUsername.length > MAX_USERNAME_LENGTH) {
+    return { success: false, error: "Username must be between 3 and 32 characters." };
   }
   if (!newPassword || String(newPassword).length < 8) {
     return { success: false, error: "New password must be at least 8 characters." };
+  }
+  if (String(newPassword).length > MAX_PASSWORD_LENGTH) {
+    return { success: false, error: "New password is too long." };
   }
   if (!currentPassword || String(currentPassword).length < 1) {
     return { success: false, error: "Current password is required." };
@@ -527,6 +556,7 @@ async function resetPassword(username, currentPassword, newPassword) {
       );
 
       if (res.rows.length === 0) {
+        await verifyPassword(currentPassword, DUMMY_PASSWORD_HASH);
         return { success: false, error: "Unable to reset password for this credential." };
       }
 
@@ -556,6 +586,7 @@ async function resetPassword(username, currentPassword, newPassword) {
     u => ((u.username && u.username.toLowerCase() === cleanUsername) || u.id === userId) && u.password_hash
   );
   if (!user) {
+    await verifyPassword(currentPassword, DUMMY_PASSWORD_HASH);
     return { success: false, error: "Unable to reset password for this credential." };
   }
   if (!(await verifyPassword(currentPassword, user.password_hash))) {
@@ -758,14 +789,15 @@ async function incrementUserStats(userId, { gamesPlayed = 0, gamesWon = 0, tasks
  * Retrieves leaderboard of top astronauts.
  */
 async function getTopAstronauts(limit = 10) {
+  const safeLimit = Math.max(1, Math.min(50, Number(limit) || 10));
   if (pool) {
     try {
       const res = await pool.query(`
-        SELECT id, username, suit_color, preferred_role, games_played, games_won, tasks_completed, last_seen_at
+        SELECT username, callsign, suit_color, preferred_role, games_played, games_won, tasks_completed
         FROM users
         ORDER BY games_won DESC, tasks_completed DESC
         LIMIT $1
-      `, [limit]);
+      `, [safeLimit]);
       return res.rows;
     } catch (e) {
       console.error("[DB] Error in getTopAstronauts:", e.message);
@@ -774,9 +806,20 @@ async function getTopAstronauts(limit = 10) {
 
   // Local fallback
   return Object.values(memoryStore.users)
-    .map((user) => sanitizeUser(user))
+    .map((user) => {
+      const safe = sanitizeUser(user) || {};
+      return {
+        username: safe.username || null,
+        callsign: safe.callsign || null,
+        suit_color: safe.suit_color || null,
+        preferred_role: safe.preferred_role || null,
+        games_played: Number(safe.games_played) || 0,
+        games_won: Number(safe.games_won) || 0,
+        tasks_completed: Number(safe.tasks_completed) || 0
+      };
+    })
     .sort((a, b) => (b.games_won || 0) - (a.games_won || 0) || (b.tasks_completed || 0) - (a.tasks_completed || 0))
-    .slice(0, limit);
+    .slice(0, safeLimit);
 }
 
 // ============================================================================
@@ -1040,7 +1083,7 @@ async function removeRoomMember(roomId, userId) {
 /**
  * Records or updates a task state in a room.
  */
-async function recordRoomTaskCompletion(roomId, taskId, taskName, userId, userName) {
+async function recordRoomTaskCompletion(roomId, taskId, taskName, userId, userName, objectiveIds = []) {
   if (pool) {
     try {
       await pool.query(`
@@ -1053,14 +1096,26 @@ async function recordRoomTaskCompletion(roomId, taskId, taskName, userId, userNa
           completed_at = CURRENT_TIMESTAMP
       `, [roomId, taskId, taskName, userId, userName]);
 
-      await pool.query(`
-        UPDATE game_rooms
-        SET completed_tasks = (
-          SELECT COUNT(*) FROM room_task_states WHERE room_id = $1 AND completed = TRUE
-        ),
-        updated_at = CURRENT_TIMESTAMP
-        WHERE room_id = $1
-      `, [roomId]);
+      if (Array.isArray(objectiveIds) && objectiveIds.length > 0) {
+        await pool.query(`
+          UPDATE game_rooms
+          SET completed_tasks = (
+            SELECT COUNT(*) FROM room_task_states
+            WHERE room_id = $1 AND completed = TRUE AND task_id = ANY($2::text[])
+          ),
+          updated_at = CURRENT_TIMESTAMP
+          WHERE room_id = $1
+        `, [roomId, objectiveIds]);
+      } else {
+        await pool.query(`
+          UPDATE game_rooms
+          SET completed_tasks = (
+            SELECT COUNT(*) FROM room_task_states WHERE room_id = $1 AND completed = TRUE
+          ),
+          updated_at = CURRENT_TIMESTAMP
+          WHERE room_id = $1
+        `, [roomId]);
+      }
     } catch (e) {
       console.error("[DB] Error in recordRoomTaskCompletion:", e.message);
     }
@@ -1079,7 +1134,13 @@ async function recordRoomTaskCompletion(roomId, taskId, taskName, userId, userNa
   };
 
   if (memoryStore.game_rooms[roomId]) {
-    const completedCount = Object.values(memoryStore.room_task_states).filter(t => t.room_id === roomId && t.completed).length;
+    const objectiveSet = new Set(Array.isArray(objectiveIds) ? objectiveIds : []);
+    const completedCount = Object.values(memoryStore.room_task_states).filter((task) =>
+      task &&
+      task.room_id === roomId &&
+      task.completed &&
+      (objectiveSet.size === 0 || objectiveSet.has(task.task_id))
+    ).length;
     memoryStore.game_rooms[roomId].completed_tasks = completedCount;
   }
   saveLocalStore();

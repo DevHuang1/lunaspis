@@ -306,8 +306,13 @@ def profile_tube(name, p1, p2, radius_fn, rings=14, segs=24,
     return loft(name, ring_list, cap_start, cap_end)
 
 
-def capsule_tube(name, p1, p2, r0, r1, rings=9, segs=28, dome_rings=4):
-    """A tapered sleeve with a rounded closed top (no separate shoulder pad)."""
+def capsule_tube(name, p1, p2, r0, r1, rings=9, segs=28, dome_rings=4, dome_scale=1.0):
+    """A tapered sleeve with a rounded closed top (no separate shoulder pad).
+
+    ``dome_scale`` flattens the cap along the limb axis. A full hemisphere
+    makes a T-shirt sleeve look like a shoulder pad; 0.5-0.6 keeps the top
+    rounded without inflating the silhouette.
+    """
     p1 = Vector(p1)
     p2 = Vector(p2)
     axis = (p2 - p1).normalized()
@@ -327,7 +332,7 @@ def capsule_tube(name, p1, p2, r0, r1, rings=9, segs=28, dome_rings=4):
 
     for i in range(dome_rings):
         ang = (pi / 2) * i / max(1, dome_rings - 1)
-        s = -r0 * cos(ang)
+        s = -r0 * cos(ang) * dome_scale
         rad = max(1e-4, r0 * sin(ang))
         ring_list.append(ring_at(p1 + axis * s, rad))
     for i in range(1, rings + 1):
@@ -512,10 +517,10 @@ CHARS = {
         "height": 1.90,
         "shoulder_w": 1.00,
         "hip_w": 1.00,
-        "chest_ease": 1.00,
+        "chest_ease": 0.98,
         "limb": 1.00,
-        "head": 1.05,
-        "hand": 1.05,
+        "head": 1.02,
+        "hand": 1.00,
         "female": False,
         "number": "01",
     },
@@ -523,12 +528,12 @@ CHARS = {
         "id": "crew_b",
         "label": "Crew B",
         "height": 1.77,
-        "shoulder_w": 0.90,
+        "shoulder_w": 0.91,
         "hip_w": 1.00,
-        "chest_ease": 0.93,
-        "limb": 0.86,
-        "head": 1.03,
-        "hand": 0.97,
+        "chest_ease": 0.92,
+        "limb": 0.92,
+        "head": 1.00,
+        "hand": 0.94,
         "female": True,
         "number": "02",
     },
@@ -554,22 +559,24 @@ def build_proportions(cfg):
         "chest_z": 1.365 * s,
         "shoulder_z": 1.490 * s,
         "neck_base_z": 1.535 * s,
-        "collar_z": 1.578 * s,
+        "collar_z": 1.596 * s,
         "chin_z": 1.661 * s,
-        "head_c_z": cfg["height"] - 0.115 * hs - 0.015 * s,
+        "head_c_z": cfg["height"] - 0.124 * hs - 0.012 * s,
         "head_top_z": 1.900 * s,
         # widths
-        "shoulder_x": 0.205 * cfg["shoulder_w"] * s,
-        "hip_x": 0.098 * cfg["hip_w"] * s,
-        "chest_w": 0.181 * cfg["chest_ease"] * s,
-        "waist_w": 0.140 * cfg["chest_ease"] * s,
-        "pelvis_w": 0.150 * (1.03 if cfg["female"] else 1.0) * s,
+        "shoulder_x": 0.186 * cfg["shoulder_w"] * s,
+        "hip_x": 0.099 * cfg["hip_w"] * s,
+        "chest_w": 0.176 * cfg["chest_ease"] * s,
+        "waist_w": 0.136 * cfg["chest_ease"] * s,
+        "pelvis_w": 0.148 * (1.03 if cfg["female"] else 1.0) * s,
         "limb": cfg["limb"] * s,
         "head_scale": hs,
         "hand_scale": cfg["hand"] * s,
     }
 
-    # Arm chain in a relaxed A-pose.
+    # Arm chain in a relaxed A-pose. The old 22-degree splay read as a
+    # mannequin stance; a narrower 14/7-degree hang clears the hips while
+    # keeping the silhouette close to a real standing person.
     p["arms"] = {}
     for side, key in ((-1, "R"), (1, "L")):
         sx = side * p["shoulder_x"]
@@ -581,8 +588,8 @@ def build_proportions(cfg):
         elbow = shoulder + Vector((side * sin(a1) * upper_len, 0.0, -cos(a1) * upper_len))
         wrist = elbow + Vector((side * sin(a2) * fore_len, 0.0, -cos(a2) * fore_len))
         hand_dir = (wrist - elbow).normalized()
-        hand_dir = (hand_dir + Vector((0, 0.0, -0.25))).normalized()
-        hand_len = 0.175 * p["hand_scale"]
+        hand_dir = (hand_dir + Vector((0, 0.0, -0.22))).normalized()
+        hand_len = 0.171 * p["hand_scale"]
         fingertip = wrist + hand_dir * hand_len
         palm_normal = Vector((-side, 0.0, 0.0))
         p["arms"][key] = {
@@ -616,54 +623,58 @@ def build_body(P, key):
     limb = P["limb"]
     parts = []
 
-    # Torso masses (mostly hidden under the jersey, but keeps the silhouette full).
+    # Torso masses (mostly hidden under the jersey, but keeps the silhouette
+    # anatomical instead of a straight tube at the shoulders and hips).
     parts.append(ellipsoid("pelvis", (0, 0.004 * s, 0.985 * s),
-                           (0.150 * s * (1.03 if P['female'] else 1.0), 0.105 * s, 0.115 * s),
+                           (0.148 * s * (1.03 if P['female'] else 1.0), 0.104 * s, 0.112 * s),
                            segs=32, rings=18))
     parts.append(ellipsoid("waist", (0, 0.0, 1.120 * s),
-                           (0.132 * s, 0.094 * s, 0.105 * s), segs=32, rings=18))
+                           (0.127 * s, 0.092 * s, 0.102 * s), segs=32, rings=18))
     parts.append(ellipsoid("ribs", (0, -0.004 * s, 1.300 * s),
-                           (0.172 * s, 0.113 * s, 0.150 * s), segs=32, rings=18))
+                           (0.165 * s, 0.109 * s, 0.148 * s), segs=32, rings=18))
     parts.append(ellipsoid("chest", (0, -0.010 * s, 1.425 * s),
-                           (0.176 * s, 0.116 * s, 0.110 * s), segs=32, rings=18))
-    # trapezius / clavicle shelf
-    parts.append(ellipsoid("trapezius", (0, 0.014 * s, 1.510 * s),
-                           (0.160 * s, 0.078 * s, 0.045 * s), segs=32, rings=16))
+                           (0.168 * s, 0.112 * s, 0.108 * s), segs=32, rings=18))
+    # Sloped trapezius / clavicle shelf: the jersey sits on this, so it keeps
+    # the shoulders from ending in a flat ledge.
+    parts.append(ellipsoid("trapezius", (0, 0.012 * s, 1.505 * s),
+                           (0.158 * s, 0.075 * s, 0.050 * s), segs=32, rings=16))
+    parts.append(ellipsoid("clavicle_shelf", (0, -0.006 * s, 1.475 * s),
+                           (0.175 * s, 0.088 * s, 0.042 * s), segs=32, rings=16))
 
-    # Neck (thicker and shorter, sits inside the collar)
-    for ob in chain("neck", (0, 0.010 * s, 1.505 * s), (0, 0.004 * s, 1.700 * s),
-                    0.076 * s, 0.060 * s, n=7, segs=24, rings=14):
+    # Neck (thicker at the base, tapering into the jaw)
+    for ob in chain("neck", (0, 0.012 * s, 1.500 * s), (0, 0.004 * s, 1.705 * s),
+                    0.070 * s, 0.054 * s, n=7, segs=24, rings=14):
         parts.append(ob)
 
     # Arms
     for k, A in P["arms"].items():
         sh, el, wr = A["shoulder"], A["elbow"], A["wrist"]
-        parts.append(ellipsoid(f"deltoid_{k}", sh + Vector((0, 0, 0.002 * s)),
-                               (0.064 * s, 0.064 * s, 0.048 * s), segs=24, rings=14))
+        parts.append(ellipsoid(f"deltoid_{k}", sh + Vector((0, 0, 0.000 * s)),
+                               (0.060 * s, 0.061 * s, 0.047 * s), segs=24, rings=14))
         parts.append(profile_tube(
             f"upperarm_{k}", sh, el,
-            lambda t: (0.057 * limb) + (0.044 - 0.057) * limb * t + 0.004 * limb * sin(pi * t),
+            lambda t: (0.054 * limb) + (0.042 - 0.054) * limb * t + 0.003 * limb * sin(pi * t),
             rings=14, segs=24, cap_start=True, cap_end=True))
-        parts.append(ellipsoid(f"elbow_{k}", el, (0.045 * limb,) * 3, segs=20, rings=12))
+        parts.append(ellipsoid(f"elbow_{k}", el, (0.042 * limb,) * 3, segs=20, rings=12))
         parts.append(profile_tube(
             f"forearm_{k}", el, wr,
-            lambda t: (0.048 + (0.030 - 0.048) * t) * limb +
-                      (0.010 * limb * sin(pi * t) * (1.0 - 0.35 * t)),
+            lambda t: (0.047 + (0.0295 - 0.047) * t) * limb +
+                      (0.009 * limb * sin(pi * t) * (1.0 - 0.35 * t)),
             rings=16, segs=24, cap_start=True, cap_end=True))
-        parts.append(ellipsoid(f"wrist_{k}", wr, (0.030 * limb,) * 3, segs=20, rings=12))
+        parts.append(ellipsoid(f"wrist_{k}", wr, (0.0285 * limb,) * 3, segs=20, rings=12))
 
     # Legs (hidden under pants)
     for k, L in P["legs"].items():
         hip, knee, ankle = L["hip"], L["knee"], L["ankle"]
         parts.append(profile_tube(
             f"thigh_{k}", hip, knee,
-            lambda t: (0.092 + (0.060 - 0.092) * t) * limb + 0.006 * limb * sin(pi * t),
+            lambda t: (0.086 + (0.056 - 0.086) * t) * limb + 0.005 * limb * sin(pi * t),
             rings=14, segs=24, cap_start=True, cap_end=True))
-        parts.append(ellipsoid(f"knee_{k}", knee, (0.058 * limb,) * 3, segs=20, rings=12))
+        parts.append(ellipsoid(f"knee_{k}", knee, (0.054 * limb,) * 3, segs=20, rings=12))
         parts.append(profile_tube(
             f"calf_{k}", knee, ankle,
-            lambda t: (0.063 + (0.035 - 0.063) * t) * limb +
-                      (0.012 * limb * (sin(pi * t) ** 1.4)),
+            lambda t: (0.059 + (0.033 - 0.059) * t) * limb +
+                      (0.011 * limb * (sin(pi * t) ** 1.4)),
             rings=14, segs=24, cap_start=True, cap_end=True))
         parts.append(ellipsoid(f"heel_{k}", ankle + Vector((0, 0.012 * s, 0)),
                                (0.043 * limb, 0.050 * limb, 0.060 * limb),
@@ -688,58 +699,59 @@ def build_head(P, key):
 
     # A single lofted skull gives smooth cheeks and a proper jaw/chin taper.
     # (z offset, half-width, front depth, back depth) in reference head units.
+    # Compared with the first pass, the jaw is wider, the chin shorter and the
+    # cranium slightly rounder so the head no longer reads as a long tube.
     profile = [
-        (-0.098, 0.026, 0.040, 0.025),
-        (-0.090, 0.036, 0.055, 0.035),
-        (-0.080, 0.048, 0.068, 0.055),
-        (-0.070, 0.054, 0.073, 0.070),
-        (-0.058, 0.060, 0.078, 0.080),
-        (-0.045, 0.063, 0.081, 0.086),
-        (-0.032, 0.066, 0.083, 0.090),
-        (-0.018, 0.068, 0.085, 0.093),
-        (0.000, 0.069, 0.086, 0.095),
-        (0.025, 0.070, 0.087, 0.096),
-        (0.050, 0.068, 0.086, 0.097),
-        (0.075, 0.063, 0.081, 0.096),
-        (0.095, 0.052, 0.070, 0.092),
-        (0.108, 0.035, 0.052, 0.083),
-        (0.115, 0.012, 0.020, 0.025),
+        (-0.100, 0.024, 0.034, 0.018),
+        (-0.094, 0.034, 0.046, 0.030),
+        (-0.086, 0.046, 0.058, 0.048),
+        (-0.076, 0.055, 0.068, 0.062),
+        (-0.065, 0.061, 0.074, 0.074),
+        (-0.052, 0.065, 0.079, 0.083),
+        (-0.038, 0.068, 0.082, 0.090),
+        (-0.022, 0.070, 0.084, 0.094),
+        (0.000, 0.071, 0.085, 0.097),
+        (0.024, 0.072, 0.086, 0.099),
+        (0.047, 0.070, 0.084, 0.099),
+        (0.070, 0.065, 0.079, 0.098),
+        (0.090, 0.055, 0.070, 0.093),
+        (0.105, 0.039, 0.054, 0.085),
+        (0.114, 0.018, 0.026, 0.040),
+        (0.118, 0.002, 0.004, 0.006),
     ]
     if female:
-        # slightly softer jaw and a little more forehead
+        # Softer jaw and chin, slightly fuller cheeks, same cranium.
         profile = [
-            (z, w * 0.96, df, db) for (z, w, df, db) in profile
+            (z, w * 0.985, df * (1.010 if z < -0.03 else 1.0),
+             db * (1.0 if z < 0.02 else 1.01))
+            for (z, w, df, db) in profile
         ]
     P["head_profile"] = profile
     rings = []
     for z, w, df, db in profile:
         rings.append(superellipse_ring((0, 0, hc + z * hs),
                                        w * hs, df * hs, db * hs,
-                                       segs=40, power=2.15))
+                                       segs=48, power=2.15))
     head = loft(f"{P['id']}_HeadBase", rings, cap_start=True, cap_end=True)
 
     parts = [head]
 
     # Nose: bridge, tip and wings fused with the skull by the voxel remesh.
-    parts.append(ellipsoid("nose_bridge", (0, -0.078 * hs, hc + 0.006 * hs),
-                           (0.009 * hs, 0.016 * hs, 0.030 * hs),
+    parts.append(ellipsoid("nose_bridge", (0, -0.075 * hs, hc + 0.004 * hs),
+                           (0.008 * hs, 0.014 * hs, 0.027 * hs),
                            segs=24, rings=14))
-    parts.append(ellipsoid("nose_tip", (0, -0.088 * hs, hc - 0.028 * hs),
-                           ((0.010 if female else 0.011) * hs, 0.013 * hs, 0.011 * hs),
+    parts.append(ellipsoid("nose_tip", (0, -0.084 * hs, hc - 0.024 * hs),
+                           ((0.009 if female else 0.010) * hs, 0.012 * hs, 0.010 * hs),
                            segs=24, rings=14))
     for side in (-1, 1):
         parts.append(ellipsoid(f"nose_wing_{side}",
-                               (side * 0.011 * hs, -0.083 * hs, hc - 0.032 * hs),
-                               (0.007 * hs, 0.008 * hs, 0.007 * hs),
+                               (side * 0.010 * hs, -0.079 * hs, hc - 0.028 * hs),
+                               (0.006 * hs, 0.007 * hs, 0.006 * hs),
                                segs=20, rings=12))
-    # Subtle brow shelf
-    parts.append(ellipsoid("brow", (0, -0.079 * hs, hc + 0.030 * hs),
-                           (0.050 * hs, 0.011 * hs, 0.009 * hs),
-                           segs=28, rings=14))
     # Ears
     for side in (-1, 1):
-        parts.append(ellipsoid(f"ear_{side}", (side * 0.072 * hs, 0.006 * hs, hc - 0.004 * hs),
-                               (0.008 * hs, 0.020 * hs, 0.028 * hs),
+        parts.append(ellipsoid(f"ear_{side}", (side * 0.073 * hs, 0.006 * hs, hc - 0.006 * hs),
+                               (0.009 * hs, 0.019 * hs, 0.027 * hs),
                                segs=24, rings=14))
 
     head = join_objects(parts, f"{P['id']}_HeadBase")
@@ -768,18 +780,20 @@ def build_hands(P, key):
         parts.append(ellipsoid(f"wrist_{k}", wrist + L * 0.010 * hs,
                                (0.024 * hs, 0.033 * hs, 0.020 * hs),
                                axes=axes, segs=20, rings=12))
-        parts.append(ellipsoid(f"palm_{k}", wrist + L * 0.056 * hs,
-                               (0.052 * hs, 0.045 * hs, 0.016 * hs),
+        parts.append(ellipsoid(f"palm_{k}", wrist + L * 0.054 * hs,
+                               (0.049 * hs, 0.043 * hs, 0.0155 * hs),
                                axes=axes, segs=24, rings=14))
-        parts.append(ellipsoid(f"knuckles_{k}", wrist + L * 0.095 * hs,
-                               (0.018 * hs, 0.046 * hs, 0.0145 * hs),
+        parts.append(ellipsoid(f"knuckles_{k}", wrist + L * 0.091 * hs,
+                               (0.017 * hs, 0.043 * hs, 0.014 * hs),
                                axes=axes, segs=20, rings=12))
 
-        # four fingers: index at -W (front), pinky at +W (back)
-        offsets = [-0.031, -0.010, 0.011, 0.031]
-        lengths = [0.062, 0.068, 0.064, 0.051]
-        radii = [0.0080, 0.0084, 0.0078, 0.0068]
-        curls = [12, 16, 20, 26]
+        # four fingers: index at -W (front), pinky at +W (back). The old
+        # spacing left 1.3 cm gaps between fingers and read as a claw; these
+        # nearly touch and curl a little more naturally.
+        offsets = [-0.0225, -0.0075, 0.0075, 0.0210]
+        lengths = [0.054, 0.060, 0.057, 0.046]
+        radii = [0.0098, 0.0100, 0.0094, 0.0083]
+        curls = [20, 26, 31, 38]
         for fi, (off, length, rad, curl) in enumerate(zip(offsets, lengths, radii, curls)):
             start = wrist + L * 0.099 * hs + W * (off * hs)
             direction = L.copy()
@@ -839,93 +853,69 @@ def build_eye(P, key, head, side):
     hs = P["head_scale"]
     hc = P["head_c_z"]
     female = P["female"]
-    R = (0.0145 if female else 0.0138) * hs
-    ex = side * 0.028 * hs
-    ez = hc + 0.003 * hs
-    # seat the eyeball deep enough that the lids sit in front of the iris
+    R = (0.0128 if female else 0.0122) * hs
+    ex = side * 0.029 * hs
+    ez = hc + 0.004 * hs
+    # Seat the eyeball just proud of the face. Too deep (0.96R) buried the
+    # sclera behind the convex cheek and left a slit; too shallow (0.78R) made
+    # the whole white sphere visible. 0.82R keeps a believable almond opening.
     hit = surface_hit(head, ex, ez, front=True)
     face_y = hit[0].y if hit else -0.083 * hs
-    eye_y = face_y + R * 0.78
+    eye_y = face_y + R * 0.82
     center = Vector((ex, eye_y, ez))
 
-    sclera = ellipsoid(f"sclera_{key}_{side}", center, (R, R, R),
-                       segs=28, rings=16)
+    # A flattened eye ellipsoid catches the convex face and leaves an almond
+    # opening without the puffy spherical eyelid shells used previously. The
+    # old shells read as swollen skin folds around a slit even after their face
+    # selection was fixed.
+    sclera_rx = R * 1.18
+    sclera_ry = R * 0.30
+    sclera_rz = R * 0.60
+    eye_center = Vector((ex, face_y + sclera_ry * 0.60, ez))
+    sclera = ellipsoid(f"sclera_{key}_{side}", eye_center,
+                       (sclera_rx, sclera_ry, sclera_rz),
+                       segs=32, rings=18)
     set_material(sclera, MAT["sclera"])
 
-    iris_r = R * 0.60
+    iris_r = R * 0.71
+    iris_y = eye_center.y - sclera_ry * 0.96
     iris = ellipsoid(f"iris_{key}_{side}",
-                     (center.x, center.y - R * 0.985, center.z),
-                     (iris_r, R * 0.075, iris_r), segs=24, rings=12)
+                     (eye_center.x, iris_y, eye_center.z),
+                     (iris_r, R * 0.055, iris_r), segs=24, rings=12)
     set_material(iris, MAT_IRIS[key])
 
-    pupil_r = iris_r * 0.48
+    pupil_r = iris_r * 0.47
     pupil = ellipsoid(f"pupil_{key}_{side}",
-                      (center.x, center.y - R * 1.030, center.z),
-                      (pupil_r, R * 0.07, pupil_r), segs=20, rings=10)
+                      (eye_center.x, iris_y - R * 0.045, eye_center.z),
+                      (pupil_r, R * 0.05, pupil_r), segs=20, rings=10)
     set_material(pupil, MAT["pupil"])
 
     glint = ellipsoid(f"glint_{key}_{side}",
-                      (center.x - side * iris_r * 0.28,
-                       center.y - R * 1.085,
-                       center.z + iris_r * 0.32),
-                      (R * 0.09, R * 0.05, R * 0.09), segs=12, rings=8)
+                      (eye_center.x - side * iris_r * 0.28,
+                       iris_y - R * 0.085,
+                       eye_center.z + iris_r * 0.32),
+                      (R * 0.080, R * 0.045, R * 0.080), segs=12, rings=8)
     set_material(glint, MAT["eye_glint"])
 
-    # Eyelid patches: spherical shells over the eyeball, leaving an almond gap.
-    def lid(name, upper):
-        bpy.ops.mesh.primitive_uv_sphere_add(
-            segments=40, ring_count=24, radius=R * 1.045, location=center
-        )
-        obj = bpy.context.object
-        obj.name = name
-        mesh = obj.data
-        bm = bmesh.new()
-        bm.from_mesh(mesh)
-        faces_del = []
-        for f in bm.faces:
-            c = f.calc_center_median()
-            lx = c.x - center.x
-            lz = c.z - center.z
-            ly = c.y - center.y
-            if ly > 0.002 * hs:
-                faces_del.append(f)
-                continue
-            xnorm = min(1.0, abs(lx) / (R * 1.15))
-            corner = xnorm ** 8
-            if upper:
-                edge = R * (0.26 * (1.0 - xnorm ** 1.8) + 0.012 - 0.050 * corner)
-                if lz < edge:
-                    faces_del.append(f)
-            else:
-                edge = -R * (0.16 * (1.0 - xnorm ** 1.8) + 0.022 - 0.035 * corner)
-                if lz > edge:
-                    faces_del.append(f)
-        bmesh.ops.delete(bm, geom=faces_del, context="FACES")
-        bm.to_mesh(mesh)
-        bm.free()
-        mesh.update()
-        shade_smooth(obj)
-        set_material(obj, MAT_SKIN[key])
-        solid = obj.modifiers.new("Solidify", "SOLIDIFY")
-        solid.thickness = 0.0014 * hs
-        solid.offset = 1.0
-        apply_modifier(obj, solid)
-        return obj
-
-    upper_lid = lid(f"upper_lid_{key}_{side}", True)
-    lower_lid = lid(f"lower_lid_{key}_{side}", False)
-
-    # upper lash line: follow the visible upper edge of the eyeball
+    # Upper lash: a thin curved ribbon pinned to the face just above the
+    # sclera, with a small wing at the outer corner.
     pts = []
     widths = []
-    for i in range(9):
-        t = i / 8.0
-        xx = (-1 + 2 * t) * R * 0.97
-        xnorm = abs(xx) / (R * 1.1)
-        zz = R * (0.26 * (1.0 - min(1.0, xnorm) ** 1.8) + 0.012 - 0.050 * min(1.0, xnorm) ** 8)
-        yy = center.y - math.sqrt(max(0.0, (R * 1.055) ** 2 - xx * xx - zz * zz))
-        pts.append(Vector((center.x + xx, yy - 0.0002 * hs, center.z + zz)))
-        widths.append(R * (0.022 + 0.040 * math.sin(pi * min(1.0, max(0.0, t)))))
+    for i in range(11):
+        t = i / 10.0
+        xx = (-1 + 2 * t) * R * 1.12
+        xnorm = min(1.0, abs(xx) / (R * 1.12))
+        zz = R * 0.46 * ((1.0 - xnorm * xnorm) ** 0.55)
+        hz = ez + zz
+        hit = surface_hit(head, ex + xx, hz, front=True)
+        if not hit:
+            continue
+        loc, normal = hit
+        pts.append(loc + normal * 0.0014)
+        wing = 0.016 + 0.010 * math.sin(pi * t)
+        if side > 0 and t > 0.82:
+            wing += (t - 0.82) * 0.10
+        widths.append(R * wing)
     lash = curve_ribbon(f"lash_{key}_{side}", pts, widths, Vector((0, -1, 0)),
                         MAT_LASH[key])
     thick = lash.modifiers.new("Solidify", "SOLIDIFY")
@@ -933,7 +923,7 @@ def build_eye(P, key, head, side):
     thick.offset = 0.0
     apply_modifier(lash, thick)
 
-    return [sclera, iris, pupil, glint, upper_lid, lower_lid, lash]
+    return [sclera, iris, pupil, glint, lash]
 
 
 def build_face_details(P, key, head):
@@ -944,47 +934,49 @@ def build_face_details(P, key, head):
     for side in (-1, 1):
         details += build_eye(P, key, head, side)
 
-    # Eyebrows: conform to the actual forehead surface.
+    # Eyebrows: conform to the actual forehead surface. Slightly thinner and
+    # closer to the eye than the first pass, with the arch biased outward.
     for side in (-1, 1):
         pts = []
         widths = []
         for i in range(9):
             t = i / 8.0
-            hx = side * (0.011 + 0.042 * t) * hs
-            hz = hc + (0.021 + 0.009 * sin(pi * t) - 0.003 * t) * hs
+            hx = side * (0.012 + 0.039 * t) * hs
+            hz = hc + (0.016 + 0.007 * sin(pi * (0.20 + 0.65 * t)) - 0.003 * t) * hs
             hit = surface_hit(head, hx, hz, front=True)
             if hit:
                 loc, normal = hit
                 loc = loc + normal * 0.0010 * hs
                 pts.append(loc)
-                widths.append((0.0009 + 0.0008 * sin(pi * t)) * hs)
+                widths.append((0.00070 + 0.00050 * sin(pi * t)) * hs)
         if len(pts) >= 2:
             brow = curve_ribbon(f"brow_{key}_{side}", pts, widths,
                                 Vector((0, -1, 0)), MAT_HAIR[key])
             details.append(brow)
 
-    # Lips: compact, integrated with the mouth, with a subtle smile line.
-    lip_z = hc - 0.052 * hs
-    lip_y = -0.080 * hs
-    lip_w = 0.025 if female else 0.023
-    upper = ellipsoid(f"upper_lip_{key}", (0, lip_y, lip_z + 0.0025 * hs),
-                      (lip_w * hs, 0.0040 * hs, 0.0038 * hs),
+    # Lips: compact and close to the face. The upper lip is thinner, the lower
+    # lip fuller, and the mouth line sits in the crease between them.
+    lip_z = hc - 0.050 * hs
+    lip_y = -0.078 * hs
+    lip_w = 0.0235 if female else 0.022
+    upper = ellipsoid(f"upper_lip_{key}", (0, lip_y, lip_z + 0.0020 * hs),
+                      (lip_w * hs, 0.0032 * hs, 0.0032 * hs),
                       segs=24, rings=12)
     set_material(upper, MAT_LIPS[key])
-    lower = ellipsoid(f"lower_lip_{key}", (0, lip_y + 0.001 * hs, lip_z - 0.0038 * hs),
-                      ((lip_w - 0.0015) * hs, 0.0048 * hs, 0.0042 * hs),
+    lower = ellipsoid(f"lower_lip_{key}", (0, lip_y + 0.0012 * hs, lip_z - 0.0034 * hs),
+                      ((lip_w - 0.0012) * hs, 0.0038 * hs, 0.0038 * hs),
                       segs=24, rings=12)
     set_material(lower, MAT_LIPS[key])
     # Smile line
     smile_pts = []
     for i in range(9):
         t = -1.0 + 2.0 * i / 8.0
-        x = t * lip_w * 0.90 * hs
-        z = lip_z + 0.0018 * hs * (t * t) - 0.0004 * hs
-        y = lip_y - 0.0047 * hs + 0.0015 * hs * (t * t)
+        x = t * lip_w * 0.88 * hs
+        z = lip_z + 0.0015 * hs * (t * t) - 0.0002 * hs
+        y = lip_y - 0.0038 * hs + 0.0012 * hs * (t * t)
         smile_pts.append(Vector((x, y, z)))
     smile = curve_ribbon(f"smile_{key}", smile_pts,
-                         [0.0010 * hs] * len(smile_pts),
+                         [0.0008 * hs] * len(smile_pts),
                          Vector((0, -1, 0)), MAT["mouth_line"])
     details += [upper, lower, smile]
 
@@ -1038,8 +1030,8 @@ def build_hair(P, key, head):
     # Hair shell follows the actual head cross-sections, offset by a few mm.
     # The lower boundary is an analytic hairline (high at the forehead, low at
     # the nape) which gives a clean smooth edge in every direction.
-    off = (0.0070 if female else 0.0080) * hs
-    z_top = hc + 0.115 * hs
+    off = (0.0065 if female else 0.0068) * hs
+    z_top = hc + 0.116 * hs
     segs = 72
     rows = 22
     power = 2.15
@@ -1052,7 +1044,11 @@ def build_hair(P, key, head):
             c = cos(ang)
             s = sin(ang)
             zn = -s  # +1 at the front, -1 at the back
-            z_rel = 0.030 + 0.046 * zn - 0.004 * zn * zn
+            # Hairline: high at the forehead, receding slightly at the temples
+            # and low at the nape. The old curve sat too low and read as a
+            # smooth helmet in every view.
+            temple = abs(c) ** 3
+            z_rel = 0.020 + 0.043 * zn - 0.010 * zn * zn - 0.006 * temple
             z_h = hc + z_rel * hs
             z = z_h + (z_top - z_h) * trow
             w, df, db = profile_at((z - hc) / hs)
@@ -1072,7 +1068,7 @@ def build_hair(P, key, head):
             d = (i + 1) * segs + j
             faces.append((a, b, c2, d))
     top_index = len(verts)
-    verts.append((0, 0, hc + 0.120 * hs))
+    verts.append((0, 0, hc + 0.118 * hs))
     base = (rows - 1) * segs
     for j in range(segs):
         faces.append((base + j, base + (j + 1) % segs, top_index))
@@ -1086,39 +1082,55 @@ def build_hair(P, key, head):
     set_material(cap, hair_mat)
 
     solid = cap.modifiers.new("Solidify", "SOLIDIFY")
-    solid.thickness = (0.0030 if female else 0.0040) * hs
+    solid.thickness = (0.0028 if female else 0.0034) * hs
     solid.offset = 1.0
     apply_modifier(cap, solid)
 
     tex = bpy.data.textures.new(f"hair_noise_{key}", "CLOUDS")
-    tex.noise_scale = 0.011 * hs
+    tex.noise_scale = (0.0085 if female else 0.0065) * hs
     tex.noise_depth = 3
     disp = cap.modifiers.new("Displace", "DISPLACE")
     disp.texture = tex
     disp.direction = "NORMAL"
-    disp.strength = (0.0026 if female else 0.0038) * hs
+    disp.strength = (0.0022 if female else 0.0032) * hs
     disp.mid_level = 0.5
     apply_modifier(cap, disp)
     shade_smooth(cap)
     parts.append(cap)
 
     if female:
-        # low back mass and a bun
-        back = ellipsoid("hair_back", (0, 0.070 * hs, hc + 0.006 * hs),
-                         (0.070 * hs, 0.047 * hs, 0.070 * hs),
+        # low back mass and a smaller, lower bun (the first pass looked like a
+        # ball balanced on the crown)
+        back = ellipsoid("hair_back", (0, 0.068 * hs, hc + 0.002 * hs),
+                         (0.066 * hs, 0.042 * hs, 0.064 * hs),
                          segs=28, rings=16)
         set_material(back, hair_mat)
         parts.append(back)
-        bun = ellipsoid("hair_bun", (0, 0.105 * hs, hc + 0.036 * hs),
-                        (0.049 * hs, 0.043 * hs, 0.050 * hs),
+        bun = ellipsoid("hair_bun", (0, 0.098 * hs, hc + 0.018 * hs),
+                        (0.038 * hs, 0.033 * hs, 0.038 * hs),
                         segs=28, rings=16)
         set_material(bun, hair_mat)
         parts.append(bun)
-        tie = torus("hair_tie", (0, 0.072 * hs, hc + 0.030 * hs),
-                    0.038 * hs, 0.005 * hs, axis="Y",
+        tie = torus("hair_tie", (0, 0.076 * hs, hc + 0.018 * hs),
+                    0.031 * hs, 0.0045 * hs, axis="Y",
                     material=hair_mat, scale=(1.0, 1.0, 0.95))
         parts.append(tie)
-
+        # Pulled-back strand ridges over the crown, a cheap way to break up
+        # the smooth cap without another texture or material.
+        for n in (-2, -1, 1, 2):
+            pts = []
+            for i in range(7):
+                t = i / 6.0
+                side = n * 0.014 * hs
+                zz = hc + (0.104 - 0.070 * t) * hs
+                hit = surface_hit(cap, side * (1.0 - 0.4 * t), zz, front=False)
+                if hit:
+                    pts.append(hit[0] + hit[1] * 0.0012 * hs + Vector((0, 0, 0.0)))
+            if len(pts) >= 2:
+                ribbon = curve_ribbon(f"hair_strand_{key}_{n}", pts,
+                                      [0.0016 * hs] * len(pts),
+                                      Vector((0, 0, 1)), hair_mat)
+                parts.append(ribbon)
     hair = join_objects(parts, f"{P['id']}_Hair")
     return hair
 
@@ -1132,30 +1144,33 @@ def build_jersey(P, key):
     female = P["female"]
     chest_w = P["chest_w"]
 
-    # Loose NASA-blue jersey with a proper shoulder yoke and a hem that drapes
-    # outside the pants.  Values are in the 1.90 m reference space.
+    # Loose NASA-blue jersey with sloped shoulders. Values are in the 1.90 m
+    # reference space. The old top rings flared wider than the chest and the
+    # separate sleeve caps sat on top of them, producing the puffy-shoulder
+    # "action figure" silhouette. This loft now narrows continuously from the
+    # chest through the clavicle into the collar, and the sleeves are smaller.
     rings_spec = [
-        (0.952, 0.232, 0.142, 0.144),
-        (0.980, 0.224, 0.136, 0.138),
-        (1.040, 0.205, 0.128, 0.130),
-        (1.100, 0.190, 0.120, 0.120),
-        (1.160, 0.188, 0.120, 0.117),
-        (1.220, 0.196, 0.126, 0.120),
-        (1.280, 0.206, 0.134, 0.124),
-        (1.335, 0.213, 0.140, 0.128),
-        (1.385, 0.215, 0.141, 0.129),
-        (1.430, 0.213, 0.135, 0.127),
-        (1.470, 0.210, 0.126, 0.124),
-        (1.500, 0.228, 0.120, 0.122),
-        (1.525, 0.224, 0.114, 0.118),
-        (1.545, 0.212, 0.104, 0.110),
-        (1.560, 0.188, 0.096, 0.103),
-        (1.572, 0.150, 0.090, 0.098),
-        (1.582, 0.105, 0.082, 0.090),
-        (1.590, 0.075, 0.075, 0.080),
+        (0.940, 0.210, 0.132, 0.138),
+        (0.966, 0.207, 0.128, 0.134),
+        (1.020, 0.197, 0.121, 0.126),
+        (1.090, 0.188, 0.116, 0.120),
+        (1.160, 0.186, 0.116, 0.117),
+        (1.230, 0.194, 0.122, 0.121),
+        (1.295, 0.202, 0.130, 0.126),
+        (1.350, 0.207, 0.136, 0.130),
+        (1.400, 0.205, 0.134, 0.128),
+        (1.440, 0.197, 0.126, 0.124),
+        (1.470, 0.205, 0.116, 0.119),
+        (1.492, 0.208, 0.108, 0.113),
+        (1.510, 0.204, 0.100, 0.107),
+        (1.528, 0.188, 0.091, 0.099),
+        (1.546, 0.160, 0.084, 0.092),
+        (1.564, 0.125, 0.078, 0.085),
+        (1.580, 0.090, 0.074, 0.079),
+        (1.598, 0.074, 0.072, 0.076),
     ]
     # Scale widths lightly with the character's shoulder/chest measurements.
-    wide_scale = chest_w / (0.181 * s)
+    wide_scale = chest_w / (0.176 * s)
     wscale = 0.55 + 0.45 * wide_scale
     rings = []
     for z, w, df, db in rings_spec:
@@ -1164,67 +1179,71 @@ def build_jersey(P, key):
         db *= s
         if female:
             if 1.24 < z < 1.40:
-                df *= 1.07
+                df *= 1.06
             if 1.05 < z < 1.20:
-                ww *= 0.985
-        rings.append(superellipse_ring((0, 0, z * s), ww, df, db, segs=40, power=2.3))
+                ww *= 0.98
+        rings.append(superellipse_ring((0, 0, z * s), ww, df, db, segs=48, power=2.3))
 
     jersey = loft(f"{P['id']}_Jersey_Body", rings, cap_start=True, cap_end=False)
     set_material(jersey, MAT["jersey"])
-    solidify(jersey, 0.0045, -1.0)
+    solidify(jersey, 0.0040, -1.0)
     tag_region(jersey, "REG_torso")
     parts = [jersey]
 
-    # White hem band, also the drape edge over the pants.
+    # Thin white hem band. It follows the jersey waist instead of flaring out
+    # like a tutu.
     hem_rings = []
-    for z, w in [(0.945, 0.235), (0.968, 0.233)]:
+    for z, w, df, db in [(0.938, 0.211, 0.133, 0.139),
+                         (0.956, 0.209, 0.131, 0.137),
+                         (0.972, 0.207, 0.128, 0.134)]:
         hem_rings.append(superellipse_ring((0, 0, z * s),
-                                           w * wscale * s, 0.145 * s, 0.147 * s,
-                                           segs=40, power=2.3))
+                                           w * wscale * s, df * s, db * s,
+                                           segs=48, power=2.3))
     hem = loft(f"{P['id']}_Jersey_Hem", hem_rings, cap_start=False, cap_end=False)
     set_material(hem, MAT["trim"])
-    solidify(hem, 0.0038, -1.0)
+    solidify(hem, 0.0032, -1.0)
     tag_region(hem, "REG_torso")
     parts.append(hem)
 
-    # Ribbed crew-neck collar.
+    # Ribbed crew-neck collar, raised to the base of the jaw.
     collar_rings = []
-    for z, w, d in [(1.580, 0.079, 0.077),
-                    (1.594, 0.077, 0.075),
-                    (1.608, 0.075, 0.073)]:
+    for z, w, d in [(1.598, 0.076, 0.074),
+                    (1.614, 0.074, 0.072),
+                    (1.630, 0.072, 0.070)]:
         collar_rings.append(superellipse_ring((0, 0, z * s),
                                               w * wscale * s, d * s, d * s,
-                                              segs=36, power=2.1))
+                                              segs=40, power=2.1))
     collar = loft(f"{P['id']}_Jersey_Collar", collar_rings, cap_start=False, cap_end=False)
     set_material(collar, MAT["trim"])
-    solidify(collar, 0.005, -1.0)
+    solidify(collar, 0.0042, -1.0)
     tag_region(collar, "REG_torso")
     parts.append(collar)
 
     # One-piece cap sleeves with a rounded top. The sleeve weights blend
-    # shoulder/upper-arm so a swinging arm keeps the shoulder covered.
+    # shoulder/upper-arm so a swinging arm keeps the shoulder covered. Starting
+    # the capsule a little down the arm keeps the dome from riding above the
+    # clavicle; the smaller radii remove the shoulder-pad bulk.
     for k, A in P["arms"].items():
         sh, el = A["shoulder"], A["elbow"]
-        side = A["side"]
         direction = (el - sh).normalized()
 
-        start = sh
-        end = sh + (el - sh) * (0.62 if female else 0.65)
-        r0 = (0.080 if female else 0.086) * s
-        r1 = (0.064 if female else 0.068) * s
+        start = sh - direction * (0.006 * s)
+        end = sh + (el - sh) * (0.60 if female else 0.63)
+        r0 = (0.064 if female else 0.068) * s
+        r1 = (0.053 if female else 0.058) * s
         sleeve = capsule_tube(f"{P['id']}_Sleeve_{k}", start, end, r0, r1,
-                              rings=9, segs=30, dome_rings=5)
+                              rings=10, segs=32, dome_rings=5, dome_scale=0.85)
         set_material(sleeve, MAT["jersey"])
-        solidify(sleeve, 0.0045, -1.0)
+        solidify(sleeve, 0.0040, -1.0)
         tag_region(sleeve, f"REG_sleeve_{k}")
         parts.append(sleeve)
 
         cuff = tube_between(f"{P['id']}_Cuff_{k}",
-                            end - direction * (0.014 * s), end + direction * (0.007 * s),
-                            r1 + 0.0040 * s, r1 + 0.0022 * s,
-                            rings=2, segs=30, cap_start=False, cap_end=False)
+                            end - direction * (0.012 * s), end + direction * (0.005 * s),
+                            r1 + 0.0028 * s, r1 + 0.0018 * s,
+                            rings=2, segs=32, cap_start=False, cap_end=False)
         set_material(cuff, MAT["trim"])
-        solidify(cuff, 0.0045, -1.0)
+        solidify(cuff, 0.0038, -1.0)
         tag_region(cuff, f"REG_sleeve_{k}")
         parts.append(cuff)
 
@@ -1252,27 +1271,30 @@ def build_pants(P, key):
                 t = (z - ankle.z) / max(1e-5, knee.z - ankle.z)
                 c = ankle.lerp(knee, t)
             return c
-        widths = [0.096, 0.100, 0.104, 0.105, 0.103, 0.100,
-                  0.096, 0.092, 0.089, 0.091, 0.093, 0.091,
-                  0.084, 0.076, 0.069, 0.066]
+        # Tapered jogger silhouette. The old lower leg was nearly as wide as
+        # the thigh, which made both characters look like they were wearing
+        # bell-bottoms.
+        widths = [0.086, 0.092, 0.096, 0.098, 0.096, 0.093,
+                  0.089, 0.085, 0.082, 0.084, 0.084, 0.080,
+                  0.074, 0.068, 0.062, 0.059]
         rings = []
         for z, w in zip(zs, widths):
             c = leg_center(z)
-            ww = w * s * (1.0 + 0.03 if P["female"] else 1.0)
-            rings.append(ellipse_ring((c.x, c.y, z), ww, ww * 1.07, segs=32))
+            ww = w * s * (1.0 + 0.025 if P["female"] else 1.0)
+            rings.append(ellipse_ring((c.x, c.y, z), ww, ww * 1.06, segs=32))
         leg = loft(f"{P['id']}_PantLeg_{k}", rings, cap_start=True, cap_end=False)
         set_material(leg, MAT["pants"])
-        solidify(leg, 0.005, -1.0)
+        solidify(leg, 0.0045, -1.0)
         tag_region(leg, f"REG_pants_{k}")
         parts.append(leg)
 
         # elastic cuff, slightly raised
         cuff_rings = []
-        for z, w in [(bottom_z - 0.004 * s, 0.072), (bottom_z + 0.010 * s, 0.074),
-                     (bottom_z + 0.026 * s, 0.076)]:
+        for z, w in [(bottom_z - 0.004 * s, 0.063), (bottom_z + 0.010 * s, 0.065),
+                     (bottom_z + 0.026 * s, 0.067)]:
             c = leg_center(z)
-            ww = w * s * (1.0 + 0.03 if P["female"] else 1.0)
-            cuff_rings.append(ellipse_ring((c.x, c.y, z), ww, ww * 1.07, segs=32))
+            ww = w * s * (1.0 + 0.025 if P["female"] else 1.0)
+            cuff_rings.append(ellipse_ring((c.x, c.y, z), ww, ww * 1.06, segs=32))
         cuff = loft(f"{P['id']}_PantCuff_{k}", cuff_rings, cap_start=False, cap_end=False)
         set_material(cuff, MAT["pants"])
         solidify(cuff, 0.006, 1.0)
@@ -1283,12 +1305,12 @@ def build_pants(P, key):
         stripe_rings = []
         for z, w in zip(zs, widths):
             c = leg_center(z)
-            ww = w * s * (1.0 + 0.03 if P["female"] else 1.0)
+            ww = w * s * (1.0 + 0.025 if P["female"] else 1.0)
             ring_pts = []
-            for ang_deg in (26, 36):
+            for ang_deg in (29, 38):
                 a = radians(ang_deg)
                 x = c.x + L["side"] * cos(a) * ww * 1.008
-                y = c.y - sin(a) * ww * 1.07 * 1.008
+                y = c.y - sin(a) * ww * 1.06 * 1.008
                 ring_pts.append(Vector((x, y, z + 0.0015 * s)))
             stripe_rings.append(ring_pts)
         # build a thin quad strip between the two rails
@@ -1314,23 +1336,16 @@ def build_pants(P, key):
         tag_region(stripe, f"REG_pants_{k}")
         parts.append(stripe)
 
-    # A centre seat/crotch gusset closes the V between the two pant legs.
+    # A broad, high seat gusset closes the V between the two pant legs and
+    # blends into the waist. It replaces the narrow low ellipsoid that used to
+    # read as a lump under the jersey hem.
     seat = ellipsoid(f"{P['id']}_PantSeat",
-                     (0, 0.004 * s, 0.900 * s),
-                     ((0.078 if P['female'] else 0.074) * s, 0.118 * s, 0.100 * s),
+                     (0, 0.004 * s, 0.948 * s),
+                     ((0.146 if P['female'] else 0.141) * s, 0.110 * s, 0.093 * s),
                      segs=32, rings=18)
     set_material(seat, MAT["pants"])
     tag_region(seat, "REG_pants_seat")
     parts.append(seat)
-
-    # Small front panel closes the last sliver of bare skin at the waist.
-    front_panel = ellipsoid(f"{P['id']}_PantFrontPanel",
-                            (0, -0.065 * s, 0.925 * s),
-                            (0.060 * s, 0.040 * s, 0.055 * s),
-                            segs=24, rings=14)
-    set_material(front_panel, MAT["pants"])
-    tag_region(front_panel, "REG_pants_seat")
-    parts.append(front_panel)
 
     pants = join_objects(parts, f"{P['id']}_Pants")
     shade_smooth(pants)
@@ -1353,31 +1368,33 @@ def build_shoes(P, key):
         side = 1 if x > 0 else -1
         side_parts = []
 
-        # Dark outsole rim and white midsole
-        outsole = box(f"{P['id']}_Outsole_{k}", (x, y - 0.060 * fs, 0.006 * fs),
-                      (0.107 * fs, 0.283 * fs, 0.012 * fs),
+        # Dark outsole rim and white midsole. The first pair were nearly 30 cm
+        # long and 11 cm wide even on the female character; this is a normal
+        # game-size sneaker with the same layered construction.
+        outsole = box(f"{P['id']}_Outsole_{k}", (x, y - 0.056 * fs, 0.006 * fs),
+                      (0.098 * fs, 0.264 * fs, 0.012 * fs),
                       bevel=0.005 * fs)
         set_material(outsole, MAT["outsole"])
         side_parts.append(outsole)
 
-        sole = box(f"{P['id']}_Sole_{k}", (x, y - 0.060 * fs, 0.019 * fs),
-                   (0.104 * fs, 0.280 * fs, 0.032 * fs),
-                   bevel=0.014 * fs)
+        sole = box(f"{P['id']}_Sole_{k}", (x, y - 0.056 * fs, 0.019 * fs),
+                   (0.095 * fs, 0.261 * fs, 0.031 * fs),
+                   bevel=0.013 * fs)
         set_material(sole, MAT["sole"])
         side_parts.append(sole)
 
         # Upper, fused
         upper_parts = [
-            ellipsoid("toe", (x, y - 0.145 * fs, 0.057 * fs),
-                      (0.050 * fs, 0.072 * fs, 0.041 * fs), segs=24, rings=14),
-            ellipsoid("ball", (x, y - 0.070 * fs, 0.064 * fs),
-                      (0.053 * fs, 0.085 * fs, 0.049 * fs), segs=24, rings=14),
-            ellipsoid("instep", (x, y + 0.002 * fs, 0.066 * fs),
-                      (0.052 * fs, 0.075 * fs, 0.052 * fs), segs=24, rings=14),
-            ellipsoid("heel", (x, y + 0.052 * fs, 0.062 * fs),
-                      (0.047 * fs, 0.052 * fs, 0.050 * fs), segs=24, rings=14),
-            ellipsoid("collar", (x, y + 0.030 * fs, 0.098 * fs),
-                      (0.043 * fs, 0.045 * fs, 0.030 * fs), segs=24, rings=14),
+            ellipsoid("toe", (x, y - 0.136 * fs, 0.055 * fs),
+                      (0.046 * fs, 0.068 * fs, 0.039 * fs), segs=24, rings=14),
+            ellipsoid("ball", (x, y - 0.066 * fs, 0.062 * fs),
+                      (0.049 * fs, 0.080 * fs, 0.047 * fs), segs=24, rings=14),
+            ellipsoid("instep", (x, y + 0.002 * fs, 0.064 * fs),
+                      (0.048 * fs, 0.071 * fs, 0.050 * fs), segs=24, rings=14),
+            ellipsoid("heel", (x, y + 0.049 * fs, 0.060 * fs),
+                      (0.043 * fs, 0.049 * fs, 0.048 * fs), segs=24, rings=14),
+            ellipsoid("collar", (x, y + 0.028 * fs, 0.095 * fs),
+                      (0.040 * fs, 0.042 * fs, 0.029 * fs), segs=24, rings=14),
         ]
         upper = join_objects(upper_parts, f"{P['id']}_ShoeUpper_{k}")
         finalize_organic(upper, voxel=0.0042 * fs, smooth_iters=2,
@@ -1449,8 +1466,8 @@ def build_shoes(P, key):
 
         # Socks (white band between shoe and pants cuff)
         sock_rings = []
-        for z, r in [(0.075 * fs, 0.041), (0.105 * fs, 0.041),
-                     (0.145 * fs, 0.039), (0.160 * fs, 0.038)]:
+        for z, r in [(0.075 * fs, 0.037), (0.105 * fs, 0.037),
+                     (0.145 * fs, 0.0355), (0.160 * fs, 0.0345)]:
             sock_rings.append(ellipse_ring((x, y, z), r * fs, r * fs * 1.03, segs=24))
         sock = loft(f"{P['id']}_Sock_{k}", sock_rings, cap_start=False, cap_end=False)
         set_material(sock, MAT["sock"])
@@ -1816,19 +1833,22 @@ def compute_weights(obj, segments, smoothing_iters=2, rigid_bone=None,
             if base == "shoulder":
                 return ax > 0.055 * scale and z > 1.34 * scale
             if base == "upperarm" and z > 1.25 * scale:
-                # Let the upper arm blend into the armpit/deltoid so raising the
-                # arm stretches skin smoothly instead of leaving a rigid gash.
-                return ax > 0.14 * scale
+                # Keep the upper-arm bone off the torso side. The previous
+                # early return let it capture chest vertices when the arm was
+                # close to the body, producing long triangular spikes during
+                # the wave emote.
+                if ax < 0.16 * scale:
+                    return False
             if z > 1.48 * scale:
-                torso_w = 0.23 * scale
-            elif z > 1.25 * scale:
-                torso_w = 0.215 * scale
-            elif z > 1.05 * scale:
-                torso_w = 0.195 * scale
-            elif z > 0.88 * scale:
                 torso_w = 0.205 * scale
+            elif z > 1.25 * scale:
+                torso_w = 0.192 * scale
+            elif z > 1.05 * scale:
+                torso_w = 0.177 * scale
+            elif z > 0.88 * scale:
+                torso_w = 0.190 * scale
             else:
-                torso_w = 0.16 * scale
+                torso_w = 0.150 * scale
             if ax < torso_w + 0.012 * scale:
                 return False
             if base == "upperarm" and z < 1.10 * scale:
@@ -1871,12 +1891,20 @@ def compute_weights(obj, segments, smoothing_iters=2, rigid_bone=None,
             if f > 0.002:
                 cand.append((f, seg["name"]))
         if not cand:
-            best = min(
-                (s for s in segments
-                 if allowed is None or s["name"] in allowed),
-                key=lambda s: point_segment_distance(p, s["head"], s["tail"])
-            )
-            cand = [(1.0, best["name"])]
+            # Transition vertices (armpit, hip crease, neck) can fall outside
+            # every anatomy gate. The old fallback pinned them 100% to the
+            # single nearest bone, which produced stretched triangular spikes
+            # when the arm was raised. Blend the nearest few bones instead.
+            pool = [
+                s for s in segments
+                if allowed is None or s["name"] in allowed
+            ]
+            pool.sort(key=lambda s: point_segment_distance(p, s["head"], s["tail"]))
+            nearest = pool[:3]
+            for s in nearest:
+                d = point_segment_distance(p, s["head"], s["tail"])
+                r = max(0.02, s["radius"])
+                cand.append((math.exp(-(d / (r * 1.9)) ** 2) + 1e-4, s["name"]))
         cand.sort(reverse=True)
         cand = cand[:4]
         total = sum(w for w, _ in cand)
@@ -1915,7 +1943,7 @@ def compute_weights(obj, segments, smoothing_iters=2, rigid_bone=None,
             p = v.co
             if p.z < 1.18 * scale or p.z > 1.47 * scale:
                 continue
-            if abs(p.x) < 0.17 * scale:
+            if abs(p.x) < 0.15 * scale:
                 continue
             best = None
             best_d = 1e9
@@ -2301,7 +2329,7 @@ def build_character(key, cfg):
         "REG_shoe_R": {"calf_R", "foot_R", "toe_R"},
     }
 
-    compute_weights(body, segments, smoothing_iters=2, scale=P["s"])
+    compute_weights(body, segments, smoothing_iters=4, scale=P["s"])
     bind_mesh(body, rig)
 
     # Each hand -> its hand bone

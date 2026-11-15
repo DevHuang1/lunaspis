@@ -10,6 +10,8 @@
  * camera-free client.
  */
 
+const { guardSocket } = require("./socket_guard");
+
 module.exports = function setupVideoSignaling(io) {
   const MAX_SIGNAL_BYTES = 64 * 1024;
 
@@ -25,6 +27,8 @@ module.exports = function setupVideoSignaling(io) {
   }
 
   io.on("connection", (socket) => {
+    guardSocket(socket);
+
     socket.on("video_join", (data = {}, callback) => {
       const roomId = roomIdFrom(data);
       if (!roomId || !socket.rooms.has(roomId)) {

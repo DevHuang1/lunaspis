@@ -435,9 +435,16 @@
       }
       const hudVrBtn = document.getElementById("btn-hud-vr-main");
       if (hudVrBtn) {
-        hudVrBtn.innerHTML = this.isAnyVRActive
-          ? "<span>EXIT VR</span>"
-          : "<span>VR</span>";
+        const labelEl = hudVrBtn.querySelector(".deck-row__label");
+        const hintEl = hudVrBtn.querySelector(".deck-row__hint");
+        if (labelEl) {
+          labelEl.textContent = this.isAnyVRActive ? "EXIT VR" : "VR MODE";
+          if (hintEl) hintEl.textContent = this.isAnyVRActive ? "ON" : "VR";
+        } else {
+          hudVrBtn.innerHTML = this.isAnyVRActive
+            ? "<span>EXIT VR</span>"
+            : "<span>VR</span>";
+        }
         hudVrBtn.title = this.isAnyVRActive ? "Exit WebXR / Stereo VR Mode [ESC]" : "Toggle WebXR / Stereo VR Mode";
       }
       const interiorVrBtn = document.getElementById("btn-hud-vr");

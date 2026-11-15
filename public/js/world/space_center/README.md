@@ -4,6 +4,14 @@ The LC-39A complex is built in world-space metres from reusable Three.js
 primitives. The original Godot project is preserved in
 `design-reference/spacecenter2-godot/` and is not loaded at runtime.
 
+`grounds.js` is the support-campus detail pass: it adds the logistics
+warehouses, mission-support and fire-rescue buildings, Launch Equipment Test
+Facility, hazmat store, barge shed and beach-patrol pavilion, along with the
+staff/service car fleet, mown lawns, dirt patrol tracks and shoulders, gravel
+equipment yards, live-oak groves, sabal palms, shrubs and wildflowers. New
+paved surfaces are registered in `shared.js` → `getSurfaceHeightAt()` so the
+walker and open-top car stay at the correct height.
+
 ## Module contract
 
 Each builder is a plain IIFE registered on `window.SpaceCenterModules`:
@@ -28,7 +36,7 @@ Builders receive a `SpaceCenterSite` façade and must:
 
 `site.build()` runs the registered modules in this order:
 
-`environment → pad → pad39b → vab → lcc → crawler → utilities`
+`environment → grounds → pad → pad39b → vab → lcc → crawler → utilities`
 
 Static box/beam meshes are automatically instanced per material in
 `_mergeStaticBoxes()` to keep draw calls low.

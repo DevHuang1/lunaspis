@@ -13,7 +13,11 @@
   const NO_SHADOW_CAST = new Set([
     "asphalt",
     "gravel",
+    "gravel_light",
+    "dirt",
+    "dirt_dark",
     "grass",
+    "grass_lawn",
     "sand",
     "dune_sand",
     "water",
@@ -38,7 +42,7 @@
     }
 
     build() {
-      const order = ["environment", "pad", "pad39b", "vab", "lcc", "crawler", "utilities"];
+      const order = ["environment", "grounds", "pad", "pad39b", "vab", "lcc", "crawler", "utilities"];
       for (const name of order) {
         const builder = NS.builders && NS.builders[name];
         if (typeof builder === "function") builder(this);
@@ -431,6 +435,48 @@
             metalness: 0.02
           });
           break;
+        case "dirt":
+          material = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            map: this._makeNoiseTexture(
+              "dirt_tile",
+              "#8a6b4a",
+              ["rgba(108,82,56,0.34)", "rgba(164,134,96,0.30)", "rgba(74,56,38,0.24)"],
+              null,
+              512
+            ),
+            roughness: 0.98,
+            metalness: 0.01
+          });
+          break;
+        case "dirt_dark":
+          material = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            map: this._makeNoiseTexture(
+              "dirt_dark_tile",
+              "#5f4a35",
+              ["rgba(72,56,40,0.34)", "rgba(112,88,64,0.26)", "rgba(48,38,28,0.24)"],
+              null,
+              512
+            ),
+            roughness: 0.98,
+            metalness: 0.01
+          });
+          break;
+        case "gravel_light":
+          material = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            map: this._makeNoiseTexture(
+              "gravel_light_tile",
+              "#a89e8b",
+              ["rgba(140,130,112,0.34)", "rgba(206,196,176,0.28)", "rgba(108,100,86,0.22)"],
+              null,
+              512
+            ),
+            roughness: 0.98,
+            metalness: 0.02
+          });
+          break;
         case "grass":
           material = new THREE.MeshStandardMaterial({
             color: 0xffffff,
@@ -441,6 +487,31 @@
               "foliage",
               512
             ),
+            roughness: 0.96,
+            metalness: 0.0
+          });
+          break;
+        case "grass_lawn":
+          material = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            map: this._makeProceduralTexture("grass_lawn_tile", 512, (ctx, s) => {
+              ctx.fillStyle = "#4d6a3a";
+              ctx.fillRect(0, 0, s, s);
+              // Faint mower bands break up the flat ground plane without
+              // turning the maintained lawn into a bright green rectangle.
+              for (let y = 0; y < s; y += 48) {
+                ctx.fillStyle = y % 96 === 0 ? "rgba(204,218,172,0.035)" : "rgba(24,44,20,0.035)";
+                ctx.fillRect(0, y, s, 48);
+              }
+              for (let i = 0; i < 2800; i++) {
+                ctx.fillStyle = i % 3 === 0
+                  ? "rgba(96,130,68,0.22)"
+                  : i % 3 === 1
+                    ? "rgba(46,72,34,0.22)"
+                    : "rgba(136,154,88,0.14)";
+                ctx.fillRect(Math.random() * s, Math.random() * s, 1 + (i % 3), 1 + (i % 2));
+              }
+            }, 1, 1),
             roughness: 0.96,
             metalness: 0.0
           });

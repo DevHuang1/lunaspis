@@ -20,6 +20,15 @@
 (function (window) {
   "use strict";
 
+  function escapeHtml(value) {
+    return String(value == null ? "" : value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
   class SpaceCenterManager {
     constructor() {
       this.scene = null;
@@ -6687,7 +6696,7 @@
         <div class="sc-hud-top">
           <div class="sc-hud-status">
             <span id="sc-status-dot" class="sc-status-dot" style="background:${guidance.statusColor};"></span>
-            <span id="sc-status-label" class="sc-status-label" style="color:${guidance.statusColor};">${guidance.statusText}</span>
+            <span id="sc-status-label" class="sc-status-label" style="color:${escapeHtml(guidance.statusColor)};">${escapeHtml(guidance.statusText)}</span>
           </div>
 
           <div class="sc-hud-primary">
@@ -7189,7 +7198,7 @@
 
         ${pingValid ? `
           <div class="ground-ping-banner">
-            <span>TEAM ALERT: <strong>${String(activePing.roomLabel || activePing.roomId || "HUB").toUpperCase()}</strong>${activePing.message ? ` · ${activePing.message}` : ""} (${activePing.byName || "Ground"})</span>
+            <span>TEAM ALERT: <strong>${escapeHtml(String(activePing.roomLabel || activePing.roomId || "HUB").toUpperCase())}</strong>${activePing.message ? ` · ${escapeHtml(activePing.message)}` : ""} (${escapeHtml(activePing.byName || "Ground")})</span>
             <button type="button" class="ground-action-btn" id="btn-lcc-clear-ping" ${this._groundActionLockAttrs("clear_ping")}>CLEAR ALERT</button>
           </div>
         ` : ""}
@@ -7219,7 +7228,7 @@
             <div style="display:flex;flex-direction:column;gap:6px;">
               ${crewState.flightRoster.map((p) => `
                 <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:7px 10px;background:rgba(15,23,42,0.65);border:1px solid rgba(148,163,184,0.16);border-radius:4px;">
-                  <span style="color:#f8fafc;"><strong>${p.roleShort}</strong> · ${p.name}</span>
+                  <span style="color:#f8fafc;"><strong>${escapeHtml(p.roleShort)}</strong> · ${escapeHtml(p.name)}</span>
                   <span style="font-family:var(--font-mono);font-size:10.5px;color:${this.missionPhase === "station" ? "#86efac" : (p.isAboard ? "#93c5fd" : "#94a3b8")};">
                     ${this.missionPhase === "station" ? "STATION" : (p.isAboard ? "ABOARD" : "LAUNCH PAD")}
                   </span>

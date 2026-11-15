@@ -195,6 +195,28 @@
     if (Math.abs(x - 180) <= 7.2 && z >= -150 && z <= 292) return 0.12;
     if (x >= -234 && x <= -126 && z >= 244 && z <= 290) return 0.12;
 
+    // 7b. Grounds detail: VAB south apron, support-campus drives and lots,
+    //     fire-rescue apron, press overflow lot and gravel equipment yards.
+    if (x >= -131 && x <= 71 && z >= 495 && z <= 591) return 0.06;
+    if (x >= -163 && x <= -131 && Math.abs(z - 512) <= 5) return 0.12;
+    if (x >= -160 && x <= -146 && z >= 534 && z <= 568) return 0.08;
+    if (x >= -482 && x <= -278 && Math.abs(z - 264) <= 4.2) return 0.12;
+    if (Math.abs(x + 345) <= 5.2 && z >= 268 && z <= 289) return 0.12;
+    if (x >= -279 && x <= -231 && z >= 250 && z <= 284) return 0.12;
+    if (x >= -476 && x <= -454 && z >= 218 && z <= 252) return 0.12;
+    if (x >= -469 && x <= -461 && z >= 250 && z <= 260) return 0.12;
+    if (x >= -421 && x <= -345 && z >= 248 && z <= 260) return 0.10;
+    if (x >= -99 && x <= -41 && z >= 259 && z <= 282) return 0.10;
+    if (Math.abs(x + 70) <= 7 && z >= 282 && z <= 289) return 0.10;
+    if (x >= 188 && x <= 216 && z >= 243 && z <= 281) return 0.12;
+    if (x >= 214 && x <= 228 && z >= 252 && z <= 276) return 0.08;
+    if (x >= 176 && x <= 220 && z >= 543 && z <= 579) return 0.08;
+    if (x >= -468 && x <= -432 && z >= 180 && z <= 204) return 0.06;
+    if (x >= -946 && x <= -914 && z >= 154 && z <= 178) return 0.06;
+    if (x >= -197 && x <= -165 && z >= 120 && z <= 144) return 0.06;
+    if (x >= -243 && x <= -213 && z >= 535 && z <= 565) return 0.06;
+    if (x >= -207 && x <= -163 && z >= 505 && z <= 519) return 0.12;
+
     // 8. Atlantic foreshore downward beach slope east of dune ridge
     if (x > 468 && x < 550) {
       return Math.max(-0.5, 0.5 - (x - 468) * 0.018);

@@ -1307,7 +1307,6 @@
         "mission-briefing-overlay",
         "modal-academy",
         "modal-mission-log",
-        "modal-auth",
         "modal-station-systems",
         "task-modal-overlay",
         "victory-overlay"

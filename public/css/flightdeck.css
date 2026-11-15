@@ -538,17 +538,56 @@ body.menu-active #perf-overlay .perf-divider {
   opacity: 0.5;
 }
 
+/* --------------------------------------------------------------------------
+   BOOT SEQUENCE — custom loading screen with a dancing astronaut
+   -------------------------------------------------------------------------- */
+
 .boot-overlay {
+  --boot-paper: var(--ui-bg-deep);
+  --boot-ink: var(--ui-text);
+  --boot-muted: var(--ui-text-dim);
+  --boot-line: var(--ui-border);
+  --boot-line-strong: var(--ui-border-strong);
+  --boot-accent: var(--ui-brand);
+  --boot-accent-soft: var(--ui-brand-soft);
+  --boot-grid-line: rgba(255, 255, 255, 0.035);
+  --boot-shadow: rgba(0, 0, 0, 0.52);
+  --boot-pad: clamp(16px, 3vw, 34px);
   position: fixed;
   inset: 0;
   z-index: 26000;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
   overflow: hidden;
+  padding:
+    calc(var(--boot-pad) + env(safe-area-inset-top))
+    calc(var(--boot-pad) + env(safe-area-inset-right))
+    calc(var(--boot-pad) + env(safe-area-inset-bottom))
+    calc(var(--boot-pad) + env(safe-area-inset-left));
+  color: var(--boot-ink);
   background:
-    radial-gradient(circle at 50% 44%, rgba(var(--ui-brand-rgb), 0.07), transparent 34%),
-    #05070a;
+    radial-gradient(circle at 50% 32%, rgba(var(--ui-brand-rgb), 0.08), transparent 34%),
+    var(--boot-paper);
+  font-family: var(--ui-font-mono);
   transition: opacity 420ms var(--ui-ease), visibility 420ms var(--ui-ease);
+  isolation: isolate;
+}
+
+/* Gloss Silver opens on paper-white so the astronaut reads like a mission patch. */
+:root[data-theme="gloss-silver"] .boot-overlay {
+  --boot-paper: #efeee8;
+  --boot-ink: #0b0d0f;
+  --boot-muted: rgba(11, 13, 15, 0.62);
+  --boot-line: rgba(11, 13, 15, 0.16);
+  --boot-line-strong: rgba(11, 13, 15, 0.38);
+  --boot-accent: #0b0d0f;
+  --boot-accent-soft: rgba(11, 13, 15, 0.08);
+  --boot-grid-line: rgba(11, 13, 15, 0.055);
+  --boot-shadow: rgba(11, 13, 15, 0.22);
+  background:
+    radial-gradient(circle at 50% 30%, #ffffff 0%, rgba(255, 255, 255, 0) 44%),
+    linear-gradient(165deg, #f7f6f1 0%, #eeede7 56%, #e4e3dd 100%);
 }
 
 .boot-overlay.is-done {
@@ -560,94 +599,542 @@ body.menu-active #perf-overlay .perf-divider {
 .boot-grid {
   position: absolute;
   inset: -20%;
+  z-index: -1;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
-  background-size: 56px 56px;
-  mask-image: radial-gradient(circle at center, #000 8%, transparent 62%);
-  -webkit-mask-image: radial-gradient(circle at center, #000 8%, transparent 62%);
-  transform: perspective(600px) rotateX(58deg) translateY(18%);
+    linear-gradient(var(--boot-grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--boot-grid-line) 1px, transparent 1px);
+  background-size: 52px 52px;
+  mask-image: radial-gradient(circle at 50% 38%, #000 5%, transparent 64%);
+  -webkit-mask-image: radial-gradient(circle at 50% 38%, #000 5%, transparent 64%);
+  transform: perspective(760px) rotateX(56deg) translateY(24%);
 }
 
-.boot-emblem {
+/* ------------------------------------------------------------------ chrome */
+.boot-top {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 13px;
+  border-bottom: 1px solid var(--boot-line);
+}
+
+.boot-brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+
+.boot-brand-mark {
+  display: grid;
+  place-items: center;
+  width: 27px;
+  height: 27px;
+  flex: 0 0 auto;
+  background: var(--boot-ink);
+  color: var(--boot-paper);
+  font-family: var(--ui-font-display);
+  font-size: 17px;
+  font-weight: 700;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+}
+
+.boot-brand-word {
+  font-family: var(--ui-font-display);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+}
+
+.boot-brand-sub {
+  padding-left: 12px;
+  border-left: 1px solid var(--boot-line);
+  color: var(--boot-muted);
+  font-size: 8px;
+  letter-spacing: 0.18em;
+}
+
+.boot-top-meta {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  color: var(--boot-muted);
+  font-size: 8px;
+  letter-spacing: 0.16em;
+  white-space: nowrap;
+}
+
+.boot-top-meta b {
+  color: var(--boot-ink);
+  font-weight: 500;
+}
+
+.boot-top-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--boot-ink);
+}
+
+.boot-top-live i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--boot-accent);
+  box-shadow: 0 0 0 3px var(--boot-accent-soft);
+  animation: boot-pulse 1.5s ease-in-out infinite;
+}
+
+/* ------------------------------------------------------------------ stage */
+.boot-main {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(8px, 2.2vh, 22px);
+  min-height: 0;
+  padding: 10px 0;
+}
+
+.boot-dancer {
   position: relative;
   display: grid;
   place-items: center;
-  width: 74px;
-  height: 74px;
-  margin-bottom: 210px;
-  background: var(--ui-brand);
-  color: var(--ui-brand-ink);
-  font-family: var(--ui-font-display);
-  font-size: 38px;
-  font-weight: 700;
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%);
-  box-shadow: 0 0 60px rgba(var(--ui-brand-rgb), 0.18);
+  width: clamp(208px, 27vh, 288px);
+  height: clamp(218px, 30vh, 302px);
+  flex: 0 0 auto;
 }
 
-.boot-copy {
+.boot-halo {
+  position: absolute;
+  inset: 4% 2%;
+  z-index: 0;
+  border: 1px solid var(--boot-line);
+  border-radius: 50%;
+}
+
+.boot-halo::before {
+  content: "";
+  position: absolute;
+  inset: 9%;
+  border: 1px dashed var(--boot-line);
+  border-radius: 50%;
+  animation: boot-spin 26s linear infinite;
+}
+
+.boot-halo::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  margin-left: -3px;
+  border-radius: 50%;
+  background: var(--boot-accent);
+  box-shadow: 0 0 0 5px var(--boot-accent-soft);
+}
+
+.boot-astro {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.astro-figure {
+  transform-box: fill-box;
+  transform-origin: 50% 92%;
+  animation: boot-astro-groove 1.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.astro-arm {
+  transform-box: fill-box;
+}
+
+.astro-arm--l {
+  transform-origin: 50% 6%;
+  animation: boot-arm-left 1.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.astro-arm--r {
+  transform-origin: 50% 6%;
+  animation: boot-arm-right 1.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.astro-leg {
+  transform-box: fill-box;
+  transform-origin: 50% 6%;
+}
+
+.astro-leg--l {
+  animation: boot-leg-left 1.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.astro-leg--r {
+  animation: boot-leg-right 1.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.astro-head {
+  transform-box: fill-box;
+  transform-origin: 50% 88%;
+  animation: boot-head-bob 1.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.boot-astro-shadow {
   position: absolute;
   left: 50%;
-  top: 50%;
-  width: min(420px, calc(100vw - 48px));
-  transform: translate(-50%, 12px);
+  bottom: 7%;
+  z-index: 1;
+  width: 56%;
+  height: 13px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, var(--boot-shadow), transparent 68%);
+  filter: blur(2px);
+  animation: boot-shadow-dance 1.4s ease-in-out infinite;
+}
+
+.boot-floor {
+  position: absolute;
+  left: 50%;
+  bottom: 4%;
+  z-index: 0;
+  width: 68%;
+  height: 34px;
+  transform: translateX(-50%);
+  border: 1px solid var(--boot-line);
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, var(--boot-accent-soft), transparent 72%);
+}
+
+.boot-floor::after {
+  content: "";
+  position: absolute;
+  inset: 6px 16%;
+  border: 1px dashed var(--boot-line);
+  border-radius: 50%;
+}
+
+.boot-note {
+  position: absolute;
+  z-index: 3;
+  font-family: var(--ui-font-display);
+  font-size: 18px;
+  line-height: 1;
+  color: var(--boot-ink);
+  opacity: 0;
+  animation: boot-note-float 2.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.boot-note--a { top: 12%; left: 4%; animation-delay: 0.35s; }
+.boot-note--b { top: 30%; right: 1%; font-size: 22px; animation-delay: 1.15s; }
+.boot-note--c { top: 56%; left: 3%; font-size: 15px; animation-delay: 1.9s; }
+
+/* ------------------------------------------------------------------ copy */
+.boot-copy {
+  position: relative;
+  z-index: 2;
+  width: min(540px, calc(100vw - 48px));
   text-align: center;
 }
 
 .boot-eyebrow {
-  font-family: var(--ui-font-mono);
+  color: var(--boot-muted);
   font-size: 8px;
-  letter-spacing: 0.2em;
-  color: var(--ui-brand);
+  letter-spacing: 0.22em;
 }
 
 .boot-title {
-  margin: 8px 0 18px;
-  font-size: 34px;
+  margin: 8px 0 9px;
+  color: var(--boot-ink);
+  font-family: var(--ui-font-display);
+  font-size: clamp(30px, 5.2vh, 46px);
   font-weight: 600;
-  letter-spacing: 0.24em;
-  color: var(--ui-text);
+  line-height: 1;
+  letter-spacing: 0.26em;
+  text-indent: 0.26em;
+}
+
+:root[data-theme="gloss-silver"] .boot-title {
+  background: linear-gradient(180deg, #4c5152 0%, #0a0c0e 32%, #0a0c0e 64%, #7e837f 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.boot-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 auto 16px;
+  color: var(--boot-muted);
+  font-size: 9px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.boot-dots {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.boot-dots i {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: boot-dot 1.2s ease-in-out infinite;
+}
+
+.boot-dots i:nth-child(2) { animation-delay: 0.15s; }
+.boot-dots i:nth-child(3) { animation-delay: 0.3s; }
+
+.boot-track {
+  position: relative;
+  height: 4px;
+  overflow: hidden;
+  border: 1px solid var(--boot-line);
+  background: var(--boot-accent-soft);
+}
+
+#boot-track-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--boot-accent);
+  box-shadow: 0 0 14px var(--boot-accent-soft);
+  transform: scaleX(0);
+  transform-origin: left center;
+  animation: boot-fill 2000ms cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
 }
 
 .boot-checks {
   display: flex;
   justify-content: space-between;
-  padding: 10px 0;
-  border-top: 1px solid var(--ui-divider);
-  border-bottom: 1px solid var(--ui-divider);
-  color: var(--ui-text-dim);
-  font-family: var(--ui-font-mono);
+  margin-top: 8px;
+  color: var(--boot-muted);
+  font-size: 7.5px;
+  letter-spacing: 0.18em;
+}
+
+.boot-checks span::before {
+  content: "";
+  display: inline-block;
+  width: 3px;
+  height: 3px;
+  margin-right: 6px;
+  background: var(--boot-accent);
+  vertical-align: 1px;
+}
+
+/* ------------------------------------------------------------------ footer */
+.boot-foot {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  padding-top: 13px;
+  border-top: 1px solid var(--boot-line);
+  color: var(--boot-muted);
   font-size: 8px;
   letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
-.boot-track {
-  height: 2px;
-  margin-top: 18px;
-  background: rgba(255, 255, 255, 0.08);
-  overflow: hidden;
+.boot-foot-label {
+  grid-column: 1;
+  justify-self: start;
 }
 
-#boot-track-fill {
-  display: block;
-  height: 100%;
-  background: var(--ui-brand);
-  transform-origin: left center;
-  animation: boot-fill 1600ms var(--ui-ease) forwards;
+.boot-hint {
+  grid-column: 2;
+  justify-self: center;
+  color: var(--boot-ink);
+  opacity: 0.72;
+  animation: boot-hint-pulse 2s ease-in-out infinite;
+  text-align: center;
 }
 
+.boot-foot-meta {
+  grid-column: 3;
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  white-space: nowrap;
+}
+
+#boot-progress-value {
+  min-width: 4ch;
+  color: var(--boot-ink);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------ motion */
 @keyframes boot-fill {
   from { transform: scaleX(0); }
   to { transform: scaleX(1); }
 }
 
-.boot-hint {
-  margin-top: 12px;
-  font-family: var(--ui-font-mono);
-  font-size: 7.5px;
-  letter-spacing: 0.18em;
-  color: var(--ui-text-dim);
-  opacity: 0.7;
+@keyframes boot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.7); }
+}
+
+@keyframes boot-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes boot-dot {
+  0%, 100% { opacity: 0.25; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-2px); }
+}
+
+@keyframes boot-hint-pulse {
+  0%, 100% { opacity: 0.72; }
+  50% { opacity: 0.3; }
+}
+
+@keyframes boot-note-float {
+  0% { opacity: 0; transform: translateY(8px) rotate(-8deg) scale(0.8); }
+  22% { opacity: 0.6; }
+  62% { opacity: 0.24; }
+  100% { opacity: 0; transform: translateY(-26px) rotate(10deg) scale(1.1); }
+}
+
+@keyframes boot-astro-groove {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  25% { transform: translateY(-7px) rotate(2deg); }
+  50% { transform: translateY(0) rotate(3deg); }
+  75% { transform: translateY(-5px) rotate(-3deg); }
+}
+
+@keyframes boot-arm-left {
+  0%, 100% { transform: rotate(8deg); }
+  20% { transform: rotate(112deg); }
+  42% { transform: rotate(92deg); }
+  64% { transform: rotate(-8deg); }
+  82% { transform: rotate(26deg); }
+}
+
+@keyframes boot-arm-right {
+  0%, 100% { transform: rotate(-8deg); }
+  22% { transform: rotate(16deg); }
+  46% { transform: rotate(-108deg); }
+  68% { transform: rotate(-88deg); }
+  86% { transform: rotate(-22deg); }
+}
+
+@keyframes boot-leg-left {
+  0%, 100% { transform: rotate(-4deg); }
+  25% { transform: rotate(9deg); }
+  50% { transform: rotate(-2deg); }
+  75% { transform: rotate(-12deg); }
+}
+
+@keyframes boot-leg-right {
+  0%, 100% { transform: rotate(4deg); }
+  25% { transform: rotate(-12deg); }
+  50% { transform: rotate(2deg); }
+  75% { transform: rotate(9deg); }
+}
+
+@keyframes boot-head-bob {
+  0%, 100% { transform: rotate(-3deg) translateY(0); }
+  30% { transform: rotate(3deg) translateY(-1px); }
+  60% { transform: rotate(-1deg) translateY(0); }
+  80% { transform: rotate(3deg) translateY(-1px); }
+}
+
+@keyframes boot-shadow-dance {
+  0%, 100% { opacity: 0.75; transform: translateX(-50%) scaleX(1); }
+  25% { opacity: 0.42; transform: translateX(-50%) scaleX(0.82); }
+  50% { opacity: 0.68; transform: translateX(-50%) scaleX(1.04); }
+  75% { opacity: 0.46; transform: translateX(-50%) scaleX(0.86); }
+}
+
+@media (max-width: 720px) {
+  .boot-brand-sub,
+  .boot-foot-label {
+    display: none;
+  }
+  .boot-top-meta > span:first-child {
+    display: none;
+  }
+  .boot-dancer {
+    width: min(58vw, 228px);
+    height: min(30vh, 244px);
+  }
+  .boot-title {
+    font-size: 34px;
+  }
+  .boot-status {
+    font-size: 8px;
+  }
+  .boot-foot {
+    font-size: 7px;
+  }
+}
+
+@media (min-width: 700px) and (max-height: 640px) {
+  .boot-main {
+    flex-direction: row;
+    gap: clamp(28px, 6vw, 72px);
+  }
+  .boot-dancer {
+    width: 188px;
+    height: 210px;
+    margin-left: auto;
+  }
+  .boot-copy {
+    width: min(430px, 52vw);
+    margin-right: auto;
+    text-align: left;
+  }
+  .boot-status {
+    justify-content: flex-start;
+  }
+  .boot-title {
+    font-size: 32px;
+  }
+}
+
+@media (max-width: 420px) {
+  .boot-overlay {
+    --boot-pad: 14px;
+  }
+  .boot-brand-word {
+    font-size: 11px;
+  }
+  .boot-top-live {
+    font-size: 7px;
+  }
+  .boot-dancer {
+    width: 192px;
+    height: 206px;
+  }
+  .boot-title {
+    font-size: 30px;
+  }
+  .boot-checks {
+    font-size: 7px;
+  }
+  .boot-hint {
+    display: none;
+  }
 }
 
 #screen-lobby {
@@ -1775,6 +2262,7 @@ input[type="range"] {
 @media (prefers-reduced-motion: reduce) {
   #boot-track-fill {
     animation: none !important;
+    transform: none !important;
   }
   .boot-overlay {
     transition: none;

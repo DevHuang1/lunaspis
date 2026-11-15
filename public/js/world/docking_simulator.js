@@ -247,6 +247,21 @@
       return pilot.id === nm.socketId;
     }
 
+    // Docking completion is an authoritative action. Being physically inside
+    // the capture corridor is not authorization: a passenger cannot finish the
+    // pilot's approach for them.
+    _canAuthorizeDocking() {
+      const nm = window.netManager;
+      if (!nm || !nm.connected || !nm.roomId) return true;
+      const players = nm.roomState && Array.isArray(nm.roomState.players) ? nm.roomState.players : [];
+      if (players.length <= 1) return true;
+      if (nm.isHost) return true;
+      const myRole = window.InterfellasRoles
+        ? window.InterfellasRoles.normalizeRole(nm.localPlayer && nm.localPlayer.role, "commander")
+        : "commander";
+      return this._isHelmPilot() || myRole === "commander";
+    }
+
     _bindNetListeners() {
       if (this._netBound || !window.netManager || typeof window.netManager.on !== "function") return;
       this._netBound = true;
@@ -385,11 +400,7 @@
       const nm = window.netManager;
       const corridorCapture = this._isInsideCaptureCorridor();
       if (nm && nm.connected && nm.roomState && Array.isArray(nm.roomState.players) && nm.roomState.players.length > 1) {
-        const myRole = window.InterfellasRoles
-          ? window.InterfellasRoles.normalizeRole(nm.localPlayer && nm.localPlayer.role, "commander")
-          : "commander";
-        const canSkip = this._isHelmPilot() || nm.isHost || myRole === "commander" || corridorCapture;
-        if (!canSkip) {
+        if (!this._canAuthorizeDocking()) {
           this._assistFlashText = "HELM PILOT OR HOST AUTHORIZES EARLY SKIP · CLICK TAKE HELM OR ASSIST WITH [1-4]";
           this._assistFlashUntil = performance.now() + 3000;
           if (window.gameplay && typeof window.gameplay.showToast === "function") {
@@ -537,7 +548,7 @@
         if (e.key) this.keys[e.key.toLowerCase()] = true;
 
         // Hard capture latch separated from Roll Right [E] onto [Space] / [Enter]
-        if ((e.code === "Space" || e.code === "Enter") && this._isInsideCaptureCorridor()) {
+        if ((e.code === "Space" || e.code === "Enter") && this._isInsideCaptureCorridor() && this._canAuthorizeDocking()) {
           e.preventDefault();
           this._completeDocking(true);
           return;

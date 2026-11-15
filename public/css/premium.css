@@ -1,1015 +1,4 @@
 /* ==========================================================================
-   LUNASPIS — Mission-control UI refinement
-   Restrained, professional aerospace styling. No decorative effects.
-   Loaded after style.css.
-   ========================================================================== */
-
-:root {
-  --font-sans: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
-  --font-mono: "SF Mono", SFMono-Regular, ui-monospace, Menlo, Monaco, Consolas, monospace;
-
-  /* NASA / mission-control aerospace palette (unified with #screen-menu) */
-  --bg-obsidian: #050810;
-  --surface-glass: rgba(8, 13, 24, 0.86);
-  --surface-elevated: rgba(12, 18, 32, 0.94);
-  --border-hairline: rgba(148, 163, 184, 0.22);
-  --border-strong: rgba(148, 163, 184, 0.42);
-  --text-ivory: #f8fafc;
-  --text-slate: rgba(148, 163, 184, 0.85);
-  --accent-cyan: #2563eb;
-  --accent-amber: #d97706;
-  --accent-sage: #16a34a;
-  --accent-rose: #dc2626;
-  --accent-lavender: #7c3aed;
-}
-
-/* ---------- Base ---------- */
-html, body {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-  font-family: var(--font-sans);
-  background: #050810;
-}
-
-/* ---------- Typography scope ---------- */
-.title-brand,
-.title-callsign-lbl,
-.title-callsign-input,
-.title-code-input,
-.title-eyebrow,
-.room-code-text,
-.lobby-count-text,
-.customizer-title,
-.field-label,
-.settings-label,
-.settings-val-badge,
-.settings-select,
-.btn-title-primary,
-.btn-title-secondary,
-.btn-title-join,
-.btn-primary,
-.btn-secondary,
-.btn-start-game,
-.btn-copy,
-.btn-auth-action,
-.btn-lobby-voice,
-.btn-preset,
-.sys-tab-btn,
-.auth-tab-btn,
-.hud-race-team-info,
-.hud-race-score,
-.hud-checklist-header,
-.checklist-count-pill,
-.task-badge,
-.task-loc-text,
-.task-modal-title,
-.diag-title,
-.diag-stat-label,
-.diag-stat-value,
-.diag-stat-sub,
-.victory-eyebrow,
-.perf-metric,
-.perf-label,
-.perf-val,
-.perf-status-badge,
-.voice-mic-btn,
-.voice-status-badge,
-.voice-key-hint,
-.voice-settings-btn,
-.emote-wheel-header,
-.emote-label,
-.emote-hotkey,
-#emote-toast,
-.dossier-stat-num,
-.dossier-stat-lbl,
-#action-toast,
-#launch-countdown-banner,
-.hangar-card-badge,
-.hangar-card-role,
-.hangar-card-title,
-.hangar-card-desc,
-.hangar-ctrl-btn,
-.hangar-viewport-status,
-.hangar-stat-lbl,
-.hangar-stat-val,
-#mobile-joystick-hint,
-.lobby-mission-selected,
-.lobby-mission-hint,
-.net-diag-lbl,
-.net-diag-val,
-.keybind-row,
-.pod-role,
-.pod-ready-badge,
-.settings-toggle-title,
-.settings-toggle-desc,
-.prox-key-badge,
-.sc-status-label,
-.sc-hud-btn,
-.lobby-zone-header,
-.ground-action-btn,
-.swap-request-banner {
-  font-family: var(--font-mono);
-}
-
-/* ---------- Scrollbars (minimal) ---------- */
-::-webkit-scrollbar { width: 5px; height: 5px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.25); border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.45); }
-
-/* ---------- Focus ---------- */
-.input-styled:focus,
-.settings-select:focus,
-.title-code-input:focus,
-.title-callsign-input:focus,
-.lobby-chat-input:focus {
-  border-color: var(--accent-cyan);
-  outline: none;
-}
-
-.input-styled,
-.settings-select,
-.title-code-input,
-.title-callsign-input {
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--border-hairline);
-}
-
-/* ---------- Surfaces: flat, crisp, unified hairline aerospace chrome ---------- */
-.lobby-top-bar,
-.lobby-customizer,
-.lobby-mission-panel,
-.lobby-player-pod,
-.hud-race-bar-container,
-.hud-checklist-panel,
-.hud-crew-roster,
-#hud-voice-panel,
-#perf-overlay,
-.task-modal-card,
-.settings-modal-card,
-.mission-briefing-card,
-.hangar-modal-card,
-#emote-wheel,
-.active-speaker-tag,
-#space-center-ground-hud,
-#ship-interior-hud,
-#lunaspis-ship-minimap,
-#lunaspis-resource-meters,
-.dock-title-card,
-.dock-telem-card,
-.dock-rcs-bar,
-.launch-badge-card,
-#launch-capcom-banner,
-#mv-topbar,
-#mv-telemetry-card,
-#mv-timeline-bar,
-#ground-lcc-console,
-.swap-request-banner,
-#action-toast {
-  background: var(--surface-glass);
-  border: 1px solid var(--border-hairline);
-  border-radius: 4px;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  box-shadow: none;
-}
-
-/* ---------- Buttons: crisp rectangular, flat ---------- */
-.btn-title-primary,
-.btn-title-secondary,
-.btn-title-join,
-.btn-primary,
-.btn-secondary,
-.btn-start-game,
-.btn-copy,
-.btn-auth-action,
-.btn-lobby-voice,
-.btn-preset,
-.voice-mic-btn,
-.voice-settings-btn,
-.hangar-ctrl-btn,
-.dpad-btn,
-.sc-hud-btn,
-.ground-action-btn,
-.lobby-swap-btn,
-.crew-swap-btn {
-  border-radius: 4px;
-  transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
-}
-
-.btn-title-primary,
-.btn-primary,
-.btn-start-game {
-  background: var(--text-ivory);
-  color: #050810;
-  border: 1px solid var(--text-ivory);
-}
-
-.btn-title-primary:hover,
-.btn-primary:hover,
-.btn-start-game:hover {
-  background: #ffffff;
-  border-color: #ffffff;
-  transform: none;
-}
-
-.btn-title-secondary,
-.btn-secondary,
-.btn-lobby-voice,
-.btn-copy,
-.voice-mic-btn,
-.voice-settings-btn,
-.hangar-ctrl-btn,
-.sc-hud-btn,
-.ground-action-btn,
-.lobby-swap-btn {
-  background: rgba(6, 10, 18, 0.72);
-  border: 1px solid var(--border-hairline);
-  color: var(--text-ivory);
-}
-
-.btn-title-secondary:hover,
-.btn-secondary:hover,
-.btn-lobby-voice:hover,
-.btn-copy:hover,
-.voice-mic-btn:hover,
-.voice-settings-btn:hover,
-.hangar-ctrl-btn:hover,
-.sc-hud-btn:hover,
-.ground-action-btn:hover,
-.lobby-swap-btn:hover {
-  border-color: var(--accent-cyan);
-  background: rgba(37, 99, 235, 0.12);
-  color: #ffffff;
-}
-
-.btn-sband-active,
-#btn-sband-radio.active {
-  background: rgba(37, 99, 235, 0.25);
-  border-color: #38bdf8;
-  color: #f8fafc;
-}
-
-/* ==========================================================================
-   LOBBY: ASYMMETRIC OPEN STAGING LAYOUT (MIRRORS #screen-menu)
-   ========================================================================== */
-#screen-lobby {
-  display: none;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: calc(40px + var(--safe-top)) calc(20px + var(--safe-right)) calc(18px + var(--safe-bottom)) calc(20px + var(--safe-left));
-  background: linear-gradient(
-    90deg,
-    rgba(5, 8, 16, 0.88) 0%,
-    rgba(5, 8, 16, 0.56) 44%,
-    rgba(5, 8, 16, 0.34) 100%
-  );
-  gap: 10px;
-}
-
-.lobby-top-bar {
-  padding: 8px 14px;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.lobby-top-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.room-code-text {
-  color: var(--text-ivory);
-  font-size: 16px;
-  letter-spacing: 2.8px;
-}
-
-.lobby-count-text {
-  color: #93c5fd;
-  font-size: 10px;
-}
-
-.lobby-staging-shell {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(320px, 39%) minmax(0, 1fr);
-  gap: 14px;
-  overflow: hidden;
-}
-
-.lobby-left-rail {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  min-height: 0;
-  overflow-y: auto;
-  padding-right: 2px;
-}
-
-.lobby-mission-panel {
-  padding: 10px 12px;
-}
-
-.lobby-mission-selected {
-  color: var(--text-ivory);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.9px;
-}
-
-.lobby-mission-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 6px;
-  margin: 8px 0;
-}
-
-.lobby-customizer {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 10px 12px;
-}
-
-.lobby-suit-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.lobby-color-btn {
-  width: 22px;
-  height: 22px;
-  border-radius: 3px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-}
-
-.lobby-color-btn.active {
-  border: 2px solid #f8fafc;
-  outline: 1px solid var(--accent-cyan);
-}
-
-.lobby-chat-box {
-  flex: 1;
-  min-height: 96px;
-  background: rgba(5, 8, 16, 0.65);
-  border: 1px solid var(--border-hairline);
-  border-radius: 4px;
-  padding: 7px 8px;
-}
-
-.lobby-chat-send {
-  background: var(--text-ivory);
-  color: #050810;
-  border-radius: 4px;
-}
-
-.lobby-manifest-stage {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  min-height: 0;
-  padding: 10px 14px;
-  background: rgba(8, 13, 24, 0.42);
-  border: 1px solid var(--border-hairline);
-  border-radius: 4px;
-  backdrop-filter: blur(6px);
-  overflow-y: auto;
-}
-
-.lobby-manifest-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 10px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border-hairline);
-  flex-wrap: wrap;
-}
-
-.lobby-manifest-title-block {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.lobby-manifest-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.lobby-role-coverage {
-  padding: 0;
-  border: none;
-  background: transparent;
-  font-size: 11px;
-  letter-spacing: 0.6px;
-  line-height: 1.4;
-  color: var(--text-slate);
-}
-
-.lobby-role-coverage.warn { color: #fbbf24; background: transparent; border: none; }
-.lobby-role-coverage.ready { color: #86efac; background: transparent; border: none; }
-
-.lobby-players-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  flex: 1;
-}
-
-.lobby-zone-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.lobby-zone-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 1.3px;
-  color: var(--text-slate);
-  padding-bottom: 6px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
-}
-
-.lobby-zone-header.zone-ground {
-  color: #93c5fd;
-  border-bottom-color: rgba(37, 99, 235, 0.35);
-}
-
-.lobby-zone-header.zone-crew {
-  color: #f8fafc;
-  border-bottom-color: rgba(148, 163, 184, 0.3);
-}
-
-.lobby-zone-rows {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: 7px;
-}
-
-.lobby-manifest-row {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 9px 11px;
-  background: rgba(8, 13, 24, 0.82);
-  border: 1px solid var(--border-hairline);
-  border-radius: 4px;
-}
-
-.lobby-manifest-row.is-self {
-  border-color: rgba(37, 99, 235, 0.72);
-  background: rgba(15, 23, 42, 0.9);
-}
-
-.lobby-manifest-row.is-empty {
-  border-style: dashed;
-  background: rgba(8, 13, 24, 0.42);
-  opacity: 0.65;
-}
-
-.lobby-row-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.lobby-row-identity {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-width: 0;
-}
-
-.lobby-suit-swatch {
-  width: 9px;
-  height: 9px;
-  border-radius: 2px;
-  flex: 0 0 auto;
-}
-
-.lobby-row-name {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text-ivory);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.lobby-row-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-}
-
-.lobby-row-duty {
-  font-size: 11.5px;
-  color: var(--text-slate);
-  line-height: 1.45;
-}
-
-.lobby-swap-btn {
-  padding: 5px 10px;
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.7px;
-  cursor: pointer;
-}
-
-.lobby-swap-btn.is-pending {
-  border-color: #d97706;
-  color: #fde68a;
-  background: rgba(217, 119, 6, 0.14);
-}
-
-.swap-request-banner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 12px;
-  border-color: rgba(37, 99, 235, 0.75);
-  background: rgba(12, 20, 38, 0.95);
-  font-size: 10px;
-  color: var(--text-ivory);
-  pointer-events: auto;
-  flex-wrap: wrap;
-}
-
-.swap-banner-hud {
-  position: fixed;
-  top: calc(54px + var(--safe-top));
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1050;
-  max-width: min(560px, calc(100vw - 32px));
-}
-
-.swap-banner-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.lobby-bottom-bar {
-  padding-top: 6px;
-  border-top: 1px solid rgba(148, 163, 184, 0.14);
-}
-
-.lobby-start-cluster {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.lobby-autoshuffle-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.8px;
-  color: var(--text-slate);
-  cursor: pointer;
-  padding: 7px 12px;
-  border: 1px solid var(--border-hairline);
-  border-radius: 5px;
-  background: rgba(6, 10, 18, 0.65);
-}
-
-/* ==========================================================================
-   IN-GAME HUD & ROLE BADGES (FLAT, UNIFIED, ZERO EMOJIS / GLOWS)
-   ========================================================================== */
-.task-badge {
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0.7px;
-  padding: 2px 5px;
-  border-radius: 3px;
-  border: 1px solid var(--border-hairline);
-}
-
-.badge-fdir,
-.badge-cap {
-  background: rgba(37, 99, 235, 0.16);
-  color: #93c5fd;
-  border-color: rgba(37, 99, 235, 0.45);
-}
-
-.badge-cmd {
-  background: rgba(220, 38, 38, 0.14);
-  color: #fca5a5;
-  border-color: rgba(220, 38, 38, 0.38);
-}
-
-.badge-eng {
-  background: rgba(217, 119, 6, 0.14);
-  color: #fcd34d;
-  border-color: rgba(217, 119, 6, 0.38);
-}
-
-.badge-sci {
-  background: rgba(22, 163, 74, 0.14);
-  color: #86efac;
-  border-color: rgba(22, 163, 74, 0.38);
-}
-
-.badge-spc {
-  background: rgba(124, 58, 237, 0.16);
-  color: #c4b5fd;
-  border-color: rgba(124, 58, 237, 0.42);
-}
-
-.hud-crew-roster {
-  background: rgba(6, 10, 18, 0.72);
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  padding: 6px 7px;
-}
-
-.crew-roster-zone-title {
-  font-size: 8.5px;
-  font-weight: 700;
-  letter-spacing: 1.2px;
-  color: var(--text-slate);
-  margin: 3px 0 2px;
-  display: flex;
-  justify-content: space-between;
-}
-
-.crew-roster-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px;
-}
-
-.crew-role-chip {
-  border-radius: 3px;
-  padding: 4px 6px;
-}
-
-.crew-role-chip.is-self {
-  border-color: var(--accent-cyan);
-  background: rgba(37, 99, 235, 0.14);
-}
-
-.crew-swap-btn {
-  margin-top: 2px;
-  padding: 1px 5px;
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0.7px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border-hairline);
-  color: var(--text-ivory);
-  cursor: pointer;
-  align-self: flex-start;
-}
-
-.crew-swap-btn:hover {
-  border-color: var(--accent-cyan);
-  color: #93c5fd;
-}
-
-.sc-status-dot {
-  background: #38bdf8;
-  box-shadow: none;
-}
-
-#space-center-ground-hud {
-  border-color: var(--border-hairline);
-  border-radius: 4px;
-}
-
-.sc-ground-ops-strip {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 5px;
-  padding-top: 5px;
-  border-top: 1px solid rgba(148, 163, 184, 0.16);
-}
-
-.ground-action-btn {
-  padding: 4px 8px;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.7px;
-  cursor: pointer;
-}
-
-.ground-action-btn.is-approved {
-  border-color: rgba(22, 163, 74, 0.6);
-  background: rgba(22, 163, 74, 0.16);
-  color: #86efac;
-}
-
-.ground-action-btn.is-urgent {
-  border-color: #d97706;
-  background: rgba(217, 119, 6, 0.22);
-  color: #fef08a;
-}
-
-/* Full LCC Ground Control Operations Console Drawer [C] / Firing Room Desk [E] */
-#ground-lcc-console {
-  position: fixed;
-  inset: calc(52px + var(--safe-top)) auto auto 50%;
-  transform: translateX(-50%);
-  width: min(960px, calc(100vw - 32px));
-  max-height: calc(var(--app-height, 100dvh) - 165px);
-  overflow-y: auto;
-  z-index: 980;
-  padding: 18px 20px;
-  display: none;
-  flex-direction: column;
-  gap: 14px;
-  pointer-events: auto;
-}
-
-.ground-lcc-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border-hairline);
-}
-
-.ground-lcc-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(275px, 1fr));
-  gap: 12px;
-}
-
-.ground-lcc-card {
-  padding: 13px 14px;
-  background: rgba(5, 8, 16, 0.68);
-  border: 1px solid var(--border-hairline);
-  border-radius: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-  line-height: 1.5;
-}
-
-.ground-ping-banner {
-  padding: 8px 11px;
-  border-radius: 4px;
-  border: 1px solid rgba(37, 99, 235, 0.55);
-  background: rgba(37, 99, 235, 0.14);
-  font-size: 11px;
-  line-height: 1.45;
-  color: #dbeafe;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-/* ---------- Progress & Checklist ---------- */
-.hud-race-track {
-  height: 4px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.hud-race-fill { border-radius: 2px; }
-.fill-coop { background: var(--accent-cyan); }
-
-.task-checklist-item {
-  border-radius: 4px;
-  border: 1px solid rgba(148, 163, 184, 0.12);
-  transition: border-color 0.12s ease, background 0.12s ease;
-}
-
-.task-checklist-item:hover {
-  border-color: var(--accent-cyan);
-  background: rgba(37, 99, 235, 0.08);
-}
-
-.checklist-count-pill { border-radius: 3px; }
-
-/* ---------- Proximity button ---------- */
-#btn-proximity-use {
-  border-radius: 4px;
-  box-shadow: none;
-  background: var(--surface-glass);
-  border: 1px solid var(--accent-cyan);
-}
-
-/* ---------- Launch & Docking Overlays ---------- */
-#launch-capcom-banner {
-  border-left: 3px solid var(--accent-cyan);
-  color: var(--text-ivory);
-  box-shadow: none;
-}
-
-#btn-skip-launch {
-  border-radius: 4px;
-  border: 1px solid var(--border-hairline);
-  background: var(--surface-glass);
-  color: var(--text-ivory);
-}
-
-/* ---------- Modals ---------- */
-.task-modal-card,
-.settings-modal-card,
-.mission-briefing-card,
-.hangar-modal-card {
-  border-radius: 4px;
-  box-shadow: none;
-}
-
-/* ---------- Title display ---------- */
-.title-display {
-  color: var(--text-ivory);
-  background: none;
-  -webkit-text-fill-color: currentColor;
-  text-shadow: none;
-  filter: none;
-}
-
-a { transition: color 0.12s ease; }
-a:hover { color: var(--accent-cyan); }
-
-/* Prevent top-right HUD toolbar from overlapping centered #perf-overlay on 901..1600px desktops */
-@media (max-width: 1600px) and (min-width: 901px) {
-  #hud-voice-panel {
-    top: 12px;
-    right: 16px;
-    width: auto;
-    max-width: calc(50vw - 150px);
-    padding: 6px 8px;
-  }
-  #hud-voice-panel .voice-header-row {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 4px;
-    width: auto;
-  }
-  #hud-voice-panel .voice-header-row .voice-mic-btn,
-  #hud-voice-panel .voice-header-row .voice-settings-btn {
-    width: auto;
-    padding: 4px 8px;
-    font-size: 9px;
-  }
-}
-
-/* Responsive asymmetric lobby */
-@media (max-width: 960px) {
-  .lobby-staging-shell {
-    flex: 0 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    overflow: visible;
-  }
-  .lobby-left-rail,
-  .lobby-manifest-stage,
-  .lobby-customizer {
-    flex: 0 0 auto;
-    min-height: auto;
-    overflow: visible;
-  }
-  .lobby-zone-header {
-    gap: 6px;
-    flex-wrap: wrap;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-
-/* ---------- Shuttle Flight Ops (Nov 14 Interfellas STS_OS Integration) ---------- */
-.btn-title-shuttle {
-  border-color: rgba(103, 232, 249, 0.45) !important;
-  color: #67e8f9 !important;
-}
-.btn-title-shuttle:hover {
-  border-color: #67e8f9 !important;
-  background: rgba(103, 232, 249, 0.12) !important;
-}
-
-.lobby-ops-mode-bar {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-  margin-bottom: 10px;
-}
-
-.ops-mode-btn {
-  padding: 9px 12px;
-  border-radius: 7px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.03);
-  color: #9aa4ae;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  line-height: 1.35;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  text-align: center;
-}
-
-.ops-mode-btn:hover:not(:disabled) {
-  border-color: rgba(103, 232, 249, 0.45);
-  color: #ece7dc;
-}
-
-.ops-mode-btn.active {
-  border-color: #67e8f9;
-  background: rgba(103, 232, 249, 0.12);
-  color: #ece7dc;
-}
-
-.ops-mode-btn:disabled {
-  cursor: default;
-  opacity: 0.85;
-}
-
-.shuttle-mode-card {
-  width: 100%;
-  padding: 14px 16px;
-  border-radius: 8px;
-  border: 1px solid rgba(103, 232, 249, 0.38);
-  background: rgba(103, 232, 249, 0.06);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.shuttle-mode-card-title {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 11.5px;
-  font-weight: 700;
-  color: #67e8f9;
-  letter-spacing: 0.08em;
-}
-
-.shuttle-mode-card-desc {
-  font-size: 12.5px;
-  color: #d7d2c8;
-  line-height: 1.5;
-}
-
-.shuttle-mode-seats {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px 12px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 10.5px;
-  line-height: 1.45;
-  color: #9aa4ae;
-  padding-top: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.shuttle-mode-seats strong {
-  color: #ece7dc;
-}
-
-body.shuttle-mode-active #screen-game,
-body.shuttle-mode-active #lunaspis-resource-meters,
-body.shuttle-mode-active #btn-proximity-use,
-body.shuttle-mode-active #mission-briefing-overlay,
-body.shuttle-mode-active #victory-overlay,
-body.shuttle-mode-active #perf-overlay,
-body.shuttle-mode-active #hud-diagnostics-overlay {
-  display: none !important;
-}
-
-body.shuttle-mode-active #modal-station-systems {
-  z-index: 4600;
-}
-
-/* ==========================================================================
    LUNASPIS — INTERFACE SYSTEM v3
    FLIGHT LIME: Apollo mission-control technical HUD, obsidian glass, ivory type.
    Single source of truth for surfaces, type, spacing, state and motion.
@@ -1072,30 +61,30 @@ body.shuttle-mode-active #modal-station-systems {
   --ui-font-display: "Chakra Petch", var(--ui-font-sans);
   --ui-font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
 
-  /* FLIGHT LIME — the single trademark accent */
-  --ui-brand: #c9f04b;
-  --ui-brand-strong: #e4ff7e;
-  --ui-brand-rgb: 201, 240, 75;
-  --ui-brand-button-top: #dcff74;
-  --ui-brand-button-bottom: #b4dd36;
-  --ui-brand-button-hover-top: #efffa8;
-  --ui-brand-button-hover-bottom: #c4ec44;
+  /* GLOSS SILVER — default frosted chrome theme */
+  --ui-brand: #e7e8e3;
+  --ui-brand-strong: #ffffff;
+  --ui-brand-rgb: 231, 232, 227;
+  --ui-brand-button-top: #ffffff;
+  --ui-brand-button-bottom: #b9bbb6;
+  --ui-brand-button-hover-top: #ffffff;
+  --ui-brand-button-hover-bottom: #d7d9d4;
   --ui-brand-soft: rgba(var(--ui-brand-rgb), 0.12);
   --ui-brand-line: rgba(var(--ui-brand-rgb), 0.4);
-  --ui-brand-ink: #0b1204;
-  --ui-brand-dim: #8faf2e;
+  --ui-brand-ink: #090b0e;
+  --ui-brand-dim: #a8aaa5;
 
-  --ui-bg: #080b10;
+  --ui-bg: #07090c;
   --ui-bg-deep: #05070a;
-  --ui-surface: rgba(13, 18, 24, 0.66);
-  --ui-surface-solid: #10151c;
-  --ui-surface-2: rgba(18, 24, 31, 0.82);
-  --ui-surface-3: rgba(30, 38, 47, 0.56);
-  --ui-scrim: rgba(4, 6, 9, 0.76);
+  --ui-surface: rgba(20, 23, 27, 0.7);
+  --ui-surface-solid: #15181d;
+  --ui-surface-2: rgba(26, 30, 35, 0.86);
+  --ui-surface-3: rgba(40, 45, 52, 0.58);
+  --ui-scrim: rgba(4, 6, 9, 0.8);
 
-  --ui-text: #efeee7;
-  --ui-text-muted: #a7b0ba;
-  --ui-text-dim: #7a8490;
+  --ui-text: #f4f4f1;
+  --ui-text-muted: #b2b7be;
+  --ui-text-dim: #858b94;
 
   --ui-accent: var(--ui-brand);
   --ui-accent-strong: var(--ui-brand-strong);
@@ -1113,19 +102,19 @@ body.shuttle-mode-active #modal-station-systems {
   --ui-crit: #ff6b6b;
   --ui-info: #7dd3fc;
 
-  --ui-border: rgba(255, 255, 255, 0.1);
-  --ui-border-strong: rgba(255, 255, 255, 0.22);
-  --ui-divider: rgba(255, 255, 255, 0.08);
+  --ui-border: rgba(255, 255, 255, 0.16);
+  --ui-border-strong: rgba(255, 255, 255, 0.3);
+  --ui-divider: rgba(255, 255, 255, 0.1);
 
-  --ui-glass-tint: var(--ui-surface);
-  --ui-glass-tint-strong: rgba(11, 15, 20, 0.86);
+  --ui-glass-tint: rgba(18, 21, 25, 0.62);
+  --ui-glass-tint-strong: rgba(13, 16, 20, 0.86);
   --ui-glass-tint-light: rgba(255, 255, 255, 0.045);
-  --ui-glass-border: var(--ui-border);
-  --ui-glass-border-soft: rgba(255, 255, 255, 0.065);
-  --ui-glass-highlight: rgba(255, 255, 255, 0.08);
-  --ui-glass-blur: 14px;
-  --ui-glass-saturate: 130%;
-  --ui-glass-shadow: 0 20px 54px rgba(0, 0, 0, 0.42);
+  --ui-glass-border: rgba(255, 255, 255, 0.16);
+  --ui-glass-border-soft: rgba(255, 255, 255, 0.09);
+  --ui-glass-highlight: rgba(255, 255, 255, 0.14);
+  --ui-glass-blur: 18px;
+  --ui-glass-saturate: 115%;
+  --ui-glass-shadow: 0 24px 64px rgba(0, 0, 0, 0.52);
 
   --ui-space-1: 8px;
   --ui-space-2: 16px;
@@ -1461,14 +450,12 @@ textarea:focus-visible {
 }
 
 .voice-mic-btn {
-  width: auto;
-  height: auto;
-  min-height: 30px;
-  padding: 5px 9px;
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
+  padding: 0;
   justify-content: center;
-  gap: 5px;
-  white-space: nowrap;
-  flex: 0 0 auto;
+  gap: 0;
 }
 .voice-btn__icon {
   display: inline-flex;
@@ -1491,14 +478,8 @@ textarea:focus-visible {
   border: 0;
 }
 .voice-settings-btn {
-  width: auto;
-  min-width: 30px;
-  height: auto;
-  min-height: 30px;
-  padding: 5px 8px;
-  gap: 4px;
-  white-space: nowrap;
-  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
   border-radius: var(--ui-radius-sm);
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--ui-border);
@@ -2654,13 +1635,11 @@ textarea:focus-visible {
 #hud-voice-panel {
   top: var(--ui-space-2);
   right: var(--ui-space-2);
-  width: auto;
-  max-width: min(600px, calc(50vw - 120px));
-  padding: 6px 8px;
-  gap: 5px;
+  padding: 8px;
+  gap: 6px;
   border-radius: var(--ui-radius-md);
 }
-.voice-header-row { gap: 4px; flex-wrap: wrap; max-width: 100%; justify-content: flex-end; }
+.voice-header-row { gap: 4px; flex-wrap: wrap; max-width: 420px; justify-content: flex-end; }
 .voice-status-badge {
   font-size: 9px;
   padding: 2px 6px;
@@ -3480,6 +2459,7 @@ textarea:focus-visible {
   .lobby-mission-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .voice-header-row { max-width: 300px; }
   .voice-key-hint { display: none; }
 }
 
@@ -3572,6 +2552,7 @@ textarea:focus-visible {
   .task-modal-card,
   .mission-briefing-card { padding: var(--ui-space-2); }
   .task-modal-card { width: 96vw; }
+  .voice-header-row { max-width: 230px; }
   .debrief-grid { grid-template-columns: 1fr; }
   .victory-msg { font-size: 12px; }
   .title-display { font-size: clamp(40px, 14vw, 64px); }
@@ -3595,30 +2576,26 @@ textarea:focus-visible {
     gap: 5px;
   }
   .hud-checklist-panel:not(.collapsed) {
-    top: calc(184px + var(--safe-top));
+    top: calc(176px + var(--safe-top));
     width: calc(100vw - 16px);
-    max-height: calc(var(--app-height, 100dvh) - 304px);
+    max-height: calc(var(--app-height, 100dvh) - 296px);
     overflow-y: auto;
   }
   #hud-voice-panel {
-    top: calc(82px + var(--safe-top));
-    right: calc(8px + var(--safe-right));
-    width: auto;
-    max-width: calc(100vw - 16px);
+    top: calc(52px + var(--safe-top));
   }
   .voice-header-row {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
     gap: 4px;
-    max-width: 100%;
+    max-width: none;
   }
   .voice-header-row .voice-mic-btn,
   .voice-header-row .voice-settings-btn {
-    width: auto;
-    height: auto;
-    min-height: 28px;
-    padding: 4px 7px;
+    width: 100%;
+    height: 32px;
+    min-height: 32px;
+    padding: 0;
   }
   .lobby-count-text,
   #btn-lobby-audio-settings .btn-label {
@@ -3731,6 +2708,44 @@ textarea:focus-visible {
   opacity: 0.45;
 }
 
+/* FLIGHT LIME — alternate mission-control theme */
+:root[data-theme="flight-lime"] {
+  --ui-brand: #c9f04b;
+  --ui-brand-strong: #e4ff7e;
+  --ui-brand-rgb: 201, 240, 75;
+  --ui-brand-button-top: #dcff74;
+  --ui-brand-button-bottom: #b4dd36;
+  --ui-brand-button-hover-top: #efffa8;
+  --ui-brand-button-hover-bottom: #c4ec44;
+  --ui-brand-ink: #0b1204;
+  --ui-brand-dim: #8faf2e;
+
+  --ui-bg: #080b10;
+  --ui-bg-deep: #05070a;
+  --ui-surface: rgba(13, 18, 24, 0.66);
+  --ui-surface-solid: #10151c;
+  --ui-surface-2: rgba(18, 24, 31, 0.82);
+  --ui-surface-3: rgba(30, 38, 47, 0.56);
+  --ui-scrim: rgba(4, 6, 9, 0.76);
+
+  --ui-text: #efeee7;
+  --ui-text-muted: #a7b0ba;
+  --ui-text-dim: #7a8490;
+
+  --ui-border: rgba(255, 255, 255, 0.1);
+  --ui-border-strong: rgba(255, 255, 255, 0.22);
+  --ui-divider: rgba(255, 255, 255, 0.08);
+
+  --ui-glass-tint: var(--ui-surface);
+  --ui-glass-tint-strong: rgba(11, 15, 20, 0.86);
+  --ui-glass-border: var(--ui-border);
+  --ui-glass-border-soft: rgba(255, 255, 255, 0.065);
+  --ui-glass-highlight: rgba(255, 255, 255, 0.08);
+  --ui-glass-blur: 14px;
+  --ui-glass-saturate: 130%;
+  --ui-glass-shadow: 0 20px 54px rgba(0, 0, 0, 0.42);
+}
+
 /* LUNAR CHAMPAGNE — warm brass alternate theme */
 :root[data-theme="lunar-champagne"] {
   --ui-brand: #d9b77c;
@@ -3788,7 +2803,496 @@ textarea:focus-visible {
     0 12px 34px rgba(217, 183, 124, 0.14) !important;
 }
 
-/* ---------- Ground action buttons: disabled state (restored from local WIP) ---------- */
+/* ============================================================================
+   MAIN FEATURE EXTENSIONS (Staging Lobby, Role Roster, Shuttle, LCC, Mission Hub, Crew Comms)
+   ============================================================================ */
+
+.btn-sband-active,
+#btn-sband-radio.active {
+  background: rgba(37, 99, 235, 0.25);
+  border-color: #38bdf8;
+  color: #f8fafc;
+}
+
+.lobby-staging-shell {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(320px, 39%) minmax(0, 1fr);
+  gap: 14px;
+  overflow: hidden;
+}
+
+.lobby-left-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.lobby-suit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.lobby-manifest-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  padding: 10px 14px;
+  background: rgba(8, 13, 24, 0.42);
+  border: 1px solid var(--ui-border, rgba(255, 255, 255, 0.12));
+  border-radius: 4px;
+  backdrop-filter: blur(6px);
+  overflow-y: auto;
+}
+
+.lobby-manifest-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--ui-border, rgba(255, 255, 255, 0.12));
+  flex-wrap: wrap;
+}
+
+.lobby-manifest-title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.lobby-manifest-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lobby-zone-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lobby-zone-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.3px;
+  color: var(--ui-text-muted, #9aa4ae);
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.lobby-zone-header.zone-ground {
+  color: #93c5fd;
+  border-bottom-color: rgba(37, 99, 235, 0.35);
+}
+
+.lobby-zone-header.zone-crew {
+  color: #f8fafc;
+  border-bottom-color: rgba(148, 163, 184, 0.3);
+}
+
+.lobby-zone-rows {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 7px;
+}
+
+.lobby-manifest-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 9px 11px;
+  background: rgba(8, 13, 24, 0.82);
+  border: 1px solid var(--ui-border, rgba(255, 255, 255, 0.12));
+  border-radius: 4px;
+}
+
+.lobby-manifest-row.is-self {
+  border-color: var(--ui-brand-line, rgba(231, 232, 227, 0.55));
+  background: rgba(15, 23, 42, 0.9);
+}
+
+.lobby-manifest-row.is-empty {
+  border-style: dashed;
+  background: rgba(8, 13, 24, 0.42);
+  opacity: 0.65;
+}
+
+.lobby-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.lobby-row-identity {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.lobby-row-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ui-text, #f5f3ec);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lobby-row-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.lobby-row-duty {
+  font-size: 11.5px;
+  color: var(--ui-text-muted, #9aa4ae);
+  line-height: 1.45;
+}
+
+.lobby-swap-btn {
+  padding: 5px 10px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  cursor: pointer;
+}
+
+.lobby-swap-btn.is-pending {
+  border-color: #d97706;
+  color: #fde68a;
+  background: rgba(217, 119, 6, 0.14);
+}
+
+.swap-request-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  border-color: var(--ui-brand-line, rgba(231, 232, 227, 0.55));
+  background: rgba(12, 20, 38, 0.95);
+  font-size: 10px;
+  color: var(--ui-text, #f5f3ec);
+  pointer-events: auto;
+  flex-wrap: wrap;
+}
+
+.swap-banner-hud {
+  position: fixed;
+  top: calc(54px + var(--safe-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1050;
+  max-width: min(560px, calc(100vw - 32px));
+}
+
+.swap-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lobby-start-cluster {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.lobby-autoshuffle-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  color: var(--ui-text-muted, #9aa4ae);
+  cursor: pointer;
+  padding: 7px 12px;
+  border: 1px solid var(--ui-border, rgba(255, 255, 255, 0.12));
+  border-radius: 5px;
+  background: rgba(6, 10, 18, 0.65);
+}
+
+.task-badge {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  padding: 2px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--ui-border, rgba(255, 255, 255, 0.12));
+}
+
+.badge-fdir,
+.badge-cap {
+  background: rgba(37, 99, 235, 0.16);
+  color: #93c5fd;
+  border-color: rgba(37, 99, 235, 0.45);
+}
+
+.badge-spc {
+  background: rgba(124, 58, 237, 0.16);
+  color: #c4b5fd;
+  border-color: rgba(124, 58, 237, 0.42);
+}
+
+.crew-roster-zone-title {
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: var(--ui-text-muted, #9aa4ae);
+  margin: 3px 0 2px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.crew-swap-btn {
+  margin-top: 2px;
+  padding: 1px 5px;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--ui-border, rgba(255, 255, 255, 0.12));
+  color: var(--ui-text, #f5f3ec);
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.crew-swap-btn:hover {
+  border-color: var(--accent-cyan);
+  color: #93c5fd;
+}
+
+.sc-ground-ops-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  padding-top: 5px;
+  border-top: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.ground-action-btn {
+  padding: 4px 8px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  cursor: pointer;
+}
+
+.ground-action-btn.is-approved {
+  border-color: rgba(22, 163, 74, 0.6);
+  background: rgba(22, 163, 74, 0.16);
+  color: #86efac;
+}
+
+.ground-action-btn.is-urgent {
+  border-color: #d97706;
+  background: rgba(217, 119, 6, 0.22);
+  color: #fef08a;
+}
+
+#ground-lcc-console {
+  position: fixed;
+  inset: calc(52px + var(--safe-top)) auto auto 50%;
+  transform: translateX(-50%);
+  width: min(960px, calc(100vw - 32px));
+  max-height: calc(var(--app-height, 100dvh) - 165px);
+  overflow-y: auto;
+  z-index: 980;
+  padding: 18px 20px;
+  display: none;
+  flex-direction: column;
+  gap: 14px;
+  pointer-events: auto;
+}
+
+.ground-lcc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--ui-border, rgba(255, 255, 255, 0.12));
+}
+
+.ground-lcc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(275px, 1fr));
+  gap: 12px;
+}
+
+.ground-lcc-card {
+  padding: 13px 14px;
+  background: rgba(5, 8, 16, 0.68);
+  border: 1px solid var(--ui-border, rgba(255, 255, 255, 0.12));
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  line-height: 1.5;
+}
+
+.ground-ping-banner {
+  padding: 8px 11px;
+  border-radius: 4px;
+  border: 1px solid rgba(var(--ui-brand-rgb, 231, 232, 227), 0.45);
+  background: rgba(37, 99, 235, 0.14);
+  font-size: 11px;
+  line-height: 1.45;
+  color: #dbeafe;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+@media (max-width: 960px) {
+  .lobby-staging-shell {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow: visible;
+  }
+  .lobby-left-rail,
+  .lobby-manifest-stage,
+  .lobby-customizer {
+    flex: 0 0 auto;
+    min-height: auto;
+    overflow: visible;
+  }
+  .lobby-zone-header {
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+}
+
+.btn-title-shuttle {
+  border-color: rgba(103, 232, 249, 0.45) !important;
+  color: #67e8f9 !important;
+}
+
+.btn-title-shuttle:hover {
+  border-color: #67e8f9 !important;
+  background: rgba(103, 232, 249, 0.12) !important;
+}
+
+.lobby-ops-mode-bar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.ops-mode-btn {
+  padding: 9px 12px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+  color: #9aa4ae;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.35;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.ops-mode-btn:hover:not(:disabled) {
+  border-color: rgba(103, 232, 249, 0.45);
+  color: #ece7dc;
+}
+
+.ops-mode-btn.active {
+  border-color: #67e8f9;
+  background: rgba(103, 232, 249, 0.12);
+  color: #ece7dc;
+}
+
+.ops-mode-btn:disabled {
+  cursor: default;
+  opacity: 0.85;
+}
+
+.shuttle-mode-card {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(103, 232, 249, 0.38);
+  background: rgba(103, 232, 249, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.shuttle-mode-card-title {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #67e8f9;
+  letter-spacing: 0.08em;
+}
+
+.shuttle-mode-card-desc {
+  font-size: 12.5px;
+  color: #d7d2c8;
+  line-height: 1.5;
+}
+
+.shuttle-mode-seats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: #9aa4ae;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.shuttle-mode-seats strong {
+  color: #ece7dc;
+}
+
+body.shuttle-mode-active #screen-game,
+body.shuttle-mode-active #lunaspis-resource-meters,
+body.shuttle-mode-active #btn-proximity-use,
+body.shuttle-mode-active #mission-briefing-overlay,
+body.shuttle-mode-active #victory-overlay,
+body.shuttle-mode-active #perf-overlay,
+body.shuttle-mode-active #hud-diagnostics-overlay {
+  display: none !important;
+}
+
+body.shuttle-mode-active #modal-station-systems {
+  z-index: 4600;
+}
+
 .ground-action-btn:disabled {
   opacity: 0.38;
   cursor: not-allowed;
@@ -3798,10 +3302,6 @@ textarea:focus-visible {
 .ground-action-btn:disabled:hover {
   border-color: inherit;
 }
-
-/* ==========================================================================
-   MISSION HUB — role-first objectives panel
-   ========================================================================== */
 
 .hud-checklist-panel {
   padding: 0;
@@ -4537,8 +4037,6 @@ textarea:focus-visible {
   }
 }
 
-/* Desktop staging deck: keep suit color + comms pinned under the scrollable
-   mission charter instead of letting the tall mission list squeeze them out. */
 @media (min-width: 961px) {
   .lobby-left-rail {
     overflow: hidden;
@@ -4558,7 +4056,6 @@ textarea:focus-visible {
   }
 }
 
-/* Shared Earth ↔ Flight crew comms */
 #crew-comms-toggle {
   position: fixed;
   right: 12px;
@@ -4678,7 +4175,9 @@ body.shuttle-mode-active #crew-comms-toggle {
 }
 
 #crew-comms-mic { padding: 5px 8px; }
+
 #crew-comms-mic.is-on { color: #bbf7d0; border-color: rgba(74, 222, 128, 0.5); }
+
 #crew-comms-close { width: 26px; height: 26px; font-size: 17px; line-height: 1; }
 
 .cc-log {
@@ -4709,8 +4208,11 @@ body.shuttle-mode-active #crew-comms-toggle {
 }
 
 .cc-msg.is-ground { border-left-color: #fbbf24; }
+
 .cc-msg.is-flight { border-left-color: #38bdf8; }
+
 .cc-msg.is-self { background: rgba(103, 232, 249, 0.075); }
+
 .cc-msg-head {
   display: flex;
   align-items: center;
@@ -4721,9 +4223,13 @@ body.shuttle-mode-active #crew-comms-toggle {
   letter-spacing: 0.06em;
   color: #94a3b8;
 }
+
 .cc-msg-name { color: #f1f5f9; font-weight: 800; }
+
 .cc-msg-role { color: #67e8f9; }
+
 .cc-msg-text { color: #cbd5e1; }
+
 .cc-msg time { color: #64748b; font-size: 8px; }
 
 .cc-quick {
@@ -4767,6 +4273,7 @@ body.shuttle-mode-active #crew-comms-toggle {
 }
 
 #crew-comms-input:focus { border-color: rgba(103, 232, 249, 0.65); }
+
 #crew-comms-send { padding: 7px 11px; }
 
 @media (max-width: 640px) {
@@ -4786,35 +4293,12 @@ body.shuttle-mode-active #crew-comms-toggle {
   .cc-quick button { flex: 1 1 calc(33.33% - 5px); }
 }
 
-/* Desktop staging deck: keep suit color + comms pinned under the scrollable
-   mission charter instead of letting the tall mission list squeeze them out. */
-@media (min-width: 961px) {
-  .lobby-left-rail {
-    overflow: hidden;
-  }
-
-  .lobby-mission-panel {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-  }
-
-  .lobby-customizer {
-    flex: 0 0 auto;
-    min-height: 0;
-    overflow: visible;
-  }
-}
-
-/* ============================================================================
-   EARTH CONTROL (LCC) ground-role HUD
-   ========================================================================== */
 .sc-hud-btn.sc-btn-comms {
   border-color: rgba(56, 189, 248, 0.5);
   background: rgba(8, 47, 73, 0.82);
   color: #7dd3fc;
 }
+
 .sc-hud-btn.sc-btn-comms:hover {
   border-color: rgba(125, 211, 252, 0.95);
   color: #e0f2fe;
@@ -4924,4 +4408,190 @@ body.shuttle-mode-active #crew-comms-toggle {
 
 .ground-lcc-card.is-role-focus > div:first-child {
   color: #7dd3fc !important;
+}
+
+/* ============================================================================
+   UI_FIX + MAIN COHESION REFINEMENTS
+   - Title inline secondary links below join row (keeps topbar single-row)
+   - Lobby left rail scroll safety at 1024x600 without slicing mission cards
+   - Host manual role selector inside lobby manifest rows
+   - Prevent Space Center ground HUD from overlapping #hud-control-strip
+   ============================================================================ */
+.title-hero-utils {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.title-util-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 5px 10px;
+  border-radius: 2px;
+  border: 1px solid var(--ui-border, rgba(255, 255, 255, 0.12));
+  background: rgba(11, 14, 19, 0.62);
+  color: var(--ui-text-muted, #9aa4ae);
+  font-family: var(--ui-font-mono, monospace);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 140ms ease, color 140ms ease, background-color 140ms ease;
+}
+
+.title-util-btn:hover,
+.title-util-btn:focus-visible {
+  border-color: var(--ui-brand-line, rgba(231, 232, 227, 0.45));
+  background: var(--ui-brand-soft, rgba(231, 232, 227, 0.1));
+  color: var(--ui-text, #f5f3ec);
+}
+
+.lobby-role-select {
+  appearance: none;
+  max-width: 100%;
+  min-height: 26px;
+  padding: 3px 22px 3px 8px;
+  border-radius: 2px;
+  border: 1px solid var(--ui-brand-line, rgba(231, 232, 227, 0.4));
+  background: rgba(10, 14, 20, 0.88);
+  color: var(--ui-text, #f5f3ec);
+  font-family: var(--ui-font-mono, monospace);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+.lobby-role-select:focus-visible {
+  outline: 1px solid var(--ui-brand, #e7e8e3);
+  outline-offset: 1px;
+}
+
+.lobby-manifest-row .lobby-row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.title-cta-row {
+  max-width: 460px;
+}
+
+.btn-title-secondary {
+  flex: 1 1 auto;
+  white-space: nowrap;
+}
+
+@media (min-width: 961px) {
+  .lobby-left-rail .lobby-mission-panel {
+    margin-top: 0 !important;
+    padding: 12px 14px !important;
+    overflow-y: auto !important;
+  }
+
+  .lobby-left-rail .lobby-mission-cards {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    gap: 8px !important;
+  }
+
+  .lobby-left-rail .lobby-mission-cards .mission-card {
+    flex: 0 0 132px !important;
+    min-width: 132px !important;
+    min-height: 92px;
+  }
+
+  .lobby-left-rail .lobby-mission-cards .mission-pick-card {
+    flex: 0 0 228px !important;
+    min-width: 228px !important;
+    max-width: 228px !important;
+    overflow: hidden !important;
+  }
+
+  .lobby-left-rail .lobby-mission-cards .mission-pick-more {
+    flex: 0 0 116px !important;
+    min-width: 116px !important;
+    width: auto !important;
+    grid-column: auto !important;
+    flex-direction: column;
+    text-align: center;
+  }
+}
+
+@media (max-width: 1240px) and (min-width: 641px) {
+  .lobby-top-bar {
+    padding: 8px 12px !important;
+    gap: 6px !important;
+    flex-wrap: nowrap !important;
+  }
+
+  .room-code-badge {
+    gap: 6px !important;
+  }
+
+  .room-code-text {
+    font-size: 18px !important;
+  }
+
+  .lobby-top-actions {
+    gap: 6px !important;
+    flex-wrap: nowrap !important;
+  }
+
+  .lobby-top-bar .btn-copy,
+  .lobby-top-bar .btn-lobby-voice,
+  .lobby-top-bar .btn-secondary,
+  .lobby-top-bar .btn-danger-outline {
+    padding: 6px 8px !important;
+    font-size: 9px !important;
+    white-space: nowrap !important;
+  }
+
+  .lobby-count-text {
+    font-size: 9.5px !important;
+    white-space: nowrap !important;
+  }
+}
+
+@media (min-width: 961px) and (max-height: 700px) {
+  .lobby-left-rail {
+    overflow-y: auto !important;
+    padding-right: 4px;
+  }
+
+  .lobby-left-rail .lobby-mission-panel {
+    flex: 0 0 auto;
+    overflow: visible !important;
+  }
+}
+
+@media (max-height: 680px) {
+  .title-hero {
+    gap: 8px !important;
+  }
+  .title-premise {
+    font-size: 12px !important;
+  }
+}
+
+@media (max-width: 1280px) {
+  body.ground-mode-active #hud-control-strip {
+    display: none !important;
+  }
+}
+
+@media (min-width: 1281px) {
+  body.ground-mode-active #space-center-ground-hud {
+    max-width: min(640px, calc(100vw - 520px));
+  }
 }

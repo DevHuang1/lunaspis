@@ -6,6 +6,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     GMAT_VERSION=R2026a \
     GMAT_URL="https://sourceforge.net/projects/gmat/files/GMAT/GMAT-R2026a/gmat-ubuntu-x64-R2026a.tar.gz/download" \
     GMAT_MD5=ec496a0319657fa2c079d7e996b9b1ed \
+    GMAT_SHA256="" \
     GMAT_ROOT=/opt/GMAT/R2026a \
     GMAT_CONSOLE_PATH=/opt/GMAT/R2026a/bin/GmatConsole \
     GMAT_TEMP_DIR=/tmp/gmat-runtime \
@@ -60,7 +61,11 @@ RUN curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-l
 RUN mkdir -p /opt /tmp/gmat-runtime /tmp/gmat-runs \
     && chmod 1777 /tmp/gmat-runtime /tmp/gmat-runs \
     && curl -fSL --retry 3 --retry-delay 5 "${GMAT_URL}" -o /tmp/gmat.tar.gz \
-    && echo "${GMAT_MD5}  /tmp/gmat.tar.gz" | md5sum -c - \
+    && if [ -n "${GMAT_SHA256}" ]; then \
+         echo "${GMAT_SHA256}  /tmp/gmat.tar.gz" | sha256sum -c -; \
+       else \
+         echo "${GMAT_MD5}  /tmp/gmat.tar.gz" | md5sum -c -; \
+       fi \
     && tar -xzf /tmp/gmat.tar.gz -C /opt \
     && rm -f /tmp/gmat.tar.gz \
     && test -x "${GMAT_CONSOLE_PATH}" \
@@ -101,9 +106,15 @@ RUN mkdir -p /opt /tmp/gmat-runtime /tmp/gmat-runs \
     && rm -f /tmp/gmat_smoke.script /tmp/gmat_smoke.txt "${GMAT_ROOT}/output/GmatLog.txt" /tmp/GmatLog.txt
 
 WORKDIR /app
+RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin lunaspis \
+    && mkdir -p "${GMAT_ROOT}/output" \
+    && chown -R lunaspis:lunaspis "${GMAT_ROOT}/output"
 COPY package*.json ./
-RUN npm install --omit=dev
-COPY . .
+RUN npm ci --omit=dev
+COPY --chown=lunaspis:lunaspis . .
+RUN chown -R lunaspis:lunaspis /app
+USER lunaspis
+ENV HOME=/home/lunaspis
 
 EXPOSE 3000
 CMD ["node", "server.js"]

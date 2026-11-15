@@ -368,15 +368,16 @@
         style.id = "vl-style";
         style.textContent = `
           :root{--vl-cyan:#67e8f9;--vl-green:#4ade80;--vl-amber:#fbbf24;--vl-ink:#e6f7fb;--vl-dim:#94a3b8;--vl-line:rgba(103,232,249,.32);--vl-bg:rgba(3,10,18,.9)}
-          #vl-shell{position:fixed;inset:0;z-index:5000;pointer-events:none;font-family:"DM Sans",Inter,system-ui,sans-serif}
-          .vl-start-prompt{position:fixed;left:18px;top:62px;z-index:5001;display:none;align-items:center;gap:9px;padding:8px 12px;border:1px solid var(--vl-line);border-radius:9px;background:rgba(3,10,18,.82);color:var(--vl-ink);font:700 10.5px/1.15 ui-monospace,Menlo,monospace;letter-spacing:.06em;cursor:pointer;pointer-events:auto;box-shadow:0 8px 24px rgba(0,0,0,.28);backdrop-filter:blur(9px)}
+          #vl-shell{position:fixed;inset:0;z-index:4900;pointer-events:none;font-family:"DM Sans",Inter,system-ui,sans-serif}
+          .vl-start-prompt{position:fixed;right:12px;top:calc(44% + 58px);z-index:4901;display:none;align-items:center;gap:8px;padding:7px 11px;border:1px solid var(--vl-line);border-radius:8px;background:rgba(3,10,18,.84);color:var(--vl-ink);font:700 10px/1.15 ui-monospace,Menlo,monospace;letter-spacing:.06em;cursor:pointer;pointer-events:auto;box-shadow:0 8px 24px rgba(0,0,0,.28);backdrop-filter:blur(9px)}
           .vl-start-prompt.is-open{display:flex}
+          body:not(.game-active) .vl-start-prompt,body:not(.game-active) .vl-ship-panel,body:not(.game-active) .vl-cabin-float{display:none!important}
           .vl-start-prompt:hover{border-color:var(--vl-cyan);background:rgba(8,27,40,.94)}
-          .vl-start-prompt b{display:block;color:var(--vl-cyan);font-size:11px}
-          .vl-start-prompt small{display:block;color:var(--vl-dim);font:600 9px/1.2 ui-monospace,Menlo,monospace;letter-spacing:.05em;margin-top:2px}
-          .vl-link-glyph{width:15px;height:15px;border:1.5px solid var(--vl-cyan);border-radius:3px;position:relative;flex:0 0 auto;transform:rotate(45deg);margin:0 4px}
+          .vl-start-prompt b{display:block;color:var(--vl-cyan);font-size:10.5px}
+          .vl-start-prompt small{display:block;color:var(--vl-dim);font:600 8.5px/1.2 ui-monospace,Menlo,monospace;letter-spacing:.05em;margin-top:2px}
+          .vl-link-glyph{width:14px;height:14px;border:1.5px solid var(--vl-cyan);border-radius:3px;position:relative;flex:0 0 auto;transform:rotate(45deg);margin:0 4px}
           .vl-link-glyph:after{content:"";position:absolute;inset:3px;border:1px solid rgba(103,232,249,.65);border-radius:1px}
-          .vl-ship-panel{position:fixed;left:18px;top:62px;z-index:5002;display:none;flex-direction:column;width:min(306px,44vw);border:1px solid var(--vl-line);border-radius:11px;background:var(--vl-bg);color:var(--vl-ink);box-shadow:0 16px 42px rgba(0,0,0,.42);backdrop-filter:blur(12px);pointer-events:auto;overflow:hidden}
+          .vl-ship-panel{position:fixed;right:16px;bottom:56px;top:auto;left:auto;z-index:5002;display:none;flex-direction:column;width:min(290px,36vw);border:1px solid var(--vl-line);border-radius:11px;background:var(--vl-bg);color:var(--vl-ink);box-shadow:0 16px 42px rgba(0,0,0,.42);backdrop-filter:blur(12px);pointer-events:auto;overflow:hidden}
           .vl-ship-panel.is-open{display:flex}
           .vl-ship-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-bottom:1px solid rgba(103,232,249,.2);background:rgba(6,22,34,.62)}
           .vl-live{display:flex;align-items:center;gap:7px;font:800 10px/1.15 ui-monospace,Menlo,monospace;letter-spacing:.08em}
@@ -417,14 +418,11 @@
           .vl-seat-chip.is-live{border-color:rgba(74,222,128,.42)}
           .vl-seat-chip.is-live i{color:var(--vl-green)}
           #crew-comms-video.is-on{color:#031018;background:var(--vl-cyan);border-color:var(--vl-cyan)}
-          body.vl-prompt-live #shuttle-hud .log,body.vl-prompt-live #shuttle-hud .chat{top:112px}
-          body.vl-ship-live #shuttle-hud .log,body.vl-ship-live #shuttle-hud .chat{top:var(--vl-ship-offset,320px)}
           @media (max-width:720px){
-            .vl-ship-panel{width:min(240px,52vw);top:54px;left:10px}
-            .vl-start-prompt{left:10px;top:54px}
+            .vl-ship-panel{width:min(240px,52vw);right:10px;bottom:54px;top:auto;left:auto}
+            .vl-start-prompt{right:10px;top:calc(44% + 52px);left:auto}
             .vl-cabin-float{right:10px;bottom:10px;width:min(380px,calc(100vw - 20px))}
             .vl-cabin-wrap.is-embedded{aspect-ratio:16/10}
-            body.vl-ship-live #shuttle-hud .log,body.vl-ship-live #shuttle-hud .chat{top:250px}
             .vl-cabin-roster{grid-template-columns:repeat(2,minmax(0,1fr))}
           }
           @media (prefers-reduced-motion:reduce){.vl-live i,.vl-cabin-title i{animation:none}}
@@ -532,6 +530,21 @@
 
       const commsVideo = document.getElementById("crew-comms-video");
       if (commsVideo) commsVideo.addEventListener("click", () => this.toggleLink());
+      if (typeof MutationObserver !== "undefined" && document.body) {
+        let wasInGame = this._isInGame();
+        this._bodyObserver = new MutationObserver(() => {
+          const nowInGame = this._isInGame();
+          if (nowInGame !== wasInGame) {
+            wasInGame = nowInGame;
+            this._refreshUI();
+          }
+        });
+        this._bodyObserver.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+      }
+    }
+
+    _isInGame() {
+      return Boolean(document.body && document.body.classList.contains("game-active"));
     }
 
     attachCabinView(container) {
@@ -561,7 +574,7 @@
     _refreshPrompt() {
       const isCrew = this._localTeam() === "crew";
       const groundPeers = this._peerEntries("ground");
-      const show = !!(isCrew && this.roomId && !this.enabled && !groundPeers.length && !this._starting);
+      const show = !!(this._isInGame() && isCrew && this.roomId && !this.enabled && !groundPeers.length && !this._starting);
       this.prompt.classList.toggle("is-open", show);
       document.body.classList.toggle("vl-prompt-live", show);
     }
@@ -569,7 +582,7 @@
     _refreshShipPanel() {
       const isCrew = this._localTeam() === "crew";
       const groundPeers = this._peerEntries("ground");
-      const show = !!(isCrew && this.roomId && (this.enabled || groundPeers.length || this._starting));
+      const show = !!(this._isInGame() && isCrew && this.roomId && (this.enabled || groundPeers.length || this._starting));
       this.shipPanel.classList.toggle("is-open", show);
       document.body.classList.toggle("vl-ship-live", show);
       if (!show) {
@@ -609,7 +622,8 @@
     _refreshCabin() {
       const isGround = this._localTeam() === "ground";
       const crewPeers = this._peerEntries("crew");
-      const show = !!(isGround && this.roomId && (this.cabinMount || this.enabled || crewPeers.length || this._starting));
+      const allowSurface = this.cabinMount ? true : this._isInGame();
+      const show = !!(allowSurface && isGround && this.roomId && (this.cabinMount || this.enabled || crewPeers.length || this._starting));
       if (this.cabinMount) {
         this.cabinWrap.style.display = "block";
       } else {

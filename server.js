@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const http = require("http");
+const net = require("net");
 const crypto = require("crypto");
 const express = require("express");
 const { Server } = require("socket.io");
@@ -9,6 +10,7 @@ const storage = require("./server/storage");
 const { MISSION_DESIGN_KEYS, sanitizeDesignPatch } = require("./server/design_sanitizer");
 const { validateFinalReport } = require("./server/mission_validation");
 const { propagateCoast } = require("./server/gmat-propagation");
+const { guardSocket } = require("./server/socket_guard");
 const { ShuttleMission, CREW: SHUTTLE_CREW } = require("./public/js/game/shuttle_mission.js");
 const { ArtemisMission, DUTIES: ARTEMIS_DUTIES, COMMAND_DUTY: ARTEMIS_COMMAND_DUTY } = require("./public/js/game/artemis_mission.js");
 const gmatForecast = require("./server/gmat_forecast");
@@ -18,9 +20,45 @@ const SHUTTLE_SNAPSHOT_HZ = 15;
 const SHUTTLE_TEST_HOOKS = process.env.SHUTTLE_TEST === "1";
 const VALID_OPS_MODES = new Set(["iss_expedition", "shuttle_flight"]);
 
+// Only trust X-Forwarded-For when the immediate peer is a private/loopback
+// proxy (Railway, local reverse proxy). A directly exposed public client can
+// never spoof req.ip and bypass the HTTP rate limiters.
+function isPrivateOrLoopbackAddress(address) {
+  const raw = String(address || "").trim();
+  if (!raw) return false;
+  const mapped = raw.startsWith("::ffff:") ? raw.slice(7) : raw;
+  if (net.isIPv4(mapped)) {
+    const parts = mapped.split(".").map(Number);
+    if (parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return false;
+    return (
+      parts[0] === 10 ||
+      parts[0] === 127 ||
+      (parts[0] === 169 && parts[1] === 254) ||
+      (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) ||
+      (parts[0] === 192 && parts[1] === 168) ||
+      (parts[0] === 100 && parts[1] >= 64 && parts[1] <= 127)
+    );
+  }
+  if (net.isIPv6(mapped)) {
+    const lower = mapped.toLowerCase();
+    return lower === "::1" || lower.startsWith("fc") || lower.startsWith("fd") || lower.startsWith("fe80:");
+  }
+  return false;
+}
+
+function resolveTrustProxySetting() {
+  const configured = process.env.TRUST_PROXY;
+  if (configured === "false") return false;
+  if (configured === "true") return true;
+  if (configured && /^\d+$/.test(configured)) return Number(configured);
+  // Default: trust exactly the socket peer when it is a private/loopback
+  // reverse proxy. Direct public connections keep their real socket address.
+  return (address, index) => index === 0 && isPrivateOrLoopbackAddress(address);
+}
+
 const app = express();
 app.disable("x-powered-by");
-app.set("trust proxy", process.env.TRUST_PROXY === "false" ? false : 1);
+app.set("trust proxy", resolveTrustProxySetting());
 const server = http.createServer(app);
 
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
@@ -28,12 +66,29 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
   .map((s) => s.trim())
   .filter(Boolean);
 
+function isAllowedSocketOrigin(request) {
+  const origin = request && request.headers && request.headers.origin;
+  // Non-browser clients (tests, game launchers) do not send Origin.
+  if (!origin) return true;
+  if (allowedOrigins.includes("*")) return true;
+  if (allowedOrigins.length > 0) return allowedOrigins.includes(origin);
+  const host = request.headers.host;
+  if (!host) return false;
+  return origin === `https://${host}` || origin === `http://${host}`;
+}
+
 const io = new Server(server, {
   cors: {
     origin: allowedOrigins.length > 0 ? allowedOrigins : false,
     methods: ["GET", "POST"]
   },
-  maxHttpBufferSize: 1e6,
+  // The `cors` option only applies to HTTP long-polling. Validate the Origin
+  // on WebSocket upgrades too, so a hostile page cannot open a same-browser
+  // socket to this server.
+  allowRequest: (request, callback) => callback(null, isAllowedSocketOrigin(request)),
+  // Realtime packets are small; 64 KB covers voice chunks and image-free
+  // signalling while sharply reducing the bandwidth a hostile socket can burn.
+  maxHttpBufferSize: 64 * 1024,
   // Small realtime packets do not benefit from per-message compression; the
   // compression work adds latency and can increase jitter on constrained CPUs.
   perMessageDeflate: false,
@@ -51,39 +106,52 @@ require("./server/video-signaling")(io);
 const PORT = process.env.PORT || 3000;
 const DEPLOY_REGION = process.env.SERVER_REGION || process.env.RAILWAY_REPLICA_REGION || process.env.RAILWAY_SERVICE_NAME || "local";
 
-// Baseline security headers. The app relies on inline handlers/styles and a
-// CDN-hosted Three.js build, so 'unsafe-inline' is retained for compatibility.
+// Baseline security headers. The app relies on inline bootstrap scripts and
+// inline styles, so 'unsafe-inline' is retained for compatibility. 'unsafe-eval'
+// is not required by the application or Three.js and is deliberately omitted.
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("Referrer-Policy", "no-referrer");
   res.setHeader("Permissions-Policy", "camera=(), geolocation=(), microphone=(self)");
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+  res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+  if (req.secure) {
+    res.setHeader("Strict-Transport-Security", "max-age=15552000; includeSubDomains");
+  }
   res.setHeader(
     "Content-Security-Policy",
     "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com; " +
+    "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; " +
     "style-src 'self' 'unsafe-inline'; " +
     "img-src 'self' data: blob:; " +
     "media-src 'self' blob:; " +
     "connect-src 'self' blob:; " +
     "worker-src 'self' blob:; " +
     "font-src 'self' data:; " +
+    "manifest-src 'self'; form-action 'self'; " +
     "object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
   );
   next();
 });
 
 // Lightweight in-memory rate limiter for HTTP APIs.
-function createRateLimiter({ windowMs, max }) {
+function createRateLimiter({ windowMs, max, maxKeys = 20_000 }) {
   const hits = new Map();
   return (req, res, next) => {
     const key = req.ip || req.socket.remoteAddress || "unknown";
     const now = Date.now();
 
-    // Bound memory if the process sees many distinct client addresses.
-    if (hits.size > 10_000) {
+    // Bound memory even when a client can influence the address key. Expired
+    // entries are swept first; if every entry is fresh, evict oldest keys.
+    if (hits.size > maxKeys) {
       for (const [k, v] of hits) {
         if (now - v.start >= windowMs) hits.delete(k);
+      }
+      while (hits.size > maxKeys) {
+        const oldest = hits.keys().next().value;
+        if (oldest === undefined) break;
+        hits.delete(oldest);
       }
     }
 
@@ -109,22 +177,83 @@ app.use("/api/auth", (req, res, next) => {
 app.use("/api/auth", createRateLimiter({ windowMs: 60_000, max: 20 }));
 app.use("/api", createRateLimiter({ windowMs: 60_000, max: 120 }));
 app.use(express.json({ limit: "100kb" }));
-app.get("/api/gmat/status", (req, res) => res.json(gmatForecast.status()));
 
-// Legacy ICE configuration for older WebRTC video clients. The current crew
-// link is rendered with animated 3D models and never requests camera access.
-app.get("/api/video/ice", (req, res) => {
-  const urls = String(process.env.TURN_URLS || process.env.TURN_URL || "")
-    .split(",").map((url) => url.trim()).filter(Boolean);
-  const iceServers = urls.length
-    ? [{
-        urls,
-        username: process.env.TURN_USERNAME || "",
-        credential: process.env.TURN_CREDENTIAL || ""
-      }]
-    : [{ urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }];
-  res.json({ iceServers });
+// Per-account failed credential lockout. The IP limiter alone can be defeated
+// by distributed clients; this adds a bounded, short-lived account backoff.
+const LOGIN_FAILURE_LIMIT = 8;
+const LOGIN_FAILURE_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_LOCK_MS = 5 * 60 * 1000;
+const loginFailures = new Map();
+
+function credentialKey(value) {
+  return String(value || "").trim().toLowerCase().slice(0, 64);
+}
+
+function credentialLockRemainingMs(key) {
+  const entry = loginFailures.get(key);
+  if (!entry) return 0;
+  if (Date.now() - entry.firstAt > LOGIN_FAILURE_WINDOW_MS) {
+    loginFailures.delete(key);
+    return 0;
+  }
+  return Math.max(0, entry.lockedUntil - Date.now());
+}
+
+function recordCredentialFailure(key) {
+  if (!key) return;
+  const now = Date.now();
+  let entry = loginFailures.get(key);
+  if (!entry || now - entry.firstAt > LOGIN_FAILURE_WINDOW_MS) {
+    entry = { firstAt: now, count: 0, lockedUntil: 0 };
+  }
+  entry.count += 1;
+  if (entry.count >= LOGIN_FAILURE_LIMIT) {
+    entry.lockedUntil = now + LOGIN_LOCK_MS;
+    entry.count = 0;
+    entry.firstAt = now;
+  }
+  loginFailures.set(key, entry);
+
+  if (loginFailures.size > 10_000) {
+    for (const [k, value] of loginFailures) {
+      if (now - value.firstAt > LOGIN_FAILURE_WINDOW_MS && value.lockedUntil <= now) loginFailures.delete(k);
+    }
+    while (loginFailures.size > 10_000) {
+      const oldest = loginFailures.keys().next().value;
+      if (oldest === undefined) break;
+      loginFailures.delete(oldest);
+    }
+  }
+}
+
+function clearCredentialFailures(key) {
+  if (key) loginFailures.delete(key);
+}
+
+function credentialLockedResponse(res, remainingMs) {
+  res.setHeader("Retry-After", String(Math.max(1, Math.ceil(remainingMs / 1000))));
+  return res.status(429).json({ success: false, error: "Too many failed attempts. Try again later." });
+}
+app.get("/api/gmat/status", (req, res) => {
+  const status = gmatForecast.status();
+  // Never disclose the server filesystem path of the GMAT executable.
+  res.json({
+    available: !!status.available,
+    busy: !!status.busy,
+    active: Number(status.active) || 0,
+    queued: Number(status.queued) || 0,
+    maxConcurrent: Number(status.maxConcurrent) || 0,
+    maxQueue: Number(status.maxQueue) || 0,
+    completedCount: Number(status.completedCount) || 0,
+    failedCount: Number(status.failedCount) || 0,
+    cancelledCount: Number(status.cancelledCount) || 0
+  });
 });
+
+// Legacy WebRTC ICE configuration was removed: the current 3D crew link never
+// requests camera or microphone media, and the endpoint leaked long-lived TURN
+// credentials to unauthenticated callers. If a future media feature needs TURN,
+// serve short-lived HMAC credentials from an authenticated endpoint.
 
 function getBearerToken(req) {
   const header = req.headers.authorization || "";
@@ -145,6 +274,22 @@ async function requireAuth(req, res, next) {
 
 function isValidAssetFilename(filename) {
   return typeof filename === "string" && /^[A-Za-z0-9._-]+$/.test(filename) && !filename.includes("..");
+}
+
+function assetContentType(filename) {
+  const lower = String(filename || "").toLowerCase();
+  if (lower.endsWith(".glb")) return "model/gltf-binary";
+  if (lower.endsWith(".gltf")) return "model/gltf+json";
+  if (lower.endsWith(".bin")) return "application/octet-stream";
+  return "application/octet-stream";
+}
+
+// Player-selected astronaut model ids are rendered by other clients. Restrict
+// them to the catalog id charset so a hostile client cannot make every other
+// browser request an arbitrary same-origin URL as a "model".
+function sanitizeModelId(value) {
+  const raw = String(value == null ? "" : value).trim();
+  return /^[A-Za-z0-9_-]{1,48}$/.test(raw) ? raw : null;
 }
 
 function requireStorageAdmin(req, res, next) {
@@ -188,7 +333,9 @@ app.get("/assets/:filename", async (req, res, next) => {
       const objectKey = `assets/${filename}`;
       const obj = await storage.getObject(objectKey);
       if (obj && obj.body) {
-        res.setHeader("Content-Type", obj.contentType || "model/gltf-binary");
+        // Never trust a bucket-supplied MIME type for a same-origin response.
+        res.setHeader("Content-Type", assetContentType(filename));
+        res.setHeader("X-Content-Type-Options", "nosniff");
         res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
         if (obj.contentLength) res.setHeader("Content-Length", obj.contentLength);
 
@@ -319,10 +466,16 @@ app.post("/api/auth/register", async (req, res) => {
 app.post("/api/auth/login", async (req, res) => {
   try {
     const { username, password } = req.body || {};
+    const key = credentialKey(username);
+    const lockMs = credentialLockRemainingMs(key);
+    if (lockMs > 0) return credentialLockedResponse(res, lockMs);
+
     const result = await db.loginUser(username, password);
     if (!result.success) {
+      recordCredentialFailure(key);
       return res.status(400).json(result);
     }
+    clearCredentialFailures(key);
     res.json(await attachSession(result));
   } catch (err) {
     res.status(500).json({ success: false, error: "Login failed" });
@@ -332,10 +485,16 @@ app.post("/api/auth/login", async (req, res) => {
 app.post("/api/auth/reset-password", async (req, res) => {
   try {
     const { username, currentPassword, newPassword } = req.body || {};
+    const key = credentialKey(username);
+    const lockMs = credentialLockRemainingMs(key);
+    if (lockMs > 0) return credentialLockedResponse(res, lockMs);
+
     const result = await db.resetPassword(username, currentPassword, newPassword);
     if (!result.success) {
+      recordCredentialFailure(key);
       return res.status(400).json(result);
     }
+    clearCredentialFailures(key);
     res.json(await attachSession(result));
   } catch (err) {
     res.status(500).json({ success: false, error: "Password reset failed" });
@@ -464,6 +623,43 @@ function getTeamForRole(roleId) {
   return GROUND_ROLES.includes(roleId) ? "ground" : "crew";
 }
 
+function hasOwn(obj, key) {
+  return !!obj && Object.prototype.hasOwnProperty.call(obj, key);
+}
+
+function isKnownScenario(scenarioId) {
+  return typeof scenarioId === "string" && hasOwn(MISSION_CATALOG, scenarioId);
+}
+
+function roomPlayerById(room, playerId) {
+  if (!room || !room.players || typeof playerId !== "string") return null;
+  return hasOwn(room.players, playerId) ? room.players[playerId] : null;
+}
+
+// Shared mission-design patches may be sent by any crewmate (trade studies),
+// but only the host can change the scenario/difficulty, and only in the lobby.
+function applyRoomDesignPatch(room, socket, rawPatch) {
+  if (!room) return null;
+  const patch = sanitizeDesignPatch(rawPatch);
+  if (!patch) return null;
+
+  const canChangeMission = socket && socket.id === room.hostId && room.status === "lobby";
+  if (!canChangeMission) {
+    delete patch.scenarioId;
+    delete patch.difficultyId;
+  }
+  if (hasOwn(patch, "scenarioId") && !isKnownScenario(patch.scenarioId)) delete patch.scenarioId;
+  if (hasOwn(patch, "difficultyId") && !DIFFICULTY_IDS.has(patch.difficultyId)) delete patch.difficultyId;
+  if (Object.keys(patch).length === 0) return null;
+
+  room.mission = room.mission || createMissionState();
+  room.mission.design = Object.assign({}, room.mission.design || {}, patch);
+  if (patch.scenarioId) room.mission.scenarioId = patch.scenarioId;
+  if (patch.difficultyId) room.mission.difficultyId = patch.difficultyId;
+  room.mission.updatedAt = Date.now();
+  return patch;
+}
+
 function normalizeRoleId(rawRole, fallback = "commander") {
   const s = String(rawRole || "").trim().toLowerCase().replace(/[_-]+/g, " ");
   if (!s) return fallback;
@@ -565,6 +761,7 @@ const MISSION_OBJECTIVES = [
 ];
 
 const COOP_OBJECTIVE_IDS = new Set(MISSION_OBJECTIVES.map((o) => o.id));
+const COOP_OBJECTIVE_ID_LIST = MISSION_OBJECTIVES.map((o) => o.id);
 
 const MISSION_CATALOG = {
   artemis_expedition: {
@@ -811,12 +1008,14 @@ function resolveDockingPilotId(room) {
   const flightPlayers = players.filter((p) => getTeamForRole(p.role) !== "ground");
   const pool = flightPlayers.length > 0 ? flightPlayers : players;
   const current = room.systems && room.systems.dockingPilotId;
-  if (current && room.players[current] && getTeamForRole(room.players[current].role) !== "ground") {
+  const currentPlayer = roomPlayerById(room, current);
+  if (currentPlayer && getTeamForRole(currentPlayer.role) !== "ground") {
     return current;
   }
   const cmd = pool.find((p) => normalizeRoleId(p.role) === "commander");
   if (cmd) return cmd.id;
-  if (room.hostId && room.players[room.hostId] && getTeamForRole(room.players[room.hostId].role) !== "ground") {
+  const hostPlayer = roomPlayerById(room, room.hostId);
+  if (hostPlayer && getTeamForRole(hostPlayer.role) !== "ground") {
     return room.hostId;
   }
   return pool[0].id;
@@ -908,7 +1107,7 @@ function createGroundSupportState() {
 // and mission design, so late joiners and astronauts who board at different
 // times stay in lockstep.
 function createMissionState(scenarioId = "lunar_south_pole", difficultyId = "engineer", opsMode = "iss_expedition") {
-  const scenario = MISSION_CATALOG[scenarioId] ? scenarioId : "lunar_south_pole";
+  const scenario = isKnownScenario(scenarioId) ? scenarioId : "lunar_south_pole";
   const difficulty = DIFFICULTY_IDS.has(difficultyId) ? difficultyId : "engineer";
   const mode = VALID_OPS_MODES.has(opsMode) ? opsMode : "iss_expedition";
   const isArtemis = scenario === "artemis_expedition";
@@ -1009,7 +1208,7 @@ function isMissionComplete(mission) {
 
 function serializeMission(mission, room = null) {
   const m = mission || createMissionState();
-  const scenario = MISSION_CATALOG[m.scenarioId] || MISSION_CATALOG.lunar_south_pole;
+  const scenario = isKnownScenario(m.scenarioId) ? MISSION_CATALOG[m.scenarioId] : MISSION_CATALOG.lunar_south_pole;
   return {
     opsMode: VALID_OPS_MODES.has(m.opsMode) ? m.opsMode : "iss_expedition",
     flightProfile: m.flightProfile || "shuttle_iss",
@@ -1050,10 +1249,10 @@ function serializeMission(mission, room = null) {
 
 function buildMissionDebrief(room) {
   const mission = room.mission || createMissionState();
-  const scenario = MISSION_CATALOG[mission.scenarioId] || MISSION_CATALOG.lunar_south_pole;
+  const scenario = isKnownScenario(mission.scenarioId) ? MISSION_CATALOG[mission.scenarioId] : MISSION_CATALOG.lunar_south_pole;
   const players = Object.values(room.players);
   const nameFor = (socketId) => {
-    const player = socketId ? room.players[socketId] : null;
+    const player = socketId ? roomPlayerById(room, socketId) : null;
     return player ? player.name : null;
   };
   const now = Date.now();
@@ -1153,6 +1352,9 @@ function findSavedMemberSnapshot(room, userId, name) {
   if (name) {
     const lower = String(name).trim().toLowerCase();
     for (const [k, snap] of Object.entries(snaps)) {
+      // Never let a guest claim a credential-backed snapshot by copying the
+      // display name of a disconnected authenticated player.
+      if (!k.startsWith("name:")) continue;
       if (snap && String(snap.name || "").trim().toLowerCase() === lower) {
         return { key: k, snapshot: snap };
       }
@@ -1636,7 +1838,7 @@ function shuttleSeatOwner(room, seat) {
   const primary = assignShuttleSeatMap(room);
   if (primary[seat]) return primary[seat].id;
   if (primary.cdr) return primary.cdr.id;
-  if (room && room.players && room.players[room.hostId]) return room.hostId;
+  if (room && roomPlayerById(room, room.hostId)) return room.hostId;
   const ids = Object.keys((room && room.players) || {});
   return ids[0] || null;
 }
@@ -1646,7 +1848,7 @@ function shuttleCrewAssignments(room) {
   const out = {};
   for (const r of SHUTTLE_CREW.roles) {
     const sid = shuttleSeatOwner(room, r);
-    const p = sid && room && room.players ? room.players[sid] : null;
+    const p = roomPlayerById(room, sid);
     out[r] = {
       playerId: sid || null,
       name: p ? p.name : null,
@@ -1707,7 +1909,7 @@ function artemisDutyPayload(room) {
   const out = {};
   const dutyMap = (room && room.artemisDuties) || {};
   for (const id of Object.keys(ARTEMIS_DUTIES)) {
-    const player = dutyMap[id] && room.players ? room.players[dutyMap[id]] : null;
+    const player = roomPlayerById(room, dutyMap[id]);
     out[id] = Object.assign({}, ARTEMIS_DUTIES[id], {
       playerId: dutyMap[id] || null,
       playerName: player ? player.name : null,
@@ -1783,9 +1985,10 @@ async function recordArtemisResult(room) {
 async function recordShuttleResult(room) {
   if (!room || room.shuttleResultRecorded || !room.shuttleMission || !room.shuttleMission.result) return;
   room.shuttleResultRecorded = true;
-  room.status = "victory";
-  await db.upsertGameRoom(room.id, room.hostId, "victory");
-  if (room.shuttleMission.result.success) {
+  const success = !!room.shuttleMission.result.success;
+  room.status = success ? "victory" : "lobby";
+  await db.upsertGameRoom(room.id, room.hostId, room.status);
+  if (success) {
     for (const pid in room.players) {
       const p = room.players[pid];
       const memberSocket = io.sockets.sockets.get(pid);
@@ -1920,6 +2123,7 @@ setInterval(() => {
 function serializePlayer(player) {
   const { userId, ...publicPlayer } = player || {};
   if (player) {
+    publicPlayer.modelId = sanitizeModelId(player.modelId) || null;
     const role = normalizeRoleId(player.role, "commander");
     if (getTeamForRole(role) === "ground") {
       // Earth Control players are always the unsuited crew rigs.
@@ -1937,7 +2141,7 @@ function serializeSwapRequests(room) {
   const now = Date.now();
   const active = [];
   for (const [id, req] of Object.entries(room.swapRequests)) {
-    if (!req || now > req.expiresAt || !room.players[req.fromId] || !room.players[req.toId]) {
+    if (!req || now > req.expiresAt || !roomPlayerById(room, req.fromId) || !roomPlayerById(room, req.toId)) {
       delete room.swapRequests[id];
       continue;
     }
@@ -2017,6 +2221,81 @@ function broadcastRoomUpdate(room) {
 // ============================================================================
 // SOCKET.IO AUTHENTICATION & RATE LIMITING
 // ============================================================================
+function socketClientIp(socket) {
+  const remote = (socket && socket.handshake && socket.handshake.address) || "";
+  if (isPrivateOrLoopbackAddress(remote)) {
+    const header = socket.handshake && socket.handshake.headers && socket.handshake.headers["x-forwarded-for"];
+    if (typeof header === "string" && header.trim()) {
+      // The trusted proxy appends the real peer at the right edge.
+      const parts = header.split(",").map((part) => part.trim()).filter(Boolean);
+      if (parts.length) return parts[parts.length - 1].slice(0, 64);
+    }
+  }
+  return String(remote || "unknown").slice(0, 64);
+}
+
+const ROOM_CREATE_WINDOW_MS = 60_000;
+const ROOM_CREATE_MAX_PER_WINDOW = 10;
+const ROOM_CREATE_MAX_ACTIVE = 50;
+const roomCreateBuckets = new Map();
+
+function allowRoomCreation(ip) {
+  const key = ip || "unknown";
+  const now = Date.now();
+  let bucket = roomCreateBuckets.get(key);
+  if (!bucket || now - bucket.start >= ROOM_CREATE_WINDOW_MS) {
+    bucket = { start: now, count: 0 };
+    roomCreateBuckets.set(key, bucket);
+  }
+  if (bucket.count >= ROOM_CREATE_MAX_PER_WINDOW) return false;
+  bucket.count += 1;
+
+  if (roomCreateBuckets.size > 10_000) {
+    for (const [k, value] of roomCreateBuckets) {
+      if (now - value.start >= ROOM_CREATE_WINDOW_MS) roomCreateBuckets.delete(k);
+    }
+    while (roomCreateBuckets.size > 10_000) {
+      const oldest = roomCreateBuckets.keys().next().value;
+      if (oldest === undefined) break;
+      roomCreateBuckets.delete(oldest);
+    }
+  }
+  return true;
+}
+
+function countActiveRoomsForIp(ip) {
+  if (!ip) return 0;
+  let count = 0;
+  for (const roomId in rooms) {
+    if (rooms[roomId] && rooms[roomId].creatorIp === ip) count += 1;
+  }
+  return count;
+}
+
+// Estimate the wire size of a Socket.IO packet without JSON-expanding binary
+// buffers (which would over-count voice chunks by roughly 3-4×).
+function estimateSocketPacketBytes(packet) {
+  let total = 0;
+  const visit = (value, depth) => {
+    if (total > 512 * 1024 || depth > 6) return;
+    if (typeof value === "string") {
+      total += Buffer.byteLength(value);
+    } else if (Buffer.isBuffer(value)) {
+      total += value.length;
+    } else if (value instanceof ArrayBuffer) {
+      total += value.byteLength;
+    } else if (ArrayBuffer.isView(value)) {
+      total += value.byteLength;
+    } else if (value && typeof value === "object") {
+      for (const key of Object.keys(value)) visit(value[key], depth + 1);
+    } else {
+      total += 8;
+    }
+  };
+  visit(packet, 0);
+  return total;
+}
+
 io.use(async (socket, next) => {
   const token = socket.handshake.auth && socket.handshake.auth.token;
   const user = token ? await db.resolveSessionUser(String(token)) : null;
@@ -2030,17 +2309,30 @@ io.use(async (socket, next) => {
     socket.userId = `guest_${socket.id}`;
     socket.isAuthenticated = false;
   }
+  socket.clientIp = socketClientIp(socket);
 
   let windowStart = Date.now();
   let windowCount = 0;
+  let windowBytes = 0;
+  const MAX_EVENTS_PER_SECOND = 60;
+  const MAX_BYTES_PER_SECOND = 256 * 1024;
+
   socket.use((packet, nextEvent) => {
     const now = Date.now();
     if (now - windowStart > 1000) {
       windowStart = now;
       windowCount = 0;
+      windowBytes = 0;
     }
     windowCount += 1;
-    if (windowCount > 80) {
+    let size = 0;
+    try {
+      size = estimateSocketPacketBytes(packet);
+    } catch (e) {
+      return nextEvent(new Error("invalid packet"));
+    }
+    windowBytes += size;
+    if (windowCount > MAX_EVENTS_PER_SECOND || windowBytes > MAX_BYTES_PER_SECOND) {
       return nextEvent(new Error("rate limited"));
     }
     nextEvent();
@@ -2053,6 +2345,7 @@ io.use(async (socket, next) => {
 // SOCKET.IO EVENT HANDLERS (NASA ISS ROOM SYSTEM + DB PERSISTENCE)
 // ============================================================================
 io.on("connection", (socket) => {
+  guardSocket(socket);
   let currentRoomId = null;
 
   // Normalize socket payloads so null/undefined primitives can never throw.
@@ -2104,6 +2397,12 @@ io.on("connection", (socket) => {
       if (typeof callback === "function") callback(err);
       return;
     }
+    const creatorIp = socket.clientIp || "unknown";
+    if (!allowRoomCreation(creatorIp) || countActiveRoomsForIp(creatorIp) >= ROOM_CREATE_MAX_ACTIVE) {
+      const err = { success: false, message: "Too many expeditions created. Please wait a few minutes." };
+      if (typeof callback === "function") callback(err);
+      return;
+    }
 
     if (currentRoomId) {
       await handlePlayerLeave(false);
@@ -2116,8 +2415,9 @@ io.on("connection", (socket) => {
     const room = createNewRoom(roomId, socket.id, isPublic, opsMode);
     room.isSolo = isSolo;
     room.hostUserId = socket.userId;
+    room.creatorIp = creatorIp;
     if (isSolo) {
-      if (data.scenarioId && MISSION_CATALOG[data.scenarioId]) {
+      if (data.scenarioId && isKnownScenario(data.scenarioId)) {
         room.mission.scenarioId = data.scenarioId;
       }
       if (data.difficultyId && DIFFICULTY_IDS.has(data.difficultyId)) {
@@ -2251,7 +2551,7 @@ io.on("connection", (socket) => {
         existing.isHost = false;
       }
       room.hostId = socket.id;
-    } else if (!room.players[room.hostId]) {
+    } else if (!roomPlayerById(room, room.hostId)) {
       room.hostId = socket.id;
     }
 
@@ -2296,7 +2596,7 @@ io.on("connection", (socket) => {
       userId: userId,
       name: requestedName,
       color: color,
-      modelId: savedSnap && savedSnap.modelId ? savedSnap.modelId : null,
+      modelId: savedSnap && savedSnap.modelId ? sanitizeModelId(savedSnap.modelId) : null,
       role: role,
       team: team,
       isHost: room.hostId === socket.id,
@@ -2425,7 +2725,10 @@ io.on("connection", (socket) => {
 
     if (data.name) player.name = String(data.name).replace(/[\u0000-\u001F\u007F<>]/g, "").trim().slice(0, 16) || player.name;
     if (/^#[0-9a-fA-F]{6}$/.test(data.color)) player.color = data.color;
-    if (data.modelId) player.modelId = String(data.modelId).trim().slice(0, 64);
+    if (data.modelId) {
+      const nextModelId = sanitizeModelId(data.modelId);
+      if (nextModelId) player.modelId = nextModelId;
+    }
 
     if (typeof data.ready === "boolean") player.ready = data.ready;
 
@@ -2477,6 +2780,135 @@ io.on("connection", (socket) => {
     if (typeof callback === "function") callback(payload);
   });
 
+  // 3a-2. Host manually assigns a specific crew role to any player in the room
+  socket.on("host_assign_role", (data = {}, callback) => {
+    data = asObject(data);
+    if (!currentRoomId || !rooms[currentRoomId]) return;
+    const room = rooms[currentRoomId];
+    if (room.hostId !== socket.id) {
+      const err = { success: false, message: "Only the room host can assign crew roles." };
+      if (typeof callback === "function") callback(err);
+      return;
+    }
+
+    const targetId = typeof data.targetId === "string" ? data.targetId.slice(0, 128) : "";
+    const target = roomPlayerById(room, targetId);
+    if (!target) {
+      const err = { success: false, message: "Crewmember not found in room." };
+      if (typeof callback === "function") callback(err);
+      return;
+    }
+
+    const rawRole = typeof data.role === "string" ? data.role : "";
+    const nextRole = normalizeRoleId(rawRole, "");
+    if (!nextRole || !hasOwn(ROLE_INFO, nextRole)) {
+      const err = { success: false, message: "Invalid crew role requested." };
+      if (typeof callback === "function") callback(err);
+      return;
+    }
+
+    const phase = room.mission ? room.mission.phase : "gantry";
+    const fullEditAllowed = room.status === "lobby" || phase === "gantry";
+    const prevRole = normalizeRoleId(target.role, "commander");
+    const prevTeam = getTeamForRole(prevRole);
+    const nextTeam = getTeamForRole(nextRole);
+
+    if (prevRole === nextRole) {
+      const samePayload = {
+        success: true,
+        targetId: target.id,
+        targetName: target.name,
+        role: nextRole,
+        team: nextTeam,
+        swappedPeerId: null,
+        players: Object.values(room.players).map(serializePlayer)
+      };
+      if (typeof callback === "function") callback(samePayload);
+      return;
+    }
+
+    if (!fullEditAllowed && prevTeam !== nextTeam) {
+      const err = { success: false, message: "Cross-zone Ground <-> Flight changes lock after liftoff." };
+      if (typeof callback === "function") callback(err);
+      return;
+    }
+
+    const allPlayers = Object.values(room.players);
+    if (allPlayers.length <= 1 && nextTeam === "ground") {
+      const err = { success: false, message: "Solo missions require a Space Crew role to fly the spacecraft." };
+      if (typeof callback === "function") callback(err);
+      return;
+    }
+
+    let swappedPeer = null;
+    if (nextTeam === "ground") {
+      const seatHolder = allPlayers.find((pl) => pl.id !== target.id && normalizeRoleId(pl.role, "commander") === nextRole);
+      if (seatHolder) {
+        if (!fullEditAllowed && getTeamForRole(seatHolder.role) !== prevTeam) {
+          const err = { success: false, message: "Cannot swap across Ground and Flight zones after liftoff." };
+          if (typeof callback === "function") callback(err);
+          return;
+        }
+        swappedPeer = seatHolder;
+      } else {
+        const groundOthers = allPlayers.filter((pl) => pl.id !== target.id && getTeamForRole(pl.role) === "ground");
+        const flightOthers = allPlayers.filter((pl) => pl.id !== target.id && getTeamForRole(pl.role) !== "ground");
+        if (flightOthers.length < 1 && groundOthers.length > 0) {
+          swappedPeer = groundOthers[0];
+        } else if (groundOthers.length >= GROUND_ROLES.length) {
+          const err = { success: false, message: "Earth Control already has 2 assigned operators." };
+          if (typeof callback === "function") callback(err);
+          return;
+        }
+      }
+    }
+
+    if (swappedPeer) {
+      swappedPeer.role = prevRole;
+      swappedPeer.team = prevTeam;
+    }
+    target.role = nextRole;
+    target.team = nextTeam;
+    room.manualSwapOccurred = true;
+
+    const clearedIds = new Set([target.id, swappedPeer ? swappedPeer.id : null].filter(Boolean));
+    for (const [reqId, req] of Object.entries(room.swapRequests || {})) {
+      if (clearedIds.has(req.fromId) || clearedIds.has(req.toId)) {
+        delete room.swapRequests[reqId];
+      }
+    }
+
+    if (room.systems) {
+      room.systems.dockingPilotId = resolveDockingPilotId(room);
+    }
+    if (room.status === "playing" && room.mission) {
+      room.mission.dockingPilotId = room.systems ? room.systems.dockingPilotId : null;
+      if (room.mission.phase === "gantry") {
+        if (prevTeam !== nextTeam || swappedPeer) {
+          repositionPlayersForGantry(room);
+        }
+        broadcastMissionUpdate(room, {
+          action: "role_assigned",
+          playerId: target.id,
+          assignedBy: socket.id
+        });
+      }
+    }
+
+    const payload = {
+      success: true,
+      targetId: target.id,
+      targetName: target.name,
+      role: nextRole,
+      team: nextTeam,
+      swappedPeerId: swappedPeer ? swappedPeer.id : null,
+      players: Object.values(room.players).map(serializePlayer)
+    };
+    io.to(currentRoomId).emit("role_assigned", payload);
+    broadcastRoomUpdate(room);
+    if (typeof callback === "function") callback(payload);
+  });
+
   function canSwapRoomRoles(room, pFrom, pTo) {
     if (!room || !pFrom || !pTo || pFrom.id === pTo.id) {
       return { ok: false, reason: "Invalid swap target." };
@@ -2499,8 +2931,8 @@ io.on("connection", (socket) => {
     if (!currentRoomId || !rooms[currentRoomId]) return;
     const room = rooms[currentRoomId];
     const pFrom = room.players[socket.id];
-    const targetId = typeof data.targetId === "string" ? data.targetId : "";
-    const pTo = room.players[targetId];
+    const targetId = typeof data.targetId === "string" ? data.targetId.slice(0, 128) : "";
+    const pTo = roomPlayerById(room, targetId);
     if (!pFrom || !pTo) {
       const err = { success: false, message: "Crewmember no longer in room." };
       if (typeof callback === "function") callback(err);
@@ -2555,8 +2987,8 @@ io.on("connection", (socket) => {
     data = asObject(data);
     if (!currentRoomId || !rooms[currentRoomId]) return;
     const room = rooms[currentRoomId];
-    const requestId = typeof data.requestId === "string" ? data.requestId : "";
-    const swapReq = room.swapRequests && room.swapRequests[requestId];
+    const requestId = typeof data.requestId === "string" ? data.requestId.slice(0, 64) : "";
+    const swapReq = room.swapRequests && hasOwn(room.swapRequests, requestId) ? room.swapRequests[requestId] : null;
     if (!swapReq || swapReq.toId !== socket.id) {
       const err = { success: false, message: "Swap request expired or invalid." };
       if (typeof callback === "function") callback(err);
@@ -2564,8 +2996,8 @@ io.on("connection", (socket) => {
     }
 
     delete room.swapRequests[requestId];
-    const pFrom = room.players[swapReq.fromId];
-    const pTo = room.players[swapReq.toId];
+    const pFrom = roomPlayerById(room, swapReq.fromId);
+    const pTo = roomPlayerById(room, swapReq.toId);
 
     if (!data.accept || !pFrom || !pTo) {
       const declinedPayload = {
@@ -2643,8 +3075,8 @@ io.on("connection", (socket) => {
     data = asObject(data);
     if (!currentRoomId || !rooms[currentRoomId]) return;
     const room = rooms[currentRoomId];
-    const requestId = typeof data.requestId === "string" ? data.requestId : "";
-    const req = room.swapRequests && room.swapRequests[requestId];
+    const requestId = typeof data.requestId === "string" ? data.requestId.slice(0, 64) : "";
+    const req = room.swapRequests && hasOwn(room.swapRequests, requestId) ? room.swapRequests[requestId] : null;
     if (!req || req.fromId !== socket.id) return;
     delete room.swapRequests[requestId];
     broadcastRoomUpdate(room);
@@ -2685,7 +3117,7 @@ io.on("connection", (socket) => {
       room.mission.opsMode = data.opsMode;
       room.mission.flightMode = data.opsMode === "shuttle_flight" ? "standalone_shuttle" : "shuttle_docking";
     }
-    if (data.scenarioId && MISSION_CATALOG[data.scenarioId]) {
+    if (data.scenarioId && isKnownScenario(data.scenarioId)) {
       room.mission.scenarioId = data.scenarioId;
     }
     if (data.difficultyId && DIFFICULTY_IDS.has(data.difficultyId)) {
@@ -2707,7 +3139,7 @@ io.on("connection", (socket) => {
     data = asObject(data);
     if (!currentRoomId || !rooms[currentRoomId]) return;
     const room = rooms[currentRoomId];
-    if (!room.players[room.hostId] && room.players[socket.id]) {
+    if (!roomPlayerById(room, room.hostId) && room.players[socket.id]) {
       room.hostId = socket.id;
       room.players[socket.id].isHost = true;
     }
@@ -2853,13 +3285,13 @@ io.on("connection", (socket) => {
     if (!room || !room.shuttleMission || !room.players[socket.id]) {
       return reply({ accepted: false, reason: "Not in a Shuttle flight" });
     }
-    const type = String(data.type || "");
+    const type = String(data.type || "").slice(0, 48);
     if (type === "SET_CONTROL_INPUT") {
       return reply({ accepted: false, reason: "Use shuttle_input" });
     }
-    const seat = SHUTTLE_CREW.commandRole[type];
-    if (!seat) {
-      return reply({ accepted: false, reason: `Unknown command ${type}` });
+    const seat = hasOwn(SHUTTLE_CREW.commandRole, type) ? SHUTTLE_CREW.commandRole[type] : null;
+    if (!seat || !hasOwn(SHUTTLE_CREW.info, seat)) {
+      return reply({ accepted: false, reason: "Unknown command" });
     }
     // Shared commands ("all") are deliberately not seat-gated: every crewmember
     // in the flight can use them (e.g. time acceleration), even if they do not
@@ -2867,10 +3299,10 @@ io.on("connection", (socket) => {
     if (seat !== "all") {
       const ownerId = shuttleSeatOwner(room, seat);
       if (ownerId !== socket.id) {
-        const owner = ownerId ? room.players[ownerId] : null;
+        const owner = ownerId ? roomPlayerById(room, ownerId) : null;
         return reply({
           accepted: false,
-          reason: `${SHUTTLE_CREW.info[seat].title} (${owner ? owner.name : "unassigned"}) owns ${type}`
+          reason: `${SHUTTLE_CREW.info[seat].title} (${owner ? owner.name : "unassigned"}) owns command`
         });
       }
     }
@@ -2912,13 +3344,19 @@ io.on("connection", (socket) => {
   function artemisCanCommand(room, player, type) {
     if (!room || !room.artemisMission || !player) return false;
     const flight = Object.values(room.players || {}).filter((p) => p && getTeamForRole(p.role) !== "ground");
-    if (flight.length < 4) return true;
+    const isGround = getTeamForRole(player.role) === "ground";
+    if (flight.length < 4) {
+      // Small/solo crews may operate every station, but Ground Control must
+      // still not fly the spacecraft. The host may always authorize START.
+      if (isGround) return type === "START" && room.hostId === player.id;
+      return true;
+    }
     if (type === "START" && room.hostId === player.id) return true;
     if (["PAUSE", "SET_WARP", "RETRY_CHECKPOINT", "RESTART", "EXIT", "SET_ASSIST", "DEBRIEF"].includes(type)) return true;
     const duties = room.artemisDuties || (room.artemisDuties = assignArtemisDuties(room));
     if (!duties) return false;
     if (type === "SURFACE_INTERACT") return duties.surface_pilot === player.id || duties.surface_science === player.id;
-    const duty = ARTEMIS_COMMAND_DUTY[type];
+    const duty = hasOwn(ARTEMIS_COMMAND_DUTY, type) ? ARTEMIS_COMMAND_DUTY[type] : null;
     if (!duty) return false;
     return duties[duty] === player.id;
   }
@@ -2931,10 +3369,11 @@ io.on("connection", (socket) => {
     const player = room.players[socket.id];
     const type = String(data.type || "").slice(0, 40);
     if (!artemisCanCommand(room, player, type)) {
-      const duty = ARTEMIS_COMMAND_DUTY[type];
+      const duty = hasOwn(ARTEMIS_COMMAND_DUTY, type) ? ARTEMIS_COMMAND_DUTY[type] : null;
       const ownerId = duty && room.artemisDuties ? room.artemisDuties[duty] : null;
-      const owner = ownerId && room.players[ownerId];
-      return reply({ accepted: false, reason: `${duty ? (ARTEMIS_DUTIES[duty] ? ARTEMIS_DUTIES[duty].label : duty) : "This station"} is owned by ${owner ? owner.name : "another crewmember"}` });
+      const owner = ownerId ? roomPlayerById(room, ownerId) : null;
+      const dutyInfo = duty && hasOwn(ARTEMIS_DUTIES, duty) ? ARTEMIS_DUTIES[duty] : null;
+      return reply({ accepted: false, reason: `${dutyInfo ? dutyInfo.label : "This station"} is owned by ${owner ? owner.name : "another crewmember"}` });
     }
     const args = data.args && typeof data.args === "object" ? data.args : {};
     if (type === "SURFACE_INTERACT") args.actorId = socket.id;
@@ -2985,9 +3424,12 @@ io.on("connection", (socket) => {
     const actor = room.players[socket.id];
     if (socket.id !== room.hostId && normalizeRoleId(actor.role) !== "commander") return reply({ ok: false, error: "Only the host or commander can reassign duties" });
     if (["descent", "landed", "surface", "ascent", "reunion"].includes(room.artemisMission.phase)) return reply({ ok: false, error: "Reassign before descent so no crewmember is moved while on the surface" });
-    const duty = String(data.duty || "");
-    const targetId = String(data.playerId || "");
-    if (!ARTEMIS_DUTIES[duty] || !room.players[targetId] || getTeamForRole(room.players[targetId].role) === "ground") return reply({ ok: false, error: "Invalid duty or flight-crew target" });
+    const duty = String(data.duty || "").slice(0, 32);
+    const targetId = String(data.playerId || "").slice(0, 128);
+    const target = roomPlayerById(room, targetId);
+    if (!hasOwn(ARTEMIS_DUTIES, duty) || !target || getTeamForRole(target.role) === "ground") {
+      return reply({ ok: false, error: "Invalid duty or flight-crew target" });
+    }
     room.artemisDuties = room.artemisDuties || assignArtemisDuties(room);
     room.artemisDuties[duty] = targetId;
     room.artemisMission.duties = artemisDutyPayload(room);
@@ -3048,6 +3490,11 @@ io.on("connection", (socket) => {
       data = asObject(data);
       const room = currentRoomId && rooms[currentRoomId];
       if (!room || !room.shuttleMission) return typeof callback === "function" && callback(null);
+      const testPlayer = room.players[socket.id];
+      if (!testPlayer) return typeof callback === "function" && callback(null);
+      if (socket.id !== room.hostId && normalizeRoleId(testPlayer.role, "commander") !== "commander") {
+        return typeof callback === "function" && callback(null);
+      }
       if (data.op === "freeze") room.shuttleTestFreeze = !!data.on;
       if (data.op === "preset") {
         try {
@@ -3140,6 +3587,19 @@ io.on("connection", (socket) => {
     if (!p) return;
     room.mission = room.mission || createMissionState();
     if (room.mission.phase !== "gantry") return;
+    const actorRole = normalizeRoleId(p.role, "commander");
+    const canControlArm = socket.id === room.hostId || actorRole === "engineer" || actorRole === "commander";
+    if (!canControlArm) {
+      socket.emit("ground_support_event", {
+        type: "role_locked",
+        action: "dock",
+        requiredRole: "engineer",
+        requiredRoleShort: "ENG",
+        requiredRoleLabel: "Flight Engineer",
+        message: "Only the Flight Engineer (or the host/commander) controls the boarding arm."
+      });
+      return;
+    }
 
     room.mission.dockLocked = typeof data.locked === "boolean"
       ? data.locked
@@ -3359,8 +3819,8 @@ io.on("connection", (socket) => {
     const p = room.players[socket.id];
     if (!p || room.status !== "playing") return;
     const type = String(data.type || "").trim().slice(0, 32);
-    const allowedRoles = GROUND_ACTION_ROLES[type];
-    if (!allowedRoles) return;
+    const allowedRoles = hasOwn(GROUND_ACTION_ROLES, type) ? GROUND_ACTION_ROLES[type] : null;
+    if (!Array.isArray(allowedRoles)) return;
     const actorRole = normalizeRoleId(p.role, "commander");
     if (!allowedRoles.includes(actorRole)) {
       const requiredRole = allowedRoles[0];
@@ -3483,13 +3943,11 @@ io.on("connection", (socket) => {
         HULL: "Radio Dishes & Engines Bay",
         PAD: "Launch Pad & Boarding Bridge"
       };
-      const message = String(data.message || `ATTENTION NEEDED AT ${roomLabels[targetRoom] || targetRoom}`)
-        .replace(/[\u0000-\u001F\u007F<>]/g, "")
-        .trim()
-        .slice(0, 96);
+      const message = String(data.message || "").replace(/[\u0000-\u001F\u007F<>]/g, "").trim().slice(0, 96)
+        || `ATTENTION NEEDED AT ${hasOwn(roomLabels, targetRoom) ? roomLabels[targetRoom] : targetRoom}`;
       gs.activePing = {
         roomId: targetRoom,
-        roomLabel: roomLabels[targetRoom] || targetRoom,
+        roomLabel: hasOwn(roomLabels, targetRoom) ? roomLabels[targetRoom] : targetRoom,
         message,
         byName: p.name,
         byRole: p.role,
@@ -3563,7 +4021,9 @@ io.on("connection", (socket) => {
       }
       const flightIds = getFlightCrewIds(room);
       const elapsedMs = Date.now() - (room.mission.phaseStartedAt || 0);
-      const isNaturalOrAuthority = !!data.naturalEnd || elapsedMs >= 26000 || flightIds.length <= 1 || socket.id === room.hostId || normalizeRoleId(p.role) === "commander";
+      // Do not trust a client-supplied "the cutscene ended" flag. The server
+      // uses its own launch clock, the crew count, or host/commander authority.
+      const isNaturalOrAuthority = elapsedMs >= 26000 || flightIds.length <= 1 || socket.id === room.hostId || normalizeRoleId(p.role) === "commander";
       if (isNaturalOrAuthority) {
         enterRoomDockingPhase(room, socket.id);
       } else {
@@ -3591,9 +4051,10 @@ io.on("connection", (socket) => {
     if (!p || !room.mission || room.mission.phase !== "docking") return;
     if (getTeamForRole(p.role) === "ground" && socket.id !== room.hostId) return;
 
-    const requestedTargetId = data.targetId || data.pilotId;
+    const requestedTargetId = typeof (data.targetId || data.pilotId) === "string" ? String(data.targetId || data.pilotId).slice(0, 128) : "";
     let targetPilotId = getTeamForRole(p.role) !== "ground" ? socket.id : resolveDockingPilotId(room);
-    if (requestedTargetId && room.players[requestedTargetId] && getTeamForRole(room.players[requestedTargetId].role) !== "ground") {
+    const requestedTarget = roomPlayerById(room, requestedTargetId);
+    if (requestedTarget && getTeamForRole(requestedTarget.role) !== "ground") {
       const canAssignOther = socket.id === room.hostId || socket.id === room.systems.dockingPilotId || normalizeRoleId(p.role) === "commander" || requestedTargetId === socket.id;
       if (canAssignOther) targetPilotId = requestedTargetId;
     }
@@ -3601,7 +4062,7 @@ io.on("connection", (socket) => {
     room.systems.dockingPilotId = targetPilotId;
     room.mission.dockingPilotId = targetPilotId;
     room.mission.updatedAt = Date.now();
-    const targetPlayer = room.players[targetPilotId];
+    const targetPlayer = roomPlayerById(room, targetPilotId);
 
     io.to(currentRoomId).emit("docking_pilot_changed", {
       pilotId: targetPilotId,
@@ -3702,7 +4163,7 @@ io.on("connection", (socket) => {
 
     const flightIds = getFlightCrewIds(room);
     const activePilotId = resolveDockingPilotId(room);
-    const isAuthority = flightIds.length <= 1 || socket.id === room.hostId || socket.id === activePilotId || normalizeRoleId(p.role) === "commander" || !!data.corridorCapture;
+    const isAuthority = flightIds.length <= 1 || socket.id === room.hostId || socket.id === activePilotId || normalizeRoleId(p.role) === "commander";
     if (!isAuthority) {
       socket.emit("docking_assist_event", {
         kind: "dock_request",
@@ -3885,6 +4346,16 @@ io.on("connection", (socket) => {
     const now = Date.now();
     if (socket.lastMissionResetAt && now - socket.lastMissionResetAt < 1500) return;
     socket.lastMissionResetAt = now;
+
+    // Resetting the whole crew's mission is an authoritative action. A random
+    // crewmate cannot abort an in-progress flight for everyone else.
+    if (socket.id !== room.hostId && normalizeRoleId(p.role, "commander") !== "commander") {
+      socket.emit("ground_support_event", {
+        type: "reset_denied",
+        message: "Only the host or commander can reset the shared mission."
+      });
+      return;
+    }
 
     if (room.artemisMission || (room.mission && room.mission.flightProfile === "artemis") || (room.mission && room.mission.scenarioId === "artemis_expedition")) {
       room.artemisDuties = assignArtemisDuties(room);
@@ -4081,6 +4552,7 @@ io.on("connection", (socket) => {
     const room = rooms[currentRoomId];
     const p = room.players[socket.id];
     if (!p) return;
+    if (room.status !== "playing") return;
     room.mission = room.mission || createMissionState();
 
     const now = Date.now();
@@ -4088,9 +4560,12 @@ io.on("connection", (socket) => {
     socket.lastTaskAt = now;
 
     room.completedTaskIds = room.completedTaskIds || {};
-    const taskId = String(data.taskId || `task_${room.tasks.completed + 1}`).slice(0, 64);
+    const taskId = String(data.taskId || "").slice(0, 64);
     const taskName = String(data.taskName || "Station Maintenance").replace(/[\u0000-\u001F\u007F<>]/g, "").trim().slice(0, 64) || "Station Maintenance";
     const isMissionObjective = COOP_OBJECTIVE_IDS.has(taskId);
+    // Only the fixed shared-objective track can award statistics or write task
+    // rows. Unknown/side task ids used to allow unlimited leaderboard farming.
+    if (!isMissionObjective) return;
 
     room.mission.completed = room.mission.completed || {};
 
@@ -4152,7 +4627,8 @@ io.on("connection", (socket) => {
       const validation = validateFinalReport({
         report: data.evaluation,
         scenarioId: room.mission.scenarioId,
-        difficultyId: room.mission.difficultyId
+        difficultyId: room.mission.difficultyId,
+        completedObjectives: Object.keys(room.mission.completed || {}).length
       });
       if (!validation.ok) {
         socket.emit("mission_validation_failed", {
@@ -4173,17 +4649,8 @@ io.on("connection", (socket) => {
 
     // Merge the subsystem choices committed at this console into the shared
     // mission design before checking alreadyCompleted so crew revisions sync.
-    const designPatch = sanitizeDesignPatch(data.designPatch);
-    if (designPatch) {
-      room.mission.design = Object.assign({}, room.mission.design || {}, designPatch);
-      if (designPatch.scenarioId && MISSION_CATALOG[designPatch.scenarioId]) {
-        room.mission.scenarioId = designPatch.scenarioId;
-      }
-      if (designPatch.difficultyId && DIFFICULTY_IDS.has(designPatch.difficultyId)) {
-        room.mission.difficultyId = designPatch.difficultyId;
-      }
-      room.mission.updatedAt = now;
-    }
+    // Scenario/difficulty changes are host-only and lobby-only.
+    const designPatch = applyRoomDesignPatch(room, socket, data.designPatch);
 
     // The 7 objectives are shared by the whole crew, so each mission task
     // counts once no matter how many astronauts interact with the same console.
@@ -4235,7 +4702,7 @@ io.on("connection", (socket) => {
 
     // Record in DB: room_task_states table and users table stats.
     // Side activities keep their career rewards without advancing the mission.
-    await db.recordRoomTaskCompletion(currentRoomId, taskId, taskName, socket.userId, p.name);
+    await db.recordRoomTaskCompletion(currentRoomId, taskId, taskName, socket.userId, p.name, COOP_OBJECTIVE_ID_LIST);
     if (socket.isAuthenticated) {
       db.incrementUserStats(socket.userId, { tasksCompleted: 1 });
     }
@@ -4306,17 +4773,8 @@ io.on("connection", (socket) => {
     socket.lastDesignSyncAt = now;
 
     room.mission = room.mission || createMissionState();
-    const designPatch = sanitizeDesignPatch(data.designPatch || data);
+    const designPatch = applyRoomDesignPatch(room, socket, data.designPatch || data);
     if (!designPatch) return;
-
-    room.mission.design = Object.assign({}, room.mission.design || {}, designPatch);
-    if (designPatch.scenarioId && MISSION_CATALOG[designPatch.scenarioId]) {
-      room.mission.scenarioId = designPatch.scenarioId;
-    }
-    if (designPatch.difficultyId && DIFFICULTY_IDS.has(designPatch.difficultyId)) {
-      room.mission.difficultyId = designPatch.difficultyId;
-    }
-    room.mission.updatedAt = now;
 
     broadcastMissionUpdate(room, {
       action: "design_revised",
@@ -4549,7 +5007,7 @@ io.on("connection", (socket) => {
         const nextPilotId = resolveDockingPilotId(room);
         room.systems.dockingPilotId = nextPilotId;
         if (room.mission) room.mission.dockingPilotId = nextPilotId;
-        const nextPilot = nextPilotId ? room.players[nextPilotId] : null;
+        const nextPilot = nextPilotId ? roomPlayerById(room, nextPilotId) : null;
         if (nextPilot) {
           socket.to(leavingRoomId).emit("docking_pilot_changed", {
             pilotId: nextPilotId,
@@ -4600,6 +5058,21 @@ async function handleGracefulShutdown(signal) {
 }
 process.once("SIGTERM", () => handleGracefulShutdown("SIGTERM"));
 process.once("SIGINT", () => handleGracefulShutdown("SIGINT"));
+
+// Last-resort safety net. Socket handlers are individually guarded, but an
+// unexpected asynchronous failure must be logged and turned into a controlled
+// restart rather than an unlabelled process death.
+process.on("unhandledRejection", (reason) => {
+  console.error("[PROCESS] Unhandled promise rejection:", reason && reason.stack ? reason.stack : reason);
+});
+process.on("uncaughtException", (error) => {
+  console.error("[PROCESS] Uncaught exception:", error && error.stack ? error.stack : error);
+  if (!shuttingDown) {
+    handleGracefulShutdown("uncaughtException");
+  } else {
+    process.exit(1);
+  }
+});
 
 // Initialize database, restore persisted active rooms, and boot HTTP/Socket server
 db.initDatabase()

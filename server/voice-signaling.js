@@ -8,6 +8,8 @@
  * across Earth Control, the launch pad, the orbiter and orbit.
  */
 
+const { guardSocket } = require("./socket_guard");
+
 module.exports = function setupVoiceSignaling(io) {
   const MAX_CHUNK_BYTES = 8 * 1024;
 
@@ -22,6 +24,8 @@ module.exports = function setupVoiceSignaling(io) {
   }
 
   io.on("connection", (socket) => {
+    guardSocket(socket);
+
     // 1. High-Reliability Voice Audio Chunk Relay
     socket.on("voice_chunk", (data) => {
       if (!data || !data.chunk) return;

@@ -358,8 +358,8 @@
   window.virtualJoyActive = false;
 
   const CAMERA_MODES = [
-    { id: 0, name: "1ST PERSON", icon: "1P" },
-    { id: 1, name: "3RD PERSON", icon: "CAM" }
+    { id: 0, name: "1ST PERSON", icon: "eye" },
+    { id: 1, name: "3RD PERSON", icon: "camera" }
   ];
 
   function cycleCameraMode() {
@@ -378,7 +378,7 @@
     const btnLabel = document.getElementById("cam-mode-label");
     const btnIcon = document.getElementById("cam-mode-icon");
     if (btnLabel) btnLabel.textContent = cur.name;
-    if (btnIcon) btnIcon.textContent = cur.icon;
+    if (btnIcon) btnIcon.innerHTML = uiIcon(cur.icon || (cameraMode === 0 ? "eye" : "camera"));
 
     const visorOverlay = document.getElementById("helmet-visor-overlay");
     if (visorOverlay) {
@@ -534,7 +534,7 @@
 
     const settingsBtn = document.getElementById("btn-voice-settings");
     if (settingsBtn) {
-      settingsBtn.innerHTML = (isNarrow || isMobile) ? "<span>&#9881;</span><span>SET</span>" : "<span>&#9881;</span>";
+      settingsBtn.innerHTML = uiIcon("settings");
     }
 
     if (!userToggledChecklist) {
@@ -636,16 +636,42 @@
       if (bootSeen) {
         boot.remove();
       } else {
+        const reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const duration = reducedMotion ? 700 : 2400;
+        const progressEl = document.getElementById("boot-progress-value");
+        const statusEl = document.getElementById("boot-status-text");
+        const stages = [
+          [0, "Warming up the dance floor"],
+          [0.3, "Pressurizing crew cabin"],
+          [0.58, "Syncing flight computers"],
+          [0.82, "Final checks before launch"]
+        ];
         let finished = false;
+        let progressFrame = 0;
+        const startedAt = Number(window.__lunaspisBootStart) || performance.now();
         const finishBoot = () => {
           if (finished) return;
           finished = true;
+          cancelAnimationFrame(progressFrame);
           boot.classList.add("is-done");
           try { sessionStorage.setItem("lunaspis_boot_seen", "1"); } catch (_) { /* noop */ }
           setTimeout(() => boot.remove(), 520);
         };
-        const delay = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 550 : 2100;
-        setTimeout(finishBoot, delay);
+        const updateBootProgress = (now) => {
+          if (finished) return;
+          const ratio = Math.min(1, Math.max(0, (now - startedAt) / duration));
+          if (progressEl) progressEl.textContent = `${String(Math.round(ratio * 100)).padStart(3, "0")}%`;
+          if (statusEl) {
+            let message = stages[0][1];
+            for (const [threshold, text] of stages) {
+              if (ratio >= threshold) message = text;
+            }
+            if (statusEl.textContent !== message) statusEl.textContent = message;
+          }
+          if (ratio < 1) progressFrame = requestAnimationFrame(updateBootProgress);
+        };
+        progressFrame = requestAnimationFrame(updateBootProgress);
+        setTimeout(finishBoot, duration);
         boot.addEventListener("pointerdown", finishBoot, { once: true });
         window.addEventListener("keydown", finishBoot, { once: true });
       }
@@ -653,8 +679,12 @@
     const dossierBtn = document.getElementById("btn-title-dossier");
     if (dossierBtn) {
       dossierBtn.addEventListener("click", () => {
-        const authBtn = document.getElementById("btn-open-auth");
-        if (authBtn) authBtn.click();
+        if (window.missionLog && typeof window.missionLog.open === "function") {
+          window.missionLog.open();
+          return;
+        }
+        const logBtn = document.getElementById("btn-open-mission-log");
+        if (logBtn) logBtn.click();
       });
     }
     const settingsBtn = document.getElementById("btn-title-settings");
@@ -1394,334 +1424,19 @@
     const btnCopyLink = document.getElementById("btn-copy-invite");
     const btnStartMission = document.getElementById("btn-start-mission");
 
-    // Auth modal elements
-    const modalAuth = document.getElementById("modal-auth");
-    const btnOpenAuth = document.getElementById("btn-open-auth");
-    const btnCloseAuth = document.getElementById("btn-close-auth");
-    const btnAuthLogout = document.getElementById("btn-auth-logout");
-    const btnDossierLogout = document.getElementById("btn-dossier-logout");
-
-    const tabLogin = document.getElementById("tab-auth-login");
-    const tabRegister = document.getElementById("tab-auth-register");
-    const tabReset = document.getElementById("tab-auth-reset");
-    const tabDossier = document.getElementById("tab-auth-dossier");
-
-    const formLogin = document.getElementById("form-auth-login");
-    const formRegister = document.getElementById("form-auth-register");
-    const formReset = document.getElementById("form-auth-reset");
-    const formDossier = document.getElementById("form-auth-dossier");
-    const authBanner = document.getElementById("auth-msg-banner");
-    const linkGotoReg = document.getElementById("link-goto-register");
-    const linkGotoReset = document.getElementById("link-goto-reset");
-    const linkGotoLoginFromReg = document.getElementById("link-goto-login-from-reg");
-    const linkGotoResetFromReg = document.getElementById("link-goto-reset-from-reg");
-    const linkGotoLoginFromReset = document.getElementById("link-goto-login-from-reset");
-
-    const authStatusTitle = document.getElementById("auth-status-title");
-    const authStatusDesc = document.getElementById("auth-status-desc");
-    const authStatusIcon = document.getElementById("auth-status-icon");
-
-    let regSelectedColor = "#c9f04b";
-    let dossierSelectedColor = "#c9f04b";
-
-    function showAuthBanner(msg, isError = false) {
-      if (!authBanner) return;
-      authBanner.textContent = msg;
-      authBanner.className = `auth-msg-banner ${isError ? 'error' : 'success'}`;
-      authBanner.style.display = "flex";
-    }
-
-    function hideAuthBanner() {
-      if (authBanner) authBanner.style.display = "none";
-    }
-
-    function switchAuthTab(tab) {
-      hideAuthBanner();
-      [tabLogin, tabRegister, tabReset, tabDossier].forEach(t => { if (t) t.classList.remove("active"); });
-      [formLogin, formRegister, formReset, formDossier].forEach(f => { if (f) f.style.display = "none"; });
-
-      if (tab === "register") {
-        if (tabRegister) tabRegister.classList.add("active");
-        if (formRegister) formRegister.style.display = "block";
-      } else if (tab === "reset") {
-        if (tabReset) tabReset.classList.add("active");
-        if (formReset) formReset.style.display = "block";
-      } else if (tab === "dossier") {
-        if (tabDossier) tabDossier.classList.add("active");
-        if (formDossier) formDossier.style.display = "block";
-        populateDossierForm();
-      } else {
-        if (tabLogin) tabLogin.classList.add("active");
-        if (formLogin) formLogin.style.display = "block";
-      }
-    }
-
-    if (btnOpenAuth) {
-      btnOpenAuth.addEventListener("click", () => {
-        if (modalAuth) modalAuth.style.display = "flex";
-        switchAuthTab(currentAstronaut ? "dossier" : "login");
-      });
-    }
-    if (btnCloseAuth) btnCloseAuth.addEventListener("click", () => { if (modalAuth) modalAuth.style.display = "none"; });
-    if (linkGotoReg) linkGotoReg.addEventListener("click", (e) => { e.preventDefault(); switchAuthTab("register"); });
-    if (linkGotoReset) linkGotoReset.addEventListener("click", (e) => { e.preventDefault(); switchAuthTab("reset"); });
-    if (linkGotoLoginFromReg) linkGotoLoginFromReg.addEventListener("click", (e) => { e.preventDefault(); switchAuthTab("login"); });
-    if (linkGotoResetFromReg) linkGotoResetFromReg.addEventListener("click", (e) => { e.preventDefault(); switchAuthTab("reset"); });
-    if (linkGotoLoginFromReset) linkGotoLoginFromReset.addEventListener("click", (e) => { e.preventDefault(); switchAuthTab("login"); });
-
-    if (tabLogin) tabLogin.addEventListener("click", () => switchAuthTab("login"));
-    if (tabRegister) tabRegister.addEventListener("click", () => switchAuthTab("register"));
-    if (tabReset) tabReset.addEventListener("click", () => switchAuthTab("reset"));
-    if (tabDossier) tabDossier.addEventListener("click", () => switchAuthTab("dossier"));
-
-    document.querySelectorAll("#reg-color-swatches .lobby-color-btn").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        document.querySelectorAll("#reg-color-swatches .lobby-color-btn").forEach(b => b.classList.remove("active"));
-        e.currentTarget.classList.add("active");
-        regSelectedColor = e.currentTarget.getAttribute("data-color");
-      });
-    });
-
-    document.querySelectorAll("#dossier-color-swatches .lobby-color-btn").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        document.querySelectorAll("#dossier-color-swatches .lobby-color-btn").forEach(b => b.classList.remove("active"));
-        e.currentTarget.classList.add("active");
-        dossierSelectedColor = e.currentTarget.getAttribute("data-color");
-      });
-    });
-
-    function applyAstronautProfile(astro) {
-      currentAstronaut = astro;
-      const defaultModel = isMobile ? "astronaut_lod1" : "astronaut_lod0";
-      if (!astro) {
-        if (authStatusTitle) authStatusTitle.textContent = "GUEST";
-        if (authStatusDesc) authStatusDesc.textContent = "Local session";
-        if (btnOpenAuth) btnOpenAuth.textContent = "SIGN IN";
-        if (btnAuthLogout) btnAuthLogout.style.display = "none";
-        if (tabDossier) tabDossier.style.display = "none";
-        if (window.netManager) window.netManager.userId = null;
-
-        const defName = localStorage.getItem("interfellas_name") || "CDR. Vance";
-        if (inputName) inputName.value = defName;
-        window.netManager.localPlayer.name = defName;
-        window.netManager.localPlayer.color = "#c9f04b";
-        window.netManager.localPlayer.role = "commander";
-        buildLocalAstronaut("#c9f04b", "commander", defaultModel);
-        return;
-      }
-
-      const rank = astro.flight_title || "Commander";
-      const callsign = astro.callsign || astro.username;
-      const color = astro.suit_color || "#c9f04b";
-
-      if (authStatusTitle) authStatusTitle.textContent = `${callsign.toUpperCase()}`;
-      if (authStatusDesc) authStatusDesc.textContent = `${rank.toUpperCase()}`;
-      if (btnOpenAuth) btnOpenAuth.textContent = "DOSSIER";
-      if (btnAuthLogout) btnAuthLogout.style.display = "inline-block";
-      if (tabDossier) tabDossier.style.display = "inline-block";
-
-      if (inputName) inputName.value = callsign;
-
-      const statMissions = document.getElementById("stat-missions");
-      const statVictories = document.getElementById("stat-victories");
-      const statTasks = document.getElementById("stat-tasks");
-      setAnimatedNumber(statMissions, astro.games_played || 0);
-      setAnimatedNumber(statVictories, astro.games_won || 0);
-      setAnimatedNumber(statTasks, astro.tasks_completed || 0);
-
-      if (astro.token && typeof window.netManager.setAuthToken === "function") {
-        window.netManager.setAuthToken(astro.token);
-      }
-      const normalizedRole = window.InterfellasRoles
-        ? window.InterfellasRoles.normalizeRole(astro.preferred_role || rank, "commander")
-        : "commander";
-      window.netManager.userId = astro.id;
-      window.netManager.localPlayer.name = callsign;
-      window.netManager.localPlayer.color = color;
-      window.netManager.localPlayer.role = normalizedRole;
-      if (normalizedRole !== "commander") {
-        window.netManager.explicitRoleSelected = true;
-      }
-      buildLocalAstronaut(color, normalizedRole, defaultModel);
-      if (typeof window.syncLobbySelectionUI === "function") window.syncLobbySelectionUI();
-      if (typeof window.renderHudCrewRoster === "function") window.renderHudCrewRoster();
-    }
-
-    function populateDossierForm() {
-      if (!currentAstronaut) return;
-      const cInput = document.getElementById("dossier-callsign");
-      const tSelect = document.getElementById("dossier-title");
-      const dMissions = document.getElementById("dossier-missions");
-      const dVictories = document.getElementById("dossier-victories");
-      const dTasks = document.getElementById("dossier-tasks");
-
-      if (cInput) cInput.value = currentAstronaut.callsign || currentAstronaut.username;
-      if (tSelect) tSelect.value = currentAstronaut.flight_title || "Commander";
-      if (dMissions) dMissions.textContent = currentAstronaut.games_played || 0;
-      if (dVictories) dVictories.textContent = currentAstronaut.games_won || 0;
-      if (dTasks) dTasks.textContent = currentAstronaut.tasks_completed || 0;
-
-      dossierSelectedColor = currentAstronaut.suit_color || "#c9f04b";
-      document.querySelectorAll("#dossier-color-swatches .lobby-color-btn").forEach(b => {
-        b.classList.toggle("active", b.getAttribute("data-color") === dossierSelectedColor);
-      });
-    }
-
-    if (formLogin) {
-      formLogin.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const username = document.getElementById("login-username").value.trim();
-        const password = document.getElementById("login-password").value;
-        try {
-          const res = await fetch("/api/auth/login", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, password })
-          });
-          const data = await res.json();
-          if (data.success && data.user) {
-            const credential = { ...data.user, token: data.token };
-            localStorage.setItem("nasa_astronaut_credential", JSON.stringify(credential));
-            applyAstronautProfile(credential);
-            showAuthBanner("NASA Flight Credential Authenticated. Welcome aboard!", false);
-            setTimeout(() => { if (modalAuth) modalAuth.style.display = "none"; }, 1000);
-          } else {
-            showAuthBanner(data.error || "Authentication failed.", true);
-          }
-        } catch (err) {
-          showAuthBanner("Server communication error: " + err.message, true);
-        }
-      });
-    }
-
-    if (formRegister) {
-      formRegister.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const username = document.getElementById("reg-username").value.trim();
-        const callsign = document.getElementById("reg-callsign").value.trim();
-        const password = document.getElementById("reg-password").value;
-        const flightTitle = document.getElementById("reg-title").value;
-        try {
-          const res = await fetch("/api/auth/register", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, password, callsign, flightTitle, suitColor: regSelectedColor })
-          });
-          const data = await res.json();
-          if (data.success && data.user) {
-            const credential = { ...data.user, token: data.token };
-            localStorage.setItem("nasa_astronaut_credential", JSON.stringify(credential));
-            window.netManager.explicitRoleSelected = true;
-            applyAstronautProfile(credential);
-            showAuthBanner("Flight Credential Issued! Welcome to the Astronaut Corps.", false);
-            setTimeout(() => { if (modalAuth) modalAuth.style.display = "none"; }, 1000);
-          } else {
-            showAuthBanner(data.error || "Registration failed.", true);
-          }
-        } catch (err) {
-          showAuthBanner("Server communication error: " + err.message, true);
-        }
-      });
-    }
-
-    if (formReset) {
-      formReset.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const username = document.getElementById("reset-username").value.trim();
-        const currentPassword = document.getElementById("reset-current-password").value;
-        const newPassword = document.getElementById("reset-password").value;
-        try {
-          const res = await fetch("/api/auth/reset-password", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, currentPassword, newPassword })
-          });
-          const data = await res.json();
-          if (data.success && data.user) {
-            const credential = { ...data.user, token: data.token };
-            localStorage.setItem("nasa_astronaut_credential", JSON.stringify(credential));
-            applyAstronautProfile(credential);
-            showAuthBanner(data.message || "Password reset successfully.", false);
-            setTimeout(() => { if (modalAuth) modalAuth.style.display = "none"; }, 1000);
-          } else {
-            showAuthBanner(data.error || "Password reset failed.", true);
-          }
-        } catch (err) {
-          showAuthBanner("Server communication error: " + err.message, true);
-        }
-      });
-    }
-
-    if (formDossier) {
-      formDossier.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        if (!currentAstronaut) return;
-        const callsign = document.getElementById("dossier-callsign").value.trim();
-        const flightTitle = document.getElementById("dossier-title").value;
-        try {
-          const normalizedPreferredRole = window.InterfellasRoles
-            ? window.InterfellasRoles.normalizeRole(flightTitle, "commander")
-            : "commander";
-          const res = await fetch("/api/auth/update-profile", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${currentAstronaut.token || ""}`
-            },
-            body: JSON.stringify({
-              callsign,
-              flightTitle,
-              suitColor: dossierSelectedColor,
-              preferredRole: normalizedPreferredRole
-            })
-          });
-          const data = await res.json();
-          if (data.success && data.user) {
-            const credential = { ...data.user, token: currentAstronaut.token };
-            localStorage.setItem("nasa_astronaut_credential", JSON.stringify(credential));
-            window.netManager.explicitRoleSelected = true;
-            applyAstronautProfile(credential);
-            if (window.netManager.roomId) {
-              window.netManager.customizeAstronaut(callsign, dossierSelectedColor, normalizedPreferredRole, null, null, null, { explicitRole: true });
-            }
-            showAuthBanner("Flight Dossier updated successfully.", false);
-            setTimeout(() => { if (modalAuth) modalAuth.style.display = "none"; }, 1000);
-          } else {
-            showAuthBanner(data.error || "Update failed.", true);
-          }
-        } catch (err) {
-          showAuthBanner("Server communication error: " + err.message, true);
-        }
-      });
-    }
-
-    const doLogout = () => {
-      const stored = localStorage.getItem("nasa_astronaut_credential");
-      let token = null;
-      try {
-        token = stored ? JSON.parse(stored).token : null;
-      } catch (e) {}
-      if (token) {
-        fetch("/api/auth/logout", {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${token}` }
-        }).catch(() => {});
-      }
-      localStorage.removeItem("nasa_astronaut_credential");
-      if (window.netManager && typeof window.netManager.setAuthToken === "function") {
-        window.netManager.setAuthToken(null);
-      }
-      if (window.netManager) window.netManager.explicitRoleSelected = false;
-      applyAstronautProfile(null);
-      if (modalAuth) modalAuth.style.display = "none";
-    };
-    if (btnAuthLogout) btnAuthLogout.addEventListener("click", doLogout);
-    if (btnDossierLogout) btnDossierLogout.addEventListener("click", doLogout);
-
+    currentAstronaut = null;
     try {
       localStorage.removeItem("nasa_astronaut_credential");
     } catch (e) {}
-    applyAstronautProfile(null);
+    if (window.netManager) {
+      window.netManager.userId = null;
+      const defaultModel = isMobile ? "astronaut_lod1" : "astronaut_lod0";
+      const defName = localStorage.getItem("interfellas_name") || "CDR. Vance";
+      window.netManager.localPlayer.name = defName;
+      window.netManager.localPlayer.color = "#c9f04b";
+      window.netManager.localPlayer.role = "commander";
+      buildLocalAstronaut("#c9f04b", "commander", defaultModel);
+    }
 
     if (inputName) {
       inputName.value = window.netManager.localPlayer.name;
@@ -2119,6 +1834,13 @@
       });
     });
 
+    const btnHangarMenu = document.getElementById("btn-open-hangar-menu");
+    if (btnHangarMenu) {
+      btnHangarMenu.addEventListener("click", () => {
+        if (window.glbManager) window.glbManager.openHangar();
+      });
+    }
+
     const btnHangarLobby = document.getElementById("btn-open-hangar-lobby");
     if (btnHangarLobby) {
       btnHangarLobby.addEventListener("click", () => {
@@ -2172,6 +1894,64 @@
       });
     }
 
+    const btnDeckInterior = document.getElementById("btn-deck-interior");
+    if (btnDeckInterior) {
+      btnDeckInterior.addEventListener("click", () => {
+        if (window.missionViz && window.missionViz.isActive) window.missionViz.close();
+        if (window.issShowcase && window.issShowcase.isActive) {
+          window.issShowcase.close();
+          return;
+        }
+        if (window.glbManager && window.glbManager.hangarActive) {
+          window.glbManager.closeHangar();
+          return;
+        }
+        if (window.shipInterior) {
+          const visible = window.shipInterior.toggleInterior();
+          if (window.showActionToast) {
+            window.showActionToast(visible ? "LUNASPIS 6-ROOM SHIP INTERIOR: ACTIVE" : "EXTERIOR / EVA VIEW: ACTIVE");
+          }
+        }
+      });
+    }
+
+    const btnDeckIss = document.getElementById("btn-deck-iss");
+    if (btnDeckIss) {
+      btnDeckIss.addEventListener("click", () => {
+        if (window.missionViz && window.missionViz.isActive) window.missionViz.close();
+        if (window.glbManager && window.glbManager.hangarActive) window.glbManager.closeHangar();
+        if (window.issShowcase) window.issShowcase.toggle();
+      });
+    }
+
+    const btnDeckMoon = document.getElementById("btn-deck-moon");
+    if (btnDeckMoon) {
+      btnDeckMoon.addEventListener("click", () => {
+        if (window.missionViz && window.missionViz.isActive) window.missionViz.close();
+        if (window.glbManager && window.glbManager.hangarActive) window.glbManager.closeHangar();
+        if (window.shipInterior && typeof window.shipInterior.toggleMoonLandingScene === "function") {
+          window.shipInterior.toggleMoonLandingScene();
+        }
+      });
+    }
+
+    const btnDeckSpaceCenter = document.getElementById("btn-deck-space-center");
+    if (btnDeckSpaceCenter) {
+      btnDeckSpaceCenter.addEventListener("click", () => {
+        if (window.missionViz && window.missionViz.isActive) window.missionViz.close();
+        if (window.spaceCenter && typeof window.spaceCenter.toggleGroundOrbit === "function") {
+          window.spaceCenter.toggleGroundOrbit();
+        }
+      });
+    }
+
+    const btnDeckSettings = document.getElementById("btn-deck-settings");
+    if (btnDeckSettings) {
+      btnDeckSettings.addEventListener("click", () => {
+        document.getElementById("btn-voice-settings")?.click();
+      });
+    }
+
     const btnIssHUD = document.getElementById("btn-hud-iss-showcase");
     if (btnIssHUD) {
       btnIssHUD.addEventListener("click", () => {
@@ -2210,19 +1990,6 @@
     const btnCameraMode = document.getElementById("btn-camera-mode");
     if (btnCameraMode) {
       btnCameraMode.addEventListener("click", () => cycleCameraMode());
-    }
-
-    // Walking/touring the KSC site keeps a short tool row and folds the rest
-    // behind MORE, so the world view is not buried under buttons.
-    const btnHudMore = document.getElementById("btn-hud-more");
-    if (btnHudMore) {
-      btnHudMore.addEventListener("click", () => {
-        const expanded = document.body.classList.toggle("hud-tools-expanded");
-        btnHudMore.setAttribute("aria-expanded", String(expanded));
-        const label = btnHudMore.querySelector("span");
-        if (label) label.textContent = expanded ? "LESS" : "MORE";
-        if (window.spaceAudio) window.spaceAudio.playClick();
-      });
     }
 
     // Voice & Systems Settings
@@ -2917,6 +2684,24 @@
       if (typeof window.renderSwapBanners === "function") window.renderSwapBanners();
     });
 
+    window.netManager.on("role_assigned", (data) => {
+      syncLocalRigWithServer();
+      updateLocalBadge();
+      if (window.spaceAudio) window.spaceAudio.playClick();
+      if (window.spaceCenter && typeof window.spaceCenter.syncLocalRoleChange === "function") {
+        window.spaceCenter.syncLocalRoleChange();
+      }
+      syncSpaceGamesLock();
+      if (window.gameplay) {
+        if (typeof window.gameplay.updateTaskListUI === "function") window.gameplay.updateTaskListUI();
+        if (typeof window.gameplay.showToast === "function" && data && data.targetName) {
+          const meta = window.InterfellasRoles ? window.InterfellasRoles.getRoleMeta(data.role) : { label: data.role || "CREW" };
+          window.gameplay.showToast(`HOST ASSIGNED ${data.targetName}: ${meta.label}`);
+        }
+      }
+      if (typeof window.renderSwapBanners === "function") window.renderSwapBanners();
+    });
+
     window.netManager.on("role_swap_requested", (req) => {
       if (window.spaceAudio) window.spaceAudio.playClick();
       if (typeof window.renderSwapBanners === "function") window.renderSwapBanners(req);
@@ -2990,6 +2775,8 @@
             window.gameplay.showToast(`[ROLE LOCK] ${String(owner).toUpperCase()} ONLY · ${ev.message || "THIS CONTROL IS NOT YOURS"}`);
           } else if (ev.type === "board_blocked_ground" && ev.message) {
             window.gameplay.showToast(ev.message);
+          } else if (ev.type === "reset_denied") {
+            window.gameplay.showToast(ev.message || "Only the host or commander can reset the shared mission.");
           }
         }
       }
@@ -3796,6 +3583,23 @@
       const roleMeta = rolesApi ? rolesApi.getRoleMeta(normRole) : { short: "CMD", label: "COMMANDER", duties: {} };
       const dutyText = (roleMeta.duties && roleMeta.duties.station) || fallbackDuty;
       const isPending = pendingToIds.has(p.id);
+      const rsPhase = (rs && rs.mission && rs.mission.phase) || "gantry";
+      const canHostAssign = isHost && (status === "lobby" || (status === "playing" && rsPhase === "gantry"));
+      const showSwap = !isSelf && players.length > 1;
+      const roleOrder = rolesApi && Array.isArray(rolesApi.ORDER)
+        ? rolesApi.ORDER
+        : ["flight_director", "ground_capcom", "commander", "engineer", "scientist", "specialist"];
+      const roleOptionsHtml = canHostAssign
+        ? roleOrder.map((roleId) => {
+            const optMeta = rolesApi ? rolesApi.getRoleMeta(roleId) : { short: roleId, label: roleId };
+            const isGroundOpt = rolesApi
+              ? rolesApi.isGroundRole(roleId)
+              : (roleId === "flight_director" || roleId === "ground_capcom");
+            const disabledGround = players.length <= 1 && isGroundOpt;
+            const optLabel = disabledGround ? `${optMeta.label} (2+ Crew)` : `${optMeta.label} (${optMeta.short})`;
+            return `<option value="${escapeHtml(roleId)}"${roleId === normRole ? " selected" : ""}${disabledGround ? " disabled" : ""}>${escapeHtml(optLabel)}</option>`;
+          }).join("")
+        : "";
       row.className = `lobby-manifest-row${isSelf ? " is-self" : ""}`;
       row.innerHTML = `
         <div class="lobby-row-head">
@@ -3807,13 +3611,45 @@
         </div>
         <div class="lobby-row-foot">
           <span class="lobby-row-duty">${escapeHtml(roleMeta.label)} · ${escapeHtml(dutyText)}</span>
-          ${!isSelf && players.length > 1 ? `
-            <button type="button" class="lobby-swap-btn${isPending ? " is-pending" : ""}" data-req-swap="${escapeHtml(p.id)}" ${isPending ? "disabled" : ""}>
-              ${isPending ? "PENDING" : "SWAP"}
-            </button>
+          ${(canHostAssign || showSwap) ? `
+            <div class="lobby-row-actions">
+              ${canHostAssign ? `
+                <select class="lobby-role-select" data-assign-role="${escapeHtml(p.id)}" aria-label="Assign role for ${escapeHtml(p.name || "Astronaut")}">
+                  ${roleOptionsHtml}
+                </select>
+              ` : ""}
+              ${showSwap ? `
+                <button type="button" class="lobby-swap-btn${isPending ? " is-pending" : ""}" data-req-swap="${escapeHtml(p.id)}" ${isPending ? "disabled" : ""}>
+                  ${isPending ? "PENDING" : "SWAP"}
+                </button>
+              ` : ""}
+            </div>
           ` : ""}
         </div>
       `;
+      const roleSelect = row.querySelector("[data-assign-role]");
+      if (roleSelect) {
+        roleSelect.addEventListener("change", (e) => {
+          const nextRole = e.target.value;
+          const chk = document.getElementById("chk-shuffle-on-launch");
+          if (chk) chk.checked = false;
+          roleSelect.disabled = true;
+          if (window.netManager && typeof window.netManager.hostAssignRole === "function") {
+            window.netManager.hostAssignRole(p.id, nextRole, (res) => {
+              roleSelect.disabled = false;
+              if (res && !res.success) {
+                roleSelect.value = normRole;
+                if (window.gameplay && typeof window.gameplay.showToast === "function") {
+                  window.gameplay.showToast(res.message || "Could not assign role.");
+                }
+              }
+            });
+          } else {
+            roleSelect.disabled = false;
+          }
+          if (window.spaceAudio) window.spaceAudio.playClick();
+        });
+      }
       const swapBtn = row.querySelector("[data-req-swap]");
       if (swapBtn) {
         swapBtn.addEventListener("click", () => {
@@ -4213,6 +4049,12 @@
       .replace(/'/g, "&#39;");
   }
 
+  function uiIcon(name, className) {
+    const cls = className || "ui-icon";
+    return `<svg class="${cls}" aria-hidden="true" focusable="false"><use href="#i-${name}"></use></svg>`;
+  }
+  window.uiIcon = uiIcon;
+
   function appendLobbyChat(comm) {
     const container = document.getElementById("lobby-chat-msgs");
     if (!container) return;
@@ -4234,6 +4076,175 @@
   // ============================================================================
   // INPUT CONTROLS, ANALOG THUMBSTICK & MULTI-TOUCH CAMERA LOOK + PINCH ZOOM
   // ============================================================================
+  const gamepadEdges = new Set();
+  const gamepadMove = { x: 0, y: 0, magnitude: 0 };
+  const gamepadLook = { x: 0, y: 0 };
+  let gamepadNavCooldown = 0;
+
+  function activeGamepad() {
+    if (!navigator.getGamepads) return null;
+    const pads = navigator.getGamepads();
+    for (let i = 0; i < pads.length; i += 1) {
+      if (pads[i]) return pads[i];
+    }
+    return null;
+  }
+
+  function applyStickDeadzone(value, deadzone = 0.18) {
+    const v = Number(value) || 0;
+    if (Math.abs(v) < deadzone) return 0;
+    return Math.max(-1, Math.min(1, (v - Math.sign(v) * deadzone) / (1 - deadzone)));
+  }
+
+  function gamepadButtonPressed(pad, index) {
+    const button = pad && pad.buttons ? pad.buttons[index] : null;
+    return Boolean(button && (button.pressed || button.value > 0.5));
+  }
+
+  function gamepadButtonJustPressed(pad, index) {
+    const pressed = gamepadButtonPressed(pad, index);
+    const key = `${pad ? pad.index : "none"}:${index}`;
+    if (pressed && !gamepadEdges.has(key)) {
+      gamepadEdges.add(key);
+      return true;
+    }
+    if (!pressed) gamepadEdges.delete(key);
+    return false;
+  }
+
+  function moveDeckFocus(direction) {
+    const deck = document.getElementById("quick-deck");
+    if (!deck || !deck.classList.contains("open")) return;
+    const panel = deck.querySelector(".deck-body:not([hidden])");
+    if (!panel) return;
+    const rows = Array.from(panel.querySelectorAll(".deck-row:not([disabled])"));
+    if (!rows.length) return;
+    const current = rows.indexOf(document.activeElement);
+    const next = (current + direction + rows.length) % rows.length;
+    rows[next].focus({ preventScroll: true });
+  }
+
+  function activateDeckFocus() {
+    const active = document.activeElement;
+    if (active && active.classList && active.classList.contains("deck-row")) {
+      active.click();
+      return true;
+    }
+    const deck = document.getElementById("quick-deck");
+    const panel = deck ? deck.querySelector(".deck-body:not([hidden])") : null;
+    const first = panel ? panel.querySelector(".deck-row") : null;
+    if (first) {
+      first.click();
+      return true;
+    }
+    return false;
+  }
+
+  function closeTopLayer() {
+    if (quickDeckOpen) {
+      setQuickDeckOpen(false);
+      return true;
+    }
+    const settingsModal = document.getElementById("modal-station-systems");
+    if (settingsModal && settingsModal.style.display === "flex") {
+      settingsModal.style.display = "none";
+      return true;
+    }
+    const taskModal = document.getElementById("task-modal-overlay");
+    if (taskModal && taskModal.style.display === "flex") {
+      if (window.gameplay && typeof window.gameplay.closeTaskModal === "function") {
+        window.gameplay.closeTaskModal();
+      } else {
+        taskModal.style.display = "none";
+      }
+      return true;
+    }
+    return false;
+  }
+
+  function updateGamepad(delta) {
+    if (typeof document !== "undefined" && document.hidden) return;
+    const pad = activeGamepad();
+    if (!pad) return;
+
+    if (!isGameStarted) {
+      gamepadMove.x = 0;
+      gamepadMove.y = 0;
+      gamepadMove.magnitude = 0;
+      gamepadLook.x = 0;
+      gamepadLook.y = 0;
+      return;
+    }
+
+    const editing = document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+    if (editing) return;
+
+    const lx = applyStickDeadzone(pad.axes[0]);
+    const ly = applyStickDeadzone(pad.axes[1]);
+    const rx = applyStickDeadzone(pad.axes[2], 0.2);
+    const ry = applyStickDeadzone(pad.axes[3], 0.2);
+    gamepadMove.x = lx;
+    gamepadMove.y = ly;
+    gamepadMove.magnitude = Math.min(1, Math.hypot(lx, ly));
+    gamepadLook.x = rx;
+    gamepadLook.y = ry;
+
+    const anyButtonDown = pad.buttons ? pad.buttons.some((button) => button && (button.pressed || button.value > 0.2)) : false;
+    if ((Math.hypot(lx, ly) > 0.08 || Math.hypot(rx, ry) > 0.08 || anyButtonDown) && window.UITheme) {
+      window.UITheme.setInputMode("pad");
+    }
+
+    if (gamepadButtonJustPressed(pad, 0)) {
+      if (quickDeckOpen) {
+        activateDeckFocus();
+      } else {
+        const proximity = document.getElementById("btn-proximity-use");
+        if (proximity && proximity.style.display !== "none") proximity.click();
+      }
+    }
+    if (gamepadButtonJustPressed(pad, 1)) {
+      closeTopLayer();
+    }
+    if (gamepadButtonJustPressed(pad, 2)) {
+      const deck = document.getElementById("quick-deck");
+      if (deck && deck.classList.contains("open")) {
+        activateDeckFocus();
+      } else {
+        const proximity = document.getElementById("btn-proximity-use");
+        if (proximity && proximity.style.display !== "none") proximity.click();
+      }
+    }
+    if (gamepadButtonJustPressed(pad, 3)) {
+      cycleCameraMode();
+    }
+    if (gamepadButtonJustPressed(pad, 4)) {
+      setQuickDeckOpen(!quickDeckOpen || quickDeckTab !== "crew", "crew");
+    }
+    if (gamepadButtonJustPressed(pad, 5)) {
+      setQuickDeckOpen(!quickDeckOpen || quickDeckTab !== "systems", "systems");
+    }
+    if (gamepadButtonJustPressed(pad, 9)) {
+      document.getElementById("btn-voice-settings")?.click();
+    }
+
+    if (quickDeckOpen) {
+      gamepadNavCooldown = Math.max(0, gamepadNavCooldown - delta);
+      const navUp = ly < -0.55 || gamepadButtonPressed(pad, 12);
+      const navDown = ly > 0.55 || gamepadButtonPressed(pad, 13);
+      if ((navUp || navDown) && gamepadNavCooldown <= 0) {
+        moveDeckFocus(navUp ? -1 : 1);
+        gamepadNavCooldown = 0.18;
+      }
+      return;
+    }
+
+    if (Math.abs(rx) > 0.01 || Math.abs(ry) > 0.01) {
+      const lookScale = Math.min(delta, 0.05);
+      camYaw -= rx * 2.4 * lookScale;
+      camPitch = Math.max(-0.75, Math.min(0.65, camPitch - ry * 1.7 * lookScale));
+    }
+  }
+
   function setupInputControls() {
     let isMouseDown = false;
     let lastMouseX = 0, lastMouseY = 0;
@@ -4254,6 +4265,10 @@
         }
         if (window.spaceCenter && window.spaceCenter.lccConsoleOpen && typeof window.spaceCenter.openLccConsole === "function") {
           window.spaceCenter.openLccConsole(false);
+          return;
+        }
+        if (quickDeckOpen) {
+          setQuickDeckOpen(false);
           return;
         }
         if (emoteWheelOpen) {
@@ -4296,7 +4311,7 @@
       const tTag = e.target && e.target.tagName ? e.target.tagName : "";
       if (tTag === "INPUT" || tTag === "TEXTAREA" || tTag === "SELECT" || (e.target && e.target.isContentEditable)) return;
 
-      const blockingOverlay = ["modal-auth", "modal-academy", "modal-mission-log", "modal-station-systems", "task-modal-overlay", "victory-overlay", "mission-briefing-overlay", "csa-nasa-lab-modal", "iss-sidegame-overlay", "glb-hangar-modal"]
+      const blockingOverlay = ["modal-academy", "modal-mission-log", "modal-station-systems", "task-modal-overlay", "victory-overlay", "mission-briefing-overlay", "csa-nasa-lab-modal", "iss-sidegame-overlay", "glb-hangar-modal"]
         .some((id) => {
           const el = document.getElementById(id);
           return el && el.style.display && el.style.display !== "none";
@@ -4466,7 +4481,7 @@
       if (!target || typeof target.closest !== "function") return false;
       return Boolean(
         target.closest(
-          "button, input, textarea, select, a, .hud-checklist-panel, .hud-race-bar-container, #hud-crew-roster, #hud-voice-panel, #virtual-dpad, #mobile-joystick-zone, #task-modal-overlay, #iss-showcase-ui, #mission-viz-ui, #solar-system-ui, #vr-mode-overlay, #ground-lcc-console, #lunaspis-ship-minimap, #space-center-ground-map, #ship-interior-hud, #space-center-ground-hud, #docking-hud-overlay, #launch-cutscene-overlay, #lunaspis-resource-meters, #btn-telemetry-toggle, #emote-wheel, #hud-diagnostics-overlay, #modal-auth, #modal-station-systems, #victory-overlay, #mission-briefing-overlay, #action-toast, .modal-card, .menu-card"
+          "button, input, textarea, select, a, .hud-checklist-panel, .hud-race-bar-container, #hud-crew-roster, #hud-voice-panel, #virtual-dpad, #mobile-joystick-zone, #task-modal-overlay, #iss-showcase-ui, #mission-viz-ui, #solar-system-ui, #vr-mode-overlay, #ground-lcc-console, #lunaspis-ship-minimap, #space-center-ground-map, #ship-interior-hud, #space-center-ground-hud, #docking-hud-overlay, #launch-cutscene-overlay, #lunaspis-resource-meters, #btn-telemetry-toggle, #emote-wheel, #hud-diagnostics-overlay, #modal-station-systems, #victory-overlay, #mission-briefing-overlay, #action-toast, .modal-card, .menu-card"
         )
       );
     };
@@ -5254,6 +5269,7 @@
 
     const delta = Math.min(clock.getDelta(), 0.05);
     const elapsed = clock.getElapsedTime();
+    updateGamepad(delta);
 
     if (window.artemisGame && window.artemisGame.isActive) {
       window.artemisGame.frame(delta);

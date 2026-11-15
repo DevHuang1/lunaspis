@@ -4,4 +4,7 @@ npm-debug.log
 .git
 .env
 .data
+**/.data
+**/.gmat-runtime
 design-reference
+tests

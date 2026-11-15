@@ -863,6 +863,10 @@
         this.emitEvent("roles_randomized", data);
       });
 
+      this.socket.on("role_assigned", (data) => {
+        this.emitEvent("role_assigned", data);
+      });
+
       this.socket.on("role_swap_requested", (data) => {
         if (window.spaceAudio) window.spaceAudio.play("uiNotify");
         this.emitEvent("role_swap_requested", data);
@@ -1037,6 +1041,13 @@
     randomizeRoles(callback) {
       if (!this.connected || !this.roomId || !this.isHost) return;
       this.socket.emit("randomize_roles", {}, (res) => {
+        if (typeof callback === "function") callback(res);
+      });
+    }
+
+    hostAssignRole(targetId, role, callback) {
+      if (!this.connected || !this.roomId || !this.isHost || !targetId || !role) return;
+      this.socket.emit("host_assign_role", { targetId, role }, (res) => {
         if (typeof callback === "function") callback(res);
       });
     }
