@@ -1139,7 +1139,15 @@
 
       this._drawSeatName(seat, player.name || "CREW");
       const role = normalizeRole(player.role, "crew");
-      const modelId = seat.seat === "cdr" || seat.seat === "ms1" ? "crew_a" : "crew_b";
+      // The flight deck is a view of the crew aboard the ship, so it must
+      // always render their pressure-suit rigs. Earth Control players use the
+      // unsuited crew_a/crew_b rigs in the room view, but those would show the
+      // astronauts out of their suits on this feed.
+      const selectedModelId = player.modelId || "astronaut_lod1";
+      const roleModelId = window.glbManager && typeof window.glbManager.getModelIdForRole === "function"
+        ? window.glbManager.getModelIdForRole(player.role, selectedModelId)
+        : selectedModelId;
+      const modelId = roleModelId === "crew_a" || roleModelId === "crew_b" ? "astronaut_lod1" : roleModelId;
       const color = player.color || (seat.index % 2 ? "#67e8f9" : "#7fb8a6");
       if (!window.glbManager || typeof window.glbManager.createAstronautRig !== "function") return;
       const rig = window.glbManager.createAstronautRig(

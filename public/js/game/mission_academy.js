@@ -511,7 +511,7 @@
     // Start cadets from the scenario's recommended point design, then let them
     // change one subsystem at a time with the CADET COACH guidance.
     if (window.gameplay && typeof window.gameplay.applyRecommendedScenarioBaseline === "function") {
-      window.gameplay.applyRecommendedScenarioBaseline("lunar_south_pole");
+      window.gameplay.applyRecommendedScenarioBaseline("cubesat_101");
     }
     if (window.spaceAudio) window.spaceAudio.playClick();
     if (els.start) {
@@ -520,7 +520,7 @@
     }
     window.netManager.startSolo(name, color, null, {
       opsMode: "iss_expedition",
-      scenarioId: "lunar_south_pole",
+      scenarioId: "cubesat_101",
       difficultyId: "cadet",
       autoStart: true
     });
@@ -546,7 +546,7 @@
     if (!tip) return "";
     const scenarioId = window.gameplay && window.gameplay.missionDesign
       ? window.gameplay.missionDesign.scenarioId
-      : "lunar_south_pole";
+      : "cubesat_101";
     return `
       <div class="cadet-coach" role="note" aria-label="Helpful tip">
         <div class="cadet-coach-head">
@@ -615,7 +615,7 @@
       if (baseline && window.gameplay) {
         const scenarioId = baseline.getAttribute("data-scenario-id")
           || (window.gameplay.missionDesign && window.gameplay.missionDesign.scenarioId)
-          || "lunar_south_pole";
+          || "cubesat_101";
         if (typeof window.gameplay.applyRecommendedScenarioBaseline === "function") {
           window.gameplay.applyRecommendedScenarioBaseline(scenarioId);
           if (typeof window.gameplay.showToast === "function") {

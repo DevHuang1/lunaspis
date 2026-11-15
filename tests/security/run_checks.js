@@ -46,24 +46,25 @@ function testMissionValidation() {
   const { validateFinalReport, evaluateDesignCore } = require("../../server/mission_validation");
 
   const design = {
-    orbitId: "leo_400",
-    launchVehicleId: "cygnus_ng18",
+    orbitId: "iss_cubesat_418",
+    launchVehicleId: "electron_light",
     busId: "smallsat_12u",
-    powerId: "high_power_wings",
+    powerId: "deployable_rosa",
     batteryId: "li_ion_320",
-    thermalId: "pumped_loop_50",
-    commsId: "ka_band_optical",
-    groundNetId: "dsn_goldstone",
-    propulsionId: "hall_ion_sep",
+    thermalId: "passive_mli",
+    commsId: "s_band_omni",
+    groundNetId: "near_space_net",
+    propulsionId: "hydrazine_mono",
     disposalId: "drag_sail",
-    scenarioId: "lunar_south_pole",
+    scenarioId: "cubesat_101",
     difficultyId: "engineer",
     wavelengthId: "near_ir",
-    instruments: ["inst_multispectral", "inst_sar"]
+    cubesatFormId: "6u",
+    instruments: ["inst_multispectral", "inst_mag"]
   };
   const phases = Array.from({ length: 6 }, (_, index) => ({ phase: `phase_${index}`, ok: true, metric: "ok" }));
   const report = {
-    scenarioId: "lunar_south_pole",
+    scenarioId: "cubesat_101",
     difficultyId: "engineer",
     design,
     phases,
@@ -84,34 +85,34 @@ function testMissionValidation() {
     disposalOk: true
   };
 
-  const good = validateFinalReport({ report, scenarioId: "lunar_south_pole", difficultyId: "engineer", completedObjectives: 7 });
+  const good = validateFinalReport({ report, scenarioId: "cubesat_101", difficultyId: "engineer", completedObjectives: 7 });
   check("a physically valid design is accepted", good.ok, good.reasons.join("; "));
-  check("server recomputes scores instead of trusting client values", good.ok && good.result.overallScore === 90 && good.result.scienceScore === 77, good.ok ? `score=${good.result.overallScore}` : "");
+  check("server recomputes scores instead of trusting client values", good.ok && good.result.overallScore === 98 && good.result.scienceScore === 96, good.ok ? `score=${good.result.overallScore}` : "");
 
   const noDisposal = validateFinalReport({
     report: { ...report, design: { ...design, disposalId: "none_drift" } },
-    scenarioId: "lunar_south_pole",
+    scenarioId: "cubesat_101",
     difficultyId: "engineer"
   });
   check("impossible disposal plan is rejected", !noDisposal.ok, noDisposal.reasons.slice(0, 2).join("; "));
 
   const impossibleOrbit = validateFinalReport({
     report: { ...report, design: { ...design, orbitId: "sun_earth_l2", launchVehicleId: "electron_light" } },
-    scenarioId: "lunar_south_pole",
+    scenarioId: "cubesat_101",
     difficultyId: "engineer"
   });
   check("forged client success flags cannot rescue an impossible design", !impossibleOrbit.ok, impossibleOrbit.reasons.slice(0, 2).join("; "));
 
   const forcedScenario = validateFinalReport({
     report: { ...report, design: { ...design, scenarioId: "sandbox", difficultyId: "cadet" } },
-    scenarioId: "lunar_south_pole",
+    scenarioId: "cubesat_101",
     difficultyId: "engineer"
   });
-  check("client cannot swap in an easier scenario/difficulty", forcedScenario.ok && forcedScenario.result.scenarioId === "lunar_south_pole" && forcedScenario.result.difficultyId === "engineer");
+  check("client cannot swap in an easier scenario/difficulty", forcedScenario.ok && forcedScenario.result.scenarioId === "cubesat_101" && forcedScenario.result.difficultyId === "engineer");
 
   const noClientAttestation = validateFinalReport({
     report: { ...report, phases: [], allNominal: false, event: { ok: false } },
-    scenarioId: "lunar_south_pole",
+    scenarioId: "cubesat_101",
     difficultyId: "engineer",
     completedObjectives: 7
   });
@@ -282,13 +283,22 @@ async function testMissionAuthority() {
   await new Promise((resolve) => setTimeout(resolve, 450));
 
   const guestPlayer = joined[0].player;
-  // Deterministically make the guest a non-commander flight role so the reset
-  // authority check is exercised regardless of random role assignment.
+  // Deterministically make the host the Commander and the guest a
+  // non-commander flight role so both the reset-authority check and the shared
+  // command check are exercised regardless of random role assignment.
+  await host.emit("host_assign_role", { targetId: created[0].hostId, role: "commander" });
   await host.emit("host_assign_role", { targetId: guestPlayer.id, role: "engineer" });
+  // Shared flight commands ("all", e.g. time acceleration) are intentionally
+  // usable from every crew seat — including crew without a primary station.
+  await host.emit("shuttle_command", { type: "START", args: {} });
+  const sharedWarp = await guest.emit("shuttle_command", { type: "SET_WARP", args: { factor: 2 } });
+  check("shared time acceleration is accepted from any crew seat",
+    !!(sharedWarp && sharedWarp[0] && sharedWarp[0].accepted),
+    sharedWarp && sharedWarp[0] ? sharedWarp[0].reason : "no response");
   const guestIsAuthorized = guestPlayer.role === "commander" && guestPlayer.id === created[0].hostId;
   guest.emit("space_reset", {}, false);
   guest.emit("mission_design_sync", {
-    designPatch: { orbitId: "sso_705", scenarioId: "earth_climate", difficultyId: "cadet" }
+    designPatch: { orbitId: "sso_705", scenarioId: "bionutrients_2", difficultyId: "cadet" }
   }, false);
   await new Promise((resolve) => setTimeout(resolve, 500));
 
@@ -300,7 +310,7 @@ async function testMissionAuthority() {
   const designApplied = !!(latestMission && latestMission.mission.design && latestMission.mission.design.orbitId === "sso_705");
   check("crew design trade changes still sync", designApplied);
   check("non-host cannot switch the live scenario/difficulty",
-    !latestMission || (latestMission.mission.scenarioId !== "earth_climate" && latestMission.mission.difficultyId !== "cadet"),
+    !latestMission || (latestMission.mission.scenarioId !== "bionutrients_2" && latestMission.mission.difficultyId !== "cadet"),
     latestMission ? `${latestMission.mission.scenarioId}/${latestMission.mission.difficultyId}` : "no mission_update");
 
   if (!guestIsAuthorized) {
@@ -386,6 +396,11 @@ async function testHttpHardening() {
   check("index HTML carries the same nonce",
     homeBody.includes(`name="lunaspis-csp-nonce" content="${nonce}"`) && homeBody.includes("js/core/boot.js"));
   check("index HTML has no inline script blocks", !/<script(?![^>]*\bsrc=)[^>]*>/i.test(homeBody));
+  check("index HTML has no inline event handler attributes", !/\son[a-z]+\s*=/i.test(homeBody));
+  const basisCode = fs.readFileSync(path.join(ROOT, "public/basis/basis_transcoder.js"), "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "");
+  check("KTX2 transcoder avoids dynamic Function for strict CSP",
+    !/newFunc\(Function|new Function\(/.test(basisCode));
   check("HSTS is sent on secure proxied requests", hsts.includes("max-age="), hsts);
   check("COOP/CORP isolation headers are present",
     home.headers.get("cross-origin-opener-policy") === "same-origin" &&

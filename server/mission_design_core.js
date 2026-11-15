@@ -26,63 +26,6 @@
       summary: "Launch on SLS, fly Orion to lunar orbit, dock with a Blue Moon-style lander, land at the south pole, return samples, and splash down. Dated training scenario, not an exact reconstruction.",
       tradeoffTip: "This is a flight expedition, not a design study. The mission uses a dated Blue Moon-style lunar-rendezvous architecture and clearly labelled training assumptions."
     },
-    earth_climate: {
-      id: "earth_climate",
-      name: "Earth Weather & Melting Ice Watcher",
-      code: "EARTH WATCH",
-      badge: "EARTH & CLIMATE",
-      baseBudgetM: 380,
-      targetLifetimeMonths: 36,
-      recommendedOrbits: ["sso_705", "leo_400"],
-      requiredScienceTypes: ["optical", "radar", "altimetry", "spectrometer"],
-      minDeltaV: 420,
-      minRadiationKrad: 25,
-      summary: "Watch polar ice sheets, sea levels, and greenhouse gases across the whole Earth from space.",
-      tradeoffTip: "The Pole-to-Pole Daylight Orbit (705 km) sees all of Earth in steady sunlight. Pairing Cloud-Seeing Radar with the Laser Height Scanner tracks ice thickness day and night."
-    },
-    lunar_south_pole: {
-      id: "lunar_south_pole",
-      name: "Moon South Pole Water-Ice Hunter",
-      code: "MOON ICE",
-      badge: "MOON MISSION",
-      baseBudgetM: 500,
-      targetLifetimeMonths: 24,
-      recommendedOrbits: ["lunar_polar_100", "gto_heo"],
-      requiredScienceTypes: ["neutron", "altimetry", "spectrometer", "optical"],
-      minDeltaV: 1150,
-      minRadiationKrad: 50,
-      summary: "Search dark craters at the Moon's South Pole for hidden water ice and safe landing zones for future astronauts.",
-      tradeoffTip: "Circling the Moon takes extra steering push (1,150+ m/s) and a strong radio link to reach Earth across 384,400 km."
-    },
-    asteroid_rendezvous: {
-      id: "asteroid_rendezvous",
-      name: "Asteroid Rock & Dust Explorer",
-      code: "ASTEROID",
-      badge: "DEEP SPACE",
-      baseBudgetM: 540,
-      targetLifetimeMonths: 48,
-      recommendedOrbits: ["gto_heo", "lunar_polar_100"],
-      requiredScienceTypes: ["spectrometer", "altimetry", "magnetometer", "neutron"],
-      minDeltaV: 1650,
-      minRadiationKrad: 75,
-      summary: "Fly alongside a rocky asteroid to map its surface minerals, gravity pull, and slow path drift.",
-      tradeoffTip: "A 4-year deep-space trip needs heavy radiation shielding (level 75+), high-efficiency fuel, and giant NASA dishes on Earth."
-    },
-    space_telescope: {
-      id: "space_telescope",
-      name: "Deep-Space Star & Planet Telescope",
-      code: "SPACE TELESCOPE",
-      badge: "STARS & PLANETS",
-      requiresWavelength: true,
-      baseBudgetM: 620,
-      targetLifetimeMonths: 60,
-      recommendedOrbits: ["sun_earth_l2", "sso_705"],
-      requiredScienceTypes: ["optical", "spectrometer"],
-      minDeltaV: 1480,
-      minRadiationKrad: 55,
-      summary: "Choose what type of light your telescope sees, keep its mirrors super cold, and block Earth's glow in deep space.",
-      tradeoffTip: "Heat-glow cameras need active cooling pipes and a cold dark spot far from warm Earth so stray heat does not blur faint planets."
-    },
     cubesat_101: {
       id: "cubesat_101",
       name: "Pocket-Size Student Satellite",
@@ -133,7 +76,7 @@
   // Mission Architecture desk. The old two-sentence pitches are still
   // available through scenario.summary for briefing/detail views, but the
   // picker leads with destination, job, risk, one short goal and two numbers.
-  const STARTER_MISSION_IDS = ["artemis_expedition", "lunar_south_pole", "earth_climate", "cubesat_101"];
+  const STARTER_MISSION_IDS = ["artemis_expedition", "cubesat_101", "bionutrients_2", "sandbox"];
 
   const MISSION_PRESENTATION = {
     artemis_expedition: {
@@ -145,46 +88,6 @@
       accent: "#fbbf24",
       art: "moon",
       riskIcon: "signal"
-    },
-    earth_climate: {
-      title: "ICE WATCH",
-      destination: "EARTH",
-      job: "TRACK ICE",
-      risk: "WIDE ORBIT",
-      goal: "Watch ice, oceans, and air.",
-      accent: "#60a5fa",
-      art: "earth",
-      riskIcon: "orbit"
-    },
-    lunar_south_pole: {
-      title: "ICE HUNTER",
-      destination: "MOON",
-      job: "FIND WATER",
-      risk: "DEEP SPACE",
-      goal: "Find ice in dark polar craters.",
-      accent: "#67e8f9",
-      art: "moon",
-      riskIcon: "signal"
-    },
-    asteroid_rendezvous: {
-      title: "ROCK EXPLORER",
-      destination: "ASTEROID",
-      job: "MAP SURFACE",
-      risk: "LONG TRIP",
-      goal: "Map an asteroid's rocks and path.",
-      accent: "#d0a15c",
-      art: "asteroid",
-      riskIcon: "clock"
-    },
-    space_telescope: {
-      title: "DEEP TELESCOPE",
-      destination: "DEEP SPACE",
-      job: "SEE STARS",
-      risk: "KEEP COLD",
-      goal: "See faint planets around other stars.",
-      accent: "#a78bfa",
-      art: "telescope",
-      riskIcon: "thermo"
     },
     cubesat_101: {
       title: "POCKET SAT",
@@ -331,25 +234,10 @@
   };
 
   const MISSION_ANALOGUES = {
-    earth_climate: {
-      missions: "Earth Ice & Ocean Satellites (ICESat-2, SWOT, RADARSAT)",
-      productTitle: "Polar Ice Sheet Height & Sea-Level Change Over Time",
-      agencyTag: "EARTH SCIENCE"
-    },
-    lunar_south_pole: {
-      missions: "Moon Polar Scout Satellites (Lunar Reconnaissance Orbiter)",
-      productTitle: "Dark Moon Crater Hidden Water-Ice Map",
-      agencyTag: "MOON MISSION"
-    },
-    asteroid_rendezvous: {
-      missions: "Asteroid Sample-Return Explorer (OSIRIS-REx)",
-      productTitle: "Asteroid Rock Water Map & 3D Shape Scan",
-      agencyTag: "ASTEROID LAB"
-    },
-    space_telescope: {
-      missions: "James Webb & Hubble Space Telescopes",
-      productTitle: "Sharp Starlight Photo & Distant Planet Air Reading",
-      agencyTag: "SPACE TELESCOPE"
+    artemis_expedition: {
+      missions: "NASA Artemis Program (Orion & Human Landing System)",
+      productTitle: "Crewed South-Pole Landing, Surface Samples & Safe Return",
+      agencyTag: "LUNAR EXPEDITION"
     },
     cubesat_101: {
       missions: "Student Mini-Satellites Released from the Space Station",
@@ -1041,7 +929,7 @@ function evaluateDesignCore(missionDesign) {
     throw new TypeError("A mission design object is required.");
   }
   const md = missionDesign;
-      const scenario = MISSION_SCENARIOS[md.scenarioId] || MISSION_SCENARIOS.lunar_south_pole;
+      const scenario = MISSION_SCENARIOS[md.scenarioId] || MISSION_SCENARIOS.cubesat_101;
       const difficulty = DIFFICULTY_LEVELS[md.difficultyId] || DIFFICULTY_LEVELS.engineer;
       const orbit = ORBIT_OPTIONS[md.orbitId] || ORBIT_OPTIONS.lunar_polar_100;
       const lv = LAUNCH_VEHICLES[md.launchVehicleId] || LAUNCH_VEHICLES.falcon_medium;

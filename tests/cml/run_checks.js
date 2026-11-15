@@ -59,7 +59,7 @@ check("CML 4 includes all active criteria (>=50) and 6 shaded N/A rows",
 const deepMargins = CML.evaluateTechnicalMargins(
   {
     orbit: { id: "sun_earth_l2" },
-    scenario: { id: "deep_space_telescope" },
+    scenario: { id: "cubesat_101" },
     massMarginPct: 38,
     netDaylightMarginW: 500,
     totalPowerLoadW: 600,
@@ -79,7 +79,7 @@ check("Deep space L2 accepts >=3.0 dB RF link margin as Green",
 const proxMargins = CML.evaluateTechnicalMargins(
   {
     orbit: { id: "lunar_polar_100" },
-    scenario: { id: "lunar_south_pole" },
+    scenario: { id: "cubesat_101" },
     massMarginPct: 20,
     netDaylightMarginW: 100,
     totalPowerLoadW: 600,
@@ -101,7 +101,7 @@ check("Proximity orbit enforces >=6 dB RF, >=35% mass & 20-day launch window",
 console.log("\n=== 3. TELEMETRY AUTO-EVALUATION, 80% GATE & 3 JPL CAVEATS ===");
 const failingEval = CML.evaluateCmlState(
   {
-    scenario: { id: "lunar_south_pole", name: "Lunar South Pole", code: "LRO", requiredScienceTypes: ["imaging", "radar"], targetLifetimeMonths: 24 },
+    scenario: { id: "cubesat_101", name: "CubeSat 101", code: "CUBESAT", requiredScienceTypes: ["optical", "magnetometer"], targetLifetimeMonths: 18 },
     orbit: { id: "lunar_polar_100", radiationEnvKrad: 45 },
     massMarginPct: -10,
     massOk: false,
@@ -148,7 +148,7 @@ const all7Tasks = [
   "task_antenna", "task_nav", "task_wires", "task_science", "task_lss", "task_hull", "task_landing"
 ].map((id) => ({ id, completed: true }));
 const strongTelemetry = {
-  scenario: { id: "lunar_south_pole", name: "Lunar Polar Mapper", code: "LUNAR", requiredScienceTypes: ["imaging", "lidar", "neutron"], targetLifetimeMonths: 24 },
+  scenario: { id: "cubesat_101", name: "CubeSat 101", code: "CUBESAT", requiredScienceTypes: ["optical", "magnetometer"], targetLifetimeMonths: 18 },
   orbit: { id: "lunar_polar_100", radiationEnvKrad: 35 },
   lv: { id: "ariane_heavy", name: "Ariane 64 Heavy" },
   bus: { id: "flagship_octagonal", name: "Flagship Octagonal" },
@@ -277,7 +277,7 @@ check("MISSION_DESIGN_KEYS includes bio and CML keys",
   MISSION_DESIGN_KEYS.has("bioOrganismId"));
 
 const cleanPatch = sanitizeDesignPatch({
-  scenarioId: "lunar_south_pole",
+  scenarioId: "cubesat_101",
   unknownHackerKey: "drop table",
   cmlTargetLevel: "99",
   cmlAssessorSignedOff: true,

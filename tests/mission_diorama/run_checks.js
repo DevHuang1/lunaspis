@@ -147,10 +147,7 @@ if (!manager || !manager._buildMissionDioramaModel) {
 }
 
 const scenarios = [
-  "earth_climate",
-  "lunar_south_pole",
-  "asteroid_rendezvous",
-  "space_telescope",
+  "artemis_expedition",
   "cubesat_101",
   "bionutrients_2",
   "sandbox"

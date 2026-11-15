@@ -76,7 +76,7 @@ function validateFinalReport({ report, scenarioId, difficultyId, completedObject
     return { ok: false, reasons: ["Missing final simulation report."] };
   }
 
-  const authoritativeScenario = hasOwn(SCENARIO_RULES, scenarioId) ? scenarioId : "lunar_south_pole";
+  const authoritativeScenario = hasOwn(SCENARIO_RULES, scenarioId) ? scenarioId : "cubesat_101";
   const authoritativeDifficulty = hasOwn(DIFFICULTY_MULTIPLIERS, difficultyId) ? difficultyId : "engineer";
   const scenario = SCENARIO_RULES[authoritativeScenario];
 

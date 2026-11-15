@@ -9,17 +9,15 @@ const CMLFramework = require("../../public/js/core/cml_framework.js");
 const { validateFinalReport } = require("../../server/mission_validation.js");
 
 const source = fs.readFileSync(path.join(__dirname, "../../public/js/game/gameplay.js"), "utf8");
-const telescope = {
-  scenarioId: "space_telescope", difficultyId: "engineer", orbitId: "sso_705",
-  launchVehicleId: "falcon_medium", busId: "smallsat_12u", powerId: "high_power_wings",
-  batteryId: "li_ion_320", instruments: ["inst_lidar", "inst_mag", "inst_neutron"],
-  thermalId: "cryo_rad_90", commsId: "x_band_hga", groundNetId: "dsn_goldstone",
-  propulsionId: "hall_ion_sep", wavelengthId: "uv_optical", cubesatFormId: "12u",
-  disposalId: "controlled_deorbit"
+const cubesat = {
+  scenarioId: "cubesat_101", difficultyId: "engineer", orbitId: "iss_cubesat_418",
+  launchVehicleId: "electron_light", busId: "smallsat_12u", powerId: "deployable_rosa",
+  batteryId: "li_ion_320", instruments: ["inst_lidar"],
+  thermalId: "passive_mli", commsId: "s_band_omni", groundNetId: "near_space_net",
+  propulsionId: "hydrazine_mono", cubesatFormId: "6u", disposalId: "drag_sail"
 };
-const qualifiedTelescope = {
-  ...telescope, busId: "modular_hex", batteryId: "solid_state_640",
-  commsId: "ka_band_optical", instruments: ["inst_lidar", "inst_mag", "inst_neutron", "inst_ir_spec"]
+const qualifiedCubesat = {
+  ...cubesat, instruments: ["inst_multispectral", "inst_mag"]
 };
 const bio = {
   scenarioId: "bionutrients_2", difficultyId: "engineer", orbitId: "leo_400",
@@ -61,14 +59,14 @@ function accepted(result, design) {
   assert.equal(validation.ok, true, validation.reasons.join(" "));
 }
 
-const invalidScience = runReview(telescope);
+const invalidScience = runReview(cubesat);
 assert.equal(invalidScience.telemetry.matchedTypes.length, 0);
-assert.equal(invalidScience.report, null, "unmatched telescope payload should not be submitted");
+assert.equal(invalidScience.report, null, "unmatched CubeSat payload should not be submitted");
 assert.match(invalidScience.html, /mission-priority science tool/i);
-console.log("PASS Telescope payload without a mission-priority instrument is flagged before submission");
+console.log("PASS CubeSat payload without a mission-priority instrument is flagged before submission");
 
-accepted(runReview(qualifiedTelescope), qualifiedTelescope);
-console.log("PASS Qualified telescope design is accepted by the server validator");
+accepted(runReview(qualifiedCubesat), qualifiedCubesat);
+console.log("PASS Qualified CubeSat design is accepted by the server validator");
 
 const noReturn = runReview({ ...bio, disposalId: "none_drift" });
 assert.equal(noReturn.telemetry.disposalOk, false);

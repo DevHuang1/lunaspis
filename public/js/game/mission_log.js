@@ -87,7 +87,7 @@
       recordedAt: new Date().toISOString(),
       validated: !!serverResult,
       validator: serverResult ? serverResult.validator || "server" : null,
-      scenarioId: debrief.scenarioId || (serverResult && serverResult.scenarioId) || (design && design.scenarioId) || "lunar_south_pole",
+      scenarioId: debrief.scenarioId || (serverResult && serverResult.scenarioId) || (design && design.scenarioId) || "cubesat_101",
       scenarioCode: debrief.scenarioCode || (serverResult && serverResult.scenarioCode) || (design && design.scenario.code) || "LUNASPIS",
       scenarioName: debrief.scenarioName || (serverResult && serverResult.scenarioName) || (design && design.scenario.name) || "Mission",
       difficultyId: debrief.difficultyId || (serverResult && serverResult.difficultyId) || (design && design.difficultyId) || "engineer",

@@ -26,7 +26,6 @@
     power: { position: [-5.5, 0.92, -5.5], workPosition: [-4.6, 0, -3.8] },
     "life-support": { position: [8, 0.92, -5.5], workPosition: [7, 0, -3.5] },
     hull: { position: [8, 0.92, 10.5], workPosition: [7.5, 0, 8.7] },
-    "csa-lab": { position: [4.2, 0.92, -5.5], workPosition: [4.2, 0, -3.5] },
     lander: { position: [1.6, 0.92, 25], workPosition: [0, 0, 24] }
   };
   const ISS_TASK_WORK_POSITIONS = {
@@ -207,17 +206,6 @@
       interactRadius: 2.8,
       color: "#efeee7",
       description: "Three-axis descent alignment and touchdown authority."
-    },
-    "csa-lab": {
-      id: "csa-lab",
-      label: "CSA Space Lab",
-      shortLabel: "CSA LAB",
-      room: "life-support",
-      position: [4.2, 0.92, -5.5],
-      workPosition: [4.2, 0, -3.5],
-      interactRadius: 2.6,
-      color: "#f87171",
-      description: "Co-op Canadarm2 cargo capture and Tomatosphere greenhouse."
     }
   };
 
@@ -3126,15 +3114,12 @@
     // ============================================================================
     _missionDioramaInfo(scenarioId) {
       const fallback = {
-        earth_climate: { code: "EARTH", title: "ICE WATCH", accent: "#60a5fa" },
-        lunar_south_pole: { code: "MOON", title: "ICE HUNTER", accent: "#67e8f9" },
-        asteroid_rendezvous: { code: "ASTEROID", title: "ROCK EXPLORER", accent: "#d0a15c" },
-        space_telescope: { code: "DEEP SPACE", title: "TELESCOPE", accent: "#a78bfa" },
+        artemis_expedition: { code: "MOON", title: "ARTEMIS", accent: "#fbbf24" },
         cubesat_101: { code: "LOW ORBIT", title: "POCKET SAT", accent: "#7fb8a6" },
         bionutrients_2: { code: "STATION", title: "VITAMIN LAB", accent: "#fb7185" },
         sandbox: { code: "ANYWHERE", title: "FREE BUILD", accent: "#94a3b8" }
       };
-      const local = fallback[scenarioId] || fallback.lunar_south_pole;
+      const local = fallback[scenarioId] || fallback.cubesat_101;
       if (window.gameplay && typeof window.gameplay.getMissionPresentation === "function") {
         const presentation = window.gameplay.getMissionPresentation(scenarioId);
         if (presentation && presentation.destination && presentation.title) {
@@ -3151,7 +3136,7 @@
     _buildMissionDiorama(parent) {
       const THREE = window.THREE;
       const md = (window.gameplay && window.gameplay.missionDesign) || {};
-      const initialScenario = md.scenarioId || "lunar_south_pole";
+      const initialScenario = md.scenarioId || "cubesat_101";
       const info = this._missionDioramaInfo(initialScenario);
 
       const root = new THREE.Group();
@@ -3257,7 +3242,7 @@
     setMissionDioramaScenario(scenarioId, state = {}) {
       const diorama = this.missionDiorama;
       if (!diorama) return;
-      const id = scenarioId || "lunar_south_pole";
+      const id = scenarioId || "cubesat_101";
       const info = this._missionDioramaInfo(id);
 
       if (diorama.scenarioId !== id) {
@@ -3277,8 +3262,6 @@
         keyParts.push(state.bagId || "", state.thermalId || "", state.yieldOk ? "1" : "0");
       } else if (id === "cubesat_101") {
         keyParts.push(state.cubesatFormId || "");
-      } else if (id === "space_telescope") {
-        keyParts.push(state.wavelengthId || "");
       }
       const key = keyParts.join("|");
       if (key === diorama.key) return;
@@ -3341,178 +3324,7 @@
         return mesh;
       };
 
-      if (scenarioId === "earth_climate") {
-        const earthMat = mat(0x1d4ed8, { roughness: 0.72, metalness: 0.05, emissive: 0x0a1a3a, emissiveIntensity: 0.4 });
-        group.add(new THREE.Mesh(new THREE.SphereGeometry(0.27, 24, 16), earthMat));
-        const landMat = mat(0x2f9e6b, { roughness: 0.85, metalness: 0 });
-        [
-          [0.1, 0.13, 0.18, 0.11, 0.03, 0.09],
-          [-0.16, 0.04, 0.17, 0.1, 0.035, 0.08],
-          [0.05, -0.12, 0.22, 0.08, 0.03, 0.1]
-        ].forEach(([x, y, z, sx, sy, sz]) => {
-          const land = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 8), landMat);
-          land.position.set(x, y, z);
-          land.scale.set(sx, sy, sz);
-          group.add(land);
-        });
-        const capMat = mat(0xeff6ff, { roughness: 0.6, metalness: 0, emissive: 0xbfdbfe, emissiveIntensity: 0.18 });
-        [-1, 1].forEach((sign) => {
-          const cap = new THREE.Mesh(new THREE.SphereGeometry(0.11, 12, 8), capMat);
-          cap.position.set(0, sign * 0.245, 0);
-          cap.scale.set(1, 0.24, 1);
-          group.add(cap);
-        });
-        const satellite = new THREE.Group();
-        satellite.position.set(0.45, 0.06, 0);
-        satellite.add(new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.07, 0.07),
-          mat(0xd4a446, { metalness: 0.6, roughness: 0.3 })));
-        const panelMat = mat(0x2563eb, { metalness: 0.4, roughness: 0.3, emissive: 0x0b1e4a, emissiveIntensity: 0.3 });
-        [-1, 1].forEach((side) => {
-          const panel = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.006, 0.06), panelMat);
-          panel.position.x = side * 0.12;
-          satellite.add(panel);
-        });
-        group.add(satellite);
-        const beam = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.005, 0.12, 0.45, 16, 1, true),
-          new THREE.MeshBasicMaterial({ color: 0x67e8f9, transparent: true, opacity: 0.14, side: THREE.DoubleSide, depthWrite: false })
-        );
-        beam.position.set(0.32, -0.2, 0);
-        beam.rotation.z = -0.35;
-        group.add(beam);
-        [-0.22, 0.18].forEach((x, index) => {
-          const light = new THREE.Mesh(new THREE.SphereGeometry(0.012, 8, 6), glow(0xfde68a, 0.7));
-          light.position.set(x, 0.08 + index * 0.04, 0.23);
-          group.add(light);
-        });
-        ring(0.46, 0x67e8f9, 0.32);
-      } else if (scenarioId === "lunar_south_pole") {
-        group.add(new THREE.Mesh(new THREE.SphereGeometry(0.27, 20, 14),
-          mat(0x9ca3af, { roughness: 0.95, metalness: 0.02 })));
-        const craterMat = mat(0x6b7280, { roughness: 0.95, metalness: 0 });
-        [
-          [0.12, 0.14, 0.2, 0.05],
-          [-0.15, 0.02, 0.21, 0.062],
-          [0.04, -0.1, 0.25, 0.045]
-        ].forEach(([x, y, z, radius]) => {
-          const crater = new THREE.Mesh(new THREE.SphereGeometry(radius, 10, 8), craterMat);
-          crater.position.set(x, y, z);
-          crater.scale.set(1, 1, 0.28);
-          group.add(crater);
-        });
-        const iceMat = glow(0x67e8f9, 0.9);
-        [
-          [0.02, -0.24, 0.12, 0.055],
-          [-0.09, -0.225, 0.08, 0.035]
-        ].forEach(([x, y, z, radius]) => {
-          const ice = new THREE.Mesh(new THREE.SphereGeometry(radius, 10, 8), iceMat);
-          ice.position.set(x, y, z);
-          ice.scale.set(1, 0.28, 1);
-          group.add(ice);
-        });
-        const lander = new THREE.Group();
-        lander.position.set(0.32, 0.05, 0.06);
-        lander.rotation.z = -0.14;
-        const body = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.075, 0.09, 12),
-          mat(0xd4a446, { metalness: 0.55, roughness: 0.3 }));
-        lander.add(body);
-        const legMat = mat(0x94a3b8, { metalness: 0.6, roughness: 0.3 });
-        [-1, 1].forEach((side) => {
-          const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.13, 6), legMat);
-          leg.position.set(side * 0.06, -0.08, 0);
-          leg.rotation.z = side * 0.45;
-          lander.add(leg);
-        });
-        const dish = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.05, 0.025, 12), mat(0xe2e8f0, { metalness: 0.4 }));
-        dish.position.y = 0.07;
-        lander.add(dish);
-        group.add(lander);
-        ring(0.44, 0x67e8f9, 0.3);
-      } else if (scenarioId === "asteroid_rendezvous") {
-        const rockGeo = new THREE.IcosahedronGeometry(0.24, 1);
-        const pos = rockGeo.attributes.position;
-        for (let i = 0; i < pos.count; i++) {
-          const factor = 0.84 + Math.abs(Math.sin(i * 12.9898)) * 0.22;
-          pos.setXYZ(i, pos.getX(i) * factor, pos.getY(i) * factor, pos.getZ(i) * factor);
-        }
-        rockGeo.computeVertexNormals();
-        group.add(new THREE.Mesh(rockGeo, mat(0x8b7d6b, { roughness: 0.95, metalness: 0.08 })));
-        const probe = new THREE.Group();
-        probe.position.set(0.38, 0.08, 0);
-        probe.add(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.09, 0.08),
-          mat(0xd4a446, { metalness: 0.55, roughness: 0.3 })));
-        const panelMat = mat(0x2563eb, { metalness: 0.4, roughness: 0.3 });
-        [-1, 1].forEach((side) => {
-          const panel = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.006, 0.07), panelMat);
-          panel.position.x = side * 0.11;
-          probe.add(panel);
-        });
-        const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.15, 6),
-          mat(0xcbd5e1, { metalness: 0.6, roughness: 0.3 }));
-        arm.position.set(-0.08, -0.02, 0);
-        arm.rotation.z = Math.PI / 2;
-        probe.add(arm);
-        const drill = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.05, 8), glow(0xfbbf24, 0.55));
-        drill.position.set(-0.16, -0.02, 0);
-        drill.rotation.z = Math.PI / 2;
-        probe.add(drill);
-        group.add(probe);
-        const dustMat = glow(0xd6c6a8, 0.45);
-        [
-          [-0.28, 0.2, 0.1], [0.08, 0.26, -0.1], [0.24, -0.18, 0.12],
-          [-0.2, -0.16, -0.08], [0.02, -0.26, 0.16], [0.3, 0.04, -0.16]
-        ].forEach(([x, y, z], index) => {
-          const dust = new THREE.Mesh(new THREE.SphereGeometry(index % 2 ? 0.01 : 0.014, 6, 4), dustMat);
-          dust.position.set(x, y, z);
-          group.add(dust);
-        });
-        ring(0.46, 0xd0a15c, 0.34);
-      } else if (scenarioId === "space_telescope") {
-        const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.5, 18),
-          mat(0xcbd5e1, { metalness: 0.7, roughness: 0.28 }));
-        tube.rotation.z = Math.PI / 2;
-        tube.position.y = 0.05;
-        group.add(tube);
-        const bandColors = {
-          uv_optical: 0xa78bfa,
-          near_ir: 0xc084fc,
-          mid_ir: 0x67e8f9,
-          xray: 0xf472b6
-        };
-        const mirror = new THREE.Mesh(new THREE.CircleGeometry(0.095, 24), glow(bandColors[state.wavelengthId] || 0xc084fc, 0.9));
-        mirror.rotation.y = Math.PI / 2;
-        mirror.position.set(0.26, 0.05, 0);
-        group.add(mirror);
-        const tubeRim = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.008, 6, 24),
-          mat(0x64748b, { metalness: 0.7, roughness: 0.3 }));
-        tubeRim.rotation.y = Math.PI / 2;
-        tubeRim.position.set(0.255, 0.05, 0);
-        group.add(tubeRim);
-        const shadeMat = mat(0x1e293b, { metalness: 0.4, roughness: 0.5 });
-        [-0.08, -0.13].forEach((y, index) => {
-          const shade = new THREE.Mesh(new THREE.BoxGeometry(0.58 - index * 0.06, 0.012, 0.34 + index * 0.04), shadeMat);
-          shade.position.set(-0.02, y, 0);
-          group.add(shade);
-        });
-        [-1, 1].forEach((side) => {
-          const fin = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.07, 0.012), glow(0x67e8f9, 0.5));
-          fin.position.set(-0.08, 0.0, side * 0.14);
-          group.add(fin);
-        });
-        const starMat = glow(0xfef3c7, 0.9);
-        [
-          [-0.34, 0.26, 0.1], [-0.27, 0.15, -0.12], [0.12, 0.32, -0.15],
-          [0.34, 0.22, 0.14], [0.3, -0.16, 0.2]
-        ].forEach(([x, y, z], index) => {
-          const star = new THREE.Mesh(new THREE.SphereGeometry(index % 2 ? 0.009 : 0.013, 6, 4), starMat);
-          star.position.set(x, y, z);
-          group.add(star);
-        });
-        const planet = new THREE.Mesh(new THREE.SphereGeometry(0.055, 12, 8), mat(0x8b5cf6, { emissive: 0x4c1d95, emissiveIntensity: 0.5, roughness: 0.5 }));
-        planet.position.set(-0.3, -0.13, 0.06);
-        group.add(planet);
-        ring(0.43, 0xa78bfa, 0.32);
-      } else if (scenarioId === "cubesat_101") {
+      if (scenarioId === "cubesat_101") {
         const lengths = { "3u": 0.24, "6u": 0.36, "12u": 0.5 };
         const length = lengths[state.cubesatFormId] || lengths["6u"];
         const body = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.13, length),

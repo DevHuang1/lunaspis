@@ -43,63 +43,6 @@
       summary: "Launch on SLS, fly Orion to lunar orbit, dock with a Blue Moon-style lander, land at the south pole, return samples, and splash down. Dated training scenario, not an exact reconstruction.",
       tradeoffTip: "This is a flight expedition, not a design study. The mission uses a dated Blue Moon-style lunar-rendezvous architecture and clearly labelled training assumptions."
     },
-    earth_climate: {
-      id: "earth_climate",
-      name: "Earth Weather & Melting Ice Watcher",
-      code: "EARTH WATCH",
-      badge: "EARTH & CLIMATE",
-      baseBudgetM: 380,
-      targetLifetimeMonths: 36,
-      recommendedOrbits: ["sso_705", "leo_400"],
-      requiredScienceTypes: ["optical", "radar", "altimetry", "spectrometer"],
-      minDeltaV: 420,
-      minRadiationKrad: 25,
-      summary: "Watch polar ice sheets, sea levels, and greenhouse gases across the whole Earth from space.",
-      tradeoffTip: "The Pole-to-Pole Daylight Orbit (705 km) sees all of Earth in steady sunlight. Pairing Cloud-Seeing Radar with the Laser Height Scanner tracks ice thickness day and night."
-    },
-    lunar_south_pole: {
-      id: "lunar_south_pole",
-      name: "Moon South Pole Water-Ice Hunter",
-      code: "MOON ICE",
-      badge: "MOON MISSION",
-      baseBudgetM: 500,
-      targetLifetimeMonths: 24,
-      recommendedOrbits: ["lunar_polar_100", "gto_heo"],
-      requiredScienceTypes: ["neutron", "altimetry", "spectrometer", "optical"],
-      minDeltaV: 1150,
-      minRadiationKrad: 50,
-      summary: "Search dark craters at the Moon's South Pole for hidden water ice and safe landing zones for future astronauts.",
-      tradeoffTip: "Circling the Moon takes extra steering push (1,150+ m/s) and a strong radio link to reach Earth across 384,400 km."
-    },
-    asteroid_rendezvous: {
-      id: "asteroid_rendezvous",
-      name: "Asteroid Rock & Dust Explorer",
-      code: "ASTEROID",
-      badge: "DEEP SPACE",
-      baseBudgetM: 540,
-      targetLifetimeMonths: 48,
-      recommendedOrbits: ["gto_heo", "lunar_polar_100"],
-      requiredScienceTypes: ["spectrometer", "altimetry", "magnetometer", "neutron"],
-      minDeltaV: 1650,
-      minRadiationKrad: 75,
-      summary: "Fly alongside a rocky asteroid to map its surface minerals, gravity pull, and slow path drift.",
-      tradeoffTip: "A 4-year deep-space trip needs heavy radiation shielding (level 75+), high-efficiency fuel, and giant NASA dishes on Earth."
-    },
-    space_telescope: {
-      id: "space_telescope",
-      name: "Deep-Space Star & Planet Telescope",
-      code: "SPACE TELESCOPE",
-      badge: "STARS & PLANETS",
-      requiresWavelength: true,
-      baseBudgetM: 620,
-      targetLifetimeMonths: 60,
-      recommendedOrbits: ["sun_earth_l2", "sso_705"],
-      requiredScienceTypes: ["optical", "spectrometer"],
-      minDeltaV: 1480,
-      minRadiationKrad: 55,
-      summary: "Choose what type of light your telescope sees, keep its mirrors super cold, and block Earth's glow in deep space.",
-      tradeoffTip: "Heat-glow cameras need active cooling pipes and a cold dark spot far from warm Earth so stray heat does not blur faint planets."
-    },
     cubesat_101: {
       id: "cubesat_101",
       name: "Pocket-Size Student Satellite",
@@ -150,7 +93,7 @@
   // Mission Architecture desk. The old two-sentence pitches are still
   // available through scenario.summary for briefing/detail views, but the
   // picker leads with destination, job, risk, one short goal and two numbers.
-  const STARTER_MISSION_IDS = ["artemis_expedition", "lunar_south_pole", "earth_climate", "cubesat_101"];
+  const STARTER_MISSION_IDS = ["artemis_expedition", "cubesat_101", "bionutrients_2", "sandbox"];
 
   const MISSION_PRESENTATION = {
     artemis_expedition: {
@@ -162,46 +105,6 @@
       accent: "#fbbf24",
       art: "moon",
       riskIcon: "signal"
-    },
-    earth_climate: {
-      title: "ICE WATCH",
-      destination: "EARTH",
-      job: "TRACK ICE",
-      risk: "WIDE ORBIT",
-      goal: "Watch ice, oceans, and air.",
-      accent: "#60a5fa",
-      art: "earth",
-      riskIcon: "orbit"
-    },
-    lunar_south_pole: {
-      title: "ICE HUNTER",
-      destination: "MOON",
-      job: "FIND WATER",
-      risk: "DEEP SPACE",
-      goal: "Find ice in dark polar craters.",
-      accent: "#67e8f9",
-      art: "moon",
-      riskIcon: "signal"
-    },
-    asteroid_rendezvous: {
-      title: "ROCK EXPLORER",
-      destination: "ASTEROID",
-      job: "MAP SURFACE",
-      risk: "LONG TRIP",
-      goal: "Map an asteroid's rocks and path.",
-      accent: "#d0a15c",
-      art: "asteroid",
-      riskIcon: "clock"
-    },
-    space_telescope: {
-      title: "DEEP TELESCOPE",
-      destination: "DEEP SPACE",
-      job: "SEE STARS",
-      risk: "KEEP COLD",
-      goal: "See faint planets around other stars.",
-      accent: "#a78bfa",
-      art: "telescope",
-      riskIcon: "thermo"
     },
     cubesat_101: {
       title: "POCKET SAT",
@@ -348,25 +251,10 @@
   };
 
   const MISSION_ANALOGUES = {
-    earth_climate: {
-      missions: "Earth Ice & Ocean Satellites (ICESat-2, SWOT, RADARSAT)",
-      productTitle: "Polar Ice Sheet Height & Sea-Level Change Over Time",
-      agencyTag: "EARTH SCIENCE"
-    },
-    lunar_south_pole: {
-      missions: "Moon Polar Scout Satellites (Lunar Reconnaissance Orbiter)",
-      productTitle: "Dark Moon Crater Hidden Water-Ice Map",
-      agencyTag: "MOON MISSION"
-    },
-    asteroid_rendezvous: {
-      missions: "Asteroid Sample-Return Explorer (OSIRIS-REx)",
-      productTitle: "Asteroid Rock Water Map & 3D Shape Scan",
-      agencyTag: "ASTEROID LAB"
-    },
-    space_telescope: {
-      missions: "James Webb & Hubble Space Telescopes",
-      productTitle: "Sharp Starlight Photo & Distant Planet Air Reading",
-      agencyTag: "SPACE TELESCOPE"
+    artemis_expedition: {
+      missions: "NASA Artemis Program (Orion & Human Landing System)",
+      productTitle: "Crewed South-Pole Landing, Surface Samples & Safe Return",
+      agencyTag: "LUNAR EXPEDITION"
     },
     cubesat_101: {
       missions: "Student Mini-Satellites Released from the Space Station",
@@ -1152,21 +1040,21 @@
 
       // Complete Space Mission Design State (modifiable across all consoles)
       this.missionDesign = {
-        scenarioId: "lunar_south_pole",
+        scenarioId: "cubesat_101",
         difficultyId: "engineer",
-        orbitId: "lunar_polar_100",
-        launchVehicleId: "falcon_medium",
-        busId: "modular_hex",
+        orbitId: "iss_cubesat_418",
+        launchVehicleId: "electron_light",
+        busId: "smallsat_12u",
         powerId: "deployable_rosa",
         batteryId: "li_ion_320",
-        instruments: ["inst_multispectral", "inst_lidar", "inst_neutron"],
-        thermalId: "pumped_loop_50",
-        commsId: "x_band_hga",
-        groundNetId: "dsn_goldstone",
-        propulsionId: "biprop_nto_mmh",
+        instruments: ["inst_multispectral", "inst_mag"],
+        thermalId: "passive_mli",
+        commsId: "s_band_omni",
+        groundNetId: "near_space_net",
+        propulsionId: "hydrazine_mono",
         wavelengthId: "near_ir",
         cubesatFormId: "6u",
-        disposalId: "controlled_deorbit",
+        disposalId: "drag_sail",
         bioOrganismId: "yeast_beta_carotene",
         bioBagId: "fep_3mil_iss_002",
         bioProtocolId: "pwd_syringe_filter_6h_16rep",
@@ -1800,54 +1688,17 @@
 
     applyRecommendedScenarioBaseline(scenarioId) {
       const md = this.missionDesign;
-      if (scenarioId === "earth_climate") {
-        md.orbitId = "sso_705";
-        md.launchVehicleId = "falcon_medium";
-        md.busId = "smallsat_12u";
-        md.powerId = "deployable_rosa";
-        md.batteryId = "li_ion_320";
-        md.instruments = ["inst_multispectral", "inst_ir_spec"];
-        md.thermalId = "pumped_loop_50";
-        md.commsId = "ka_band_optical";
-        md.groundNetId = "near_space_net";
-        md.propulsionId = "hydrazine_mono";
-        md.disposalId = "drag_sail";
-      } else if (scenarioId === "lunar_south_pole") {
+      if (scenarioId === "artemis_expedition") {
         md.orbitId = "lunar_polar_100";
-        md.launchVehicleId = "ariane_heavy";
-        md.busId = "modular_hex";
+        md.launchVehicleId = "sls_superheavy";
+        md.busId = "deep_space_heavy";
         md.powerId = "deployable_rosa";
         md.batteryId = "solid_state_640";
-        md.instruments = ["inst_multispectral", "inst_lidar", "inst_neutron"];
+        md.instruments = ["inst_multispectral", "inst_ir_spec"];
         md.thermalId = "pumped_loop_50";
         md.commsId = "x_band_hga";
         md.groundNetId = "dsn_goldstone";
         md.propulsionId = "biprop_nto_mmh";
-        md.disposalId = "controlled_deorbit";
-      } else if (scenarioId === "asteroid_rendezvous") {
-        md.orbitId = "lunar_polar_100";
-        md.launchVehicleId = "ariane_heavy";
-        md.busId = "modular_hex";
-        md.powerId = "high_power_wings";
-        md.batteryId = "li_ion_320";
-        md.instruments = ["inst_ir_spec", "inst_mag", "inst_neutron"];
-        md.thermalId = "cryo_rad_90";
-        md.commsId = "x_band_hga";
-        md.groundNetId = "dsn_goldstone";
-        md.propulsionId = "hall_ion_sep";
-        md.disposalId = "controlled_deorbit";
-      } else if (scenarioId === "space_telescope") {
-        md.wavelengthId = "mid_ir";
-        md.orbitId = "sun_earth_l2";
-        md.launchVehicleId = "ariane_heavy";
-        md.busId = "deep_space_heavy";
-        md.powerId = "high_power_wings";
-        md.batteryId = "li_ion_320";
-        md.instruments = ["inst_multispectral", "inst_ir_spec"];
-        md.thermalId = "cryo_rad_90";
-        md.commsId = "ka_band_optical";
-        md.groundNetId = "dsn_goldstone";
-        md.propulsionId = "hall_ion_sep";
         md.disposalId = "controlled_deorbit";
       } else if (scenarioId === "cubesat_101") {
         md.cubesatFormId = "6u";
@@ -1878,6 +1729,18 @@
         md.groundNetId = "near_space_net";
         md.propulsionId = "hydrazine_mono";
         md.disposalId = "controlled_deorbit";
+      } else if (scenarioId === "sandbox") {
+        md.orbitId = "leo_400";
+        md.launchVehicleId = "falcon_medium";
+        md.busId = "modular_hex";
+        md.powerId = "high_power_wings";
+        md.batteryId = "solid_state_640";
+        md.instruments = ["inst_multispectral", "inst_ir_spec"];
+        md.thermalId = "pumped_loop_50";
+        md.commsId = "ka_band_optical";
+        md.groundNetId = "near_space_net";
+        md.propulsionId = "hydrazine_mono";
+        md.disposalId = "drag_sail";
       }
       this._renderResourceMeters();
     }
@@ -1902,7 +1765,7 @@
 
     evaluateMissionDesign() {
       const md = this.missionDesign;
-      const scenario = MISSION_SCENARIOS[md.scenarioId] || MISSION_SCENARIOS.lunar_south_pole;
+      const scenario = MISSION_SCENARIOS[md.scenarioId] || MISSION_SCENARIOS.cubesat_101;
       const difficulty = DIFFICULTY_LEVELS[md.difficultyId] || DIFFICULTY_LEVELS.engineer;
       const orbit = ORBIT_OPTIONS[md.orbitId] || ORBIT_OPTIONS.lunar_polar_100;
       const lv = LAUNCH_VEHICLES[md.launchVehicleId] || LAUNCH_VEHICLES.falcon_medium;
@@ -3170,66 +3033,8 @@
           ctx.font = "9px monospace";
           ctx.fillText(c.label, bx, rowY + 5);
         });
-      } else if (scId === "space_telescope") {
-        // Synthetic deep-field stars + Exoplanet Absorption Spectrum right half
-        const halfW = Math.floor(w * 0.45);
-        const rng = (i) => Math.abs(Math.sin(i * 12.9898 + t.scienceScore * 0.1) * 43758.5453) % 1;
-        for (let i = 0; i < 65; i++) {
-          const sx = 10 + rng(i) * (halfW - 20);
-          const sy = 14 + rng(i + 99) * (h - 28);
-          const r = rng(i + 200) * 2.2 + 0.5;
-          ctx.fillStyle = i % 5 === 0 ? brand : (i % 3 === 0 ? brand : "#efeee7");
-          ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2); ctx.fill();
-          if (i < 6) {
-            ctx.strokeStyle = `rgba(${brandRgb},0.5)`;
-            ctx.beginPath(); ctx.moveTo(sx - 6, sy); ctx.lineTo(sx + 6, sy); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(sx, sy - 6); ctx.lineTo(sx, sy + 6); ctx.stroke();
-          }
-        }
-        // Spectral plot
-        ctx.strokeStyle = t.telescopeOk ? "#63e6a8" : "#ff6b6b";
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        for (let x = halfW + 14; x < w - 12; x += 4) {
-          const norm = (x - halfW - 14) / Math.max(1, w - halfW - 26);
-          const dip1 = Math.exp(-Math.pow((norm - 0.32) / 0.06, 2)) * 34;
-          const dip2 = Math.exp(-Math.pow((norm - 0.68) / 0.08, 2)) * 42;
-          const noise = (1 - t.scienceScore / 120) * 8 * Math.sin(x * 0.7);
-          const y = h * 0.34 + dip1 + dip2 + noise;
-          if (x === halfW + 14) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-        }
-        ctx.stroke();
-        ctx.fillStyle = brandStrong;
-        ctx.font = "bold 10px monospace";
-        ctx.fillText(`BAND: ${t.wavelength.shortLabel} · H2O / CO2 ABSORPTION LINES`, halfW + 14, h - 10);
-      } else if (scId === "lunar_south_pole") {
-        // Shackleton Crater PSR Neutron Hydrogen Heatmap + Altimetry Profile
-        const cx = w * 0.25;
-        const cy = h * 0.54;
-        const grad = ctx.createRadialGradient(cx, cy, 4, cx, cy, 52);
-        grad.addColorStop(0, `rgba(${brandRgb},0.9)`);
-        grad.addColorStop(0.55, "rgba(30,64,175,0.45)");
-        grad.addColorStop(1, "rgba(15,23,42,0.05)");
-        ctx.fillStyle = grad;
-        ctx.beginPath(); ctx.arc(cx, cy, 52, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = "#a7b0ba";
-        ctx.strokeRect(cx - 56, cy - 52, 112, 100);
-        // Altimetry curve
-        ctx.strokeStyle = brand;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        for (let x = w * 0.5; x < w - 14; x += 4) {
-          const u = (x - w * 0.5) / Math.max(1, w * 0.5 - 14);
-          const profile = Math.exp(-Math.pow((u - 0.5) / 0.22, 2)) * 48 - 10 * Math.exp(-Math.pow((u - 0.25) / 0.08, 2));
-          const y = h * 0.34 + profile;
-          if (x === w * 0.5) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-        }
-        ctx.stroke();
-        ctx.fillStyle = brand;
-        ctx.font = "bold 10px monospace";
-        ctx.fillText("SHACKLETON PSR ICE (NEUTRON) + LIDAR DEPTH PROFILE", w * 0.48, h - 10);
       } else {
-        // Earth Climate / Cubesat / Asteroid / Sandbox Multi-channel telemetry waveform
+        // Artemis / CubeSat / BioNutrients / Sandbox multi-channel telemetry waveform
         ctx.strokeStyle = brand;
         ctx.lineWidth = 2;
         ctx.beginPath();
@@ -4218,8 +4023,6 @@
             this.inspectMissionDiorama();
           } else if (this.nearbyTask) {
             this.openTaskModal(this.nearbyTask);
-          } else if (this.nearbySideGame && window.issSideGames) {
-            window.issSideGames.open(this.nearbySideGame === "csa-lab" ? "canadarm" : this.nearbySideGame);
           }
         });
       }
@@ -4248,15 +4051,12 @@
         if (e.code === "KeyE") {
           // Do not intercept [E] when at Space Center LC-39A (Space Center uses [E] to board the spacecraft)
           if (window.spaceCenter && window.spaceCenter.isGroundMode) return;
-          if (window.issSideGames && window.issSideGames.isOpen) return;
           if (this.activeTask) {
             this.closeTaskModal();
           } else if (this.nearbyMissionDiorama) {
             this.inspectMissionDiorama();
           } else if (this.nearbyTask) {
             this.openTaskModal(this.nearbyTask);
-          } else if (this.nearbySideGame && window.issSideGames) {
-            window.issSideGames.open(this.nearbySideGame === "csa-lab" ? "canadarm" : this.nearbySideGame);
           }
         }
       });
@@ -4275,7 +4075,7 @@
     }
 
     updateProximity(playerPos) {
-      if (this.activeTask || (window.issSideGames && window.issSideGames.isOpen)) return;
+      if (this.activeTask) return;
 
       const mission = this.getMissionState();
       const completed = new Set((mission && mission.completedObjectives) || []);
@@ -4308,16 +4108,7 @@
         if (payloadCloser) closest = null;
       }
 
-      const sideGame = window.issSideGames && typeof window.issSideGames.getNearby === "function"
-        ? window.issSideGames.getNearby(playerPos)
-        : null;
-      const sideGameCloser = !!(sideGame && (!closest || sideGame.distance < minDistance));
-      if (sideGameCloser) {
-        closest = null;
-        payloadCloser = false;
-      }
       this.nearbyTask = closest;
-      this.nearbySideGame = sideGameCloser ? sideGame.id : null;
       this.nearbyMissionDiorama = payloadCloser;
 
       const btnUse = document.getElementById("btn-proximity-use");
@@ -4328,9 +4119,6 @@
         if (this.nearbyMissionDiorama) {
           btnUse.style.display = "flex";
           labelUse.textContent = "[E] INSPECT MISSION PAYLOAD";
-        } else if (sideGameCloser) {
-          btnUse.style.display = "flex";
-          labelUse.textContent = "[E] OPEN CSA LAB · CANADARM2 / TOMATOSPHERE";
         } else if (closest) {
           const assign = this._getRoleAssignment(this.getTaskRole(closest));
           const tag = assign.isMine
@@ -4344,7 +4132,7 @@
       }
 
       if (crosshair) {
-        if (closest || sideGameCloser || this.nearbyMissionDiorama) {
+        if (closest || this.nearbyMissionDiorama) {
           crosshair.classList.add("target-locked");
         } else {
           crosshair.classList.remove("target-locked");

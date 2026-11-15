@@ -119,6 +119,16 @@ check("3D crew link never requests real-world camera access", !clientSource.incl
 check("3D crew link does not create WebRTC media peers", !clientSource.includes("RTCPeerConnection"));
 check("Crew side builds an animated 3D Earth Control room", clientSource.includes("_initGroundView") && clientSource.includes("_syncGroundAvatar"));
 check("Ground side builds the animated 3D flight deck", clientSource.includes("_initCabin") && clientSource.includes("_syncSeatAvatar"));
+const seatAvatarStart = clientSource.indexOf("_syncSeatAvatar");
+const seatAvatarEnd = clientSource.indexOf("_syncSeatScreens", seatAvatarStart);
+const seatAvatarSource = seatAvatarStart >= 0 && seatAvatarEnd > seatAvatarStart
+  ? clientSource.slice(seatAvatarStart, seatAvatarEnd)
+  : "";
+check("Flight-deck feed dresses the crew in pressure-suit rigs",
+  seatAvatarSource.includes("player.modelId") &&
+  seatAvatarSource.includes("astronaut_lod1") &&
+  seatAvatarSource.includes("getModelIdForRole") &&
+  !seatAvatarSource.includes('seat.seat === "cdr"'), "flight deck must not use unsuited crew_a/crew_b rigs");
 
 leaveRoom(crew, "ROOM1");
 console.log(`\n${passed} passed, ${failed} failed`);

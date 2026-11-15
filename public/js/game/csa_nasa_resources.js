@@ -16,7 +16,6 @@
  * 9. Canadian Space Agency (CSA) Games & Activities (asc-csa.gc.ca):
  *    - Earth Radar Game: Help Ship Captains, Flood Rescuers & Farmers
  *    - Asteroid Landing Game: Pick a Safe Spot to Scoop Up Space Rocks
- *    - Astronaut Life: Robot Arm Catch & Growing Tomatoes in Space
  */
 
 (function (window) {
@@ -117,8 +116,8 @@
       badge: "GAMES & ACTIVITIES",
       title: "Canadian Space Agency (CSA) Games & Activities",
       url: "https://www.asc-csa.gc.ca/eng/youth-educators/digital-games-and-activities.asp",
-      summary: "Fun, hands-on games for all ages showing how satellites help people on Earth, how lasers map asteroids, how robot arms catch spacecraft, and how astronauts grow food.",
-      inSimFeature: "Play all 3 mini-games right here: Earth Radar Helper, Asteroid Landing Spot Picker, and Space Tomato Garden.",
+      summary: "Fun, hands-on games for all ages showing how satellites help people on Earth and how lasers map asteroids.",
+      inSimFeature: "Play 2 mini-games right here: Earth Radar Helper and Asteroid Landing Spot Picker.",
       actionLabel: "PLAY SPACE MINI-GAMES",
       actionType: "tab_csa"
     }
@@ -333,10 +332,6 @@
         rcmVerifiedSectors: { maritime_arctic: true, flood_emergency: false, precision_farming: false },
         bennuSiteId: "nightingale",
         olaScanResolutionCm: 2,
-        canadarmPitchErrorDeg: 0.2,
-        canadarmLocked: true,
-        tomatosphereActive: true,
-        tomatosphereGerminationPct: 91,
         telescopeLevel: 3,
         opticalSystemId: "segmented_6_5m_hex",
         csaFgsNirissEnabled: true,
@@ -588,106 +583,6 @@
       if (this.isGroundLocked()) {
         return "";
       }
-      if (scenarioId === "earth_climate") {
-        const sec = RCM_SECTORS[st.rcmSectorId] || RCM_SECTORS.maritime_arctic;
-        const beamMatch = st.rcmBeamId === sec.recommendedBeam;
-        return `
-          <div style="margin-bottom:14px;padding:14px 16px;border-radius:8px;background:rgba(16,185,129,0.07);border:1px solid rgba(52,211,153,0.35);">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
-              <span style="font-family:monospace;font-size:11.5px;font-weight:700;color:#6ee7b7;letter-spacing:0.6px;">
-                🇨🇦 MINI-GAME · USE CANADA'S EARTH RADAR SATELLITES TO HELP PEOPLE ON EARTH
-              </span>
-              <button type="button" class="btn-open-csa-lab-inline" data-tab="csa" style="padding:5px 10px;border-radius:5px;border:1px solid rgba(103,232,249,0.45);background:rgba(103,232,249,0.14);color:#67e8f9;font-family:monospace;font-size:10.5px;font-weight:700;cursor:pointer;">
-                OPEN FULL MINI-GAME
-              </button>
-            </div>
-            <div style="font-size:12px;color:#cbd5e1;line-height:1.5;margin-bottom:8px;">
-              Step 1: Who needs satellite help today? Pick a team below, then match the right camera zoom:
-            </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
-              ${Object.values(RCM_SECTORS).map((s) => `
-                <button type="button" class="csa-rcm-sec-btn" data-id="${s.id}" style="padding:6px 10px;border-radius:5px;border:1px solid ${st.rcmSectorId === s.id ? "#34d399" : "rgba(255,255,255,0.15)"};background:${st.rcmSectorId === s.id ? "rgba(52,211,153,0.2)" : "rgba(0,0,0,0.35)"};color:#ece7dc;font-family:monospace;font-size:10.5px;font-weight:700;cursor:pointer;">
-                  ${s.role}
-                </button>
-              `).join("")}
-            </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
-              ${[
-                { id: "scansar_500", label: "Wide Ocean & Ice View (For Ships)" },
-                { id: "spotlight_3m", label: "Close-Up Flood Zoom (For Rescuers)" },
-                { id: "polarimetric_30m", label: "Soil & Crop Scanner (For Farmers)" }
-              ].map((b) => `
-                <button type="button" class="csa-rcm-beam-btn" data-id="${b.id}" style="padding:5px 9px;border-radius:5px;border:1px solid ${st.rcmBeamId === b.id ? "#67e8f9" : "rgba(255,255,255,0.14)"};background:${st.rcmBeamId === b.id ? "rgba(103,232,249,0.18)" : "rgba(0,0,0,0.3)"};color:#cbd5e1;font-family:monospace;font-size:10.5px;cursor:pointer;">
-                  ${b.label}
-                </button>
-              `).join("")}
-            </div>
-            <div style="font-size:12px;line-height:1.5;color:${beamMatch ? "#a7f3d0" : "#fde68a"};">
-              ${beamMatch ? `✓ GREAT MATCH! ${sec.sarSignature}` : `Tip: Pick the camera view that matches "${sec.role}" (${sec.beamMode}).`}
-            </div>
-          </div>
-        `;
-      }
-
-      if (scenarioId === "asteroid_rendezvous") {
-        const site = BENNU_CANDIDATE_SITES[st.bennuSiteId] || BENNU_CANDIDATE_SITES.nightingale;
-        return `
-          <div style="margin-bottom:14px;padding:14px 16px;border-radius:8px;background:rgba(251,191,36,0.07);border:1px solid rgba(251,191,36,0.35);">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
-              <span style="font-family:monospace;font-size:11.5px;font-weight:700;color:#fde047;letter-spacing:0.6px;">
-                🇨🇦 MINI-GAME · PICK A SAFE SPOT ON ASTEROID BENNU TO SCOOP UP ROCKS
-              </span>
-              <button type="button" class="btn-open-csa-lab-inline" data-tab="csa" style="padding:5px 10px;border-radius:5px;border:1px solid rgba(103,232,249,0.45);background:rgba(103,232,249,0.14);color:#67e8f9;font-family:monospace;font-size:10.5px;font-weight:700;cursor:pointer;">
-                OPEN 3D LASER MAP
-              </button>
-            </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;margin-bottom:8px;">
-              ${Object.values(BENNU_CANDIDATE_SITES).map((s) => `
-                <div class="csa-bennu-site-card" data-id="${s.id}" style="padding:9px 11px;border-radius:6px;border:1px solid ${st.bennuSiteId === s.id ? "#fbbf24" : "rgba(255,255,255,0.12)"};background:${st.bennuSiteId === s.id ? "rgba(251,191,36,0.16)" : "rgba(0,0,0,0.35)"};cursor:pointer;">
-                  <div style="font-family:monospace;font-size:11.5px;font-weight:700;color:#ece7dc;margin-bottom:2px;">${s.name}</div>
-                  <div style="font-family:monospace;font-size:10.5px;color:${s.tagSafe ? "#86efac" : "#fca5a5"};">Ground Tilt: ${s.slopeDeg}° · Water Clays: ${s.hydrationPct}%</div>
-                </div>
-              `).join("")}
-            </div>
-            <div style="font-size:12px;line-height:1.5;color:${site.tagSafe ? "#a7f3d0" : "#fecaca"};">
-              <strong>${site.name}:</strong> ${site.summary}
-            </div>
-          </div>
-        `;
-      }
-
-      if (scenarioId === "space_telescope") {
-        const lvl = TELESCOPE_LEVELS[st.telescopeLevel] || TELESCOPE_LEVELS[3];
-        const opt = OPTICAL_SYSTEMS[st.opticalSystemId] || OPTICAL_SYSTEMS.segmented_6_5m_hex;
-        return `
-          <div style="margin-bottom:14px;padding:14px 16px;border-radius:8px;background:rgba(192,132,252,0.08);border:1px solid rgba(192,132,252,0.35);">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
-              <span style="font-family:monospace;font-size:11.5px;font-weight:700;color:#e9d5ff;letter-spacing:0.6px;">
-                🔭 BUILD-IT-YOURSELF SPACE TELESCOPE: PICK YOUR MIRROR SIZE
-              </span>
-              <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                ${[1, 2, 3].map((n) => `
-                  <button type="button" class="nasa-tel-lvl-btn" data-lvl="${n}" style="padding:5px 9px;border-radius:5px;border:1px solid ${st.telescopeLevel === n ? "#c084fc" : "rgba(255,255,255,0.16)"};background:${st.telescopeLevel === n ? "rgba(192,132,252,0.24)" : "rgba(0,0,0,0.3)"};color:#ece7dc;font-family:monospace;font-size:10.5px;font-weight:700;cursor:pointer;">
-                    LEVEL ${n}
-                  </button>
-                `).join("")}
-              </div>
-            </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin-bottom:8px;">
-              ${Object.values(OPTICAL_SYSTEMS).map((o) => `
-                <div class="nasa-opt-sys-card" data-id="${o.id}" style="padding:9px 11px;border-radius:6px;border:1px solid ${st.opticalSystemId === o.id ? "#67e8f9" : "rgba(255,255,255,0.12)"};background:${st.opticalSystemId === o.id ? "rgba(103,232,249,0.14)" : "rgba(0,0,0,0.3)"};cursor:pointer;">
-                  <div style="font-size:11.5px;font-weight:700;color:#ece7dc;margin-bottom:2px;">${o.name}</div>
-                  <div style="font-family:monospace;font-size:10.5px;color:#7dd3fc;">Mirror Width: ${o.apertureM} meters</div>
-                </div>
-              `).join("")}
-            </div>
-            <div style="font-size:12px;line-height:1.5;color:#cbd5e1;">
-              <strong>${lvl.name}:</strong> ${opt.explain} · <strong style="color:#fde047;">${lvl.heritage}</strong>
-            </div>
-          </div>
-        `;
-      }
-
       if (scenarioId === "cubesat_101") {
         const doneCount = Object.values(st.cubesatPhasesDone).filter(Boolean).length;
         return `
@@ -998,56 +893,6 @@
             </details>
           </div>
         </div>
-
-        <!-- CARD 3: ROBOT ARMS & GROWING TOMATOES IN SPACE -->
-        <div style="margin-top:16px;padding:16px 18px;border-radius:10px;background:rgba(15,23,42,0.75);border:1px solid rgba(103,232,249,0.3);">
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
-            <span style="font-family:monospace;font-size:12px;font-weight:700;color:#67e8f9;">
-              🇨🇦 ACTIVITY 3 · CSA LAB
-            </span>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button type="button" id="btn-lab-apply-csa-preset" style="padding:7px 12px;border-radius:5px;border:1px solid rgba(52,211,153,0.5);background:rgba(52,211,153,0.16);color:#86efac;font-family:monospace;font-size:11px;font-weight:700;cursor:pointer;">
-                ADD CSA TOOLS
-              </button>
-            </div>
-          </div>
-          <div class="lab-game-guide">
-            <div class="lab-game-guide__head">
-              <span class="lab-game-guide__kicker">GOAL</span>
-              <span class="lab-game-guide__goal">RUN THE CSA LAB</span>
-            </div>
-            <div class="lab-game-guide__steps">
-              <span class="lab-game-step is-active">1 WALK TO KIBO</span>
-              <span class="lab-game-step">2 TAKE A SEAT</span>
-              <span class="lab-game-step">3 RUN A GAME</span>
-            </div>
-          </div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px;font-size:12px;line-height:1.45;color:#cbd5e1;">
-            <div style="padding:10px 12px;border-radius:8px;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.08);">
-              <div style="font-family:monospace;font-size:11px;font-weight:700;color:#93c5fd;">CANADARM2</div>
-              <div style="margin-top:3px;">17 m arm · 2 seats: ARM + LATCH</div>
-              <div style="margin-top:6px;font-family:monospace;font-size:9.5px;color:#86efac;">READY · ALIGN, EXTEND, LATCH</div>
-              <details class="lab-game-more">
-                <summary>HOW IT WORKS</summary>
-                <p>The arm crawls along the Station, catches cargo ships, and helps during spacewalks. One crew drives, one calls the latch.</p>
-              </details>
-            </div>
-            <div style="padding:10px 12px;border-radius:8px;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.08);">
-              <div style="font-family:monospace;font-size:11px;font-weight:700;color:#86efac;">TOMATOSPHERE™</div>
-              <div style="margin-top:3px;">2 seats: WATER + CLIMATE</div>
-              <div style="margin-top:6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-                <span style="font-family:monospace;font-size:9.5px;color:#fde047;">SPROUTED ${st.tomatosphereGerminationPct}%</span>
-                <button type="button" id="btn-toggle-tomatosphere" style="padding:5px 9px;border-radius:5px;border:1px solid rgba(74,222,128,0.45);background:rgba(22,163,74,0.2);color:#86efac;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">
-                  ${st.tomatosphereActive ? "ON" : "TURN ON"}
-                </button>
-              </div>
-              <details class="lab-game-more">
-                <summary>HOW IT WORKS</summary>
-                <p>Students test how tomato seeds sprout after spaceflight. Keep water, light, and temperature in the green band to grow fresh food and oxygen.</p>
-              </details>
-            </div>
-          </div>
-        </div>
       `;
 
       this._drawRcmCanvas(body.querySelector("#csa-rcm-canvas"));
@@ -1075,28 +920,6 @@
           this._renderModalContent();
         });
       });
-      const btnTom = body.querySelector("#btn-toggle-tomatosphere");
-      if (btnTom) {
-        btnTom.addEventListener("click", () => {
-          st.tomatosphereActive = !st.tomatosphereActive;
-          this._renderModalContent();
-        });
-      }
-      const btnSync = body.querySelector("#btn-lab-apply-csa-preset");
-      if (btnSync) {
-        btnSync.addEventListener("click", () => {
-          if (window.gameplay) {
-            const md = window.gameplay.missionDesign;
-            if (md.scenarioId === "earth_climate" && !md.instruments.includes("inst_sar")) {
-              if (md.instruments.length < 3) md.instruments.push("inst_sar");
-            } else if (md.scenarioId === "asteroid_rendezvous" && !md.instruments.includes("inst_lidar")) {
-              if (md.instruments.length < 4) md.instruments.push("inst_lidar");
-            }
-            window.gameplay._renderResourceMeters();
-            window.gameplay.showToast("Added Earth Radar & 3D Laser Scanner tools to your spacecraft!");
-          }
-        });
-      }
     }
 
     _drawRcmCanvas(canvas) {
@@ -1240,9 +1063,6 @@
                 Pick a complexity level and mirror type below to see how astronomers design telescopes like Hubble and Webb (<a href="https://science.nasa.gov/mission/webb/game-build-it-yourself/" target="_blank" rel="noopener" style="color:#67e8f9;text-decoration:underline;">Play NASA's Webb Game</a>).
               </div>
             </div>
-            <button type="button" id="btn-tel-apply-to-mission" style="padding:8px 14px;border-radius:6px;border:1px solid #c084fc;background:rgba(192,132,252,0.2);color:#f3e8ff;font-family:monospace;font-size:11.5px;font-weight:700;cursor:pointer;">
-              USE THIS TELESCOPE IN MY MISSION
-            </button>
           </div>
 
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;margin-bottom:14px;">
@@ -1291,25 +1111,6 @@
           this._renderModalContent();
         });
       });
-      const btnLoad = body.querySelector("#btn-tel-apply-to-mission");
-      if (btnLoad) {
-        btnLoad.addEventListener("click", () => {
-          if (window.gameplay) {
-            window.gameplay.missionDesign.scenarioId = "space_telescope";
-            window.gameplay.applyRecommendedScenarioBaseline("space_telescope");
-            if (st.opticalSystemId === "grazing_xray_shells") {
-              window.gameplay.missionDesign.wavelengthId = "xray";
-            } else if (st.opticalSystemId === "monolithic_1_2m" || st.opticalSystemId === "monolithic_2_4m") {
-              window.gameplay.missionDesign.wavelengthId = "uv_optical";
-            } else {
-              window.gameplay.missionDesign.wavelengthId = "mid_ir";
-            }
-            window.gameplay._renderResourceMeters();
-            window.gameplay.showToast(`Loaded your ${opt.apertureM}-meter Space Telescope into the mission!`);
-            this.closeModal();
-          }
-        });
-      }
     }
 
     _renderGmatMdlCubesatTab(body, t) {

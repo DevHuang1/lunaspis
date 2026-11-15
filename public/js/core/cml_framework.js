@@ -745,7 +745,7 @@
    */
   function isDeepSpaceOrbit(orbitId, scenarioId) {
     if (["sun_earth_l2", "europa_flyby", "mars_areostationary"].includes(orbitId)) return true;
-    if (["deep_space_telescope", "europa_ocean_probe"].includes(scenarioId)) return true;
+    if (["europa_ocean_probe"].includes(scenarioId)) return true;
     return false;
   }
 

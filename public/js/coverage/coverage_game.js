@@ -10,6 +10,11 @@
 (function () {
   "use strict";
   const C = window.CoverageCore;
+  // The optional satellite.js dependency is loaded from /vendor; warn once if
+  // the deployment does not ship it (a 404 leaves the global undefined).
+  if (!window.satellite) {
+    console.warn("[Coverage] SGP4 library not found: Real Satellite mode disabled");
+  }
   const escapeHtml = (value) => String(value == null ? "" : value)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")

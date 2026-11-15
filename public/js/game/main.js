@@ -3260,7 +3260,7 @@
       : [];
     if (!catalog.length) return;
 
-    const selectedId = (mission && mission.scenarioId) || "lunar_south_pole";
+    const selectedId = (mission && mission.scenarioId) || "cubesat_101";
     const selectedDifficultyId = (mission && mission.difficultyId) || "engineer";
     const selected = catalog.find((scenario) => scenario.id === selectedId) || catalog[0];
     const selectedPresentation = window.gameplay && typeof window.gameplay.getMissionPresentation === "function"
@@ -4376,7 +4376,7 @@
       const tTag = e.target && e.target.tagName ? e.target.tagName : "";
       if (tTag === "INPUT" || tTag === "TEXTAREA" || tTag === "SELECT" || (e.target && e.target.isContentEditable)) return;
 
-      const blockingOverlay = ["modal-academy", "modal-mission-log", "modal-station-systems", "task-modal-overlay", "victory-overlay", "mission-briefing-overlay", "csa-nasa-lab-modal", "iss-sidegame-overlay"]
+      const blockingOverlay = ["modal-academy", "modal-mission-log", "modal-station-systems", "task-modal-overlay", "victory-overlay", "mission-briefing-overlay", "csa-nasa-lab-modal"]
         .some((id) => {
           const el = document.getElementById(id);
           return el && el.style.display && el.style.display !== "none";
@@ -4823,7 +4823,6 @@
 
     if (
       (window.gameplay && window.gameplay.activeTask) ||
-      (window.issSideGames && window.issSideGames.isOpen) ||
       (window.launchCutscene && window.launchCutscene.isPlaying) ||
       (window.dockingSim && window.dockingSim.isActive) ||
       (window.solarSystem && window.solarSystem.isActive) ||

@@ -389,13 +389,12 @@
       this._syncSpacecraftModel(t.bus.glbId);
 
       // Show/emphasize context bodies
-      const isLunar = t.orbit.id === "lunar_polar_100" || t.scenario.id === "lunar_south_pole";
-      const isL2 = t.orbit.id === "sun_earth_l2" || t.scenario.id === "space_telescope";
-      const isAst = t.scenario.id === "asteroid_rendezvous";
+      const isLunar = t.orbit.id === "lunar_polar_100";
+      const isL2 = t.orbit.id === "sun_earth_l2";
       this.moonGroup.visible = true;
       this.moonGroup.scale.setScalar(isLunar ? 1.15 : 0.72);
       this.l2Group.visible = isL2;
-      this.asteroidGroup.visible = isAst;
+      this.asteroidGroup.visible = false;
       this.vanAllenGroup.visible = t.orbit.id === "gto_heo" || t.orbit.radiationEnvKrad >= 45;
 
       // Generate 240-point parametric trajectory for selected orbit/scenario
@@ -853,8 +852,6 @@
         const t = this._getTelemetry();
         if (t && t.orbit.id === "sun_earth_l2") {
           this.desiredTarget.copy(this.l2Group.position);
-        } else if (t && t.scenario.id === "asteroid_rendezvous") {
-          this.desiredTarget.copy(this.asteroidGroup.position);
         } else {
           this.desiredTarget.copy(this.moonGroup.position);
         }
