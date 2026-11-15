@@ -29,31 +29,54 @@
       if (this.isActive) return;
       this.net = opts.net; this.onLeave = opts.onLeave; this.isActive = true;
       this.renderer = window.renderer;
-      this.view = new window.CoverageView(this.renderer);
-      this.hud = new window.CoverageHud((c, a) => this.command(c, a));
+      this.view = null; this.hud = null; this.deploy = null; this._deployCardShown = false;
       this.saved = store.get("interfellas_cov_ab", { A: null, B: null }) || { A: null, B: null };
       this.st = null; this.scn = null; this.prop = null; this.fc = null; this.revision = 0; this.ready = false; this.error = null;
       this._endShownRev = null; this._cmpKey = null; this._lastCmpT = 0; this.picking = false;
       this.stationMode = false; this.hoverT = null; this.compareIds = null; this.usefulEl = store.get("interfellas_cov_useful", 30);
       this._on(window, "keydown", (e) => this._key(e), true);
-      this._bindPointer();
       this._netHandlers = {
         coverage_state: (st) => this._onState(st),
         coverage_clock: (c) => { if (this.st && c.revision === this.revision) { this.clock = c.clock; this._clockServerNow = c.serverNow; } },
         player_left: (p) => this.hud && this.hud.toast(`${p.name} left the session`),
       };
       for (const k of Object.keys(this._netHandlers)) this.net.on(k, this._netHandlers[k]);
-      if (this.net.coverageState) this._onState(this.net.coverageState); else this.net.coverageRequest("SYNC");
+      // The session opens with the CubeSat still on the ISS (deploy_game.js) unless the deployment is over or skipped
+      const st0 = this.net.coverageState;
+      if (st0 && st0.deployActive) this._startDeploy(); else this._ensureUi();
+      if (st0) this._onState(st0); else this.net.coverageRequest("SYNC");
       this._loadSatelliteList();
-      if (!this.testMode && !store.get("interfellas_cov_onboarded", false)) setTimeout(() => this.isActive && this.hud.showOnboarding(0), 600);
+      if (!this.testMode && !store.get("interfellas_cov_onboarded", false)) setTimeout(() => this.isActive && this.hud && !this.deploy && this.hud.showOnboarding(0), 600);
       console.log("[Coverage] session view active");
+    },
+    _ensureUi() {
+      if (this.view) return;
+      this.view = new window.CoverageView(this.renderer);
+      this.hud = new window.CoverageHud((c, a) => this.command(c, a));
+      if (!this._pointerBound) { this._pointerBound = true; this._bindPointer(); }
+    },
+    _startDeploy() {
+      if (this.deploy) return;
+      if (this.hud) { this.hud.dispose(); this.hud = null; } if (this.view) { this.view.dispose(); this.view = null; }
+      this.deploy = new window.DeployMode(this);
+      // automated coverage playtests start in orbit as before (unless ?deploytest=1)
+      if (this.testMode && !/[?&]deploytest=1/.test(location.search) && (!this.room || this.room.hostId === this.net.socketId)) this.net.coverageRequest("DEPLOY", { cmd: "SKIP" });
+      console.log("[Coverage] ISS deployment phase");
+    },
+    _endDeploy() {
+      if (!this.deploy) return;
+      this.deploy.dispose(); this.deploy = null;
+      this.revision = -1; this.st = null;
+      this._ensureUi();
+      console.log("[Coverage] deployment over — coverage phase");
     },
     _on(t, type, fn, cap) { t.addEventListener(type, fn, !!cap); this.listeners.push([t, type, fn, !!cap]); },
     exit() {
       if (!this.isActive) return;
       for (const [t, type, fn, cap] of this.listeners) t.removeEventListener(type, fn, cap);
-      this.listeners = [];
+      this.listeners = []; this._pointerBound = false;
       if (this.net && this._netHandlers) for (const k of Object.keys(this._netHandlers)) this.net.off(k, this._netHandlers[k]);
+      if (this.deploy) { this.deploy.dispose(); this.deploy = null; }
       if (this.hud) this.hud.dispose(); if (this.view) this.view.dispose();
       this.hud = null; this.view = null; this.isActive = false; this.st = null; this.fc = null; this.prop = null; this.scn = null;
       console.log("[Coverage] session view closed");
@@ -62,6 +85,9 @@
 
     // ---------------------------------------------------------------- server state → local forecast
     _onState(st) {
+      if (st.deployActive) { this._startDeploy(); return; }
+      if (this.deploy) this._endDeploy();
+      this._ensureUi();
       const newRev = !this.st || st.revision !== this.revision;
       this.st = st; this.clock = st.clock; this._clockServerNow = st.serverNow;
       if (!newRev) { if (this.scn) { this.scn.pins = st.scenario.pins || []; this._cmpKey = null; } return; }
@@ -77,7 +103,11 @@
       this.view.setScenario(this.scn, this.prop, this.fc);
       this.hud.setForecast(this.scn, this.prop, this.fc, {});
       if (this.ready) this.net.coverageRequest("HASH", { revision: this.revision, hash: this.fc.hash });
-      else this.hud.showCard("Scenario problem", `<p>${this.error}</p>`, this.isEditor() ? [["EDIT", "EDIT SCENARIO"]] : []);
+      if (this.ready && st.deployResult && !this._deployCardShown && !this.testMode) {
+        this._deployCardShown = true; const h = st.deployResult.handoff, d = st.deployResult.done || {};
+        this.hud.showCard("CubeSat in orbit", `<p><b>${h.altKm.toFixed(1)} km · ${h.incDeg.toFixed(2)}°</b> · release-derived, circularised</p>${d.at30 ? `<p>First beacon · ${(d.at30.dist / 1000).toFixed(2)} km from ISS</p>` : ""}<p>[Space] Play · [S] Stations · [E] Orbit</p>`, [["HELP", "Controls"]]);
+      }
+      else if (!this.ready) this.hud.showCard("Scenario problem", `<p>${this.error}</p>`, this.isEditor() ? [["EDIT", "EDIT SCENARIO"]] : []);
     },
     isEditor() { return !!(this.st && this.net && this.st.editorId === this.net.socketId); },
     simTime() {
@@ -90,6 +120,8 @@
     // ---------------------------------------------------------------- frame
     frame(dt) {
       if (!this.isActive) return;
+      if (this.deploy) { this.deploy.frame(dt); return; }
+      if (!this.view) return;
       if (!this.ready || !this.prop) { this.view.render(); if (this.hud && this.scn) this.hud.update(0, null, {}); return; }
       const t = this.simTime(), q = C.query(this.scn, this.prop, this.fc, t, 30);
       const dock = this.hud.el.querySelector("#cv-dock"); if (dock) this.view.setViewOffsetY(dock.offsetHeight / 2);
@@ -426,7 +458,7 @@
 
     // ---------------------------------------------------------------- input
     _key(e) {
-      if (!this.isActive) return;
+      if (!this.isActive || this.deploy || !this.hud) return;
       const tag = e.target && e.target.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") { if (e.code === "Escape") { e.target.blur(); if (!this.hud.closeWindows() && this.hud._popId) this.hud.showStationPop(null); } return; }
       if (e.repeat) return;
@@ -449,6 +481,7 @@
       const canvas = this.renderer.domElement, pts = new Map();
       let down = null;   // { x, y, stationId, moved }
       this._on(canvas, "pointerdown", (e) => {
+        if (!this.view || this.deploy) return;
         pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
         const sid = this.stationMode && this.isEditor() ? this.view.pickStation(e.clientX, e.clientY) : null;
         down = { x: e.clientX, y: e.clientY, stationId: sid, moved: false, ll: null };
@@ -456,6 +489,7 @@
       });
       this._on(window, "pointerup", async (e) => {
         pts.delete(e.pointerId);
+        if (!this.view || this.deploy) { down = null; return; }
         const d = down; down = null; canvas.style.cursor = "";
         if (!d || e.target !== canvas && !d.stationId) return;
         const click = Math.hypot(e.clientX - d.x, e.clientY - d.y) < 5;
@@ -507,7 +541,7 @@
         else if (pts.size === 2) { const other = [...pts.entries()].find(([id]) => id !== e.pointerId)[1]; const d0 = Math.hypot(p.x - other.x, p.y - other.y), d1 = Math.hypot(e.clientX - other.x, e.clientY - other.y); if (d0 > 0 && d1 > 0) this.view.zoomCamera(d0 / d1); }
         pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
       });
-      this._on(canvas, "wheel", (e) => { e.preventDefault(); this.view.zoomCamera(e.deltaY > 0 ? 1.12 : 1 / 1.12); }, false);
+      this._on(canvas, "wheel", (e) => { if (!this.view || this.deploy) return; e.preventDefault(); this.view.zoomCamera(e.deltaY > 0 ? 1.12 : 1 / 1.12); }, false);
     },
   };
 
@@ -524,6 +558,9 @@
       command: (c, a) => game.command(c, a), draft: () => game._draft, model: () => (game.view ? game.view.modelStatus : null),
       pins: () => (game.scn ? game.scn.pins : []), stationScreen: () => (game.view ? game.view.stationScreen() : []), trackScreen: (n) => { const v = game.view; if (!v || !v.trackSamples) return []; return v.trackSamples.filter((_, i) => i % (n || 10) === 0).map((s) => { const w = v.earth.localToWorld(new THREE.Vector3(s.ecef[0], s.ecef[2], -s.ecef[1])); const sc = v._screen(w); return { t: s.t, x: sc.x, y: sc.y, vis: sc.ok && v._frontFacing(w) }; }); },
       csv: () => (game.fc ? C.passesCsv(game.scn, game.prop, game.fc) : null),
+      deploy: () => (game.deploy ? game.deploy.b : null), deployAssess: () => (game.deploy ? game.deploy.assess : null), deployActive: () => !!game.deploy,
+      deployCmd: (c, a) => (game.deploy ? game.deploy.command(c, a) : null), deployReq: (t, p) => game.net.coverageRequest(t, p),
+      deployKeys: (codes) => { if (game.deploy) { game.deploy.keys = new Set(codes || []); } }, deployView: () => (game.deploy ? { mode: game.deploy.view.activeMode, iss: game.deploy.view.status.iss, cubesat: game.deploy.view.status.cubesat } : null),
     };
   }
   window.coverageGame = game;

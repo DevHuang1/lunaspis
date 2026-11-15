@@ -359,6 +359,14 @@ function sendCoverageState(room, socket) {
   const st = coverageRoom.publicState(room.coverage, room);
   (socket || io.to(room.id)).emit("coverage_state", st);
 }
+// ISS deployment phase of the CubeSat mission: server-authoritative simulation, snapshots at 10 Hz
+function sendDeployState(room, socket, forceAssess) {
+  const cov = room.coverage; if (!cov || !cov.deploy) return;
+  const d = cov.deploy, withAssess = forceAssess || !!socket || d.sim.st.assessRev !== d.lastAssessRev;
+  const snap = coverageRoom.deploySnapshot(cov, room, withAssess);
+  if (!socket) { d.lastAssessRev = d.sim.st.assessRev; room.lastDeploySnap = Date.now(); }
+  (socket || io.to(room.id)).emit("deploy_state", snap);
+}
 
 function sendSnapshot(room) {
   if (!room.mission) return;
@@ -393,6 +401,11 @@ setInterval(() => {
       room.lastCovClock = now;
       const c = room.coverage; io.to(roomId).emit("coverage_clock", { revision: c.revision, clock: { simT: coverageRoom.clockNow(c, now), wallRef: now, rate: c.clock.rate, paused: c.clock.paused }, serverNow: now });
     }
+    if (room.coverage && room.coverage.deploy && room.coverage.deploy.active && playerCount > 0) {
+      const ddt = room.lastDeployTick ? (now - room.lastDeployTick) / 1000 : 0; room.lastDeployTick = now;
+      const evs = coverageRoom.tickDeploy(room.coverage, room, ddt);
+      if (evs.length || now - (room.lastDeploySnap || 0) >= 100) sendDeployState(room);
+    } else room.lastDeployTick = 0;
     if (!room.mission) continue;
     if (playerCount === 0) continue;      // nobody aboard: hold the simulation
     const dt = room.lastTick ? (now - room.lastTick) / 1000 : 0;
@@ -479,7 +492,7 @@ io.on("connection", (socket) => {
     socket.emit("room_joined", payload);
     broadcastRoomUpdate(room);
     if (room.mission) { socket.emit("game_started", { roomId: targetCode, mode: GAME_MODE, rejoin: true }); sendSnapshot(room); }
-    else if (room.coverage) { socket.emit("game_started", { roomId: targetCode, mode: "coverage", rejoin: true }); sendCoverageState(room, socket); }
+    else if (room.coverage) { socket.emit("game_started", { roomId: targetCode, mode: "coverage", rejoin: true }); sendCoverageState(room, socket); sendDeployState(room, socket); }
   });
 
   // Lobby: name / colour / crew seat (seats are unique)
@@ -513,13 +526,14 @@ io.on("connection", (socket) => {
     if (room.hostId !== socket.id) return;
     if (room.activity === "coverage") {
       room.mission = null;
-      if (!room.coverage) room.coverage = coverageRoom.createCoverageState(socket.id);
+      if (!room.coverage) room.coverage = coverageRoom.createCoverageState(socket.id, null, { deploy: process.env.COVERAGE_DEPLOY !== "0", testHooks: TEST_HOOKS });
       room.status = "playing";
       console.log(`[GAME] CubeSat coverage session started in room ${currentRoomId}`);
       await db.upsertGameRoom(currentRoomId, room.hostId, "playing");
       io.to(currentRoomId).emit("game_started", { roomId: currentRoomId, mode: "coverage" });
       broadcastRoomUpdate(room);
       sendCoverageState(room);
+      sendDeployState(room, null, true);
       return;
     }
     room.mission = new ShuttleMission({ variant: room.flight });
@@ -565,10 +579,12 @@ io.on("connection", (socket) => {
     const room = currentRoomId && rooms[currentRoomId];
     const reply = (r) => { if (typeof callback === "function") callback(r); };
     if (!room || !room.coverage || !room.players[socket.id]) return reply({ accepted: false, reason: "No coverage session" });
-    if (data.type === "SYNC") { sendCoverageState(room, socket); return reply({ accepted: true }); }
+    if (data.type === "SYNC") { sendCoverageState(room, socket); sendDeployState(room, socket); return reply({ accepted: true }); }
     const r = coverageRoom.applyRequest(room.coverage, room, socket.id, data);
     reply({ accepted: r.accepted, reason: r.reason || null, revision: room.coverage.revision });
-    if (r.accepted && r.changed) { sendCoverageState(room); if (r.changed === "editor") broadcastRoomUpdate(room); }
+    if (r.changed === "deploy") sendDeployState(room);
+    else if (r.accepted && r.changed === "deploy-end") { sendDeployState(room, null, true); sendCoverageState(room); }
+    else if (r.accepted && r.changed) { sendCoverageState(room); if (r.changed === "editor") broadcastRoomUpdate(room); }
   });
 
   // Semantic mission commands, authorised by crew seat

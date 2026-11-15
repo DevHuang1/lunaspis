@@ -20,6 +20,42 @@ No human real-time playthrough has been observed yet.
 
 Update 2026-11-14 (round 5, below): by user direction the crew now boards on foot from the LC-39A gantry (team assets from remote-main), and an **ISS docking** flight was added next to the satellite deploy. The removal note above still holds for the old interior/board-ship activities; docking ends at soft capture.
 
+## Round 6 (2026-11-15): CubeSat mode — ISS deployment phase (VERIFIED)
+
+User request: CubeSat mode jumped straight to the CubeSat already in orbit. Add an animation of the CubeSat launching from the ISS with gameplay, realistic to how CubeSats are really deployed from the ISS. Design, sources, physics and file list: **[cubesat-iss-deploy.md](cubesat-iss-deploy.md)**.
+
+Handover checklist (tick as done; anyone can continue from the first unticked item):
+- [x] `public/js/coverage/deploy_core.js`: simulation of the whole J-SSOD procedure (load → depress → outboard → grapple → move → point + GO/NO-GO → release → 30-min inhibit → handoff). Verified in Node: a scripted run reaches handoff (orbit 413.77 km, 51.64°, e 0.0002). At T+30 min the CubeSat is 3.33 km ahead of and 2.33 km below the ISS. The direction checks match the design doc.
+- [x] `server/coverage_room.js`: opt-in deploy state, `DEPLOY` / `DEPLOY_INPUT` requests, roles, tick, snapshot, handoff into the Sandbox scenario, and `SKIP`. `node tests/coverage/run_checks.js` 29/29; `node tests/shuttle/run_checks.js` 61/61.
+- [x] `public/js/core/network.js`: `deploy_state` channel.
+- [x] `server.js`: ticks the deployment and broadcasts `deploy_state` at 10 Hz; `{ deploy: true }` at session start. **Off switch: start the server with `COVERAGE_DEPLOY=0` to get the old behaviour (straight into orbit).**
+- [x] `public/js/coverage/deploy_view.js` (3D scene), `deploy_hud.js` (STS_OS panels, EE-camera overlay, prediction plot, GO/NO-GO), `deploy_game.js` (controller: snapshot interpolation, keys, hand-controller input). Hooked into `coverage_game.js` (`_startDeploy` / `_endDeploy` / `_ensureUi`, frame + key + pointer guards, result card after handoff, test hooks `__coverageTest.deploy*`). Script tags are in `index.html`. All files pass `node --check`.
+- [x] Browser solo deployment from title through load, depress, outboard, grapple, move, pointing, GO poll, release, first beacon and coverage handoff. Both GLBs load, the original model arm is hidden, Earth renders below the ISS, the hand-controller keys converge, and pointerdown controls survive live panel updates.
+- [x] `?coveragetest=1` host auto-skip and the existing `tests/coverage/browser/run_coverage.js` regression pass. Added `tests/coverage/deploy_checks.js` and `tests/coverage/browser/run_deploy.js`.
+- [x] Two-player browser check confirms host JEMRMS + flight and guest crew. Guest BEGIN, arm input and SKIP are refused. Host load-step requests are refused. Guest loading and host skip reach both clients.
+- [x] Handoff evidence recorded below.
+
+Continuation evidence on the PC, 2026-11-15
+
+- User requested minimal GUI wording and no green text. Deployment briefing is four short rows. Checklists, phase hints, logs and the result card use compact labels. GO, AOS, completion and success text use ink-white. The HUD shows the latest three log entries.
+- Fixed the coverage handoff's misplaced `else`, which displayed “Scenario problem” for a valid forecast. Fixed the EE overlay to project the real fixture through the camera, including depth and roll. Moved the overview camera clear of the solar array. Coverage epoch now rounds forward to the minute after the 30-minute inhibit.
+- `node tests/coverage/deploy_checks.js` passes 12/12 groups. Covers the complete procedure, airlock and grapple interlocks, IK boom lengths, pointing and ordered GO poll, inhibit, handoff validation, directional safety, analytic CW cross-track propagation, frame conversion, warp limits and two-player authority.
+- Existing Node checks pass. Coverage 38/38, Shuttle 61/61, docking 15/15, landing assist 6/6, and planned-route checks for both flights. `node --check` passes for all deployment, integration and new test files. `git diff --check` passes.
+- `tests/coverage/browser/run_deploy.js` passes in installed Chrome with the normal title-screen entry and real keyboard events. Timers are accelerated through the existing test-only warp option. The arm is flown at 1×. First beacon occurs about 4.07 km from the ISS, 3.33 km ahead and 2.33 km below, with zero fixture contacts and zero airlock violations. The resulting coverage orbit is about 413.8 km at 51.64°. Computed AOS and GO font colours are `rgb(237, 232, 221)`. Both clients complete the skip transition with the deployment HUD removed. Browser errors are empty.
+- `tests/coverage/browser/run_coverage.js` passes with `COVERAGE_OFFLINE=1` and a fresh isolated `COVERAGE_CACHE_DIR`. Earlier attempts used live data or an existing cached ISS element record, which invalidated that test's offline-only expectations. Fresh-cache offline testing passes the catalog, fallback, forecast, shared session and four Shuttle/CubeSat lifecycle cycles.
+- Browser evidence and temporary local test launchers are in `C:/Users/Omen 16/.codex/visualizations/2026/11/15/01a1dd5f-7652-7272-a82c-9a0dd3481caa/`. Screenshot folders are `deploy-browser` and `coverage-browser`. Used existing installed Playwright and Chrome, with process-local DB/storage overrides and temporary local servers.
+- Limits remain a scripted local playthrough with accelerated timers. Human 1× deployment, internet latency and touch-device deployment controls remain unobserved. Orbital safety uses the documented simplified CW and constant differential-drag model.
+
+Post-release playtest fix, 2026-11-15
+
+- User reported excessive CubeSat spin and a trajectory line pointing toward Earth's surface after release. The default release used a 3.10°/s angular-rate magnitude, displayed at about 186°/s under 60× warp. Nominal tip-off is now sampled within ±0.1°/s per axis, below the existing published 5°/s per-axis limit. Rotation-vector rendering replaces compounded Euler rotations.
+- The old post-release trail represented ISS-relative displacement. The view now draws an Earth-centred Kepler orbit using the existing Shuttle propagator and the CubeSat's inherited ISS velocity, spring impulse and rotating-frame velocity term. A fine near-camera orbital arc passes through the CubeSat. Pre-release pointing predictions remain on the pointing console. The shared inertial-state conversion also feeds the coverage handoff.
+- `node tests/coverage/deploy_checks.js` passes 14/14 groups, including nominal spin bounds at 60×, inherited orbital velocity, orbit clearance above 410 km and zero-offset ISS-state equivalence. `node tests/coverage/run_checks.js` passes 38/38. Changed JavaScript syntax checks and `git diff --check` pass.
+- The updated `tests/coverage/browser/run_deploy.js` passes the full solo deployment and two-player checks in Chrome. During 60× drift, measured screen rotation is 3.71°/s, plotted orbit altitude spans 412.40–415.15 km, and the local arc passes through the CubeSat within 0.005 mm. Release-direction guides are hidden after separation. Browser errors are empty. Screenshot `deploy-browser/05a_orbital_drift.png` shows the orbital line above Earth's limb. This remains a scripted local playthrough.
+- Changed deployment script URLs to `v=9.0.1`. Restart the game server and refresh the client to use the new nominal release rates and renderer.
+
+Keys: load Enter · depress P pump, V vent, L leak check, H outer hatch · outboard T · grapple W/S A/D (image), R in / F out, Q/E roll, Shift vernier, G grapple · move M · point A/D yaw, W/S pitch, Shift fine, B brakes, K camera, G GO (your consoles), Y arm, Enter deploy · done Enter = start coverage · C camera · , . warp · Esc leave. Host can **Skip to orbit** at any time.
+
 ## Round 5 (2026-11-14): remote-main integration — boarding walk, detailed KSC, ISS docking
 
 User direction: take from `SpaceApp/remote-main` (the team's main branch) the astronauts and their animations, how they walk, the detailed Kennedy Space Center, the ISS and proximity voice chat; **local wins every overlap** (GUI included) and only missing GUI is added, in the STS_OS style. Flow: solo / co-op room → spawn on the gantry of the service structure → walk the access-arm bridge and board → the normal mission. New flight: **ISS docking** (no station interior; the flight ends at docking). Fix the eight playtest issues first.

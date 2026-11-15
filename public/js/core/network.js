@@ -121,6 +121,7 @@
       // CubeSat coverage channel (server owns scenario, clock and edit rights; clients compute forecasts)
       this.socket.on("coverage_state", (st) => { this.coverageState = st; this.emitEvent("coverage_state", st); });
       this.socket.on("coverage_clock", (c) => this.emitEvent("coverage_clock", c));
+      this.socket.on("deploy_state", (d) => { if (d && d.assess === undefined && this.deployState && this.deployState.assessRev === d.assessRev) d.assess = this.deployState.assess; this.deployState = d; this.emitEvent("deploy_state", d); });
     }
 
     ping() {
@@ -162,7 +163,7 @@
         this.socket.emit("leave_room");
       }
       if (window.voiceManager) for (const peerId in window.voiceManager.peers) window.voiceManager.cleanupPeer(peerId);
-      this.roomId = null; this.roomState = null; this.isHost = false; this.remotePlayers = {}; this.snapshot = null; this.coverageState = null;
+      this.roomId = null; this.roomState = null; this.isHost = false; this.remotePlayers = {}; this.snapshot = null; this.coverageState = null; this.deployState = null;
     }
 
     customize(fields) {
