@@ -1,12 +1,15 @@
 FROM ubuntu:22.04
 
+# Optional strong pin for the GMAT tarball; MD5 remains only as a fallback.
+ARG GMAT_SHA256=""
+
 ENV DEBIAN_FRONTEND=noninteractive \
     NODE_VERSION=20.20.2 \
     NODE_SHA256=df770b2a6f130ed8627c9782c988fda9669fa23898329a61a871e32f965e007d \
     GMAT_VERSION=R2026a \
     GMAT_URL="https://sourceforge.net/projects/gmat/files/GMAT/GMAT-R2026a/gmat-ubuntu-x64-R2026a.tar.gz/download" \
     GMAT_MD5=ec496a0319657fa2c079d7e996b9b1ed \
-    GMAT_SHA256="" \
+    GMAT_SHA256=${GMAT_SHA256} \
     GMAT_ROOT=/opt/GMAT/R2026a \
     GMAT_CONSOLE_PATH=/opt/GMAT/R2026a/bin/GmatConsole \
     GMAT_TEMP_DIR=/tmp/gmat-runtime \
