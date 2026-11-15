@@ -1,0 +1,87 @@
+{
+  "schema": "lunaspis.artemis.scenario.v1",
+  "scenarioId": "artemis_expedition",
+  "title": "Artemis Lunar Expedition — Blue Moon-style lunar-rendezvous training scenario",
+  "architectureDate": "2026-11-14",
+  "architectureStatus": "Dated training interpretation of the public NASA October 2026 Artemis IV concept-of-operations updates. It is not a claim that NASA has selected Blue Origin for a specific landing.",
+  "publishedFacts": [
+    "NASA's October 2026 update places Artemis III in Earth orbit in 2027 as a rendezvous/docking test with lander test articles.",
+    "NASA's Artemis IV page describes a crewed lunar landing in early 2028 at the lunar South Pole, with two crew descending while two remain with Orion.",
+    "The October 2026 Blue Origin concept uses transfer stages to deliver a Blue Moon Mark 2 lander to an elliptical polar lunar orbit, where it meets Orion; the lander then takes two crew to the surface and returns them to Orion.",
+    "The SpaceX concept for the same period meets Orion in Earth orbit and uses Starship to push the combined stack toward low lunar orbit.",
+    "NASA states that the lander provider assignment for the near-term landing missions remains to be determined.",
+    "Axiom Space's suit and two approximately two-hour moonwalks are part of the published initial surface-mission planning."
+  ],
+  "trainingAssumptions": [
+    "This implementation selects the Blue Moon-style lunar-rendezvous architecture only. It does not implement the SpaceX Earth-orbit stack by default.",
+    "The lunar transfer uses a patched-conic training model with a 20,000 km arrival gate and Moon-only two-body motion inside the lunar sphere of influence.",
+    "The Moon follows a circular 384,400 km orbit inclined 5.145 degrees to the equator with a fixed training epoch phase.",
+    "SLS launch is a guided ascent profile with automatic staging and a physically validated 200 km parking orbit; it is not a 6-DOF SLS ascent simulation.",
+    "Orion, ICPS and lander masses, propellant loads, thrusts and Isp values are training values, not published flight constants.",
+    "The lander is a procedural Blue Moon-style proxy because no flight lander or usable interior was present in the repository.",
+    "The south-polar terrain is a procedural 2 km training patch; its height function is used for both rendering and collision. It is not LOLA data.",
+    "The EVA sample, photo and experiment tasks are training tasks; they are not confirmed Artemis IV flight procedures or instruments.",
+    "Voice communications remain the existing real-time social channel; the simulation does not impose a light-time delay on voice."
+  ],
+  "epoch": "Training epoch T+0 at SLS launch; no real UTC epoch is claimed.",
+  "units": "SI internally (m, s, kg, N, rad); HUD converts to km, m/s, kg and degrees.",
+  "frames": {
+    "ECI": "Earth-centred inertial, equatorial XY, Z north",
+    "MCI": "Moon-centred inertial, axes parallel to ECI",
+    "LOCAL": "South-polar site frame, x east, y north, z up"
+  },
+  "moon": {
+    "radiusM": 1737400,
+    "muM3S2": 4902800118000,
+    "orbitRadiusM": 384400000,
+    "periodDays": 27.321661,
+    "inclinationDeg": 5.145,
+    "arrivalGateM": 20000000
+  },
+  "vehicles": {
+    "sls": { "role": "crew launch", "trainingDryKg": 250000, "trainingPropKg": 2200000 },
+    "icps": { "role": "trans-lunar injection", "trainingDryKg": 3500, "trainingPropKg": 55000, "ispS": 462 },
+    "orion": { "role": "crew transport and Earth return", "trainingDryKg": 15000, "trainingPropKg": 25000, "ispS": 316 },
+    "lander": { "role": "surface access", "trainingDryKg": 18000, "trainingDescentPropKg": 25000, "trainingAscentPropKg": 12000, "descentIspS": 330, "ascentIspS": 340 }
+  },
+  "landingSites": [
+    { "id": "shackleton_rim", "name": "Shackleton Rim", "trainingNote": "Near a permanent-shadow boundary; slope varies." },
+    { "id": "connecting_ridge", "name": "Connecting Ridge", "trainingNote": "Ridge crest with a broad Earth view." },
+    { "id": "degerlager", "name": "de Gerlager Rim", "trainingNote": "Rougher approach and higher slope hazard." }
+  ],
+  "terrain": {
+    "patchSizeM": 2000,
+    "source": "procedural training height function",
+    "collision": "same height function; landing legs and slope are evaluated against it"
+  },
+  "calculatedReference": {
+    "tliImpulseMps": 3626,
+    "tliTimeOfFlightDays": 2.5,
+    "lunarCaptureMps": 1261,
+    "lunarOrbitKm": "100 x 100 circular after capture sequence",
+    "teiMps": 1407,
+    "orionPropAfterCaptureKg": 11408,
+    "orionPropAfterTeiKg": 1532,
+    "automaticDescentPropRemainingKg": 9595,
+    "automaticAscentPropRemainingKg": 6800,
+    "notes": "Values are observed from the current training simulation and will change if the manifest parameters change. Re-run tests/artemis/run_checks.js after edits."
+  },
+  "limitations": [
+    "No real JPL Horizons ephemeris or NAIF SPICE kernels are loaded.",
+    "No J2, solar gravity, lunar mascons or finite-burn optimization.",
+    "No exact SLS/Orion/Blue Moon flight model or certified entry guidance.",
+    "No Gateway, NRHO, HLS elevator, rover, or surface habitat; these are outside this scenario.",
+    "No real-time comms light-time delay or DSN scheduling.",
+    "The visual SLS/Orion asset is a derived copy of the existing display model; the lander/capsule/astronaut/terrain visuals are labelled proxies."
+  ],
+  "references": [
+    "https://www.nasa.gov/missions/artemis/nasa-shares-plans-to-accelerate-artemis-return-to-moon/",
+    "https://www.nasa.gov/missions/artemis/nasa-partners-accelerate-lander-development-for-2028-moon-missions/",
+    "https://www.nasa.gov/mission/artemis-iv/",
+    "https://www.nasa.gov/artemis-ii-press-kit/",
+    "https://ssd.jpl.nasa.gov/horizons/",
+    "https://naif.jpl.nasa.gov/",
+    "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/",
+    "https://www.nasa.gov/reference/moonbase-environment/"
+  ]
+}

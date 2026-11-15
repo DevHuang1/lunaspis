@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "storage:sync": "node scripts/sync_bucket.js"
+    "storage:sync": "node scripts/sync_bucket.js",
+    "test:artemis": "node tests/artemis/run_checks.js"
   },
   "keywords": [
     "threejs",

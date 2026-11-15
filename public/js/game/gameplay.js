@@ -28,6 +28,21 @@
   // ==========================================================================
 
   const MISSION_SCENARIOS = {
+    artemis_expedition: {
+      id: "artemis_expedition",
+      name: "Artemis Lunar Expedition (Training)",
+      code: "ARTEMIS",
+      badge: "LUNAR EXPEDITION",
+      isArtemis: true,
+      baseBudgetM: 3200,
+      targetLifetimeMonths: 1,
+      recommendedOrbits: ["lunar_polar_100"],
+      requiredScienceTypes: ["optical", "spectrometer"],
+      minDeltaV: 3800,
+      minRadiationKrad: 55,
+      summary: "Launch on SLS, fly Orion to lunar orbit, dock with a Blue Moon-style lander, land at the south pole, return samples, and splash down. Dated training scenario, not an exact reconstruction.",
+      tradeoffTip: "This is a flight expedition, not a design study. The mission uses a dated Blue Moon-style lunar-rendezvous architecture and clearly labelled training assumptions."
+    },
     earth_climate: {
       id: "earth_climate",
       name: "Earth Weather & Melting Ice Watcher",
@@ -135,9 +150,19 @@
   // Mission Architecture desk. The old two-sentence pitches are still
   // available through scenario.summary for briefing/detail views, but the
   // picker leads with destination, job, risk, one short goal and two numbers.
-  const STARTER_MISSION_IDS = ["lunar_south_pole", "earth_climate", "cubesat_101"];
+  const STARTER_MISSION_IDS = ["artemis_expedition", "lunar_south_pole", "earth_climate", "cubesat_101"];
 
   const MISSION_PRESENTATION = {
+    artemis_expedition: {
+      title: "ARTEMIS EXPEDITION",
+      destination: "MOON",
+      job: "LAND & RETURN",
+      risk: "DEEP SPACE",
+      goal: "Land at the south pole and bring the crew home.",
+      accent: "#fbbf24",
+      art: "moon",
+      riskIcon: "signal"
+    },
     earth_climate: {
       title: "ICE WATCH",
       destination: "EARTH",
@@ -4136,6 +4161,7 @@
       });
 
       window.netManager.on("crew_victory", (data) => {
+        if (data && data.mission && data.mission.flightProfile === "artemis") return;
         if (data && data.mission) this.applyMissionDefinition(data.mission);
         this.showVictory(data.reason, data.debrief);
       });

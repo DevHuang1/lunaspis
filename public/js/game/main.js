@@ -1140,12 +1140,14 @@
         "iss-showcase-active",
         "mission-viz-active",
         "shuttle-mode-active",
+        "artemis-mode-active",
         "solar-system-active",
         "vr-stereo-active",
         "vr-webxr-active",
         "space-games-ground-locked"
       );
       syncSpaceGamesLock();
+      if (window.artemisGame && window.artemisGame.isActive) stopArtemisFlight(true);
 
       if (window.shuttleGame && window.shuttleGame.isActive && typeof window.shuttleGame.exit === "function") {
         window.shuttleGame.exit();
@@ -1224,6 +1226,39 @@
     // ------------------------------------------------------------------------
     function isMergedShuttleMission(mission) {
       return !!(mission && mission.flightMode === "shuttle_docking");
+    }
+
+    function isArtemisMission(mission) {
+      return !!(mission && (mission.flightProfile === "artemis" || mission.flightMode === "artemis" || mission.scenarioId === "artemis_expedition"));
+    }
+
+    function startArtemisFlight(mission) {
+      if (!isArtemisMission(mission) || !window.artemisGame || window.artemisGame.isActive) return;
+      cleanupGameWorldForLobby();
+      isGameStarted = true;
+      window.isGameStarted = true;
+      document.body.classList.add("game-active", "artemis-mode-active");
+      syncSpaceGamesLock();
+      if (screenGame) screenGame.style.display = "none";
+      const resBar = document.getElementById("lunaspis-resource-meters");
+      if (resBar) resBar.style.display = "none";
+      const briefing = document.getElementById("mission-briefing-overlay");
+      if (briefing) briefing.style.display = "none";
+      window.artemisGame.start({
+        renderer,
+        net: window.netManager,
+        onLeave: leaveCurrentRoom,
+        onReturnToLobby: () => {
+          if (window.netManager && window.netManager.isHost && typeof window.netManager.returnToLobby === "function") window.netManager.returnToLobby();
+        }
+      });
+      console.log("[Artemis] expedition client active");
+    }
+
+    function stopArtemisFlight(silent) {
+      if (!window.artemisGame || !window.artemisGame.isActive) return;
+      window.artemisGame.exit(silent);
+      document.body.classList.remove("artemis-mode-active");
     }
 
     function isLocalGroundCrew() {
@@ -2263,6 +2298,11 @@
         || (window.netManager.roomState && window.netManager.roomState.mission)
         || (typeof window.netManager.getMission === "function" ? window.netManager.getMission() : null);
 
+      if (isArtemisMission(mission) || (data && data.flightProfile === "artemis")) {
+        startArtemisFlight(mission);
+        return;
+      }
+
       const isShuttleOps = !!((data && data.opsMode === "shuttle_flight") || (mission && mission.opsMode === "shuttle_flight"));
       if (isShuttleOps && window.shuttleGame) {
         cleanupGameWorldForLobby();
@@ -2363,6 +2403,10 @@
     window.netManager.on("mission_update", (payload) => {
       if (!payload || !payload.mission) return;
       if (!window.isGameStarted) return;
+      if (isArtemisMission(payload.mission) || payload.action === "artemis_result") {
+        if (window.artemisGame && window.artemisGame.isActive && payload.room) window.artemisGame.onRoomUpdate(payload.room);
+        return;
+      }
       if (payload.action === "specialist_flight" && payload.mission.specialistFlight) {
         const stage = payload.mission.specialistFlight.stage;
         const messages = { planning: "PLANET FLIGHT: PLAN YOUR BURN", coast: "PLANET FLIGHT: TRAJECTORY UNDERWAY", encounter: "PLANET FLIGHT: PLAN ORBIT INSERTION", complete: "PLANET FLIGHT: ORBIT ESTIMATE ACHIEVED", missed: "PLANET FLIGHT: REVIEW THE RESULT" };
@@ -4502,6 +4546,11 @@
 
     const delta = Math.min(clock.getDelta(), 0.05);
     const elapsed = clock.getElapsedTime();
+
+    if (window.artemisGame && window.artemisGame.isActive) {
+      window.artemisGame.frame(delta);
+      return;
+    }
 
     if (window.shuttleGame && window.shuttleGame.isActive) {
       window.shuttleGame.frame(delta);
