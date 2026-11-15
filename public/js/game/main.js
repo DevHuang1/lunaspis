@@ -672,17 +672,13 @@
         window.addEventListener("keydown", finishBoot, { once: true });
       }
     }
-    const dossierBtn = document.getElementById("btn-title-dossier");
-    if (dossierBtn) {
-      dossierBtn.addEventListener("click", () => {
-        if (window.missionLog && typeof window.missionLog.open === "function") {
-          window.missionLog.open();
-          return;
-        }
-        const logBtn = document.getElementById("btn-open-mission-log");
-        if (logBtn) logBtn.click();
+    const btnHangarMenu = document.getElementById("btn-open-hangar-menu");
+    if (btnHangarMenu) {
+      btnHangarMenu.addEventListener("click", () => {
+        if (window.glbManager) window.glbManager.openHangar();
       });
     }
+
     const settingsBtn = document.getElementById("btn-title-settings");
     if (settingsBtn) {
       settingsBtn.addEventListener("click", () => {
@@ -724,26 +720,6 @@
       });
     }
 
-    const toolsBtn = document.getElementById("btn-title-tools");
-    const toolsMenu = document.getElementById("title-tools-menu");
-    if (toolsBtn && toolsMenu) {
-      const setToolsOpen = (open) => {
-        toolsMenu.hidden = !open;
-        toolsBtn.setAttribute("aria-expanded", String(open));
-      };
-      toolsBtn.addEventListener("click", () => setToolsOpen(toolsMenu.hidden));
-      toolsMenu.querySelectorAll("button").forEach((button) => {
-        button.addEventListener("click", () => setToolsOpen(false));
-      });
-      document.addEventListener("pointerdown", (event) => {
-        if (toolsMenu.hidden) return;
-        if (toolsMenu.contains(event.target) || toolsBtn.contains(event.target)) return;
-        setToolsOpen(false);
-      });
-      document.addEventListener("keydown", (event) => {
-        if (event.key === "Escape" && !toolsMenu.hidden) setToolsOpen(false);
-      });
-    }
   }
 
   function setupPerfIdleState() {

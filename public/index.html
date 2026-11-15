@@ -279,34 +279,26 @@
       <div class="title-nav-scrim" id="title-nav-scrim" aria-hidden="true"></div>
       <nav class="title-nav" id="title-primary-nav" aria-label="Primary">
         <button type="button" class="title-nav-link is-active">FLIGHT DECK</button>
-        <button type="button" class="title-nav-link" id="btn-title-dossier">DOSSIER</button>
+        <button type="button" class="title-nav-link" id="btn-open-hangar-menu">HANGAR</button>
         <button type="button" class="title-nav-link" id="btn-title-settings">SETTINGS</button>
       </nav>
       <div class="title-top-actions">
-        <div class="title-tools">
-          <button type="button" class="title-tool-btn" id="btn-title-tools" aria-haspopup="true" aria-expanded="false" aria-controls="title-tools-menu">
-            <span>TOOLS</span>
-            <span class="title-tool-chevron" aria-hidden="true">&#9662;</span>
-          </button>
-          <div class="title-tools-menu" id="title-tools-menu" role="menu" hidden>
-            <button type="button" class="title-tools-item" id="btn-open-academy" role="menuitem">
-              <span>BEGINNER GUIDE</span>
-              <small>How to play &amp; controls</small>
-            </button>
-            <button type="button" class="title-tools-item" id="btn-open-mission-log" role="menuitem">
-              <span>PAST FLIGHTS</span>
-              <small>Records &amp; mission reports</small>
-            </button>
-            <button type="button" class="title-tools-item" id="btn-open-nasa-csa-menu" role="menuitem">
-              <span>GAMES &amp; TOOLS</span>
-              <small>Labs, telescope &amp; path tools</small>
-            </button>
+        <div class="title-region-toggle" id="region-toggle" role="group" aria-label="Server region">
+          <span class="region-status-dot" aria-hidden="true"></span>
+          <span class="region-toggle-label" data-region-label>SERVER</span>
+          <div class="region-toggle-pills">
+            <button class="region-opt-btn" id="btn-region-asia" type="button" data-region="asia" aria-pressed="false">ASIA</button>
+            <button class="region-opt-btn" id="btn-region-us" type="button" data-region="us" aria-pressed="false">US</button>
           </div>
         </div>
         <button type="button" class="title-menu-btn" id="btn-title-nav-toggle" aria-controls="title-primary-nav" aria-expanded="false" aria-label="Open navigation menu">
           <svg class="ui-icon" aria-hidden="true"><use href="#i-menu"></use></svg>
           <span>MENU</span>
         </button>
+        <div class="title-status-rail" aria-hidden="true">
+          <span class="status-pill status-pill--ok"><i></i>NET NOMINAL</span>
+          <span class="status-pill">LEO // LUNAR</span>
+        </div>
       </div>
     </header>
 
@@ -333,6 +325,11 @@
         <button class="btn-title-join" id="btn-join-game">JOIN</button>
       </div>
 
+      <div class="title-hero-utils">
+        <button type="button" class="title-util-btn" id="btn-open-academy" title="How to play, controls &amp; simple cheat sheet [F1]">BEGINNER GUIDE</button>
+        <button type="button" class="title-util-btn" id="btn-open-nasa-csa-menu" title="Space Games &amp; Activities + 3D Path &amp; Telescope Lab">GAMES &amp; TOOLS</button>
+      </div>
+
       <div id="user-stats-card" class="title-telemetry-strip" hidden>
         <span>MISSIONS <strong id="stat-missions">0</strong></span>
         <span class="strip-sep">&middot;</span>
@@ -341,6 +338,13 @@
         <span>CHECKS <strong id="stat-tasks" class="val-amber">0</strong></span>
       </div>
     </main>
+
+    <footer class="title-control-strip" aria-hidden="true">
+      <span class="ctl-group"><kbd class="ctl-glyph" data-action="navigate">WASD</kbd> NAVIGATE</span>
+      <span class="ctl-group"><kbd class="ctl-glyph" data-action="select">ENTER</kbd> SELECT</span>
+      <span class="ctl-group"><kbd class="ctl-glyph" data-action="close">ESC</kbd> BACK</span>
+      <span class="title-control-meta">LUNASPIS // BUILD 6.0 &middot; LEO &rarr; LUNAR</span>
+    </footer>
   </div>
 
   <!-- ========================================================================

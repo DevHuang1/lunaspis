@@ -509,7 +509,6 @@ kbd,
 }
 
 body.menu-active #perf-overlay {
-  display: none !important;
   top: auto !important;
   bottom: calc(56px + var(--safe-bottom)) !important;
   left: auto !important;

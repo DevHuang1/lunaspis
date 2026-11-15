@@ -161,26 +161,6 @@ body #space-center-ground-map {
     white-space: normal;
   }
 
-  .title-tools {
-    position: static;
-    width: 100%;
-  }
-
-  .title-tool-btn {
-    width: 100%;
-    justify-content: space-between;
-    min-height: 36px;
-    padding: 6px 9px;
-  }
-
-  .title-tools-menu {
-    position: absolute;
-    top: calc(100% + 8px);
-    right: calc(14px + var(--safe-right));
-    left: calc(14px + var(--safe-left));
-    width: auto;
-  }
-
   .title-top-actions .title-region-toggle {
     grid-column: 1 / -1;
     justify-content: space-between;
