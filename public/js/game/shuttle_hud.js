@@ -269,7 +269,8 @@
       else status = (sn.guidance && sn.guidance.next && sn.guidance.next.text) || `Flight phase: ${sn.phase}.`;
       const metText = sn.phase === "prelaunch" ? `T-${f0(sn.countdown)} s` : sn.met == null ? "—" : `T${met(sn.met)}`;
       const q = Number.isFinite(t.dynPressPa) ? `${f1(t.dynPressPa / 1000)} kPa` : "—";
-      const fields = [["Vertical speed", `${f0(t.verticalSpeedMps)} m/s`], ["Orbit speed", `${f0(t.inertialSpeedMps)} m/s`], ["Engine throttle", `${f0((v.eng.throttle || 0) * 100)}%`]];
+      const mainEngineThrottle = v.eng.ssme ? (v.eng.throttle || 0) : 0;
+      const fields = [["Vertical speed", `${f0(t.verticalSpeedMps)} m/s`], ["Orbit speed", `${f0(t.inertialSpeedMps)} m/s`], ["Main engine throttle", `${f0(mainEngineThrottle * 100)}%`]];
       const events = (sn.messages || []).filter((m) => !/^(SET_WARP|SET_CONTROL_INPUT)/.test(m.text)).slice(-2).reverse().map((m) => `<li><time>${esc(met(m.t - (sn.simTime - (sn.met || 0))))}</time>${esc(m.text)}</li>`).join("");
       const prediction = this.gmatPrediction && this.gmatPrediction.missionId === sn.missionId ? this.gmatPrediction : null;
       const predictionHtml = prediction ? `<p>At +${prediction.horizonSeconds} s from simulation time ${f0(prediction.sourceSimTime)} s: height ${f1(prediction.altitudeKm)} km · speed ${prediction.inertialSpeedKmS.toFixed(3)} km/s</p>` : "";

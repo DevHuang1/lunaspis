@@ -94,6 +94,10 @@
       this._autoLaunchPollSent = false;
       this._groundObserverLaunch = false;
       this._lccSyncAccumulator = 0;
+      this._lccGmatRequest = null;
+      this._lccGmatResult = null;
+      this._lccGmatMessage = "";
+      this._lccGmatMissionId = null;
 
       // Ground atmosphere / lighting state
       this.savedFog = null;
@@ -7147,6 +7151,81 @@
         const sum = window.gameplay.getGroundTelemetrySummary();
         missionEl.textContent = `STAGE: ${String(this.missionPhase || "gantry").toUpperCase()} · TASKS ${sum.completed}/${sum.total} · READY ${sum.readiness}%`;
       }
+
+      const net = window.netManager;
+      const snapshot = net && net.snapshot;
+      if (snapshot && snapshot.missionId && snapshot.missionId !== this._lccGmatMissionId) {
+        this._lccGmatMissionId = snapshot.missionId;
+        this._lccGmatRequest = null;
+        this._lccGmatResult = null;
+        this._lccGmatMessage = "";
+      }
+      const live = this.missionPhase === "launch" && net && net.connected && snapshot && snapshot.telemetry && snapshot.vehicle && snapshot.vehicle.eng;
+      const setText = (selector, value) => {
+        const element = this.lccConsoleOverlay.querySelector(selector);
+        if (element) element.textContent = value;
+      };
+      const format = (value, digits, unit) => Number.isFinite(value) ? `${value.toFixed(digits)} ${unit}` : "—";
+      const t = live ? snapshot.telemetry : {};
+      const eng = live ? snapshot.vehicle.eng : {};
+      setText("#lcc-shuttle-status", live
+        ? `LIVE · ${String(snapshot.phase || "flight").replace(/_/g, " ").toUpperCase()}`
+        : this.missionPhase === "docking" || this.missionPhase === "station"
+          ? "Shuttle flight data paused after handoff to ISS docking."
+          : net && !net.connected
+            ? "Flight connection lost. Waiting to reconnect."
+            : "Waiting for Shuttle launch data.");
+      setText("#lcc-shuttle-altitude", format(t.altitudeM / 1000, 1, "km"));
+      setText("#lcc-shuttle-air-speed", format(t.airspeedMps, 0, "m/s"));
+      setText("#lcc-shuttle-vertical-speed", format(t.verticalSpeedMps, 0, "m/s"));
+      setText("#lcc-shuttle-dynamic-pressure", format(t.dynPressPa / 1000, 1, "kPa"));
+      setText("#lcc-shuttle-mach", format(t.mach, 2, "Mach"));
+      setText("#lcc-shuttle-throttle", live ? format(eng.ssme ? (eng.throttle || 0) * 100 : 0, 0, "%") : "—");
+
+      const canForecast = !!(live && net.connected && net.socket &&
+        !["briefing", "prelaunch", "ascent"].includes(snapshot.phase) &&
+        t.altitudeM >= 150000 && !eng.ssme && !eng.srb && !eng.oms &&
+        !(snapshot.burn && snapshot.burn.active));
+      const button = this.lccConsoleOverlay.querySelector("#btn-lcc-gmat");
+      if (button) {
+        button.disabled = !canForecast || !!this._lccGmatRequest;
+        button.textContent = this._lccGmatRequest ? "Calculating…" : "Calculate coast with GMAT";
+      }
+      const result = this._lccGmatResult;
+      const resultMatches = result && snapshot && result.missionId === snapshot.missionId;
+      setText("#lcc-gmat-result", this._lccGmatMessage || (resultMatches
+        ? `GMAT estimate +${result.horizonSeconds} s from simulation time ${result.sourceSimTime.toFixed(0)} s: altitude ${result.altitudeKm.toFixed(1)} km · speed ${result.inertialSpeedKmS.toFixed(2)} km/s.`
+        : "GMAT forecast is available above 150 km with engines off. It estimates a 120-second coast."));
+    }
+
+    _requestLccGmatForecast() {
+      const net = window.netManager;
+      const snapshot = net && net.snapshot;
+      const t = snapshot && snapshot.telemetry;
+      const eng = snapshot && snapshot.vehicle && snapshot.vehicle.eng;
+      if (this.missionPhase !== "launch" || !net || !net.connected || !net.socket || !t || !eng ||
+          ["briefing", "prelaunch", "ascent"].includes(snapshot.phase) || !Number.isFinite(t.altitudeM) || t.altitudeM < 150000 ||
+          eng.ssme || eng.srb || eng.oms || (snapshot.burn && snapshot.burn.active) || this._lccGmatRequest) return;
+
+      const request = { missionId: snapshot.missionId };
+      this._lccGmatRequest = request;
+      this._lccGmatMessage = "GMAT is calculating the coast forecast…";
+      this._syncLccConsoleLive();
+      net.socket.timeout(60000).emit("shuttle_gmat_coast", (error, response) => {
+        if (this._lccGmatRequest !== request) return;
+        this._lccGmatRequest = null;
+        const current = window.netManager && window.netManager.snapshot;
+        if (!current || current.missionId !== request.missionId) {
+          this._lccGmatResult = null;
+          this._lccGmatMessage = "The flight changed. Calculate a new forecast.";
+        } else if (error || !response || !response.success) {
+          this._lccGmatMessage = (response && response.error) || "GMAT could not complete the forecast. Try again.";
+        } else {
+          this._lccGmatResult = response.prediction;
+          this._lccGmatMessage = "";
+        }
+        this._syncLccConsoleLive();
+      });
     }
 
     _renderLccConsole() {
@@ -7208,6 +7287,23 @@
             <div id="lcc-cabin-video" style="width:100%;"></div>
           </div>
 
+          <div class="ground-lcc-card" style="grid-column:1/-1;gap:10px;">
+            <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;">
+              <strong style="color:#f8fafc;">Shuttle flight data</strong>
+              <span id="lcc-shuttle-status" style="font-size:12px;color:#93c5fd;">Waiting for Shuttle launch data.</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;font-size:12px;color:#a9bdca;">
+              <div>Altitude<br><strong id="lcc-shuttle-altitude" style="color:#f8fafc;">—</strong></div>
+              <div>Air speed<br><strong id="lcc-shuttle-air-speed" style="color:#f8fafc;">—</strong></div>
+              <div>Vertical speed<br><strong id="lcc-shuttle-vertical-speed" style="color:#f8fafc;">—</strong></div>
+              <div>Dynamic pressure<br><strong id="lcc-shuttle-dynamic-pressure" style="color:#f8fafc;">—</strong></div>
+              <div>Mach number<br><strong id="lcc-shuttle-mach" style="color:#f8fafc;">—</strong></div>
+              <div>Main engine throttle<br><strong id="lcc-shuttle-throttle" style="color:#f8fafc;">—</strong></div>
+            </div>
+            <button type="button" class="ground-action-btn" id="btn-lcc-gmat" disabled>Calculate coast with GMAT</button>
+            <div id="lcc-gmat-result" role="status" style="font-size:12px;color:#b9cbd6;line-height:1.5;">GMAT forecast is available above 150 km with engines off. It estimates a 120-second coast.</div>
+          </div>
+
           <div class="ground-lcc-card${roleId === "flight_director" ? " is-role-focus" : ""}">
             <div style="font-family:var(--font-mono);font-size:11.5px;letter-spacing:1px;color:#94a3b8;">LAUNCH & DOCKING OK · FLIGHT DIRECTOR</div>
             <button type="button" class="ground-action-btn ${this._groundOpButtonAttrs(gs.goNoGoLaunch, pollActive)}" ${this._groundActionLockAttrs("go_nogo_launch")} data-lcc-op="go_nogo_launch" style="text-align:left;padding:9px 12px;font-size:11.5px;">
@@ -7264,6 +7360,8 @@
 
       const btnClose = this.lccConsoleOverlay.querySelector("#btn-lcc-close");
       if (btnClose) btnClose.addEventListener("click", () => this.openLccConsole(false));
+      const btnGmat = this.lccConsoleOverlay.querySelector("#btn-lcc-gmat");
+      if (btnGmat) btnGmat.addEventListener("click", () => this._requestLccGmatForecast());
       const btnLccComms = this.lccConsoleOverlay.querySelector("#btn-lcc-comms");
       if (btnLccComms) btnLccComms.addEventListener("click", () => {
         if (window.crewComms && typeof window.crewComms.openPanel === "function") {
@@ -7311,6 +7409,7 @@
           if (targetRoom) this._triggerGroundAction("ping_room", { targetRoom, message: "PLEASE CHECK THIS ROOM — EARTH CONTROL" });
         });
       });
+      this._syncLccConsoleLive();
     }
 
     _syncSpaceGamesLock() {
