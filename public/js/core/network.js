@@ -915,7 +915,9 @@
         explicitRole: explicit,
         team: this.localPlayer.team,
         isPublic: opts.isPublic !== false,
-        opsMode: opts.opsMode || undefined
+        opsMode: opts.opsMode || undefined,
+        activity: opts.activity || undefined,
+        flight: opts.flight || undefined
       });
     }
 
@@ -979,7 +981,9 @@
         isPublic: false,
         opsMode: opts.opsMode || "iss_expedition",
         scenarioId: opts.scenarioId || undefined,
-        difficultyId: opts.difficultyId || undefined
+        difficultyId: opts.difficultyId || undefined,
+        activity: opts.activity || undefined,
+        flight: opts.flight || undefined
       });
     }
 

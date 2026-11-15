@@ -279,7 +279,6 @@
       <div class="title-nav-scrim" id="title-nav-scrim" aria-hidden="true"></div>
       <nav class="title-nav" id="title-primary-nav" aria-label="Primary">
         <button type="button" class="title-nav-link is-active">FLIGHT DECK</button>
-        <button type="button" class="title-nav-link" id="btn-open-hangar-menu">HANGAR</button>
         <button type="button" class="title-nav-link" id="btn-title-settings">SETTINGS</button>
       </nav>
       <div class="title-top-actions">
@@ -313,6 +312,11 @@
       <div class="title-callsign-row">
         <label class="title-callsign-lbl" for="input-player-name">YOUR NAME</label>
         <input type="text" id="input-player-name" class="title-callsign-input" placeholder="Alex" maxlength="16" />
+      </div>
+
+      <div class="title-activity-row" role="group" aria-label="Mission activity">
+        <button type="button" class="title-util-btn" id="btn-activity-shuttle" data-activity="shuttle" aria-pressed="true" title="Space Shuttle launch, ISS docking and station operations">SHUTTLE / STATION</button>
+        <button type="button" class="title-util-btn" id="btn-activity-coverage" data-activity="coverage" aria-pressed="false" title="CubeSat contact coverage: orbit, ground stations and pass predictions">CUBESAT COVERAGE</button>
       </div>
 
       <div class="title-cta-row">

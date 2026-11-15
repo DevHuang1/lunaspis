@@ -54,7 +54,17 @@ check("Toolbar COMMS button owns the unread badge",
   /id="crew-comms-badge"/.test(indexHtml) &&
   /getElementById\(["']btn-hud-comms["']\)/.test(mainJs));
 
-console.log("\n=== 2. DEAD HUD MARKUP/CSS REMOVED ===");
+console.log("\n=== 2. LANDING PAGE SCOPE ===");
+check("Hangar, Dossier and Past Flights are absent from the landing page",
+  !/btn-open-hangar-menu|btn-title-dossier|btn-open-mission-log|>HANGAR<|>DOSSIER<|PAST FLIGHTS/.test(indexHtml));
+check("Landing activity picker exposes Shuttle/Station and CubeSat Coverage",
+  /id="btn-activity-shuttle"[^>]*aria-pressed="true"/.test(indexHtml) &&
+  /id="btn-activity-coverage"[^>]*aria-pressed="false"/.test(indexHtml));
+check("Landing activity picker styles exist",
+  /\.title-activity-row\s*\{/.test(premiumCss) &&
+  /\.title-util-btn\[aria-pressed="true"\]/.test(premiumCss));
+
+console.log("\n=== 3. DEAD HUD MARKUP/CSS REMOVED ===");
 check("Legacy race/task bar markup is gone",
   !/hud-race-bar-container|hud-task-bar-container|hud-task-track|hud-race-team/.test(indexHtml));
 check("Legacy race/task bar selectors are gone from CSS",
@@ -62,7 +72,7 @@ check("Legacy race/task bar selectors are gone from CSS",
 check("Legacy race/task DOM writers are gone",
   !/race-score-coop|race-fill-coop/.test(gameplayJs));
 
-console.log("\n=== 3. COLLAPSED DEFAULTS ===");
+console.log("\n=== 4. COLLAPSED DEFAULTS ===");
 check("Mission Hub starts collapsed", /classList\.add\(["']collapsed["']\)/.test(mainJs));
 check("Mission Hub exposes a NEXT line in the collapsed header",
   /id="hud-checklist-next"/.test(indexHtml) &&
@@ -73,7 +83,7 @@ check("Ground HUD starts collapsed", /this\.hudCollapsed = true/.test(
   read("public/js/world/space_center.js")
 ));
 
-console.log("\n=== 4. FIXED-HUD SAFE ZONES ===");
+console.log("\n=== 5. FIXED-HUD SAFE ZONES ===");
 check("Top-right toolbar collapses to icon-only at <=1600px",
   /@media \(max-width: 1600px\)[\s\S]{0,900}\.voice-btn__label[\s\S]{0,100}display:\s*none/.test(polishCss));
 check("Compact toolbar is width-capped so it cannot reach the centre-top pill",
@@ -93,7 +103,7 @@ check("Mobile hides perf pill, compass, crosshair, map and key strip",
 check("Compass and crosshair are hidden while on foot",
   /body\.ground-mode-active #hud-compass,[\s\S]{0,120}body\.ground-mode-active #hud-crosshair/.test(styleCss));
 
-console.log("\n=== 5. GROUND HUD DENSITY ===");
+console.log("\n=== 6. GROUND HUD DENSITY ===");
 check("Resource strip is limited to BUDGET / MASS / POWER",
   /hudMetrics\s*=\s*metrics\.filter\([\s\S]{0,180}budget[\s\S]{0,80}mass[\s\S]{0,80}power/.test(gameplayJs));
 check("Ground CAR action only appears when driving or near the car",

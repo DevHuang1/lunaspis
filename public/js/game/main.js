@@ -672,13 +672,6 @@
         window.addEventListener("keydown", finishBoot, { once: true });
       }
     }
-    const btnHangarMenu = document.getElementById("btn-open-hangar-menu");
-    if (btnHangarMenu) {
-      btnHangarMenu.addEventListener("click", () => {
-        if (window.glbManager) window.glbManager.openHangar();
-      });
-    }
-
     const settingsBtn = document.getElementById("btn-title-settings");
     if (settingsBtn) {
       settingsBtn.addEventListener("click", () => {
@@ -1421,6 +1414,31 @@
     // It remains reachable with ?shuttle=1 for direct launch-to-landing practice.
     const standaloneShuttleMode = /[?&]shuttle=1/.test(window.location.search);
 
+    // Title-screen activity picker: Shuttle/Station expedition or CubeSat coverage.
+    let selectedActivity = "shuttle";
+    let selectedFlight = "deploy";
+    try {
+      if (localStorage.getItem("interfellas_flight") === "iss") selectedFlight = "iss";
+      if (localStorage.getItem("interfellas_activity") === "coverage") selectedActivity = "coverage";
+    } catch (e) { /* storage blocked */ }
+    const applyActivity = (activity) => {
+      selectedActivity = activity === "coverage" ? "coverage" : "shuttle";
+      try { localStorage.setItem("interfellas_activity", selectedActivity); } catch (e) { /* storage blocked */ }
+      document.querySelectorAll("[data-activity]").forEach((btn) => {
+        btn.setAttribute("aria-pressed", String(btn.getAttribute("data-activity") === selectedActivity));
+      });
+      const quickLabel = document.querySelector("#btn-quick-play span");
+      if (quickLabel) quickLabel.textContent = selectedActivity === "coverage" ? "START COVERAGE" : "INITIATE";
+      if (btnHost) btnHost.textContent = selectedActivity === "coverage" ? "HOST COVERAGE" : "HOST EXPEDITION";
+    };
+    document.querySelectorAll("[data-activity]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        applyActivity(btn.getAttribute("data-activity"));
+        if (window.spaceAudio) window.spaceAudio.playClick();
+      });
+    });
+    applyActivity(selectedActivity);
+
     const lobbyRoomCode = document.getElementById("lobby-room-code");
     const btnCopyLink = document.getElementById("btn-copy-invite");
     const btnStartMission = document.getElementById("btn-start-mission");
@@ -1470,7 +1488,9 @@
         window.netManager.createRoom(name, color, null, {
           explicitRole: false,
           isPublic: false,
-          opsMode: standaloneShuttleMode ? "shuttle_flight" : "iss_expedition"
+          opsMode: standaloneShuttleMode ? "shuttle_flight" : "iss_expedition",
+          activity: selectedActivity,
+          flight: selectedFlight
         });
       });
     }
@@ -1495,7 +1515,9 @@
         const color = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.color)
           || (currentAstronaut ? currentAstronaut.suit_color : "#c9f04b");
         window.netManager.startSolo(name, color, null, {
-          opsMode: standaloneShuttleMode ? "shuttle_flight" : "iss_expedition"
+          opsMode: standaloneShuttleMode ? "shuttle_flight" : "iss_expedition",
+          activity: selectedActivity,
+          flight: selectedFlight
         });
       });
     }
