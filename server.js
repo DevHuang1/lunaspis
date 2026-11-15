@@ -2303,6 +2303,7 @@ function serializeRoom(room) {
     systems: room.systems,
     tasks: room.tasks,
     artemisDuties: room.artemisDuties || null,
+    chatHistory: Array.isArray(room.chatHistory) ? room.chatHistory.slice(-40) : [],
     mission: serializeMission(room.mission, room)
   };
 }
