@@ -1,11 +1,11 @@
 /*
- * artemis_mission.js — deterministic mission state machine for the Artemis
- * lunar expedition training scenario.
+ * artemis_mission.js — deterministic 13-phase mission state machine for the
+ * Artemis II-inspired crewed lunar flyby simulation.
  *
  * The mission is server-authoritative in co-op and also runs headless in Node
  * for automated checks. It owns phase guards, resource budgets, checkpoints,
- * crew/duty locations and the read-only snapshot consumed by the client.
- * It does not own DOM, Three.js, networking or player identity policy.
+ * crew/duty assignments, continuous orbital/entry state propagation, and the
+ * read-only snapshot consumed by the client.
  */
 (function (root) {
   "use strict";
@@ -16,57 +16,145 @@
   const DT = 1 / 30;
   const COAST_STEP = 60;
 
+  // All 13 active mission phases (plus "debrief" view state after Phase 13 completion)
   const PHASES = [
-    "briefing", "launch", "earth_orbit", "outbound", "lunar_arrival",
-    "lunar_orbit", "docking", "transfer", "descent", "landed", "surface",
-    "ascent", "reunion", "return_prep", "return", "entry", "splashdown", "debrief"
+    "briefing",       // Phase 1: Mission Briefing & Crew Preparation
+    "launch_prep",    // Phase 2: Crew Transportation & Launch Preparation (LC-39B)
+    "launch",         // Phase 3: SLS Launch & Ascent
+    "earth_orbit",    // Phase 4: Earth Orbit, Solar Arrays, HEO Burn & Systems Checkout
+    "prox_ops",       // Phase 5: Proximity Operations Demonstration (with ICPS)
+    "tli_prep",       // Phase 6: Trans-Lunar Injection (TLI)
+    "outbound",       // Phase 7: Outbound Deep-Space Cruise (~4 days)
+    "lunar_flyby",    // Phase 8: Lunar Far-Side Flyby & Communications Blackout
+    "return_coast",   // Phase 9: Free-Return Journey to Earth (~4 days)
+    "entry",          // Phase 10: Service Module Separation & Atmospheric Entry
+    "chutes",         // Phase 11: 11-Parachute Deployment Sequence
+    "splashdown",     // Phase 12: Pacific Ocean Splashdown
+    "recovery",       // Phase 13: Crew Recovery Operations & Mission Debrief
+    "debrief"
   ];
 
-  const OBJECTIVES = [
-    { id: "launch", phase: "launch", label: "Launch SLS and validate a stable Earth orbit" },
-    { id: "tli", phase: "earth_orbit", label: "Authorize the trans-lunar injection burn" },
-    { id: "capture", phase: "lunar_arrival", label: "Capture into the lunar rendezvous orbit" },
-    { id: "dock_lander", phase: "docking", label: "Dock Orion with the waiting lander" },
-    { id: "transfer_out", phase: "transfer", label: "Transfer two crew and check the lander" },
-    { id: "land", phase: "descent", label: "Land at the south-polar training site" },
-    { id: "survey", phase: "surface", label: "Survey, photograph and collect sample A" },
-    { id: "experiment", phase: "surface", label: "Deploy the training experiment and collect sample B" },
-    { id: "ascent", phase: "ascent", label: "Launch from the Moon and rendezvous with Orion" },
-    { id: "tei", phase: "return_prep", label: "Authorize the trans-Earth injection burn" },
-    { id: "entry", phase: "entry", label: "Prepare Orion and complete entry, parachutes and splashdown" }
-  ];
-
-  const CHECKPOINTS = ["launch", "earth_orbit", "lunar_orbit", "docked", "landed", "surface_done", "reunion", "entry"];
-
-  const WARP_LIMIT = {
-    briefing: 1, launch: 4, earth_orbit: 1000, outbound: 1000, lunar_arrival: 10,
-    lunar_orbit: 1000, docking: 4, transfer: 10, descent: 4, landed: 4, surface: 20,
-    ascent: 10, reunion: 4, return_prep: 10, return: 1000, entry: 8, splashdown: 2, debrief: 1
+  const PHASE_META = {
+    briefing:     { num: 1,  title: "PHASE 1 — MISSION BRIEFING & CREW PREPARATION" },
+    launch_prep:  { num: 2,  title: "PHASE 2 — CREW TRANSPORT & PAD 39B PREPARATION" },
+    launch:       { num: 3,  title: "PHASE 3 — SLS BLOCK 1 LAUNCH & ASCENT" },
+    earth_orbit:  { num: 4,  title: "PHASE 4 — EARTH ORBIT, HEO BURN & SYSTEMS CHECKOUT" },
+    prox_ops:     { num: 5,  title: "PHASE 5 — PROXIMITY OPERATIONS DEMONSTRATION" },
+    tli_prep:     { num: 6,  title: "PHASE 6 — TRANS-LUNAR INJECTION (TLI)" },
+    outbound:     { num: 7,  title: "PHASE 7 — OUTBOUND DEEP-SPACE CRUISE" },
+    lunar_flyby:  { num: 8,  title: "PHASE 8 — LUNAR FAR-SIDE FLYBY" },
+    return_coast: { num: 9,  title: "PHASE 9 — FREE-RETURN JOURNEY TO EARTH" },
+    entry:        { num: 10, title: "PHASE 10 — SM SEPARATION & ATMOSPHERIC ENTRY" },
+    chutes:       { num: 11, title: "PHASE 11 — 11-PARACHUTE DEPLOYMENT SEQUENCE" },
+    splashdown:   { num: 12, title: "PHASE 12 — PACIFIC OCEAN SPLASHDOWN" },
+    recovery:     { num: 13, title: "PHASE 13 — CREW RECOVERY & MISSION DEBRIEF" },
+    debrief:      { num: 13, title: "PHASE 13 — MISSION DEBRIEF COMPLETE" }
   };
 
+  const OBJECTIVES = [
+    { id: "briefing_prep",   phase: "briefing",     label: "1. Complete crew readiness & spacecraft checks; authorize launch" },
+    { id: "pad_prep",        phase: "launch_prep",  label: "2. Transport crew to LC-39B, ingress Orion, load SLS cryo propellants & commit launch" },
+    { id: "launch",          phase: "launch",       label: "3. Launch SLS Block 1, separate SRBs/fairings/LAS/Core & reach initial Earth orbit" },
+    { id: "earth_checkout",  phase: "earth_orbit",  label: "4. Deploy solar arrays, execute ICPS HEO burn, complete 24h systems checkout & separate ICPS" },
+    { id: "prox_ops",        phase: "prox_ops",     label: "5. Fly Proximity Operations demo with ICPS target (approach <=38m, then separate >=85m)" },
+    { id: "tli",             phase: "tli_prep",     label: "6. Verify maneuver readiness & execute the Trans-Lunar Injection (TLI) burn" },
+    { id: "outbound_cruise", phase: "outbound",     label: "7. Complete deep-space checks, radiation shelter drill & outbound coast to Lunar Flyby gate" },
+    { id: "lunar_flyby",     phase: "lunar_flyby",  label: "8. Fly ~4,600 mi behind the Moon, photograph far side & clear communications blackout" },
+    { id: "return_coast",    phase: "return_coast", label: "9. Monitor 4-day free-return trajectory, run return checks/trim & reach Entry Interface" },
+    { id: "entry",           phase: "entry",        label: "10. Separate Service Module, orient heat shield & survive ~25,000 mph / 4G / 5,000°F entry" },
+    { id: "chutes",          phase: "chutes",       label: "11. Deploy all 11 parachutes (3 FBC + 2 drogues at 25,000 ft; 3 pilots + 3 mains at 9,000 ft)" },
+    { id: "splashdown",      phase: "splashdown",   label: "12. Splash down <20 mph in the Pacific Ocean, deploy uprighting bags & confirm crew safe" },
+    { id: "recovery",        phase: "recovery",     label: "13. Deploy inflatable front porch, extract crew by helicopter to recovery ship & open debrief" }
+  ];
+
+  const CHECKPOINTS = [
+    "launch_prep", "launch", "earth_orbit", "prox_ops", "tli_prep",
+    "outbound", "lunar_flyby", "return_coast", "entry", "chutes", "splashdown", "recovery"
+  ];
+
+  const WARP_LIMIT = {
+    briefing: 1,
+    launch_prep: 10,
+    launch: 25,
+    earth_orbit: 2000,
+    prox_ops: 4,
+    tli_prep: 2000,
+    outbound: 10000,
+    lunar_flyby: 500,
+    return_coast: 10000,
+    entry: 20,
+    chutes: 10,
+    splashdown: 2,
+    recovery: 2,
+    debrief: 1
+  };
+
+  // Preserves the 4 server duty keys so server.js assignArtemisDuties works without change
   const DUTIES = {
-    surface_pilot: { label: "Surface Pilot", short: "SURF-PLT", color: "#fbbf24" },
-    surface_science: { label: "Surface Science", short: "SURF-SCI", color: "#7fb8a6" },
-    orion_nav: { label: "Orion Navigation", short: "ORION-NAV", color: "#67e8f9" },
-    orion_systems: { label: "Orion Systems", short: "ORION-SYS", color: "#c4b5fd" }
+    surface_pilot:   { label: "Mission Commander (CDR)",        short: "CDR",     color: "#fbbf24", crewName: "Reid Wiseman" },
+    orion_nav:       { label: "Orion Pilot & Navigation (PLT)", short: "PLT-NAV", color: "#67e8f9", crewName: "Victor Glover" },
+    surface_science: { label: "Mission Specialist 1 (MS1)",     short: "MS-1",    color: "#7fb8a6", crewName: "Christina Koch" },
+    orion_systems:   { label: "Mission Specialist 2 (MS2)",     short: "MS-2",    color: "#c4b5fd", crewName: "Jeremy Hansen" }
   };
 
   const COMMAND_DUTY = {
-    START: "surface_pilot", TLI: "orion_nav", CAPTURE: "orion_nav", CIRCULARIZE: "orion_nav",
-    PHASING: "orion_nav", AUTO_DOCK: "orion_nav", TRANSFER_CREW: "orion_systems",
-    UNDOCK: "surface_pilot", SELECT_SITE: "surface_pilot", BEGIN_DESCENT: "surface_pilot",
-    AUTO_LAND: "surface_pilot", EGRESS: "surface_pilot", END_EVA: "surface_pilot",
-    ASCENT: "surface_pilot", TRANSFER_RETURN: "orion_systems", TEI: "orion_nav",
-    ENTRY_PREP: "orion_nav", DEPLOY_CHUTE: "orion_nav", ABORT: "orion_nav",
-    ORION_CHECK: "orion_systems", CHECKOUT: "orion_systems", SURFACE_INTERACT: "surface_pilot",
-    SET_ASSIST: "surface_pilot", PAUSE: "surface_pilot", SET_WARP: "surface_pilot",
-    RETRY_CHECKPOINT: "surface_pilot", RESTART: "surface_pilot"
+    CREW_CHECK: "surface_pilot",
+    SPACECRAFT_CHECK: "orion_systems",
+    START: "surface_pilot",
+    CREW_INGRESS: "surface_pilot",
+    LOAD_PROPELLANT: "orion_systems",
+    COMMIT_LAUNCH: "surface_pilot",
+    STAGE_SRB: "orion_nav",
+    JETTISON_LAS: "orion_nav",
+    DEPLOY_SOLAR_ARRAYS: "orion_systems",
+    CHECKOUT: "orion_systems",
+    HEO_BURN: "orion_nav",
+    ORION_CHECK: "orion_systems",
+    SEPARATE_ICPS: "orion_nav",
+    PROX_APPROACH: "surface_pilot",
+    PROX_HOLD: "surface_pilot",
+    PROX_RETREAT: "surface_pilot",
+    AUTO_PROX: "orion_nav",
+    AUTO_DOCK: "orion_nav",
+    CONFIRM_PROX_EXIT: "surface_pilot",
+    VERIFY_TLI: "orion_nav",
+    TLI: "orion_nav",
+    RADIATION_DRILL: "surface_science",
+    TRAJECTORY_TRIM: "orion_nav",
+    LUNAR_OBSERVATION: "surface_science",
+    CONFIRM_FLYBY_EXIT: "orion_nav",
+    RETURN_CHECK: "orion_systems",
+    RETURN_TRIM: "orion_nav",
+    SEPARATE_SM: "orion_systems",
+    ENTRY_PREP: "orion_nav",
+    DEPLOY_DROGUES: "orion_nav",
+    DEPLOY_MAINS: "orion_nav",
+    DEPLOY_CHUTE: "orion_nav",
+    STABILIZE_CAPSULE: "orion_systems",
+    CONFIRM_CREW_SAFE: "surface_pilot",
+    DEPLOY_FRONT_PORCH: "surface_science",
+    HELICOPTER_EXTRACTION: "surface_pilot",
+    DEBRIEF: "surface_pilot",
+    ABORT: "orion_nav",
+    SET_ASSIST: "surface_pilot",
+    PAUSE: "surface_pilot",
+    SET_WARP: "surface_pilot",
+    RETRY_CHECKPOINT: "surface_pilot",
+    RESTART: "surface_pilot"
   };
 
-  const clone = (o) => JSON.parse(JSON.stringify(o));
+  const CREW_ROSTER = [
+    { id: "cdr", name: "Reid Wiseman",   role: "Commander (NASA)",            duty: "surface_pilot",   status: "NOMINAL" },
+    { id: "plt", name: "Victor Glover",  role: "Pilot (NASA)",                duty: "orion_nav",       status: "NOMINAL" },
+    { id: "ms1", name: "Christina Koch", role: "Mission Specialist 1 (NASA)", duty: "surface_science", status: "NOMINAL" },
+    { id: "ms2", name: "Jeremy Hansen",  role: "Mission Specialist 2 (CSA)",  duty: "orion_systems",   status: "NOMINAL" }
+  ];
+
   const fmtT = (t) => {
-    const s = Math.max(0, Math.floor(t || 0));
-    return `${String(Math.floor(s / 86400)).padStart(2, "0")}:${String(Math.floor(s / 3600) % 24).padStart(2, "0")}:${String(Math.floor(s / 60) % 60).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+    const neg = t < 0;
+    const s = Math.floor(Math.abs(t || 0));
+    const body = `${String(Math.floor(s / 86400)).padStart(2, "0")}:${String(Math.floor(s / 3600) % 24).padStart(2, "0")}:${String(Math.floor(s / 60) % 60).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+    return neg ? `-${body}` : body;
   };
 
   class ArtemisMission {
@@ -78,106 +166,393 @@
 
     reset() {
       this.serial += 1;
-      this.missionId = `ART-T${String(this.serial).padStart(2, "0")}-${Date.now().toString(36).slice(-4)}`;
-      this.revision = 0; this.eventSeq = 0;
+      this.missionId = `ART2-${String(this.serial).padStart(2, "0")}-${Date.now().toString(36).slice(-4)}`;
+      this.revision = 0;
+      this.eventSeq = 0;
       this.phase = "briefing";
       this.t = 0;
-      this.warp = 1; this.warpReq = 1; this.paused = false; this.exited = false;
+      this.warp = 1;
+      this.warpReq = 1;
+      this.paused = false;
+      this.exited = false;
       this.eventHold = null;
-      this.assist = true; this.autoLand = false; this.autoDock = false;
-      this.obj = {}; OBJECTIVES.forEach((o) => (this.obj[o.id] = "pending"));
-      this.failure = null; this.result = null;
-      this.retries = 0; this.checkpoints = {};
-      this.messages = []; this.events = [];
-      this.flags = { launchLiftoff: false, srbSep: false, coreSep: false, meco: false, orbit: false, tli: false, capture: false, circular: false, phasing: false, dockedLander: false, transferOut: false, landed: false, egress: false, samples: 0, photos: 0, experiment: false, ascent: false, reunion: false, transferReturn: false, tei: false, entry: false, chute: false, splash: false };
-      this.crew = { surface: this.opts.surfaceCrew || ["surface-1", "surface-2"], orion: this.opts.orionCrew || ["orion-1", "orion-2"] };
-      this.duties = this.opts.duties || null;
-      this.orion = SIM.makeVehicle("orion", SIM.parkingState(0).r, SIM.parkingState(0).v, [1, 0, 0, 0]);
-      this.lander = SIM.makeVehicle("lander", [SIM.RM + 100000, 0, 0], [0, 0, 0], [1, 0, 0, 0]);
-      this.icps = { prop: SIM.VEHICLES.icps.prop, dry: SIM.VEHICLES.icps.dry, isp: SIM.VEHICLES.icps.isp };
-      this.launch = { elapsed: 0, stage: "prelaunch", maxQ: 0, slsProp: SIM.VEHICLES.sls.prop };
-      this.tliPlan = null; this.teiPlan = null; this.capturePlan = null;
-      this.docking = { active: false, target: "lander", pos: [0, 0, 120], vel: [0, 0, -0.18], quat: [1, 0, 0, 0], rates: [0, 0, 0], range: 120, closure: 0.18, lateral: 0, alignErr: 0, docked: false, collisions: 0 };
-      this.descent = { active: false, final: false, siteId: SIM.SITES[0].id, x: 0, z: 0, alt: 15000, vx: 0, vy: -20, vz: 0, pitch: 0, roll: 0, yaw: 0, throttle: 0, fuelStart: this.lander.descentProp, terrainH: 0, slope: 0 };
-      this.surface = { active: false, elapsed: 0, astronauts: {}, tasks: { photo: false, sampleA: false, experiment: false, sampleB: false }, samples: 0, photos: 0, experimentDeployed: false, endRequested: false };
-      this.entry = { ready: false, active: false, alt: 0, speed: 0, gamma: 0, bank: 0, chute: false, heat: 0, loadG: 0, maxHeat: 0, maxG: 0, downrange: 0 };
-      this.returnAbort = false;
+      this.assist = true;
+      this.autoDock = false;
+      this.autoLand = false;
+
+      this.obj = {};
+      OBJECTIVES.forEach((o) => (this.obj[o.id] = "pending"));
+      this.failure = null;
+      this.result = null;
+      this.retries = 0;
+      this.checkpoints = {};
+      this.messages = [];
+      this.events = [];
       this.log = [];
-      this._say("Artemis lunar expedition ready. This is a training scenario, not an exact reconstruction of an unflown mission.");
+
+      this.flags = {
+        crewReady: false,
+        spacecraftChecked: false,
+        launchAuthorized: false,
+        crewIngress: false,
+        propLoaded: false,
+        launchCommitted: false,
+        rofi: false,
+        rs25: false,
+        launchLiftoff: false,
+        maxQ: false,
+        srbSep: false,
+        fairingSep: false,
+        lasJettison: false,
+        meco: false,
+        coreSep: false,
+        orbit: false,
+        solarArrays: false,
+        checkout: false,
+        heoBurn: false,
+        orionCheck: false,
+        icpsSep: false,
+        proxInspected: false,
+        proxRetreated: false,
+        proxDone: false,
+        tliVerified: false,
+        tli: false,
+        outboundCheck: false,
+        radiationDrill: false,
+        outboundTrim: false,
+        flybyStarted: false,
+        blackoutEntered: false,
+        perilunePassed: false,
+        blackoutCleared: false,
+        lunarObserved: false,
+        flybyDone: false,
+        returnCheck: false,
+        returnTrim: false,
+        smSeparated: false,
+        entryReady: false,
+        entryDone: false,
+        fbcDeployed: false,
+        droguesDeployed: false,
+        pilotsDeployed: false,
+        mainsDeployed: false,
+        splash: false,
+        capsuleStabilized: false,
+        crewConfirmedSafe: false,
+        frontPorch: false,
+        crewExtracted: false,
+        recoveryComplete: false
+      };
+
+      this.crew = {
+        surface: this.opts.surfaceCrew || ["surface-1", "surface-2"],
+        orion: this.opts.orionCrew || ["orion-1", "orion-2"],
+        roster: CREW_ROSTER.map((c) => Object.assign({}, c))
+      };
+      this.duties = this.opts.duties || null;
+
+      const pad = SIM.ascentProfile(-15);
+      this.orion = SIM.makeVehicle("orion", pad.r, pad.v, [1, 0, 0, 0]);
+      // Preserved dummy lander object in snapshot so any legacy consumer reading vessel.lander does not throw
+      this.lander = SIM.makeVehicle("lander", [SIM.RM + 100000, 0, 0], [0, 0, 0], [1, 0, 0, 0]);
+      this.icps = {
+        prop: SIM.VEHICLES.icps.prop,
+        propStart: SIM.VEHICLES.icps.prop,
+        dry: SIM.VEHICLES.icps.dry,
+        isp: SIM.VEHICLES.icps.isp,
+        attached: true,
+        r: pad.r.slice(),
+        v: pad.v.slice()
+      };
+
+      this.launch = {
+        elapsed: -15,
+        stage: "prelaunch",
+        propLoadPct: 0,
+        padReady: false,
+        maxQ: 0,
+        alt: 0,
+        speed: 0,
+        accelG: 0,
+        pitchDeg: 90,
+        thrustMlbs: 0,
+        srbPropPct: 100,
+        corePropPct: 100,
+        slsProp: SIM.VEHICLES.sls.prop
+      };
+
+      this.orbitState = {
+        initialOrbitElapsed: 0,
+        heoElapsed: 0,
+        tliPrepElapsed: 0,
+        periapsisAltKm: 200,
+        apoapsisAltKm: 2200,
+        periodHours: 1.5
+      };
+
+      // Phase 5 Proximity Operations state (Orion relative to separated ICPS + adapter)
+      this.prox = {
+        active: false,
+        pos: [0, 0, 75],
+        vel: [0, 0, 0],
+        rates: [0, 0, 0],
+        range: 75,
+        minRange: 75,
+        maxRange: 75,
+        closure: 0,
+        lateral: 0,
+        alignErr: 2.2,
+        inspected: false,
+        retreated: false,
+        autoMode: false,
+        guided: null
+      };
+      // Alias for snapshot compatibility
+      this.docking = this.prox;
+
+      this.tliPlan = null;
+      this.teiPlan = null;
+
+      this.flyby = {
+        active: false,
+        inBlackout: false,
+        blackoutDuration: 0,
+        closestAltKm: Infinity,
+        maxEarthDistKm: 0,
+        lunarObserved: false,
+        perilunePassed: false,
+        blackoutEntered: false,
+        blackoutCleared: false
+      };
+
+      this.entry = {
+        smSeparated: false,
+        ready: false,
+        active: false,
+        alt: SIM.ENTRY_ALT,
+        speed: 10998,
+        gamma: -1.4 * DEG,
+        bank: 0,
+        chute: false,
+        heat: 0,
+        tempF: 70,
+        loadG: 0,
+        maxHeat: 0,
+        maxTempF: 70,
+        maxG: 0,
+        downrange: 0,
+        plasmaBlackout: false
+      };
+
+      this.chutes = {
+        active: false,
+        fbcDeployed: false,
+        droguesDeployed: false,
+        pilotsDeployed: false,
+        mainsDeployed: false,
+        totalDeployed: 0,
+        stageLabel: "STOWED"
+      };
+
+      this.splashdownState = {
+        splashed: false,
+        speedMps: 0,
+        speedMph: 0,
+        stabilized: false,
+        uprightBags: false,
+        crewSafe: false,
+        latDeg: 32.5,
+        lonDeg: -118.2,
+        region: SIM.SPLASHDOWN.region
+      };
+
+      this.recoveryState = {
+        active: false,
+        shipOnStation: false,
+        frontPorch: false,
+        crewExtracted: false,
+        shipRecovered: false
+      };
+
+      this.telemetry = {
+        maxSpeedMps: 0,
+        maxEarthDistKm: SIM.RE / 1000,
+        closestLunarAltKm: Infinity,
+        maxEntryG: 0,
+        maxHeatTempF: 70,
+        photos: 0,
+        observations: 0
+      };
+
+      this.descent = { active: false, siteId: SIM.SITES[0].id, alt: 0, vx: 0, vy: 0, vz: 0, slope: 0 };
+      this.surface = { active: false, elapsed: 0, samples: 0, photos: 0, tasks: {}, astronauts: {}, targets: {} };
+      this.returnAbort = false;
+
+      this._say("Artemis II Crewed Lunar Flyby ready. Complete Phase 1 crew & spacecraft readiness checks, then authorize launch preparation.", "info");
       return this;
     }
 
-    // ---------------------------------------------------------------- events
+    // ---------------------------------------------------------------- events & checkpoints
     _emit(type, data) {
       const e = Object.assign({ id: `${this.missionId}-${++this.eventSeq}`, type, t: this.t, phase: this.phase }, data || {});
-      this.events.push(e); this.revision++;
+      this.events.push(e);
+      this.revision++;
       return e;
     }
+
     _say(text, level) {
       this.messages.push({ t: this.t, text, level: level || "info" });
       if (this.messages.length > 60) this.messages.shift();
       this.log.push({ t: this.t, text, level: level || "info" });
       if (this.log.length > 200) this.log.shift();
     }
-    drainEvents() { const e = this.events; this.events = []; return e; }
-    _done(id) { if (this.obj[id] !== "done") { this.obj[id] = "done"; this._emit("OBJECTIVE_DONE", { objective: id }); } }
-    _setPhase(p) {
-      if (this.phase !== p) {
-        const from = this.phase; this.phase = p;
-        this._emit("PHASE_CHANGED", { from, to: p });
-        this._say(`PHASE: ${String(p).replace(/_/g, " ").toUpperCase()}`, "info");
-        this._saveCheckpointForPhase(p);
+
+    drainEvents() {
+      const e = this.events;
+      this.events = [];
+      return e;
+    }
+
+    _done(id) {
+      if (this.obj[id] !== "done") {
+        this.obj[id] = "done";
+        this._emit("OBJECTIVE_DONE", { objective: id });
       }
     }
-    _saveCheckpointForPhase(p) {
-      const names = { earth_orbit: "earth_orbit", lunar_orbit: "lunar_orbit", landed: "landed", reunion: "reunion", entry: "entry" };
-      if (names[p]) this._saveCheckpoint(names[p]);
+
+    _setPhase(p) {
+      if (this.phase !== p) {
+        const from = this.phase;
+        this.phase = p;
+        const meta = PHASE_META[p];
+        this._emit("PHASE_CHANGED", { from, to: p, phaseNumber: meta ? meta.num : 1 });
+        this._say(meta ? meta.title : `PHASE: ${String(p).toUpperCase()}`, "info");
+        if (CHECKPOINTS.includes(p)) this._saveCheckpoint(p);
+      }
     }
+
     _saveCheckpoint(name) {
       if (!name) return;
       this.checkpoints[name] = JSON.stringify({
-        v: 1, phase: this.phase, t: this.t, orion: this.orion, lander: this.lander,
-        icps: this.icps, launch: this.launch, obj: this.obj, flags: this.flags,
-        crew: this.crew, docking: this.docking, descent: this.descent,
-        surface: this.surface, entry: this.entry, returnAbort: this.returnAbort,
-        tliPlan: this.tliPlan, teiPlan: this.teiPlan, capturePlan: this.capturePlan,
-        assist: this.assist, autoLand: this.autoLand, autoDock: this.autoDock
+        v: 2,
+        phase: this.phase,
+        t: this.t,
+        orion: this.orion,
+        icps: this.icps,
+        launch: this.launch,
+        orbitState: this.orbitState,
+        prox: this.prox,
+        tliPlan: this.tliPlan,
+        teiPlan: this.teiPlan,
+        flyby: this.flyby,
+        entry: this.entry,
+        chutes: this.chutes,
+        splashdownState: this.splashdownState,
+        recoveryState: this.recoveryState,
+        telemetry: this.telemetry,
+        obj: this.obj,
+        flags: this.flags,
+        crew: this.crew,
+        returnAbort: this.returnAbort,
+        assist: this.assist
       });
       this._emit("CHECKPOINT_SAVED", { name });
     }
+
     _restore(name) {
       const c = JSON.parse(this.checkpoints[name]);
-      if (c.v !== 1) throw new Error("Unsupported Artemis checkpoint");
-      this.phase = c.phase; this.t = c.t; this.orion = c.orion; this.lander = c.lander;
-      this.icps = c.icps; this.launch = c.launch; this.obj = c.obj; this.flags = c.flags;
-      this.crew = c.crew; this.docking = c.docking; this.descent = c.descent;
-      this.surface = c.surface; this.entry = c.entry; this.returnAbort = c.returnAbort;
-      this.tliPlan = c.tliPlan; this.teiPlan = c.teiPlan; this.capturePlan = c.capturePlan;
-      this.assist = c.assist; this.autoLand = c.autoLand; this.autoDock = c.autoDock;
-      this.failure = null; this.result = null; this.paused = false; this.eventHold = null;
-      this.warp = 1; this.warpReq = 1; this.retries += 1;
+      if (c.v !== 2) throw new Error("Unsupported Artemis checkpoint version");
+      this.phase = c.phase;
+      this.t = c.t;
+      this.orion = c.orion;
+      this.icps = c.icps;
+      this.launch = c.launch;
+      this.orbitState = c.orbitState;
+      this.prox = c.prox;
+      this.docking = this.prox;
+      this.tliPlan = c.tliPlan;
+      this.teiPlan = c.teiPlan;
+      this.flyby = c.flyby;
+      this.entry = c.entry;
+      this.chutes = c.chutes;
+      this.splashdownState = c.splashdownState;
+      this.recoveryState = c.recoveryState;
+      this.telemetry = c.telemetry;
+      this.obj = c.obj;
+      this.flags = c.flags;
+      this.crew = c.crew;
+      this.returnAbort = c.returnAbort;
+      this.assist = c.assist;
+      this.failure = null;
+      this.result = null;
+      this.paused = false;
+      this.eventHold = null;
+      this.warp = 1;
+      this.warpReq = 1;
+      this.retries += 1;
       this._emit("RESTORED", { name });
-      this._say(`Restored checkpoint ${name.toUpperCase()} — all vessels, crew, resources and samples were restored together.`, "warn");
+      this._say(`Restored checkpoint ${name.toUpperCase()} — spacecraft state, trajectory, crew and resources restored.`, "warn");
     }
-    _fail(reason, extra) {
-      if (this.failure || this.result) return;
-      this.failure = Object.assign({ reason, phase: this.phase, t: this.t, checkpoint: this._bestCheckpoint() }, extra || {});
-      this.paused = true; this.eventHold = "failure";
-      this.result = { success: false, abort: false, failure: this.failure, samples: this.surface.samples, photos: this.surface.photos, fuel: this._fuelMargins(), assistance: this.assist, retries: this.retries, met: this.t };
-      this._emit("FAILED", { reason, checkpoint: this.failure.checkpoint });
-      this._say(`FAILURE — ${reason}`, "fail");
-    }
+
     _bestCheckpoint() {
-      for (let i = CHECKPOINTS.length - 1; i >= 0; i--) if (this.checkpoints[CHECKPOINTS[i]]) return CHECKPOINTS[i];
+      for (let i = CHECKPOINTS.length - 1; i >= 0; i--) {
+        if (this.checkpoints[CHECKPOINTS[i]]) return CHECKPOINTS[i];
+      }
       return null;
     }
+
     _fuelMargins() {
       return {
         orionPropKg: Math.round(this.orion.prop),
         orionRcsKg: Math.round(this.orion.rcs),
-        landerDescentKg: Math.round(this.lander.descentProp),
-        landerAscentKg: Math.round(this.lander.ascentProp),
-        landerRcsKg: Math.round(this.lander.rcs)
+        icpsPropKg: Math.round(this.icps.prop),
+        landerDescentKg: 0,
+        landerAscentKg: 0,
+        landerRcsKg: 0
+      };
+    }
+
+    _fail(reason, extra) {
+      if (this.failure || this.result) return;
+      this.failure = Object.assign({ reason, phase: this.phase, t: this.t, checkpoint: this._bestCheckpoint() }, extra || {});
+      this.paused = true;
+      this.eventHold = "failure";
+      this.result = this._buildResult(false, false);
+      this._emit("FAILED", { reason, checkpoint: this.failure.checkpoint });
+      this._say(`MISSION FAILURE — ${reason}`, "fail");
+    }
+
+    _buildResult(success, abort) {
+      const completedObjectives = OBJECTIVES.filter((o) => this.obj[o.id] === "done").map((o) => o.label);
+      return {
+        success: !!success,
+        abort: !!abort,
+        failure: this.failure || null,
+        samples: this.telemetry.observations,
+        photos: this.telemetry.photos,
+        observations: this.telemetry.observations,
+        fuel: this._fuelMargins(),
+        assistance: this.assist,
+        retries: this.retries,
+        met: this.t,
+        durationDays: +(this.t / 86400).toFixed(2),
+        maxSpeedMps: Math.round(this.telemetry.maxSpeedMps),
+        maxSpeedMph: Math.round(this.telemetry.maxSpeedMps * 2.236936),
+        maxEarthDistKm: Math.round(this.telemetry.maxEarthDistKm),
+        maxEarthDistMi: Math.round(this.telemetry.maxEarthDistKm * 0.621371),
+        closestLunarAltKm: Number.isFinite(this.telemetry.closestLunarAltKm) ? Math.round(this.telemetry.closestLunarAltKm) : null,
+        closestLunarAltMi: Number.isFinite(this.telemetry.closestLunarAltKm) ? Math.round(this.telemetry.closestLunarAltKm * 0.621371) : null,
+        maxEntryG: +this.telemetry.maxEntryG.toFixed(2),
+        maxHeatTempF: Math.round(this.telemetry.maxHeatTempF),
+        splashdown: this.splashdownState.splashed ? {
+          vertical: +this.splashdownState.speedMps.toFixed(1),
+          horizontal: 0,
+          speedMps: +this.splashdownState.speedMps.toFixed(1),
+          speedMph: +this.splashdownState.speedMph.toFixed(1),
+          region: this.splashdownState.region
+        } : null,
+        completedObjectives,
+        crewStatus: "ALL 4 CREW SAFE & RECOVERED",
+        spacecraftStatus: this.splashdownState.splashed ? "ORION CM RECOVERED ABOARD NAVY LPD" : "IN FLIGHT"
       };
     }
 
@@ -198,657 +573,1274 @@
       const ok = (msg) => { if (msg) this._say(msg, "info"); return { accepted: true }; };
       const no = (reason) => ({ accepted: false, reason });
       if (this.exited) return no("Mission exited");
-      if (this.result && !["RESTART", "RETRY_CHECKPOINT", "EXIT", "DEBRIEF"].includes(type)) return no("Mission is complete — retry a checkpoint or return to the lobby");
-      const locked = !!(this.failure || this.result);
+      if (this.result && !["RESTART", "RETRY_CHECKPOINT", "EXIT", "DEBRIEF"].includes(type)) {
+        return no("Mission is complete — open debrief, retry a checkpoint, or return to the lobby");
+      }
+
       switch (type) {
-        case "START":
-          if (this.phase !== "briefing") return no("Mission already started");
-          this._setPhase("launch"); this._saveCheckpoint("launch");
-          this._say("Launch authorization received. SLS guidance is in control; monitor the stack and enjoy the view.", "info");
-          return ok();
-        case "PAUSE": this.paused = !this.paused; return ok(this.paused ? "Paused" : "Resumed");
-        case "EXIT": this.exited = true; this.paused = true; this._emit("EXITED"); return ok("Mission exited — no result recorded.");
-        case "RESTART": this.reset(); return ok("Fresh Artemis mission.");
+        case "PAUSE":
+          this.paused = !this.paused;
+          return ok(this.paused ? "Simulation paused." : "Simulation resumed.");
+        case "EXIT":
+          this.exited = true;
+          this.paused = true;
+          this._emit("EXITED");
+          return ok("Mission exited.");
+        case "RESTART":
+          this.reset();
+          return ok("Mission reset to Phase 1 Briefing.");
         case "RETRY_CHECKPOINT": {
-          const name = a.name || this.failure && this.failure.checkpoint || this._bestCheckpoint();
+          const name = a.name || (this.failure && this.failure.checkpoint) || this._bestCheckpoint();
           if (!name || !this.checkpoints[name]) return no("No checkpoint available");
-          this._restore(name); return ok(`Restored ${name}`);
+          this._restore(name);
+          return ok(`Restored checkpoint ${name.toUpperCase()}.`);
         }
         case "SET_WARP": {
           const max = this._warpLimit();
-          const f = Math.max(1, Math.min(1000, Math.round(Number(a.factor) || 1)));
-          if (f > max) { this.warpReq = max; return no(`Time acceleration limited to ${max}× in this phase`); }
-          this.warpReq = f; return { accepted: true };
+          const f = Math.max(1, Math.min(10000, Math.round(Number(a.factor) || 1)));
+          if (f > max) {
+            this.warpReq = max;
+            return no(`Time acceleration limited to ${max}× in ${this.phase.replace(/_/g, " ").toUpperCase()}`);
+          }
+          this.warpReq = f;
+          if (this.paused && !this.eventHold) this.paused = false;
+          return { accepted: true };
         }
-        case "SET_ASSIST": this.assist = a.on === undefined ? !this.assist : !!a.on; return ok(`Guidance assist ${this.assist ? "ON" : "OFF"}`);
+        case "SET_ASSIST":
+          this.assist = a.on === undefined ? !this.assist : !!a.on;
+          return ok(`Flight guidance assist ${this.assist ? "ON" : "OFF"}.`);
+
+        // ---------------- Phase 1: Mission Briefing & Crew Preparation ----------------
+        case "CREW_CHECK":
+          if (this.phase !== "briefing") return no("Crew preparation check is part of Phase 1 Briefing");
+          this.flags.crewReady = true;
+          this._emit("CREW_READY", { crew: CREW_ROSTER });
+          return ok("Crew readiness confirmed: Wiseman (CDR), Glover (PLT), Koch (MS1), and Hansen (MS2) suited and cleared for flight.");
+
+        case "SPACECRAFT_CHECK":
+          if (this.phase !== "briefing") return no("Spacecraft status check is part of Phase 1 Briefing");
+          this.flags.spacecraftChecked = true;
+          this._emit("SPACECRAFT_READY", {});
+          return ok("Spacecraft & launch vehicle inspection complete: Orion CM, European Service Module, ICPS, and SLS Block 1 nominal.");
+
+        case "START": {
+          if (this.phase !== "briefing" && this.phase !== "launch_prep") return no("Mission already launched");
+          if (this.phase === "briefing") {
+            this.flags.crewReady = true;
+            this.flags.spacecraftChecked = true;
+            this.flags.launchAuthorized = true;
+            this._done("briefing_prep");
+            if (a.skipPrep) {
+              this.flags.crewIngress = true;
+              this.flags.propLoaded = true;
+              this.launch.propLoadPct = 100;
+              this.launch.padReady = true;
+              this._done("pad_prep");
+              this.flags.launchCommitted = true;
+              this.launch.elapsed = -15;
+              this._setPhase("launch");
+              return ok("Launch authorization granted. Terminal countdown T-15s initiated at Launch Complex 39B.");
+            }
+            this._setPhase("launch_prep");
+            return ok("Launch authorization granted. Proceeding to Phase 2: Crew transport to Launch Complex 39B and SLS propellant loading.");
+          }
+          return this._commitLaunch();
+        }
+
+        // ---------------- Phase 2: Crew Transport & Pad 39B Preparation ----------------
+        case "CREW_INGRESS":
+          if (this.phase !== "launch_prep") return no("Crew ingress is available during Phase 2 Launch Preparation");
+          this.flags.crewIngress = true;
+          this._emit("CREW_INGRESS_COMPLETE", {});
+          return ok("Crew transported via Astrovan to LC-39B, ascended Mobile Launcher tower to White Room (274 ft), strapped into Orion, and side hatch sealed.");
+
+        case "LOAD_PROPELLANT":
+          if (this.phase !== "launch_prep") return no("Propellant loading is available during Phase 2 Launch Preparation");
+          this.flags.propLoaded = true;
+          this.launch.propLoadPct = 100;
+          this.launch.padReady = true;
+          this._emit("PROPELLANT_LOADED", { pct: 100 });
+          return ok("SLS Core Stage & ICPS cryogenic LH2/LOX fast-fill and replenish complete (730,000+ gallons). Launch Abort System armed.");
+
+        case "COMMIT_LAUNCH":
+          return this._commitLaunch();
+
+        // ---------------- Phase 3: SLS Launch & Ascent ----------------
+        case "STAGE_SRB":
+          if (this.phase !== "launch") return no("SRB separation is only active during SLS ascent");
+          if (this.launch.elapsed < 115) return no(`Wait until SRB burnout (~T+126s; currently T+${Math.max(0, Math.round(this.launch.elapsed))}s)`);
+          if (this.flags.srbSep) return no("SRBs already separated");
+          this._triggerSrbSep();
+          return ok("Manual SRB separation confirmed.");
+
+        case "JETTISON_LAS":
+          if (this.phase !== "launch") return no("LAS jettison is only active during SLS ascent");
+          if (this.launch.elapsed < 185) return no(`Wait until fairing/LAS window (~T+195s; currently T+${Math.max(0, Math.round(this.launch.elapsed))}s)`);
+          if (this.flags.lasJettison) return no("Fairings and LAS already jettisoned");
+          this._triggerFairingAndLas();
+          return ok("Service module fairings and Launch Abort System jettisoned.");
+
+        // ---------------- Phase 4: Earth Orbit, HEO Burn & Systems Checkout ----------------
+        case "DEPLOY_SOLAR_ARRAYS":
+          if (this.phase !== "earth_orbit") return no("Solar array deployment is performed in Phase 4 Earth Orbit");
+          if (this.flags.solarArrays) return no("Orion solar arrays are already deployed");
+          this.flags.solarArrays = true;
+          this.paused = false;
+          this.eventHold = null;
+          this._emit("SOLAR_ARRAYS_DEPLOYED", {});
+          return ok("Orion European Service Module 4-wing X-wing solar arrays deployed and generating 11.2 kW electrical power.");
+
+        case "CHECKOUT":
+          if (this.phase !== "earth_orbit") return no("Systems checkout is performed in Phase 4 Earth Orbit");
+          if (!this.flags.solarArrays) this.flags.solarArrays = true;
+          this.flags.checkout = true;
+          this.paused = false;
+          this.eventHold = null;
+          this._emit("CHECKOUT", {});
+          return ok("Initial Earth-orbit systems checkout complete: ECLSS cabin O2/N2, star trackers, S-band/Ka-band comms, and thermal control nominal.");
+
+        case "HEO_BURN":
+          return this._heoBurn();
+
+        case "ORION_CHECK":
+          if (this.phase === "earth_orbit") {
+            this.flags.orionCheck = true;
+            this._emit("ORION_CHECK", { phase: this.phase });
+            return ok("24-hour High Earth Orbit systems & life-support checkout complete. Orion is ready for ICPS separation and Proximity Operations.");
+          }
+          if (this.phase === "outbound") {
+            this.flags.outboundCheck = true;
+            this.paused = false;
+            this.eventHold = null;
+            this._emit("ORION_CHECK", { phase: this.phase });
+            return ok("Deep-space cruise check complete: optical navigation, DSN telemetry link, ECLSS CO2/LiOH scrubbers, and fuel cells nominal.");
+          }
+          if (this.phase === "return_coast") {
+            this.flags.returnCheck = true;
+            this.paused = false;
+            this.eventHold = null;
+            this._emit("ORION_CHECK", { phase: this.phase });
+            return ok("Return cruise check complete: Avcoat heat shield survey, RCS thrusters, and entry battery bus verified.");
+          }
+          return no("Systems check is not required in this phase");
+
+        case "SEPARATE_ICPS":
+          return this._separateIcps();
+
+        // ---------------- Phase 5: Proximity Operations Demonstration ----------------
+        case "PROX_APPROACH":
+          if (this.phase !== "prox_ops") return no("Proximity Operations is not active");
+          if (this.prox.inspected) return no("Close-inspection point already achieved — back away or confirm Proximity Operations");
+          this.prox.autoMode = false;
+          this.prox.guided = "approach";
+          this.prox.vel = [0, 0, -0.12];
+          this.orion.rcs = Math.max(0, this.orion.rcs - 3.5);
+          return ok("RCS retrograde burn initiated: Orion drifting in toward the ICPS inspection point at 28 m (continuous translation).");
+
+        case "PROX_HOLD":
+          if (this.phase !== "prox_ops") return no("Proximity Operations is not active");
+          this.prox.guided = null;
+          this.prox.autoMode = false;
+          this.prox.vel = [0, 0, 0];
+          this.prox.rates = [0, 0, 0];
+          this.orion.rcs = Math.max(0, this.orion.rcs - 2.0);
+          this._updateProxMetrics();
+          return ok(`Station-keeping hold established at ${this.prox.range.toFixed(1)} m, alignment error ${this.prox.alignErr.toFixed(1)}°.`);
+
+        case "PROX_RETREAT":
+          if (this.phase !== "prox_ops") return no("Proximity Operations is not active");
+          if (!this.prox.inspected) {
+            return no("Approach within 38 m of the ICPS target to complete the close-inspection check before backing away");
+          }
+          if (this.prox.retreated) return no("Orion is already at safe separation distance");
+          this.prox.autoMode = false;
+          this.prox.guided = "retreat";
+          this.prox.vel = [0, 0, 0.16];
+          this.orion.rcs = Math.max(0, this.orion.rcs - 4.0);
+          return ok("RCS posigrade burn initiated: Orion translating out to 95 m safe separation (continuous).");
+
+        case "AUTO_PROX":
         case "AUTO_DOCK":
-          if (this.phase !== "docking" && this.phase !== "reunion") return no("No docking approach is active");
-          this.autoDock = true; return ok("Auto-dock guidance engaged. The pilot can still take over at any time.");
-        case "AUTO_LAND":
-          if (this.phase !== "descent") return no("Descent is not active");
-          this.autoLand = true; return ok("Auto-land guidance engaged. Final descent is still fuel-limited.");
-        case "TLI": return this._tli();
-        case "CAPTURE": return this._capture();
-        case "CIRCULARIZE": return this._circularize();
-        case "PHASING": return this._phasing();
-        case "TRANSFER_CREW": return this._transferCrew();
-        case "UNDOCK": return this._undock();
-        case "SELECT_SITE": {
-          if (this.phase !== "transfer" && this.phase !== "descent") return no("Select a site after crew transfer, before descent");
-          const site = SIM.siteById(a.siteId);
-          this.descent.siteId = site.id; this.descent.x = 0; this.descent.z = 0;
-          return ok(`Landing site selected: ${site.name}`);
-        }
-        case "BEGIN_DESCENT": return this._beginDescent();
-        case "EGRESS":
-          if (this.phase !== "landed") return no("Touchdown is not confirmed");
-          return this._egress();
+          if (this.phase !== "prox_ops") return no("Proximity Operations is not active");
+          this.prox.autoMode = true;
+          this.prox.guided = null;
+          this.autoDock = true;
+          this.paused = false;
+          this.eventHold = null;
+          return ok("Assisted Proximity Operations guidance engaged: Orion will approach ICPS to 28 m for inspection, then back away to 95 m.");
+
+        case "CONFIRM_PROX_EXIT":
+          return this._confirmProxExit();
+
+        // ---------------- Phase 6: Trans-Lunar Injection (TLI) ----------------
+        case "VERIFY_TLI":
+          if (this.phase !== "tli_prep" && this.phase !== "earth_orbit") return no("TLI verification is performed in Phase 6 TLI Preparation");
+          this.flags.tliVerified = true;
+          this.paused = false;
+          this.eventHold = null;
+          this.tliPlan = SIM.planFreeReturnTLI({ r: this.orion.r, v: this.orion.v }, this.t);
+          this._emit("TLI_VERIFIED", {
+            dv: this.tliPlan ? this.tliPlan.esmDvCost : 1080,
+            periluneAltKm: this.tliPlan ? this.tliPlan.periluneAltKm : 7400
+          });
+          return ok("TLI maneuver verified & Mission Control GO received: Orion Service Module main engine armed for free-return lunar injection.");
+
+        case "TLI":
+          return this._tli();
+
+        // ---------------- Phase 7: Outbound Deep-Space Cruise ----------------
+        case "RADIATION_DRILL":
+          if (this.phase !== "outbound") return no("Radiation shelter drill is conducted during Phase 7 Outbound Deep-Space Cruise");
+          this.flags.radiationDrill = true;
+          this.paused = false;
+          this.eventHold = null;
+          this._emit("RADIATION_DRILL_COMPLETE", {});
+          return ok("Crew radiation shelter & emergency procedure drill complete inside Orion's aft stowage bay.");
+
+        case "TRAJECTORY_TRIM":
+          if (this.phase !== "outbound") return no("Outbound trajectory trim is performed during Phase 7 Outbound Cruise");
+          if (this.orion.rcs < 8) return no("Insufficient RCS propellant for trajectory trim");
+          this.orion.rcs -= 8;
+          this.flags.outboundTrim = true;
+          this.paused = false;
+          this.eventHold = null;
+          this._emit("OUTBOUND_TRIM", { dv: 4.2 });
+          return ok("Outbound trajectory correction burn (4.2 m/s) complete: lunar far-side flyby corridor centered at 4,598 miles altitude.");
+
+        // ---------------- Phase 8: Lunar Far-Side Flyby ----------------
+        case "LUNAR_OBSERVATION":
+          if (this.phase !== "lunar_flyby") return no("Lunar observation is conducted during Phase 8 Lunar Far-Side Flyby");
+          this.flags.lunarObserved = true;
+          this.flyby.lunarObserved = true;
+          this.telemetry.photos += 2;
+          this.telemetry.observations += 2;
+          this.paused = false;
+          this.eventHold = null;
+          this._emit("LUNAR_OBSERVATION", { photos: this.telemetry.photos });
+          return ok("Far-side lunar observation & photography complete: high-resolution imagery of Mare Orientale and far-side highlands recorded.");
+
+        case "CONFIRM_FLYBY_EXIT":
+          return this._confirmFlybyExit();
+
+        // ---------------- Phase 9: Free-Return Journey to Earth ----------------
+        case "RETURN_CHECK":
+          if (this.phase !== "return_coast") return no("Return systems check is performed during Phase 9 Free-Return Journey");
+          this.flags.returnCheck = true;
+          this.paused = false;
+          this.eventHold = null;
+          this._emit("RETURN_CHECK_COMPLETE", {});
+          return ok("Free-return spacecraft health check complete: Avcoat heat shield, CM thrusters, and parachute pyrotechnics verified.");
+
+        case "RETURN_TRIM":
+          if (this.phase !== "return_coast") return no("Return trim burn is performed during Phase 9 Free-Return Journey");
+          if (this.orion.rcs < 10) return no("Insufficient RCS propellant for return corridor trim");
+          this.orion.rcs -= 10;
+          this.flags.returnTrim = true;
+          this.paused = false;
+          this.eventHold = null;
+          this._emit("RETURN_TRIM_COMPLETE", { dv: 5.8 });
+          return ok("Return trajectory correction burn (5.8 m/s) complete: Earth Entry Interface targeted at 75.7 miles over the eastern Pacific.");
+
+        // ---------------- Phase 10: Service Module Separation & Entry ----------------
+        case "SEPARATE_SM":
+          if (this.phase !== "entry" && this.phase !== "return_coast") {
+            return no("Service Module separation occurs immediately prior to Atmospheric Entry");
+          }
+          if (this.phase === "return_coast") {
+            // Allow separating SM right at the end of return coast if close to entry interface
+            this._enterAtmosphericInterface();
+          }
+          this.flags.smSeparated = true;
+          this.entry.smSeparated = true;
+          this._emit("SM_SEPARATED", {});
+          return ok("Orion Crew Module separated from European Service Module. Crew Module 16.5-ft Avcoat heat shield exposed for re-entry.");
+
+        case "ENTRY_PREP":
+          return this._entryPrep();
+
+        // ---------------- Phase 11: 11-Parachute Deployment Sequence ----------------
+        case "DEPLOY_DROGUES":
+          return this._deployDrogues();
+
+        case "DEPLOY_MAINS":
+          return this._deployMains();
+
+        case "DEPLOY_CHUTE":
+          if (this.phase === "entry" && this.entry.alt <= 10000) {
+            this._enterChutesPhase();
+          }
+          if (this.phase !== "chutes") return no("Parachute sequence is only active in Phase 11 Parachute Deployment");
+          if (!this.chutes.droguesDeployed) return this._deployDrogues();
+          return this._deployMains();
+
+        // ---------------- Phase 12: Pacific Ocean Splashdown ----------------
+        case "STABILIZE_CAPSULE":
+          if (this.phase !== "splashdown") return no("Capsule stabilization is performed after Pacific Ocean splashdown");
+          this.flags.capsuleStabilized = true;
+          this.splashdownState.stabilized = true;
+          this.splashdownState.uprightBags = true;
+          this._emit("CAPSULE_STABILIZED", {});
+          return ok("Main parachute risers released and 5 CM Upright System (CMUS) airbags inflated. Orion is floating upright (Stable-1) in the Pacific.");
+
+        case "CONFIRM_CREW_SAFE":
+          if (this.phase !== "splashdown") return no("Crew safety confirmation is performed after splashdown");
+          if (!this.splashdownState.stabilized) {
+            this.flags.capsuleStabilized = true;
+            this.splashdownState.stabilized = true;
+            this.splashdownState.uprightBags = true;
+          }
+          this.flags.crewConfirmedSafe = true;
+          this.splashdownState.crewSafe = true;
+          this._done("splashdown");
+          this.recoveryState.active = true;
+          this.recoveryState.shipOnStation = true;
+          this._setPhase("recovery");
+          this.paused = false;
+          this.eventHold = null;
+          this._emit("CREW_CONFIRMED_SAFE", {});
+          return ok("All 4 crew confirmed safe and healthy. U.S. Navy recovery ship and dive teams are on station for Phase 13 Recovery Operations.");
+
+        // ---------------- Phase 13: Crew Recovery & Mission Debrief ----------------
+        case "DEPLOY_FRONT_PORCH":
+          if (this.phase !== "recovery") return no("Recovery operations are active in Phase 13");
+          this.flags.frontPorch = true;
+          this.recoveryState.frontPorch = true;
+          this._emit("FRONT_PORCH_DEPLOYED", {});
+          return ok("U.S. Navy Pararescue & EOD divers have secured Orion's tending lines and inflated the floating 'front porch' recovery raft.");
+
+        case "HELICOPTER_EXTRACTION":
+          if (this.phase !== "recovery") return no("Helicopter extraction is performed in Phase 13 Recovery");
+          if (!this.recoveryState.frontPorch) {
+            this.flags.frontPorch = true;
+            this.recoveryState.frontPorch = true;
+          }
+          this.flags.crewExtracted = true;
+          this.flags.recoveryComplete = true;
+          this.recoveryState.crewExtracted = true;
+          this.recoveryState.shipRecovered = true;
+          this._done("recovery");
+          this.result = this._buildResult(true, false);
+          this._emit("RECOVERY_COMPLETE", { result: this.result });
+          this._say("Crew extracted via recovery helicopter to the U.S. Navy amphibious recovery ship and Orion secured in the well deck. Mission complete!", "info");
+          return ok();
+
         case "DEBRIEF":
-          if (this.phase !== "splashdown") return no("Debrief is available after splashdown");
+          if (this.phase !== "recovery" && this.phase !== "splashdown" && this.phase !== "debrief") {
+            return no("Debrief is available after splashdown and recovery");
+          }
+          if (!this.result) {
+            this.flags.frontPorch = true;
+            this.recoveryState.frontPorch = true;
+            this.flags.crewExtracted = true;
+            this.flags.recoveryComplete = true;
+            this.recoveryState.crewExtracted = true;
+            this.recoveryState.shipRecovered = true;
+            this._done("splashdown");
+            this._done("recovery");
+            this.result = this._buildResult(true, false);
+          }
           this._setPhase("debrief");
-          return ok("Debrief opened.");
-        case "SURFACE_INTERACT": return this._surfaceInteract(a);
-        case "END_EVA": return this._endEva();
-        case "ASCENT": return this._ascent();
-        case "TRANSFER_RETURN": return this._transferReturn();
-        case "TEI": return this._tei();
-        case "ENTRY_PREP": return this._entryPrep();
-        case "DEPLOY_CHUTE": return this._deployChute();
-        case "ORION_CHECK": return this._orionCheck(a);
-        case "CHECKOUT": return this._checkout();
-        case "ABORT": return this._abort();
-        default: return no(`Unknown command ${type}`);
+          this.paused = true;
+          return ok("Artemis II Mission Debrief opened.");
+
+        case "ABORT":
+          return this._abort();
+
+        default:
+          return no(`Unknown command ${type}`);
       }
     }
 
-    // ---------------------------------------------------------------- launch / earth orbit
+    // ---------------------------------------------------------------- Phase 2 -> 3
+    _commitLaunch() {
+      if (this.phase !== "launch_prep") return { accepted: false, reason: "Commit Launch is available in Phase 2 Launch Preparation" };
+      if (!this.flags.crewIngress) return { accepted: false, reason: "Complete Crew Transport & Orion Ingress first" };
+      if (!this.flags.propLoaded) return { accepted: false, reason: "Complete SLS Cryogenic Propellant Loading & Pad Inspection first" };
+      this.flags.launchCommitted = true;
+      this._done("pad_prep");
+      this.launch.elapsed = -15;
+      this.launch.stage = "countdown";
+      this._setPhase("launch");
+      this.paused = false;
+      this.eventHold = null;
+      this._emit("COUNTDOWN_STARTED", { countdown: -15 });
+      this._say("GO FOR LAUNCH — GLS auto-sequence armed at T-15 seconds. Watch for ROFI sparklers at T-12s and RS-25 ignition at T-6s.", "info");
+      return { accepted: true };
+    }
+
+    // ---------------------------------------------------------------- Phase 3: Launch
+    _triggerSrbSep() {
+      this.flags.srbSep = true;
+      this.launch.stage = "core";
+      this._emit("SRB_SEPARATION", { elapsed: this.launch.elapsed, altKm: this.launch.alt / 1000 });
+      this._say("T+02:06 — Twin Solid Rocket Boosters separated cleanly! Core Stage RS-25 engines continue climbing toward orbit.", "info");
+    }
+
+    _triggerFairingAndLas() {
+      if (!this.flags.fairingSep) {
+        this.flags.fairingSep = true;
+        this._emit("FAIRING_JETTISON", { elapsed: this.launch.elapsed, altKm: this.launch.alt / 1000 });
+        this._say("T+03:15 — Service Module fairing panels separated.", "info");
+      }
+      this.flags.lasJettison = true;
+      this.launch.stage = "core_upper";
+      this._emit("LAS_JETTISON", { elapsed: this.launch.elapsed, altKm: this.launch.alt / 1000 });
+      this._say("T+03:21 — Launch Abort System (LAS) jettisoned! Orion forward windows are now clear.", "info");
+    }
+
     _advanceLaunch(dt) {
-      this.launch.elapsed += dt; this.t += dt;
+      this.launch.elapsed += dt;
+      if (this.launch.elapsed > 0) this.t += dt;
       const e = this.launch.elapsed;
-      if (!this.flags.launchLiftoff && e >= 8) {
-        this.flags.launchLiftoff = true; this.launch.stage = "ascent";
-        this._emit("LIFTOFF", { alt: 0 }); this._say("LIFTOFF — SLS has cleared the tower. Guidance is controlling pitch, throttle and staging.", "info");
+      const prof = SIM.ascentProfile(e);
+
+      this.launch.alt = prof.alt;
+      this.launch.speed = prof.speed;
+      this.launch.accelG = prof.accelG;
+      this.launch.pitchDeg = prof.pitchDeg;
+      this.launch.thrustMlbs = prof.thrustMlbs;
+      this.launch.srbPropPct = prof.srbPropPct;
+      this.launch.corePropPct = prof.corePropPct;
+      this.launch.maxQ = Math.max(this.launch.maxQ, prof.q);
+      this.launch.slsProp = SIM.VEHICLES.sls.prop * (prof.corePropPct / 100);
+
+      this.orion.r = prof.r.slice();
+      this.orion.v = prof.v.slice();
+      this.orion.loadG = prof.accelG;
+      this.icps.r = prof.r.slice();
+      this.icps.v = prof.v.slice();
+
+      this._updateTelemetry();
+
+      if (!this.flags.rofi && e >= -12) {
+        this.flags.rofi = true;
+        this._emit("ROFI_IGNITION", { countdown: e });
+        this._say("T-12s — Radial Outward Firing Igniters (ROFI) active: burning off free hydrogen under the RS-25 nozzles.", "info");
+      }
+      if (!this.flags.rs25 && e >= -6) {
+        this.flags.rs25 = true;
+        this.launch.stage = "rs25_ignition";
+        this._emit("RS25_IGNITION", { countdown: e });
+        this._say("T-6s — Four RS-25 liquid-fuel engines igniting and throttling up to 1.66 million lbs thrust.", "info");
+      }
+      if (!this.flags.launchLiftoff && e >= 0) {
+        this.flags.launchLiftoff = true;
+        this.launch.stage = "srb_ascent";
+        this._emit("LIFTOFF", { alt: 0, thrustMlbs: 8.8 });
+        this._say("LIFTOFF! Twin SRBs ignited — 8.8 million pounds of thrust carrying Artemis II off Launch Complex 39B!", "info");
+      }
+      if (!this.flags.maxQ && e >= 68) {
+        this.flags.maxQ = true;
+        this._emit("MAX_Q", { q: this.launch.maxQ });
+        this._say("SLS passing through Max-Q (maximum aerodynamic pressure). Vehicle structural loads nominal.", "info");
       }
       if (!this.flags.srbSep && e >= 126) {
-        this.flags.srbSep = true; this.launch.stage = "core";
-        this._emit("SRB_SEPARATION"); this._say("Twin solid rocket boosters separated. Core stage and ICPS continue the climb.", "info");
+        this._triggerSrbSep();
+      }
+      if (!this.flags.fairingSep && e >= 195) {
+        this.flags.fairingSep = true;
+        this._emit("FAIRING_JETTISON", { elapsed: e, altKm: prof.alt / 1000 });
+        this._say("T+03:15 — Three Service Module fairing panels separated at 94 km altitude.", "info");
+      }
+      if (!this.flags.lasJettison && e >= 201) {
+        this._triggerFairingAndLas();
       }
       if (!this.flags.meco && e >= 480) {
-        this.flags.meco = true; this.launch.stage = "meco";
-        this._emit("MECO"); this._say("Main engine cutoff. Core stage separation and ICPS orbit insertion are next.", "info");
+        this.flags.meco = true;
+        this.launch.stage = "meco";
+        this._emit("MECO", { elapsed: e, altKm: prof.alt / 1000 });
+        this._say("T+08:00 — Main Engine Cutoff (MECO). All four RS-25 engines shut down; preparing for Core Stage separation.", "info");
       }
       if (!this.flags.coreSep && e >= 492) {
-        this.flags.coreSep = true; this.launch.stage = "icps";
-        this._emit("CORE_SEPARATION"); this._say("Core stage separated; ICPS is circularizing the Orion stack.", "info");
+        this.flags.coreSep = true;
+        this.launch.stage = "icps_insertion";
+        this._emit("CORE_SEPARATION", { elapsed: e });
+        this._say("T+08:12 — SLS Core Stage separated! ICPS and Orion continuing to initial Earth orbit insertion.", "info");
       }
       if (e >= 510) {
-        const p = SIM.parkingState(this.t);
-        this.orion.r = p.r; this.orion.v = p.v;
+        const p = SIM.parkingState(510);
+        this.orion.r = p.r.slice();
+        this.orion.v = p.v.slice();
+        this.icps.r = p.r.slice();
+        this.icps.v = p.v.slice();
         const el = SIM.elements(this.orion.r, this.orion.v, SIM.MU_E);
         if (!(el.bound && el.periapsisAlt >= 180000)) {
-          this._fail(`Launch guidance did not reach a stable parking orbit (${(el.periapsisAlt / 1000).toFixed(0)} km periapsis).`);
+          this._fail(`Launch guidance did not reach a stable Earth orbit (${(el.periapsisAlt / 1000).toFixed(0)} km periapsis).`);
           return;
         }
-        this.flags.orbit = true; this._done("launch"); this._setPhase("earth_orbit");
-        this._say(`Parking orbit validated from the physical state: ${(el.periapsisAlt / 1000).toFixed(0)} × ${(el.apoapsisAlt / 1000).toFixed(0)} km.`, "info");
-        this.eventHold = "earth_orbit"; this.paused = true;
-        this._emit("ORBIT_VALIDATED", { periapsisAlt: el.periapsisAlt, apoapsisAlt: el.apoapsisAlt });
+        this.flags.orbit = true;
+        this._done("launch");
+        this._setPhase("earth_orbit");
+        this.warpReq = 1;
+        this.paused = true;
+        this.eventHold = "earth_orbit";
+        this._emit("ORBIT_VALIDATED", { periapsisAlt: 200000, apoapsisAlt: 2200000 });
+        this._say("Initial Earth orbit insertion confirmed (~200 × 2,200 km, 90-min period). Deploy Orion solar arrays, run systems checkout, and execute the ICPS High Earth Orbit burn.", "info");
       }
+    }
+
+    // ---------------------------------------------------------------- Phase 4: Earth Orbit & HEO Checkout
+    _advanceEarthOrbit(dt) {
+      const step = Math.min(dt, 30);
+      const next = SIM.kepler(this.orion.r, this.orion.v, step, SIM.MU_E);
+      this.orion.r = next.r;
+      this.orion.v = next.v;
+      if (this.icps.attached) {
+        this.icps.r = next.r.slice();
+        this.icps.v = next.v.slice();
+      }
+      this.t += step;
+      if (!this.flags.heoBurn) {
+        this.orbitState.initialOrbitElapsed += step;
+      } else {
+        this.orbitState.heoElapsed += step;
+      }
+      this._updateTelemetry();
+    }
+
+    _heoBurn() {
+      if (this.phase !== "earth_orbit") return { accepted: false, reason: "ICPS High Earth Orbit burn is performed in Phase 4 Earth Orbit" };
+      if (!this.flags.solarArrays) {
+        this.flags.solarArrays = true;
+        this._emit("SOLAR_ARRAYS_DEPLOYED", {});
+      }
+      if (this.flags.heoBurn) return { accepted: false, reason: "High Earth Orbit raise burn already completed" };
+
+      // Align with perigee of the Earth parking orbit before applying the HEO raise impulse
+      const p = SIM.parkingState(510);
+      this.orion.r = p.r.slice();
+      this.orion.v = p.v.slice();
+      const burn = SIM.planHighEarthOrbitBurn(this.orion.r, this.orion.v);
+      const stackMass = SIM.mass(this.orion) + this.icps.dry + this.icps.prop;
+      const mf = stackMass * Math.exp(-burn.dvMag / (this.icps.isp * SIM.G0));
+      const used = Math.min(this.icps.prop * 0.88, stackMass - mf);
+      this.icps.prop = Math.max(0, this.icps.prop - used);
+      SIM.applyImpulse(this.orion, burn.dv);
+      this.icps.r = this.orion.r.slice();
+      this.icps.v = this.orion.v.slice();
+
+      this.flags.heoBurn = true;
+      this.orbitState.periapsisAltKm = Math.round(burn.targetPeriapsisAlt / 1000);
+      this.orbitState.apoapsisAltKm = Math.round(burn.targetApoapsisAlt / 1000);
+      this.orbitState.periodHours = 24.0;
+      this.paused = false;
+      this.eventHold = null;
+      this._updateTelemetry();
+      this._emit("HEO_BURN_COMPLETE", { dv: burn.dvMag, propUsed: used, apoapsisAltKm: this.orbitState.apoapsisAltKm });
+      this._say(`ICPS High Earth Orbit burn complete (+${Math.round(burn.dvMag)} m/s): orbit raised to ${this.orbitState.periapsisAltKm} × ${this.orbitState.apoapsisAltKm.toLocaleString("en-US")} km (~24h checkout ellipse). Complete systems checkout, then separate from ICPS.`, "info");
+      return { accepted: true };
+    }
+
+    _separateIcps() {
+      if (this.phase !== "earth_orbit") return { accepted: false, reason: "ICPS separation is performed at the end of Phase 4 Earth Orbit" };
+      if (!this.flags.solarArrays) return { accepted: false, reason: "Deploy Orion solar arrays first" };
+      if (!this.flags.heoBurn) return { accepted: false, reason: "Execute the ICPS High Earth Orbit (HEO) raise burn before separating ICPS" };
+      if (!this.flags.checkout) this.flags.checkout = true;
+      if (!this.flags.orionCheck) this.flags.orionCheck = true;
+
+      this.flags.icpsSep = true;
+      this.icps.attached = false;
+      this._done("earth_checkout");
+
+      // Initialize Phase 5 Proximity Operations at 75 m separation from ICPS
+      this.prox = {
+        active: true,
+        target: "icps",
+        pos: [0, 0, 75],
+        vel: [0, 0, 0],
+        rates: [0, 0, 0],
+        range: 75,
+        minRange: 75,
+        maxRange: 75,
+        closure: 0,
+        lateral: 0,
+        alignErr: 2.0,
+        inspected: false,
+        retreated: false,
+        autoMode: false,
+        guided: null
+      };
+      this.docking = this.prox;
+      this.warpReq = 1;
+      this.paused = false;
+      this.eventHold = null;
+      this._setPhase("prox_ops");
+      this._emit("ICPS_SEPARATED", { range: 75 });
+      this._say("Orion separated from ICPS & Stage Adapter! Begin Phase 5 Proximity Operations: approach within 38 m to inspect ICPS, then back away to >=85 m safe separation.", "info");
+      return { accepted: true };
+    }
+
+    // ---------------------------------------------------------------- Phase 5: Proximity Operations
+    _updateProxMetrics() {
+      const p = this.prox;
+      p.range = vec.norm(p.pos);
+      p.minRange = Math.min(p.minRange, p.range);
+      p.maxRange = Math.max(p.maxRange, p.range);
+      p.closure = -p.vel[2];
+      p.lateral = Math.hypot(p.pos[0], p.pos[1]);
+      p.alignErr = Math.hypot(p.rates[0], p.rates[1], p.rates[2]) * 18 + p.lateral * 0.12;
+      if (!p.inspected && p.range <= 38 && p.range >= 8 && p.alignErr <= 8) {
+        p.inspected = true;
+        this.flags.proxInspected = true;
+        if (p.guided === "approach") { p.guided = null; p.vel = [0, 0, 0]; p.rates = [0, 0, 0]; }
+        this._emit("PROX_INSPECTED", { range: p.range });
+        this._say(`Proximity inspection point achieved (${p.range.toFixed(1)} m from ICPS, alignment ${p.alignErr.toFixed(1)}°). Now back away to >=85 m safe separation.`, "info");
+      }
+      if (p.inspected && !p.retreated && p.range >= 85) {
+        p.retreated = true;
+        this.flags.proxRetreated = true;
+        if (p.guided === "retreat") { p.guided = null; p.vel = [0, 0, 0]; p.rates = [0, 0, 0]; }
+        this._emit("PROX_SAFE_DISTANCE", { range: p.range });
+        this._say(`Safe separation distance reached (${p.range.toFixed(1)} m). Confirm Proximity Operations completion to proceed to TLI preparation.`, "info");
+      }
+    }
+
+    _advanceProxOps(dt) {
+      const p = this.prox;
+      if (!p.active) return;
+      // Merge 6-DOF inputs from either docking or descent input channels
+      const d1 = (this.inputs && this.inputs.docking) || {};
+      const d2 = (this.inputs && this.inputs.descent) || {};
+      const i = {
+        tx: d1.tx || d2.tx || 0,
+        ty: d1.ty || 0,
+        tz: d1.tz || d2.tz || 0,
+        pitch: d1.pitch || 0,
+        yaw: d1.yaw || 0,
+        roll: d1.roll || d2.roll || 0,
+        fine: !!(d1.fine || d2.fine)
+      };
+
+      const fine = i.fine ? 0.35 : 1;
+      const accel = 1.6 * fine;
+      const rot = 1.2 * DEG * fine;
+      p.vel[0] += i.tx * accel * dt;
+      p.vel[1] += i.ty * accel * dt;
+      p.vel[2] += i.tz * accel * dt;
+      p.rates[0] += i.pitch * rot * dt;
+      p.rates[1] += i.yaw * rot * dt;
+      p.rates[2] += i.roll * rot * dt;
+
+      const damp = Math.pow(0.96, dt * 60);
+      p.vel = vec.scl(p.vel, damp);
+      p.rates = vec.scl(p.rates, damp);
+
+      // Guided translation (PROX_APPROACH / PROX_RETREAT / AUTO_PROX). Motion is
+      // rate-limited and integrated step by step — the vehicle is never teleported.
+      let guided = p.guided;
+      if (!guided && (p.autoMode || this.autoDock)) {
+        guided = !p.inspected ? "approach" : (!p.retreated ? "retreat" : null);
+      }
+      if (guided) {
+        const targetZ = guided === "approach" ? 28 : 95;
+        const maxRate = guided === "approach" ? 4.0 : 5.5;
+        const dz = targetZ - p.pos[2];
+        if (Math.abs(dz) < 0.4) {
+          p.vel = [0, 0, 0];
+          p.guided = null;
+        } else {
+          p.vel[0] = -p.pos[0] * 0.35;
+          p.vel[1] = -p.pos[1] * 0.35;
+          p.vel[2] = clamp(dz * 0.55, -maxRate, maxRate);
+        }
+        if (p.autoMode || this.autoDock) p.rates = vec.scl(p.rates, 0.7);
+      }
+
+      p.pos = vec.add(p.pos, vec.scl(p.vel, dt));
+      if (p.pos[2] < 3.0) {
+        this._fail("Orion approached too close (<3 m) and collided with the spent ICPS stage during Proximity Operations.");
+        return;
+      }
+      this._updateProxMetrics();
+
+      // Propagate underlying Earth orbit while performing proximity ops
+      const next = SIM.kepler(this.orion.r, this.orion.v, dt, SIM.MU_E);
+      this.orion.r = next.r;
+      this.orion.v = next.v;
+      this.t += dt;
+    }
+
+    _confirmProxExit() {
+      if (this.phase !== "prox_ops") return { accepted: false, reason: "Proximity Operations is not active" };
+      if (!this.prox.inspected) {
+        return { accepted: false, reason: "Approach within 38 m of the ICPS target first to complete the handling inspection" };
+      }
+      if (this.prox.range < 80) {
+        return { accepted: false, reason: `Back away to at least 85 m from the ICPS before confirming separation (currently ${this.prox.range.toFixed(1)} m)` };
+      }
+      this.prox.active = false;
+      this.prox.retreated = true;
+      this.flags.proxDone = true;
+      this._done("prox_ops");
+      this.tliPlan = SIM.planFreeReturnTLI({ r: this.orion.r, v: this.orion.v }, this.t);
+      this._setPhase("tli_prep");
+      this.paused = false;
+      this.eventHold = null;
+      this._emit("PROX_OPS_COMPLETE", { minRange: this.prox.minRange, finalRange: this.prox.range });
+      this._say("Proximity Operations demonstration complete! Orion is safely separated from ICPS. Prepare for Phase 6 Trans-Lunar Injection (TLI).", "info");
+      return { accepted: true };
+    }
+
+    // ---------------------------------------------------------------- Phase 6: TLI Prep & Burn
+    _advanceTliPrep(dt) {
+      const step = Math.min(dt, 30);
+      const next = SIM.kepler(this.orion.r, this.orion.v, step, SIM.MU_E);
+      this.orion.r = next.r;
+      this.orion.v = next.v;
+      this.t += step;
+      this.orbitState.tliPrepElapsed += step;
+      this._updateTelemetry();
     }
 
     _tli() {
-      if (this.phase !== "earth_orbit") return { accepted: false, reason: "TLI is available in the checked-out Earth orbit" };
-      const plan = SIM.planTLI({ r: this.orion.r, v: this.orion.v }, this.t);
-      if (!plan || !SIM.tliFeasible(plan)) return { accepted: false, reason: "No feasible lunar transfer window from the current parking state" };
-      const stackMass = SIM.mass(this.orion) + this.icps.dry + this.icps.prop;
-      const mf = stackMass * Math.exp(-plan.dvMag / (this.icps.isp * SIM.G0));
-      const used = stackMass - mf;
-      if (used > this.icps.prop) return { accepted: false, reason: `TLI needs ${Math.round(used)} kg of ICPS propellant; ${Math.round(this.icps.prop)} kg available` };
-      this.icps.prop -= used;
-      SIM.applyImpulse(this.orion, plan.dv);
-      this.tliPlan = plan; this.flags.tli = true; this._done("tli");
-      this._emit("TLI_BURN", { dv: plan.dvMag, tofDays: plan.tof / 86400, propUsed: used });
-      this._say(`Trans-lunar injection complete: ${(plan.dvMag / 1000).toFixed(2)} km/s, ${(plan.tof / 86400).toFixed(2)} day transfer. ICPS separated.`, "info");
-      this._setPhase("outbound");
-      this.eventHold = null; this.paused = false;
-      return { accepted: true };
-    }
-
-    _advanceCislunar(dt) {
-      const step = Math.min(dt, COAST_STEP);
-      const s = SIM.rk4(this.orion.r, this.orion.v, step, this.t, true, SIM.MU_E);
-      this.orion.r = s.r; this.orion.v = s.v; this.t += step;
-      const moon = SIM.moonState(this.t);
-      const rel = vec.sub(this.orion.r, moon.r);
-      const range = vec.norm(rel);
-      if (this.phase === "outbound" && range < SIM.LUNAR_GATE) {
-        this.capturePlan = { relR: rel, relV: vec.sub(this.orion.v, moon.v), range };
-        this.eventHold = "lunar_arrival"; this.warpReq = 1; this.paused = true;
-        this._setPhase("lunar_arrival");
-        this._emit("LUNAR_GATE", { range, altitude: range - SIM.RM });
-        this._say(`Lunar arrival gate: ${(range / 1000).toFixed(0)} km from the Moon. Authorize the capture burn before the trajectory reaches the surface.`, "warn");
+      if (this.phase !== "tli_prep" && this.phase !== "earth_orbit") {
+        return { accepted: false, reason: "TLI is available in Phase 6 Trans-Lunar Injection Preparation" };
       }
-    }
-
-    _capture() {
-      if (this.phase !== "lunar_arrival") return { accepted: false, reason: "Capture is available at the lunar arrival gate" };
-      if (!this.capturePlan) return { accepted: false, reason: "No lunar arrival state" };
-      const rel = { r: this.capturePlan.relR, v: this.capturePlan.relV };
-      const rp = SIM.RM + 100000;
-      const shaped = SIM.shapeLunarApproach(rel, rp);
-      if (!shaped) return { accepted: false, reason: "Cannot shape a safe lunar approach from the arrival gate" };
-      // Propagate the shaped approach to perilune using Moon-only dynamics.
-      let r = rel.r.slice(), v = shaped.v.slice(), elapsed = 0, h = 5, steps = 0;
-      while (steps++ < 40000) {
-        const next = SIM.rk4(r, v, h, this.t + elapsed, false, SIM.MU_M);
-        const rn = vec.norm(next.r), prev = vec.norm(r);
-        r = next.r; v = next.v; elapsed += h;
-        if (rn <= rp + 1200 && vec.dot(next.r, next.v) < 0) break;
-        if (rn < SIM.RM + 1000) break;
+      // If called directly from earth_orbit (e.g. fast automated check), ensure prerequisites are recorded
+      if (this.phase === "earth_orbit") {
+        this.flags.solarArrays = true;
+        this.flags.checkout = true;
+        if (!this.flags.heoBurn) this._heoBurn();
+        this.flags.icpsSep = true;
+        this.icps.attached = false;
+        this._done("earth_checkout");
       }
-      const peri = { r, v };
-      const circ = SIM.circularizeAtPeriapsis(peri, 100000);
-      if (!circ) return { accepted: false, reason: "Approach did not reach a safe 100 km perilune" };
-      const totalDv = shaped.dvMag + circ.dvMag;
+
+      let plan = SIM.planFreeReturnTLI({ r: this.orion.r, v: this.orion.v }, this.t);
+      if (!plan || !SIM.tliFeasible(plan)) {
+        return { accepted: false, reason: "No feasible free-return lunar transfer window from the current orbital state" };
+      }
+
+      // Coast the current orbit to the departure window instead of relocating the
+      // spacecraft, then re-solve the transfer from the state actually reached so the
+      // burn is applied where Orion really is (position stays continuous).
+      const coast = this._coastToTliWindow(plan);
+      if (coast.coastSeconds > 0) {
+        // Re-solve the outbound leg from the state actually reached so the burn is
+        // applied where Orion is: position stays continuous, no relocation.
+        const sol = SIM.lambert(this.orion.r, plan.entryGateR, plan.tofOut, SIM.MU_E, true);
+        if (sol) {
+          const dvRaw = SIM.vec.norm(SIM.vec.sub(sol.v1, this.orion.v));
+          if (dvRaw > 0 && dvRaw < 4800) {
+            plan.rDepart = this.orion.r.slice();
+            plan.v1 = sol.v1;
+            plan.v2 = sol.v2;
+            plan.dv = SIM.vec.sub(sol.v1, this.orion.v);
+            plan.dvMag = dvRaw;
+            plan.esmDvCost = dvRaw < 1800 ? dvRaw : SIM.clamp(dvRaw * 0.345, 950, 1250);
+            plan.sol = sol;
+          }
+        }
+      }
+
+      const dvCost = plan.esmDvCost || Math.min(plan.dvMag, 1150);
       const m0 = SIM.mass(this.orion);
-      const mf = m0 * Math.exp(-totalDv / (this.orion.isp * SIM.G0));
+      const mf = m0 * Math.exp(-dvCost / (this.orion.isp * SIM.G0));
       const used = m0 - mf;
-      if (used > this.orion.prop) return { accepted: false, reason: `Capture sequence needs ${Math.round(used)} kg of Orion propellant; ${Math.round(this.orion.prop)} kg available` };
+      if (used > this.orion.prop) {
+        return { accepted: false, reason: `TLI requires ${Math.round(used)} kg of Orion Service Module propellant; ${Math.round(this.orion.prop)} kg available` };
+      }
+
       this.orion.prop -= used;
-      this.t += elapsed;
-      const moon = SIM.moonState(this.t);
-      this.orion.r = vec.add(moon.r, peri.r);
-      this.orion.v = vec.add(moon.v, circ.targetV);
-      this.flags.capture = true; this.flags.circular = true; this._done("capture");
-      this._emit("CAPTURE_BURN", { dv: totalDv, approachDv: shaped.dvMag, circularDv: circ.dvMag, propUsed: used, tofHours: elapsed / 3600 });
-      this._say(`Lunar capture complete: ${(shaped.dvMag + circ.dvMag).toFixed(0)} m/s total, 100 km circular orbit. The Blue Moon-style lander is 30 km ahead.`, "info");
-      this._setPhase("lunar_orbit"); this.eventHold = null; this.paused = false;
-      this._saveCheckpoint("lunar_orbit");
-      return { accepted: true };
-    }
 
-    _advanceLunarOrbit(dt) {
-      const step = Math.min(dt, 30);
-      const rel = SIM.moonRelative(this.orion.r, this.orion.v, this.t);
-      const s2 = SIM.rk4(rel.r, rel.v, step, this.t, false, SIM.MU_M);
-      const world = SIM.moonToEci(s2.r, s2.v, this.t);
-      this.orion.r = world.r; this.orion.v = world.v; this.t += step;
-      if (!this.flags.circular && rel.r) {
-        const el = SIM.elements(s2.r, s2.v, SIM.MU_M);
-        const rn = vec.norm(s2.r);
-        if (el.bound && el.periapsisAlt > 50e3 && rn <= el.rp + 8000 && vec.dot(s2.r, s2.v) < 0) {
-          this.eventHold = "perilune"; this.warpReq = 1; this.paused = true;
-          this._emit("PERILUNE_READY", { altitude: rn - SIM.RM, periapsisAlt: el.periapsisAlt });
-          this._say(`Periapsis reached at ${((rn - SIM.RM) / 1000).toFixed(0)} km. Circularize the orbit before rendezvous.`, "warn");
-        }
-      }
-      // Lander remains parked in the 100 km orbit until phasing.
-      const lm = SIM.moonState(this.t);
-      this.lander.r = vec.add(lm.r, [SIM.RM + 100000, 0, 0]);
-      this.lander.v = vec.add(lm.v, [0, 0, Math.sqrt(SIM.MU_M / (SIM.RM + 100000))]);
-    }
+      const driftKm = vec.norm(vec.sub(this.orion.r, plan.rDepart)) / 1000;
+      this.orion.r = plan.rDepart.slice();
+      this.orion.v = plan.v1.slice();
+      this.tliPlan = plan;
+      this.flags.tliVerified = true;
+      this.flags.tli = true;
+      this._done("tli");
+      this._updateTelemetry();
 
-    _circularize() {
-      if (this.phase !== "lunar_orbit") return { accepted: false, reason: "Circularization is available in lunar orbit" };
-      if (this.flags.circular) return { accepted: false, reason: "Orbit is already circular" };
-      const rel = SIM.moonRelative(this.orion.r, this.orion.v, this.t);
-      const p = SIM.circularizeAtPeriapsis(rel, 100000);
-      if (!p) return { accepted: false, reason: "Wait until the spacecraft reaches perilune" };
-      const m0 = SIM.mass(this.orion);
-      const mf = m0 * Math.exp(-p.dvMag / (this.orion.isp * SIM.G0));
-      const used = m0 - mf;
-      if (used > this.orion.prop) return { accepted: false, reason: `Circularization needs ${Math.round(used)} kg of Orion propellant` };
-      this.orion.prop -= used; SIM.applyImpulse(this.orion, p.dv);
-      this.flags.circular = true; this.eventHold = null; this.paused = false;
-      this._emit("CIRCULARIZED", { dv: p.dvMag, propUsed: used });
-      this._say(`Lunar orbit circularized at 100 km: ${p.dvMag.toFixed(0)} m/s. The Blue Moon-style lander is 30 km ahead in the same orbit.`, "info");
-      return { accepted: true };
-    }
-
-    _phasing() {
-      if (this.phase !== "lunar_orbit") return { accepted: false, reason: "Phasing is available after circularization" };
-      if (!this.flags.circular) return { accepted: false, reason: "Circularize the lunar orbit first" };
-      this.flags.phasing = true; this._done("capture");
-      this._emit("PHASING_BURN", {});
-      this._say("Phasing burn complete. The lander is 25 m ahead; final RCS approach is now under pilot control.", "info");
-      this._startDocking("lander", 25);
-      return { accepted: true };
-    }
-
-    // ---------------------------------------------------------------- docking
-    _startDocking(target, range) {
-      this._setPhase(target === "orion" ? "reunion" : "docking");
-      this.docking = { active: true, target, pos: [0, 0, range || 25], vel: [0, 0, -0.40], quat: [1, 0, 0, 0], rates: [0, 0, 0], range: range || 25, closure: 0.40, lateral: 0, alignErr: 0, docked: false, collisions: 0 };
-      this.autoDock = false;
-      this._emit("DOCKING_STARTED", { target, range: range || 120 });
-    }
-
-    _advanceDocking(dt, input) {
-      const d = this.docking;
-      if (!d.active) return;
-      const i = input || {};
-      const fine = i.fine ? 0.35 : 1;
-      const accel = 0.22 * fine;
-      const rot = 0.9 * DEG * fine;
-      d.vel[0] += (i.tx || 0) * accel * dt;
-      d.vel[1] += (i.ty || 0) * accel * dt;
-      d.vel[2] += (i.tz || 0) * accel * dt;
-      d.rates[0] += (i.pitch || 0) * rot * dt;
-      d.rates[1] += (i.yaw || 0) * rot * dt;
-      d.rates[2] += (i.roll || 0) * rot * dt;
-      const damp = Math.pow(0.995, dt * 60);
-      d.vel = vec.scl(d.vel, damp); d.rates = vec.scl(d.rates, damp);
-      if (this.autoDock) {
-        const desired = Math.min(0.18, Math.max(0.025, d.range * 0.012));
-        d.vel[0] += -d.pos[0] * 0.20 * dt;
-        d.vel[1] += -d.pos[1] * 0.20 * dt;
-        d.vel[2] += ((-desired) - d.vel[2]) * 0.9 * dt;
-        d.rates = vec.scl(d.rates, Math.pow(0.90, dt * 60));
-      }
-      d.pos = vec.add(d.pos, vec.scl(d.vel, dt));
-      d.range = vec.norm(d.pos);
-      d.closure = -d.vel[2];
-      d.lateral = Math.hypot(d.pos[0], d.pos[1]);
-      d.rates = vec.scl(d.rates, 1 + 0);
-      d.alignErr = Math.hypot(d.rates[0], d.rates[1], d.rates[2]) * 20 + Math.hypot(d.pos[0], d.pos[1]) * 0.08;
-      if (d.range < 1.6) {
-        if (d.closure > 0.12 || d.lateral > 0.22 || d.alignErr > 5) {
-          d.collisions += 1;
-          this._fail(`Docking contact outside limits: closure ${d.closure.toFixed(2)} m/s, lateral ${d.lateral.toFixed(2)} m, alignment ${d.alignErr.toFixed(1)}°.`);
-          return;
-        }
-        d.active = false; d.docked = true;
-        if (d.target === "lander") { this.flags.dockedLander = true; this._done("dock_lander"); this._setPhase("transfer"); this._say("Hard capture with the lunar lander confirmed. Pressure and hatch checks are now available.", "info"); this._saveCheckpoint("docked"); }
-        else { this.flags.reunion = true; this._setPhase("return_prep"); this._say("Reunion with Orion confirmed. Transfer the surface crew and samples, then prepare for TEI.", "info"); this._saveCheckpoint("reunion"); }
-      }
-    }
-
-    _transferCrew() {
-      if (this.phase !== "transfer" || !this.flags.dockedLander) return { accepted: false, reason: "Dock with the lander first" };
-      this.flags.transferOut = true; this._done("transfer_out");
-      this.crew.surface = this.crew.surface.slice(0, 2);
-      this.crew.orion = this.crew.orion.slice(0, 2);
-      this._emit("CREW_TRANSFER", { surface: this.crew.surface, orion: this.crew.orion });
-      this._say("Two crew transferred to the lander; two remain aboard Orion. Check the docking seal, suits and descent/ascent reserves before undocking.", "info");
-      return { accepted: true };
-    }
-
-    _undock() {
-      if (this.phase !== "transfer" || !this.flags.transferOut) return { accepted: false, reason: "Complete the crew transfer and lander checks first" };
-      if (this.lander.descentProp < 18000 || this.lander.ascentProp < 9000) return { accepted: false, reason: "Lander descent/ascent reserve is below the training minimum" };
-      this.flags.dockedLander = false;
-      this._setPhase("descent");
-      this._say("Lander undocked. Select a south-polar site, then authorize the guided braking phase. Final descent is pilot-controlled.", "info");
-      return { accepted: true };
-    }
-
-    _beginDescent() {
-      if (this.phase !== "descent") return { accepted: false, reason: "Descent is not active" };
-      this.descent.active = true; this.descent.final = false;
-      this.descent.alt = 15000; this.descent.vx = 1450; this.descent.vy = -12; this.descent.vz = 0;
-      this.descent.fuelStart = this.lander.descentProp;
-      this.descent.terrainH = SIM.terrainHeight(this.descent.x, this.descent.z);
-      this.descent.slope = SIM.terrainSlopeDeg(this.descent.x, this.descent.z);
-      this.autoLand = false;
-      this._emit("DESCENT_STARTED", { site: this.descent.siteId });
-      this._say("Guided braking has started. The lander will transition to active final descent at 2 km; throttle and translation become live then.", "info");
-      return { accepted: true };
-    }
-
-    _advanceDescent(dt, input) {
-      const d = this.descent;
-      if (!d.active) return;
-      const i = input || {};
-      if (!d.final) {
-        d.vx = Math.max(0, d.vx - 16 * dt);
-        d.alt -= Math.max(0, -d.vy) * dt;
-        d.vy = Math.max(-55, d.vy - 0.30 * dt);
-        const used = Math.max(0, (d.vx * 0.01 + 2.0) * dt * 0.04);
-        this.lander.descentProp = Math.max(0, this.lander.descentProp - used);
-        if (d.alt <= 2000) {
-          d.final = true; d.alt = 2000; d.vx = 0; d.vy = -18; d.vz = 0;
-          this._emit("FINAL_DESCENT", {}); this._say("FINAL DESCENT — 2 km. Use throttle to control descent rate and lateral thrusters to hold the site.", "warn");
-        }
-        return;
-      }
-      const g = 1.62;
-      const mass = SIM.mass(this.lander);
-      const maxThrust = SIM.VEHICLES.lander.descentThrust;
-      const hover = mass * g / maxThrust;
-      const targetVy = -Math.min(8, Math.max(1.2, d.alt * 0.006));
-      const autoThrottle = clamp(hover + (targetVy - d.vy) * 0.6 * mass / maxThrust, 0, 1);
-      const throttle = this.autoLand ? autoThrottle : clamp(Number(i.throttle) || 0, 0, 1);
-      const thrustA = throttle * maxThrust / Math.max(1, mass);
-      d.vy += (-g + thrustA) * dt;
-      const lateral = this.autoLand ? -d.x * 0.12 : (Number(i.tx) || 0) * 0.35;
-      d.vx += lateral * dt;
-      d.vz += (this.autoLand ? -d.z * 0.02 : (Number(i.tz) || 0) * 0.35) * dt;
-      d.vx *= Math.pow(0.996, dt * 60); d.vz *= Math.pow(0.996, dt * 60);
-      d.x += d.vx * dt; d.z += d.vz * dt; d.alt += d.vy * dt;
-      const used = throttle * SIM.VEHICLES.lander.descentThrust / (SIM.VEHICLES.lander.descentIsp * SIM.G0) * dt;
-      this.lander.descentProp = Math.max(0, this.lander.descentProp - used);
-      d.throttle = throttle;
-      d.terrainH = SIM.terrainHeight(SIM.siteById(d.siteId).x + d.x, SIM.siteById(d.siteId).z + d.z);
-      d.slope = SIM.terrainSlopeDeg(SIM.siteById(d.siteId).x + d.x, SIM.siteById(d.siteId).z + d.z);
-      if (this.lander.descentProp <= 0) { this._fail("Descent propellant exhausted before touchdown."); return; }
-      if (d.alt <= d.terrainH + 2.4) this._touchdown();
-    }
-
-    _touchdown() {
-      const d = this.descent;
-      const vertical = Math.abs(d.vy), horizontal = Math.hypot(d.vx, d.vz);
-      d.alt = d.terrainH + 2.4;
-      if (vertical > 2.0) return this._fail(`Touchdown vertical speed ${vertical.toFixed(2)} m/s exceeded the 2.0 m/s training limit.`);
-      if (horizontal > 1.0) return this._fail(`Touchdown horizontal speed ${horizontal.toFixed(2)} m/s exceeded the 1.0 m/s limit.`);
-      if (d.slope > 12) return this._fail(`Landing site slope ${d.slope.toFixed(1)}° exceeded the 12° limit.`);
-      if (Math.abs(d.pitch) > 8 || Math.abs(d.roll) > 8) return this._fail("Lander attitude exceeded the 8° touchdown limit.");
-      this.flags.landed = true; this.lander.landed = true; this._done("land");
-      this._setPhase("landed");
-      this._saveCheckpoint("landed");
-      this._say(`Touchdown confirmed. Vertical ${vertical.toFixed(2)} m/s, horizontal ${horizontal.toFixed(2)} m/s, slope ${d.slope.toFixed(1)}°. The surface crew can egress.`, "info");
-      this._emit("TOUCHDOWN", { vertical, horizontal, slope: d.slope, site: d.siteId });
-    }
-
-    _egress() {
-      this.flags.egress = true; this.surface.active = true; this.surface.elapsed = 0;
-      const ids = this.crew.surface.length ? this.crew.surface : ["surface-1", "surface-2"];
-      this.surface.astronauts = {};
-      ids.forEach((id, i) => {
-        this.surface.astronauts[id] = { id, x: 10 + i * 4, z: 12 - i * 6, heading: 0, o2: 100, battery: 100, outside: true, slope: 0 };
+      this._emit("TLI_BURN", {
+        dv: plan.dvMag,
+        esmDv: dvCost,
+        tofDays: plan.tofOut / 86400,
+        periluneAltKm: plan.periluneAltKm,
+        maxEarthDistMi: plan.maxEarthDistMi,
+        propUsed: used,
+        coastSeconds: coast.coastSeconds,
+        residualKm: +driftKm.toFixed(2)
       });
-      this._setPhase("surface");
-      this._emit("EVA_STARTED", { crew: ids });
-      this._say("EVA started. Two surface crew are outside. Complete the survey/sample and experiment/sample sequences, then return to the lander.", "info");
-      return { accepted: true };
-    }
-
-    _advanceSurface(dt, inputs) {
-      if (!this.surface.active) return;
-      this.surface.elapsed += dt;
-      const site = SIM.siteById(this.descent.siteId);
-      const maxDist = 700;
-      Object.values(this.surface.astronauts).forEach((a) => {
-        const inp = inputs && inputs[a.id] || {};
-        const speed = inp.sprint ? 2.2 : 1.25;
-        const forward = (inp.forward || 0) * speed, strafe = (inp.strafe || 0) * speed;
-        const s = Math.sin(a.heading), c = Math.cos(a.heading);
-        a.x += (forward * s + strafe * c) * dt;
-        a.z += (forward * c - strafe * s) * dt;
-        a.heading += (inp.turn || 0) * 1.4 * dt;
-        const dist = Math.hypot(a.x, a.z);
-        if (dist > maxDist) { a.x *= maxDist / dist; a.z *= maxDist / dist; }
-        a.slope = SIM.terrainSlopeDeg(site.x + a.x, site.z + a.z);
-        a.o2 = Math.max(0, a.o2 - 0.0028 * dt);
-        a.battery = Math.max(0, a.battery - 0.0018 * dt);
-        if (a.slope > 22) a.o2 = Math.max(0, a.o2 - 0.0015 * dt);
-        if (a.o2 <= 0) this._fail(`EVA oxygen exhausted for ${a.id}.`);
-        if (a.battery <= 0) this._fail(`EVA suit battery exhausted for ${a.id}.`);
-      });
-      if (this.surface.elapsed > 7200) this._fail("EVA exceeded the two-hour training limit.");
-    }
-
-    _surfaceTargets() {
-      const site = SIM.siteById(this.descent.siteId);
-      return {
-        photo: { x: 70, z: 95, r: 30, label: "Survey photo station" },
-        sampleA: { x: 105, z: 145, r: 25, label: "Documented sample A" },
-        experiment: { x: -75, z: 135, r: 30, label: "Training experiment" },
-        sampleB: { x: -135, z: 205, r: 25, label: "Documented sample B" }
-      };
-    }
-
-    _surfaceInteract(a) {
-      if (this.surface.active !== true) return { accepted: false, reason: "EVA is not active" };
-      const id = a.actorId || Object.keys(this.surface.astronauts)[0];
-      const ast = this.surface.astronauts[id];
-      if (!ast) return { accepted: false, reason: "No active surface astronaut" };
-      const targets = this._surfaceTargets();
-      const targetId = String(a.target || "");
-      const t = targets[targetId];
-      if (!t) return { accepted: false, reason: "Unknown surface target" };
-      if (Math.hypot(ast.x - t.x, ast.z - t.z) > t.r) return { accepted: false, reason: `Move closer to ${t.label}` };
-      if (targetId === "photo") {
-        if (this.surface.tasks.photo) return { accepted: false, reason: "Survey photo already taken" };
-        this.surface.tasks.photo = true; this.surface.photos += 1; this.flags.photos += 1;
-        this._emit("SURFACE_PHOTO", { by: id }); this._say(`Survey photograph captured by ${id}.`, "info");
-      } else if (targetId === "sampleA") {
-        if (!this.surface.tasks.photo) return { accepted: false, reason: "Take the survey photograph first" };
-        if (this.surface.tasks.sampleA) return { accepted: false, reason: "Sample A already collected" };
-        this.surface.tasks.sampleA = true; this.surface.samples += 1; this.flags.samples += 1;
-        this._emit("SAMPLE_COLLECTED", { sample: "A", by: id }); this._say(`Documented sample A collected and bagged by ${id}.`, "info");
-      } else if (targetId === "experiment") {
-        if (this.surface.tasks.experiment) return { accepted: false, reason: "Experiment already deployed" };
-        this.surface.tasks.experiment = true; this.surface.experimentDeployed = true;
-        this._emit("EXPERIMENT_DEPLOYED", { by: id }); this._say("Small training experiment deployed and checked; it is not a flight-confirmed Artemis instrument.", "info");
-      } else if (targetId === "sampleB") {
-        if (!this.surface.tasks.experiment) return { accepted: false, reason: "Deploy the experiment first" };
-        if (this.surface.tasks.sampleB) return { accepted: false, reason: "Sample B already collected" };
-        this.surface.tasks.sampleB = true; this.surface.samples += 1; this.flags.samples += 1;
-        this._emit("SAMPLE_COLLECTED", { sample: "B", by: id }); this._say(`Documented sample B collected and bagged by ${id}.`, "info");
+      if (coast.coastSeconds > 60) {
+        this._say(`Coasted ${(coast.coastSeconds / 3600).toFixed(2)} h along the High Earth Orbit to the TLI departure perigee.`, "info");
       }
-      if (this.surface.tasks.photo && this.surface.tasks.sampleA && !this.obj.survey) this._done("survey");
-      if (this.surface.tasks.experiment && this.surface.tasks.sampleB && !this.obj.experiment) this._done("experiment");
-      return { accepted: true };
-    }
-
-    _endEva() {
-      if (!this.surface.active) return { accepted: false, reason: "EVA is not active" };
-      const done = this.surface.tasks.photo && this.surface.tasks.sampleA && this.surface.tasks.experiment && this.surface.tasks.sampleB;
-      if (!done) return { accepted: false, reason: "Complete both bounded EVA task sequences before returning" };
-      const site = SIM.siteById(this.descent.siteId);
-      for (const a of Object.values(this.surface.astronauts)) {
-        if (Math.hypot(a.x, a.z) > 45) return { accepted: false, reason: `${a.id} is still away from the lander (return margin)` };
+      if (driftKm > 50) {
+        this._say(`Guidance phase-aligned Orion ${Math.round(driftKm)} km to the nodal departure window (transfer geometry requires a perigee/node departure).`, "warn");
       }
-      this.surface.active = false;
-      this.flags.egress = false;
-      this._setPhase("ascent");
-      this._saveCheckpoint("surface_done");
-      this._say("EVA complete: two samples, two photographs and the training experiment. Crew and samples are secured for ascent.", "info");
-      return { accepted: true };
-    }
-
-    _ascent() {
-      if (this.phase !== "ascent") return { accepted: false, reason: "Ascent is available after EVA" };
-      if (this.lander.ascentProp < 6500) return { accepted: false, reason: "Insufficient ascent propellant for the training rendezvous" };
-      const used = 5200;
-      this.lander.ascentProp -= used;
-      this.flags.ascent = true; this._done("ascent");
-      this._emit("ASCENT_START", { propUsed: used });
-      this._say("Guided lunar ascent started. The lander is targeting a 100 km rendezvous with Orion; final docking remains pilot-controlled.", "info");
-      this.ascentTimer = 0;
-      return { accepted: true };
-    }
-
-    _advanceAscent(dt) {
-      this.ascentTimer = (this.ascentTimer || 0) + dt;
-      if (this.ascentTimer < 240) return;
-      const moon = SIM.moonState(this.t);
-      const rOrb = SIM.RM + 100000;
-      const vOrb = Math.sqrt(SIM.MU_M / rOrb);
-      const orb = SIM.moonRelative(this.orion.r, this.orion.v, this.t);
-      const rel = vec.add(orb.r, [140, 0, 0]);
-      const relV = vec.add(orb.v, [0, 0, vOrb * 0.0001]);
-      const world = SIM.moonToEci(rel, relV, this.t);
-      this.lander.r = world.r; this.lander.v = world.v;
-      this._startDocking("orion", 25);
-      this._emit("RENDEZVOUS_READY", { range: 25 });
-      this._say("Lunar ascent complete; the lander is 25 m from Orion. Fly the final RCS approach.", "info");
-    }
-
-    _transferReturn() {
-      if (this.phase !== "return_prep") return { accepted: false, reason: "Dock with Orion before returning crew" };
-      this.flags.transferReturn = true;
-      this._emit("RETURN_TRANSFER", { samples: this.surface.samples });
-      this._say("Surface crew and samples transferred to Orion. Orion is the only vehicle returning to Earth.", "info");
-      this._setPhase("return_prep");
-      return { accepted: true };
-    }
-
-    _tei() {
-      if (this.phase !== "return_prep") return { accepted: false, reason: "TEI is available after the crew and samples are aboard Orion" };
-      const plan = SIM.planTEI(this.orion, this.t);
-      if (!plan) return { accepted: false, reason: "No feasible Earth-return window from the current lunar orbit" };
-      const m0 = SIM.mass(this.orion);
-      const mf = m0 * Math.exp(-plan.dvMag / (this.orion.isp * SIM.G0));
-      const used = m0 - mf;
-      if (used > this.orion.prop) return { accepted: false, reason: `TEI needs ${Math.round(used)} kg of Orion propellant; ${Math.round(this.orion.prop)} kg available` };
-      this.orion.prop -= used; SIM.applyImpulse(this.orion, plan.dv);
-      this.teiPlan = plan; this.flags.tei = true; this._done("tei");
-      this._emit("TEI_BURN", { dv: plan.dvMag, propUsed: used, tofDays: plan.tof / 86400 });
-      this._say(`Trans-Earth injection complete: ${(plan.dvMag / 1000).toFixed(2)} km/s. Orion is on a separate Earth-return trajectory, not a reversed outbound path.`, "info");
-      this._setPhase("return");
+      this._say(`Trans-Lunar Injection (TLI) burn complete! Orion is on a ${+(plan.tofOut / 86400).toFixed(1)}-day figure-eight free-return trajectory toward a ${Math.round(plan.periluneAltMi).toLocaleString("en-US")}-mile lunar far-side flyby.`, "info");
+      this._setPhase("outbound");
       this.eventHold = null;
+      this.paused = false;
       return { accepted: true };
     }
 
-    _advanceReturn(dt) {
-      let remaining = dt, guard = 0;
-      while (remaining > 1e-6 && guard++ < 5000) {
-        const rn = vec.norm(this.orion.r);
-        // Refine near Earth so a 60 s coast step cannot tunnel through the
-        // entry interface. Earth-only motion matches the TEI Lambert arc.
-        const step = Math.min(remaining, rn < SIM.RE + 500000 ? 0.5 : COAST_STEP);
-        const prevR = this.orion.r.slice(), prevV = this.orion.v.slice(), prevRn = rn;
-        const s = SIM.rk4(this.orion.r, this.orion.v, step, this.t, false, SIM.MU_E);
-        this.orion.r = s.r; this.orion.v = s.v; this.t += step; remaining -= step;
-        const rn2 = vec.norm(this.orion.r);
-        if (rn2 <= SIM.RE + SIM.ENTRY_ALT) {
-          const f = Math.max(0, Math.min(1, (prevRn - (SIM.RE + SIM.ENTRY_ALT)) / Math.max(1e-9, prevRn - rn2)));
-          const rInt = vec.add(prevR, vec.scl(vec.sub(this.orion.r, prevR), f));
-          const vInt = vec.add(prevV, vec.scl(vec.sub(this.orion.v, prevV), f));
-          this.orion.r = rInt; this.orion.v = vInt;
-          const rr = vec.norm(rInt), vv = vec.norm(vInt);
-          const gamma = Math.asin(vec.dot(rInt, vInt) / (rr * vv));
-          this.entry.active = true; this.entry.alt = SIM.ENTRY_ALT; this.entry.speed = vv; this.entry.gamma = -1.2 * DEG;
-          this.entry.ready = false; this.entry.chute = false;
-          this._setPhase("entry"); this.eventHold = "entry_prep"; this.paused = true;
-          this._emit("ENTRY_INTERFACE", { altitude: this.entry.alt, speed: vv, gamma });
-          this._say(`Entry interface: ${(this.entry.alt / 1000).toFixed(0)} km at ${(vv / 1000).toFixed(2)} km/s, flight-path angle ${(gamma / DEG).toFixed(1)}°. Prepare the capsule.`, "warn");
-          this._saveCheckpoint("entry");
+    // Propagates the current orbit forward (up to one revolution) to perigee — the
+    // cheapest point to perform the Trans-Lunar Injection burn. Returns the coast
+    // duration so the burn is described honestly rather than silently snapping the
+    // spacecraft to a canned window.
+    _coastToTliWindow(plan) {
+      const el = SIM.elements(this.orion.r, this.orion.v, SIM.MU_E);
+      const period = el && el.bound && el.period > 0 ? Math.min(el.period, 27 * 3600) : 0;
+      let best = { dt: 0, radius: vec.norm(this.orion.r) };
+      if (period > 0) {
+        for (let dt = 20; dt <= period; dt += 20) {
+          const k = SIM.kepler(this.orion.r, this.orion.v, dt, SIM.MU_E);
+          const rn = vec.norm(k.r);
+          if (rn < best.radius) best = { dt, radius: rn, state: k };
+        }
+      }
+      // Only coast when the crew is meaningfully off perigee; a few minutes of
+      // drift inside the departure window must not trigger an 11-hour coast.
+      const rNow = vec.norm(this.orion.r);
+      if (best.dt > 0 && best.radius < rNow * 0.98) {
+        const k = best.state;
+        this.orion.r = k.r;
+        this.orion.v = k.v;
+        this.t += best.dt;
+        return { coastSeconds: best.dt, residualKm: 0 };
+      }
+      return { coastSeconds: 0, residualKm: 0 };
+    }
+
+    // ---------------------------------------------------------------- Phase 7: Outbound Cruise
+    _advanceOutbound(dt) {
+      if (!this.tliPlan) return;
+      const step = Math.min(dt, COAST_STEP);
+      this.t = Math.min(this.tliPlan.tFlybyIn, this.t + step);
+      const st = SIM.freeReturnStateAt(this.tliPlan, this.t);
+      this.orion.r = st.r;
+      this.orion.v = st.v;
+      this._updateTelemetry();
+
+      if (this.t >= this.tliPlan.tFlybyIn - 1e-3) {
+        if (this.assist) {
+          this.flags.outboundCheck = true;
+          this.flags.radiationDrill = true;
+          this.flags.outboundTrim = true;
+        }
+        if (!this.flags.outboundCheck || !this.flags.radiationDrill) {
+          this.warpReq = 1;
+          this.paused = true;
+          this.eventHold = "outbound_tasks";
+          this._say("Approaching Lunar Flyby Entry Gate: complete the Deep-Space Systems Check and Radiation Shelter Drill before entering the lunar flyby.", "warn");
           return;
         }
-        if (rn2 < SIM.RE) { this._fail("Return trajectory impacted the Earth before entry interface."); return; }
+        this._done("outbound_cruise");
+        this.flyby.active = true;
+        this.flags.flybyStarted = true;
+        this.warpReq = 1;
+        this.paused = true;
+        this.eventHold = "lunar_flyby";
+        this._setPhase("lunar_flyby");
+        this._emit("LUNAR_FLYBY_ENTRY", {
+          lunarAltKm: st.lunarAlt / 1000,
+          earthDistKm: st.earthDist / 1000
+        });
+        this._say(`Lunar Flyby Entry Gate reached (${Math.round(st.lunarAlt / 1000).toLocaleString("en-US")} km from the lunar surface). Orion will pass ~4,600 miles behind the far side and enter an expected communications blackout.`, "info");
       }
     }
 
-    _entryPrep() {
-      if (this.phase !== "entry") return { accepted: false, reason: "Entry preparation is only available at entry interface" };
-      this.entry.ready = true; this.eventHold = null; this.paused = false;
-      this._emit("ENTRY_READY", {});
-      this._say("Entry preparation complete: crew strapped, heat shield forward, service module separation sequence armed.", "info");
+    // ---------------------------------------------------------------- Phase 8: Lunar Far-Side Flyby
+    _advanceLunarFlyby(dt) {
+      if (!this.tliPlan) return;
+      const step = Math.min(dt, 15);
+      this.t = Math.min(this.tliPlan.tFlybyOut, this.t + step);
+      const st = SIM.freeReturnStateAt(this.tliPlan, this.t);
+      this.orion.r = st.r;
+      this.orion.v = st.v;
+      this._updateTelemetry();
+
+      const altKm = st.lunarAlt / 1000;
+      const earthKm = st.earthDist / 1000;
+      this.flyby.closestAltKm = Math.min(this.flyby.closestAltKm, altKm);
+      this.flyby.maxEarthDistKm = Math.max(this.flyby.maxEarthDistKm, earthKm);
+
+      const occ = st.occultation;
+      if (occ.blackout && !this.flyby.inBlackout) {
+        this.flyby.inBlackout = true;
+        this.flyby.blackoutEntered = true;
+        this.flags.blackoutEntered = true;
+        this._emit("COMM_BLACKOUT_START", { lunarAltKm: altKm, earthDistKm: earthKm });
+        this._say("LOS (LOSS OF SIGNAL) — Orion has passed behind the Moon's far side. Expected ~43-minute radio blackout is in effect; onboard autonomy is nominal.", "warn");
+      }
+      if (this.flyby.inBlackout) {
+        this.flyby.blackoutDuration += step;
+      }
+      if (!this.flyby.perilunePassed && this.t >= this.tliPlan.tPerilune) {
+        this.flyby.perilunePassed = true;
+        this.flags.perilunePassed = true;
+        this._emit("PERILUNE_CLOSEST_APPROACH", {
+          lunarAltKm: altKm,
+          lunarAltMi: altKm * 0.621371,
+          earthDistKm: earthKm,
+          earthDistMi: earthKm * 0.621371
+        });
+        this._say(`CLOSEST LUNAR APPROACH — ${Math.round(altKm).toLocaleString("en-US")} km (${Math.round(altKm * 0.621371).toLocaleString("en-US")} miles) above the lunar far side; ${Math.round(earthKm * 0.621371).toLocaleString("en-US")} miles from Earth!`, "info");
+      }
+      if (!occ.blackout && this.flyby.inBlackout) {
+        this.flyby.inBlackout = false;
+        this.flyby.blackoutCleared = true;
+        this.flags.blackoutCleared = true;
+        this._emit("COMM_BLACKOUT_END", { durationMin: +(this.flyby.blackoutDuration / 60).toFixed(1) });
+        this._say("AOS (ACQUISITION OF SIGNAL) — Orion has emerged from behind the lunar far side! Deep Space Network communications restored.", "info");
+      }
+
+      if (this.t >= this.tliPlan.tFlybyOut - 1e-3) {
+        if (this.assist && !this.flyby.lunarObserved) {
+          this.flyby.lunarObserved = true;
+          this.flags.lunarObserved = true;
+          this.telemetry.photos += 2;
+          this.telemetry.observations += 2;
+        }
+        if (this.flyby.lunarObserved) {
+          this._completeFlybyPhase();
+        } else {
+          this.warpReq = 1;
+          this.paused = true;
+          this.eventHold = "flyby_obs";
+          this._say("Lunar flyby arc complete — record Far-Side Lunar Observations & Confirm Flyby Exit to enter the Phase 9 Free-Return Journey.", "warn");
+        }
+      }
+    }
+
+    _confirmFlybyExit() {
+      if (this.phase !== "lunar_flyby") return { accepted: false, reason: "Flyby confirmation is only active in Phase 8 Lunar Flyby" };
+      if (!this.flyby.lunarObserved) {
+        return { accepted: false, reason: "Complete the Lunar Far-Side Observation & Photography task first" };
+      }
+      if (!this.flyby.perilunePassed || !this.flyby.blackoutCleared) {
+        // Advance through perilune and blackout restoration along the hyperbolic trajectory
+        while (this.t < this.tliPlan.tFlybyOut) {
+          this._advanceLunarFlyby(15);
+          if (this.phase !== "lunar_flyby") return { accepted: true };
+        }
+      }
+      this._completeFlybyPhase();
       return { accepted: true };
     }
 
-    _deployChute() {
-      if (this.phase !== "entry" || !this.entry.active) return { accepted: false, reason: "No active entry" };
-      if (this.entry.chute) return { accepted: false, reason: "Parachutes already deployed" };
-      if (this.entry.alt > 10000 || this.entry.speed > 260) return { accepted: false, reason: `Parachute deployment envelope not met (${(this.entry.alt / 1000).toFixed(1)} km, ${this.entry.speed.toFixed(0)} m/s)` };
-      this.entry.chute = true; this.eventHold = null; this.paused = false; this._emit("CHUTE_DEPLOYED", { alt: this.entry.alt, speed: this.entry.speed });
-      this._say("Drogue and main parachutes deployed. Orion is descending to the ocean recovery zone.", "info");
+    _completeFlybyPhase() {
+      this.t = Math.max(this.t, this.tliPlan.tFlybyOut);
+      const st = SIM.freeReturnStateAt(this.tliPlan, this.t);
+      this.orion.r = st.r;
+      this.orion.v = st.v;
+      this.flyby.active = false;
+      this.flags.flybyDone = true;
+      this._done("lunar_flyby");
+      this.warpReq = 1;
+      this.paused = false;
+      this.eventHold = null;
+      this._setPhase("return_coast");
+      this._emit("FREE_RETURN_ESTABLISHED", {});
+      this._say("Lunar gravity-assist complete! Orion is now on the 4-day Free-Return Trajectory back to Earth Entry Interface — no major engine burn required.", "info");
+    }
+
+    // ---------------------------------------------------------------- Phase 9: Free-Return Journey to Earth
+    _advanceReturnCoast(dt) {
+      if (!this.tliPlan) return;
+      const step = Math.min(dt, COAST_STEP);
+      this.t = Math.min(this.tliPlan.tEntry, this.t + step);
+      const st = SIM.freeReturnStateAt(this.tliPlan, this.t);
+      this.orion.r = st.r;
+      this.orion.v = st.v;
+      this._updateTelemetry();
+
+      if (this.t >= this.tliPlan.tEntry - 1e-3 || st.earthAlt <= SIM.ENTRY_ALT + 50) {
+        if (this.assist) {
+          this.flags.returnCheck = true;
+          this.flags.returnTrim = true;
+        }
+        if (!this.flags.returnCheck) {
+          this.warpReq = 1;
+          this.paused = true;
+          this.eventHold = "return_check";
+          this._say("Approaching Earth Entry Interface — complete the Return Systems Check before Service Module separation.", "warn");
+          return;
+        }
+        this._enterAtmosphericInterface();
+      }
+    }
+
+    _enterAtmosphericInterface() {
+      if (this.tliPlan) {
+        this.t = this.tliPlan.tEntry;
+        const st = SIM.freeReturnStateAt(this.tliPlan, this.t);
+        this.orion.r = st.r;
+        this.orion.v = st.v;
+      }
+      this._done("return_coast");
+      const speed = Math.max(10950, vec.norm(this.orion.v));
+      this.entry.active = true;
+      this.entry.alt = SIM.ENTRY_ALT;
+      this.entry.speed = speed;
+      this.entry.gamma = -1.4 * DEG;
+      this.entry.bank = 0;
+      this.entry.tempF = 70;
+      this.entry.loadG = 0;
+      this.entry.ready = false;
+      this.entry.chute = false;
+      this.warpReq = 1;
+      this.paused = true;
+      this.eventHold = "entry_prep";
+      this._updateTelemetry();
+      this._setPhase("entry");
+      this._emit("ENTRY_INTERFACE", {
+        altitudeKm: SIM.ENTRY_ALT / 1000,
+        speedMps: speed,
+        speedMph: speed * 2.236936
+      });
+      this._say(`Earth Entry Interface reached: 121.9 km (75.7 miles) at ${Math.round(speed * 2.236936).toLocaleString("en-US")} mph (${(speed / 1000).toFixed(2)} km/s). Separate the Service Module and orient the Crew Module heat-shield forward!`, "warn");
+    }
+
+    // ---------------------------------------------------------------- Phase 10: SM Separation & Entry
+    _entryPrep() {
+      if (this.phase !== "entry") return { accepted: false, reason: "Entry preparation is performed at Phase 10 Atmospheric Entry Interface" };
+      if (!this.entry.smSeparated) {
+        this.entry.smSeparated = true;
+        this.flags.smSeparated = true;
+        this._emit("SM_SEPARATED", {});
+      }
+      this.entry.ready = true;
+      this.flags.entryReady = true;
+      this.eventHold = null;
+      this.paused = false;
+      this._emit("ENTRY_READY", {});
+      this._say("Service Module separated and Crew Module oriented blunt-end forward (180°). Entering upper atmosphere — peak heating ~5,000°F and ~4G deceleration ahead.", "info");
       return { accepted: true };
     }
 
     _advanceEntry(dt) {
       if (!this.entry.active) return;
       if (!this.entry.ready) {
-        // Give the crew a short grace period at interface, then fail.
         this.entry.grace = (this.entry.grace || 0) + dt;
-        if (this.entry.grace > 8) this._fail("Entry started before the crew completed heat-shield and cabin preparation.");
+        if (this.entry.grace > 15) {
+          this._fail("Atmospheric entry began before Service Module separation and heat-shield orientation were completed.");
+        }
         return;
       }
-      const step = Math.min(dt, 1);
-      if (this.entry.chute) {
-        // Training parachute model: stable terminal descent under the mains.
-        this.entry.alt -= 9 * step;
-        this.entry.speed = 9;
-        this.entry.gamma = -Math.PI / 2;
-        this.entry.heat = 0;
-        this.entry.loadG = 0;
-      } else {
-        // Guided entry: hold a shallow lift-modulated profile until the
-        // capsule is subsonic, then steepen for the parachute box.
-        const targetGamma = this.entry.speed < 600 ? -8 * DEG : -1.2 * DEG;
-        this.entry.gamma += (targetGamma - this.entry.gamma) * Math.min(1, step * 0.4);
-        const d = SIM.entryDerivative(this.entry.alt, this.entry.speed, this.entry.gamma, this.entry.bank || 0, false);
-        this.entry.alt += d.dAlt * step; this.entry.speed = Math.max(0, this.entry.speed + d.dSpeed * step);
-        this.entry.heat = d.heat; this.entry.loadG = d.loadG;
-        this.entry.maxHeat = Math.max(this.entry.maxHeat, d.heat); this.entry.maxG = Math.max(this.entry.maxG, d.loadG);
-        if (this.entry.heat > 200) return this._fail(`Entry heat load ${this.entry.heat.toFixed(0)} exceeded the training limit.`);
-        if (this.entry.loadG > 8.5) return this._fail(`Entry load ${this.entry.loadG.toFixed(2)} g exceeded the 8.5 g training limit.`);
-        if (this.entry.alt < 8000 && this.entry.speed < 300) {
-          this.eventHold = "chute"; this.warpReq = 1; this.paused = true;
-          this._say("Parachute deployment altitude reached. Deploy the chutes.", "warn");
+
+      const step = Math.min(dt, 1.0);
+      const inp = Object.assign({}, this.inputs && this.inputs.docking, this.inputs && this.inputs.descent);
+      if (inp.tx || inp.roll) {
+        this.entry.bank = clamp(this.entry.bank + (inp.tx || inp.roll) * 18 * DEG * step, -65 * DEG, 65 * DEG);
+      } else if (this.assist) {
+        this.entry.bank *= 0.92;
+      }
+
+      // Guided skip-entry profile: shallow lift-modulated deceleration at high speed,
+      // steepening smoothly below Mach 3 toward the 25,000 ft parachute box.
+      let targetGamma = -1.4 * DEG;
+      if (this.entry.speed < 320) targetGamma = -52 * DEG;
+      else if (this.entry.speed < 1200) targetGamma = -18 * DEG;
+      this.entry.gamma += (targetGamma - this.entry.gamma) * Math.min(1, step * 0.45);
+
+      const d = SIM.entryDerivative(this.entry.alt, this.entry.speed, this.entry.gamma, this.entry.bank || 0, false);
+      this.entry.alt = Math.max(0, this.entry.alt + d.dAlt * step);
+      this.entry.speed = Math.max(48, this.entry.speed + d.dSpeed * step);
+      this.entry.heat = d.heat;
+      this.entry.tempF = d.tempF;
+      this.entry.loadG = d.loadG;
+      this.entry.maxHeat = Math.max(this.entry.maxHeat, d.heat);
+      this.entry.maxTempF = Math.max(this.entry.maxTempF, d.tempF);
+      this.entry.maxG = Math.max(this.entry.maxG, d.loadG);
+      this.entry.plasmaBlackout = this.entry.alt < 85000 && this.entry.alt > 42000 && this.entry.speed > 4200;
+
+      this.orion.heat = d.tempF;
+      this.orion.loadG = d.loadG;
+      this.t += step;
+      this._updateTelemetry();
+
+      if (this.entry.loadG > 8.5) {
+        this._fail(`Entry deceleration (${this.entry.loadG.toFixed(1)}G) exceeded structural and crew limits.`);
+        return;
+      }
+
+      // Transition to Phase 11 Parachute Deployment at 25,000 ft (7,620 m)
+      if (this.entry.alt <= 7620 && this.entry.speed <= 260) {
+        this._enterChutesPhase();
+      }
+    }
+
+    _enterChutesPhase() {
+      this.flags.entryDone = true;
+      this._done("entry");
+      this.entry.plasmaBlackout = false;
+      this.chutes.active = true;
+      this.chutes.stageLabel = "READY FOR FBC & DROGUES (25,000 FT)";
+      this.warpReq = 1;
+      this.paused = true;
+      this.eventHold = "chutes_drogue";
+      this._setPhase("chutes");
+      this._emit("CHUTE_BOX_REACHED", { altMeters: this.entry.alt, altFeet: this.entry.alt * 3.28084 });
+      this._say(`Peak heating (${Math.round(this.entry.maxTempF)}°F) and ${this.entry.maxG.toFixed(1)}G load survived! Altitude ${Math.round(this.entry.alt * 3.28084).toLocaleString("en-US")} ft — deploy Forward Bay Cover & Drogue Parachutes.`, "warn");
+    }
+
+    // ---------------------------------------------------------------- Phase 11: 11-Parachute Deployment
+    _deployDrogues() {
+      if (this.phase !== "chutes") return { accepted: false, reason: "Parachute deployment is active in Phase 11" };
+      if (this.chutes.droguesDeployed) return { accepted: false, reason: "Forward Bay Cover and Drogue parachutes are already deployed" };
+      this.chutes.fbcDeployed = true;
+      this.chutes.droguesDeployed = true;
+      this.chutes.totalDeployed = 5; // 3 FBC + 2 Drogues
+      this.chutes.stageLabel = "3 FBC + 2 DROGUES DEPLOYED (5 / 11)";
+      this.flags.fbcDeployed = true;
+      this.flags.droguesDeployed = true;
+      this.paused = false;
+      this.eventHold = null;
+      this._emit("DROGUES_DEPLOYED", { altFeet: Math.round(this.entry.alt * 3.28084), totalChutes: 5 });
+      this._say("Forward Bay Cover jettisoned via 3 FBC chutes; 2 Drogue parachutes deployed (5 of 11 chutes)! Descending to 9,000 ft for Main Parachute deployment.", "info");
+      return { accepted: true };
+    }
+
+    _deployMains() {
+      if (this.phase !== "chutes") return { accepted: false, reason: "Parachute deployment is active in Phase 11" };
+      if (!this.chutes.droguesDeployed) {
+        this._deployDrogues();
+      }
+      if (this.chutes.mainsDeployed) return { accepted: false, reason: "Main parachutes are already deployed" };
+      if (this.entry.alt > 4200) {
+        return { accepted: false, reason: `Wait until Orion descends to the ~9,000 ft main chute envelope (currently ${Math.round(this.entry.alt * 3.28084).toLocaleString("en-US")} ft)` };
+      }
+      this.chutes.pilotsDeployed = true;
+      this.chutes.mainsDeployed = true;
+      this.chutes.totalDeployed = 11; // 3 FBC + 2 Drogues + 3 Pilots + 3 Mains
+      this.chutes.stageLabel = "ALL 11 CHUTES DEPLOYED — 3 MAINS FULL OPEN";
+      this.flags.pilotsDeployed = true;
+      this.flags.mainsDeployed = true;
+      this.entry.chute = true;
+      this.orion.chute = true;
+      this.paused = false;
+      this.eventHold = null;
+      this._emit("CHUTE_DEPLOYED", { alt: this.entry.alt, altFeet: Math.round(this.entry.alt * 3.28084), speed: this.entry.speed, totalChutes: 11 });
+      this._say("3 Pilot chutes deployed, extracting all 3 Main Parachutes (11 of 11 total parachutes deployed)! Orion decelerating to 17.4 mph (<20 mph) for Pacific splashdown.", "info");
+      return { accepted: true };
+    }
+
+    _advanceChutes(dt) {
+      const step = Math.min(dt, 1.0);
+      this.t += step;
+      if (!this.chutes.droguesDeployed) {
+        // Free-falling through the parachute box until drogues are deployed
+        this.entry.alt = Math.max(0, this.entry.alt - 85 * step);
+        this.entry.speed = 92;
+        if (this.entry.alt < 3200) {
+          this._fail("Forward Bay Cover and Drogue parachutes were not deployed before the minimum altitude limit.");
         }
-        if (this.entry.alt < 4500) return this._fail("No parachute deployment before the 4.5 km hard limit.");
+        return;
       }
+
+      if (!this.chutes.mainsDeployed) {
+        // Descending under the 2 drogue parachutes toward 9,000 ft (2,743 m)
+        this.entry.alt = Math.max(0, this.entry.alt - 48 * step);
+        this.entry.speed = 48;
+        this.entry.tempF = Math.max(85, this.entry.tempF - 12 * step);
+        this.entry.loadG = 1.35;
+        if (this.entry.alt <= 2850 && this.eventHold !== "chutes_main") {
+          this.warpReq = 1;
+          this.paused = true;
+          this.eventHold = "chutes_main";
+          this._emit("MAIN_CHUTE_ALTITUDE", { altFeet: Math.round(this.entry.alt * 3.28084) });
+          this._say(`Altitude ${Math.round(this.entry.alt * 3.28084).toLocaleString("en-US")} ft (~9,000 ft) — deploy the 3 Pilot & 3 Main Parachutes [SPACE]!`, "warn");
+          return;
+        }
+        if (this.entry.alt < 900) {
+          this._fail("Main parachutes were not deployed before the 3,000 ft hard floor.");
+        }
+        return;
+      }
+
+      // Descending under the 3 main parachutes at 7.8 m/s (17.4 mph < 20 mph)
+      this.entry.speed = 7.8;
+      this.entry.alt = Math.max(0, this.entry.alt - 7.8 * step);
+      this.entry.tempF = 78;
+      this.entry.loadG = 1.0;
+
       if (this.entry.alt <= 0) {
-        const vertical = this.entry.chute ? 9 : Math.abs(this.entry.speed * Math.sin(this.entry.gamma || -Math.PI / 2));
-        const horizontal = this.entry.chute ? 0 : Math.abs(this.entry.speed * Math.cos(this.entry.gamma || 0));
-        if (vertical > 12 || horizontal > 25) return this._fail(`Ocean contact outside limits: ${vertical.toFixed(1)} m/s vertical, ${horizontal.toFixed(1)} m/s horizontal.`);
-        this.flags.splash = true; this._done("entry");
+        const verticalMps = 7.8;
+        const verticalMph = verticalMps * 2.236936;
+        this.flags.splash = true;
+        this.orion.landed = true;
+        this._done("chutes");
+        this.splashdownState.splashed = true;
+        this.splashdownState.speedMps = verticalMps;
+        this.splashdownState.speedMph = verticalMph;
+        this.warpReq = 1;
+        this.paused = true;
+        this.eventHold = "splashdown_actions";
         this._setPhase("splashdown");
-        this.result = { success: !this.returnAbort, abort: !!this.returnAbort, failure: null, samples: this.surface.samples, photos: this.surface.photos, fuel: this._fuelMargins(), assistance: this.assist, retries: this.retries, met: this.t, splashdown: { vertical, horizontal } };
-        this._emit("SPLASHDOWN", { vertical, horizontal });
-        this._say(`Splashdown confirmed. Vertical ${vertical.toFixed(1)} m/s, horizontal ${horizontal.toFixed(1)} m/s. Crew and samples are recovered.`, "info");
-        this.paused = true; this.eventHold = "debrief";
+        this._emit("SPLASHDOWN", {
+          vertical: verticalMps,
+          horizontal: 0,
+          speedMph: verticalMph,
+          region: this.splashdownState.region
+        });
+        this._say(`SPLASHDOWN CONFIRMED in the Pacific Ocean (~50 NM off California) at ${verticalMph.toFixed(1)} mph (${verticalMps.toFixed(1)} m/s)! Stabilize the capsule and confirm crew safety.`, "info");
       }
     }
 
-    _orionCheck() {
-      if (!["earth_orbit", "outbound", "lunar_orbit", "return_prep"].includes(this.phase)) return { accepted: false, reason: "Orion checks are available during cruise or before TEI" };
-      this.flags.orionCheck = true;
-      this._emit("ORION_CHECK", {}); this._say("Orion systems and navigation check complete: power, ECLSS, comms, propellant and guidance are within training limits.", "info");
-      return { accepted: true };
-    }
-    _checkout() {
-      if (this.phase !== "earth_orbit") return { accepted: false, reason: "Checkout is available in Earth orbit" };
-      this.flags.checkout = true;
-      this._emit("CHECKOUT", {}); this._say("Earth-orbit checkout complete: Orion, ICPS, crew and ground links are ready for TLI.", "info");
-      return { accepted: true };
-    }
-
+    // ---------------------------------------------------------------- Abort handling
     _abort() {
-      if (["briefing", "launch", "descent", "landed", "surface", "ascent", "reunion", "entry", "splashdown", "debrief"].includes(this.phase)) {
-        return { accepted: false, reason: "No physically feasible abort from this phase; retry the last checkpoint or continue the checklist" };
+      if (["briefing", "launch_prep", "chutes", "splashdown", "recovery", "debrief"].includes(this.phase)) {
+        return { accepted: false, reason: "Abort is not applicable in this phase" };
       }
-      if (this.phase === "earth_orbit") {
+      if (["launch", "earth_orbit", "prox_ops", "tli_prep"].includes(this.phase)) {
         this.returnAbort = true;
-        const up = vec.unit(this.orion.r), east = vec.unit(vec.cross([0, 0, 1], up));
-        this.orion.r = vec.scl(up, SIM.RE + SIM.ENTRY_ALT);
-        this.orion.v = vec.scl(east, 7600);
-        this.entry.active = true; this.entry.alt = SIM.ENTRY_ALT; this.entry.speed = 7600; this.entry.gamma = -1.2 * DEG;
-        this.entry.ready = false; this.entry.chute = false;
-        this._setPhase("entry"); this.eventHold = "entry_prep"; this.paused = true;
-        this._emit("ABORT_ENTRY", { speed: 7600 });
-        this._say("Abort declared in Earth orbit. Orion is on a direct entry trajectory; this is a training abort, not a lunar mission.", "warn");
+        this.entry.smSeparated = true;
+        this.entry.active = true;
+        this.entry.alt = SIM.ENTRY_ALT;
+        this.entry.speed = 7650;
+        this.entry.gamma = -1.4 * DEG;
+        this.entry.ready = false;
+        this.entry.chute = false;
+        this._setPhase("entry");
+        this.eventHold = "entry_prep";
+        this.paused = true;
+        this._emit("ABORT_ENTRY", { speed: 7650 });
+        this._say("ABORT DECLARED — Orion is executing an emergency Earth-orbit entry toward ocean recovery.", "warn");
         return { accepted: true };
       }
-      const plan = SIM.planTEI(this.orion, this.t);
-      if (!plan) return { accepted: false, reason: "No feasible Earth-return trajectory from this state" };
-      const m0 = SIM.mass(this.orion), mf = m0 * Math.exp(-plan.dvMag / (this.orion.isp * SIM.G0)), used = m0 - mf;
-      if (used > this.orion.prop) return { accepted: false, reason: "Not enough Orion propellant for an abort-return burn" };
-      this.orion.prop -= used; SIM.applyImpulse(this.orion, plan.dv);
-      this.returnAbort = true; this._setPhase("return");
-      this._emit("ABORT_RETURN", { dv: plan.dvMag, propUsed: used });
-      this._say("Abort-return burn complete. The crew is returning to Earth without a landing; no universal rescue maneuver is assumed.", "warn");
-      return { accepted: true };
+      if (["outbound", "lunar_flyby", "return_coast"].includes(this.phase)) {
+        this.returnAbort = true;
+        this._enterAtmosphericInterface();
+        this._emit("ABORT_RETURN", {});
+        this._say("FREE-RETURN ABORT — Proceeding along the emergency return corridor to Earth Entry Interface.", "warn");
+        return { accepted: true };
+      }
+      return { accepted: false, reason: "Abort is not available in the current state" };
     }
 
-    // ---------------------------------------------------------------- time advance
+    // ---------------------------------------------------------------- Telemetry & Time Advance
+    _updateTelemetry() {
+      const v = vec.norm(this.orion.v);
+      const r = vec.norm(this.orion.r);
+      this.telemetry.maxSpeedMps = Math.max(this.telemetry.maxSpeedMps, v, this.entry.active ? this.entry.speed : 0);
+      this.telemetry.maxEarthDistKm = Math.max(this.telemetry.maxEarthDistKm, r / 1000);
+      const moon = SIM.moonState(this.t);
+      const lunarAltKm = (vec.norm(vec.sub(this.orion.r, moon.r)) - SIM.RM) / 1000;
+      if (lunarAltKm > 0) {
+        this.telemetry.closestLunarAltKm = Math.min(this.telemetry.closestLunarAltKm, lunarAltKm);
+      }
+      this.telemetry.maxEntryG = Math.max(this.telemetry.maxEntryG, this.entry.maxG || 0, this.launch.accelG || 0);
+      this.telemetry.maxHeatTempF = Math.max(this.telemetry.maxHeatTempF, this.entry.maxTempF || 70);
+    }
+
     _warpLimit() {
       const base = WARP_LIMIT[this.phase] || 1;
       if (this.eventHold || this.paused) return 1;
-      if (this.phase === "outbound" || this.phase === "return") return base;
       return base;
     }
 
     advance(realDt) {
       if (this.exited) return [];
-      if (realDt > 1.0 && !this.paused && !this.result && this.phase !== "briefing") {
-        this.paused = true; this._say(`Paused after a ${realDt.toFixed(1)} s suspension; simulation time was not skipped.`, "warn");
+      if (realDt > 1.2 && !this.paused && !this.result && !["briefing", "launch_prep", "splashdown", "recovery", "debrief"].includes(this.phase)) {
+        this.paused = true;
+        this._say(`Simulation paused after a ${realDt.toFixed(1)} s tab suspension.`, "warn");
         this._emit("SUSPENDED", { realDt });
       }
-      if (this.paused || this.result || this.phase === "briefing" || this.phase === "debrief" || this.eventHold) return this.drainEvents();
+      if (this.paused || this.result || ["briefing", "launch_prep", "splashdown", "recovery", "debrief"].includes(this.phase) || this.eventHold) {
+        return this.drainEvents();
+      }
       const lim = this._warpLimit();
       this.warp = Math.min(this.warpReq, lim);
       let remaining = Math.min(realDt, 0.5) * this.warp;
@@ -856,9 +1848,9 @@
       while (remaining > 1e-6 && guard++ < 4000) {
         if (this.eventHold || this.result || this.paused) break;
         let dt;
-        if (["outbound", "return"].includes(this.phase)) dt = Math.min(remaining, COAST_STEP);
-        else if (["lunar_orbit", "earth_orbit", "return"].includes(this.phase)) dt = Math.min(remaining, 30);
-        else if (this.phase === "surface") dt = Math.min(remaining, 0.25);
+        if (["outbound", "return_coast"].includes(this.phase)) dt = Math.min(remaining, COAST_STEP);
+        else if (["earth_orbit", "tli_prep"].includes(this.phase)) dt = Math.min(remaining, 30);
+        else if (this.phase === "lunar_flyby") dt = Math.min(remaining, 15);
         else if (this.phase === "launch") dt = Math.min(remaining, 0.25);
         else dt = Math.min(remaining, DT);
         this._step(dt);
@@ -869,125 +1861,307 @@
     }
 
     advanceSim(seconds) {
-      let remaining = Math.max(0, seconds), guard = 0;
+      let remaining = Math.max(0, seconds);
+      let guard = 0;
       while (remaining > 1e-6 && guard++ < 100000) {
         if (this.eventHold || this.result || this.paused) break;
-        const dt = Math.min(remaining, ["outbound", "return"].includes(this.phase) ? COAST_STEP : ["lunar_orbit", "earth_orbit"].includes(this.phase) ? 30 : DT);
-        this._step(dt); remaining -= dt;
+        let stepMax = DT;
+        if (["outbound", "return_coast"].includes(this.phase)) stepMax = COAST_STEP;
+        else if (["earth_orbit", "tli_prep"].includes(this.phase)) stepMax = 30;
+        else if (this.phase === "lunar_flyby") stepMax = 15;
+        else if (this.phase === "launch") stepMax = 0.5;
+        const dt = Math.min(remaining, stepMax);
+        this._step(dt);
+        remaining -= dt;
       }
       return this.drainEvents();
     }
 
     _step(dt) {
       switch (this.phase) {
-        case "launch": this._advanceLaunch(dt); break;
-        case "earth_orbit": this.t += dt; { const p = SIM.parkingState(this.t); this.orion.r = p.r; this.orion.v = p.v; } break;
-        case "outbound": this._advanceCislunar(dt); break;
-        case "lunar_arrival": this.t += dt; break;
-        case "lunar_orbit": this._advanceLunarOrbit(dt); break;
-        case "docking": this._advanceDocking(dt, this.inputs && this.inputs.docking); this.t += dt; break;
-        case "descent": this._advanceDescent(dt, this.inputs && this.inputs.descent); this.t += dt; break;
-        case "surface": this._advanceSurface(dt, this.inputs && this.inputs.surface); this.t += dt; break;
-        case "ascent": this._advanceAscent(dt); this.t += dt; break;
-        case "reunion": this._advanceDocking(dt, this.inputs && this.inputs.docking); this.t += dt; break;
-        case "return": this._advanceReturn(dt); break;
-        case "entry": this._advanceEntry(dt); this.t += dt; break;
-        default: this.t += dt; break;
+        case "launch":       this._advanceLaunch(dt); break;
+        case "earth_orbit":  this._advanceEarthOrbit(dt); break;
+        case "prox_ops":     this._advanceProxOps(dt); break;
+        case "tli_prep":     this._advanceTliPrep(dt); break;
+        case "outbound":     this._advanceOutbound(dt); break;
+        case "lunar_flyby":  this._advanceLunarFlyby(dt); break;
+        case "return_coast": this._advanceReturnCoast(dt); break;
+        case "entry":        this._advanceEntry(dt); break;
+        case "chutes":       this._advanceChutes(dt); break;
+        default:             this.t += dt; break;
       }
     }
 
-    setInputs(inputs) { this.inputs = inputs || {}; }
+    setInputs(inputs) {
+      this.inputs = inputs || {};
+    }
 
-    // ---------------------------------------------------------------- snapshot
+    // ---------------------------------------------------------------- Snapshot
     snapshot() {
       const moon = SIM.moonState(this.t);
-      const rel = this.phase === "outbound" || this.phase === "lunar_arrival" || this.phase === "lunar_orbit" || this.phase === "docking" || this.phase === "reunion" || this.phase === "return" || this.phase === "return_prep"
-        ? vec.sub(this.orion.r, moon.r) : null;
+      const rel = vec.sub(this.orion.r, moon.r);
+      const earthDist = vec.norm(this.orion.r);
+      const earthAlt = ["entry", "chutes", "splashdown", "recovery", "debrief"].includes(this.phase)
+        ? this.entry.alt
+        : (this.phase === "launch" || this.phase === "briefing" || this.phase === "launch_prep")
+          ? this.launch.alt
+          : Math.max(0, earthDist - SIM.RE);
+      const lunarDist = vec.norm(rel);
+      const lunarAlt = Math.max(0, lunarDist - SIM.RM);
+      const speedMps = ["entry", "chutes", "splashdown", "recovery", "debrief"].includes(this.phase)
+        ? this.entry.speed
+        : (this.phase === "launch" || this.phase === "briefing" || this.phase === "launch_prep")
+          ? this.launch.speed
+          : vec.norm(this.orion.v);
+
+      const occ = this.phase === "lunar_flyby" ? SIM.checkLunarOccultation(this.orion.r, moon.r) : { blackout: false };
+      const commStatus = occ.blackout || this.flyby.inBlackout
+        ? "LOS — LUNAR FAR-SIDE BLACKOUT (EXPECTED)"
+        : this.entry.plasmaBlackout
+          ? "PLASMA ATTENUATION — ENTRY INTERFACE"
+          : "NOMINAL — DSN / TDRS LINK ACTIVE";
+
+      const meta = PHASE_META[this.phase] || { num: 1, title: this.phase.toUpperCase() };
+
       return {
-        schemaVersion: 1, missionId: this.missionId, revision: this.revision, mode: "artemis-training",
-        phase: this.phase, simTime: this.t, met: this.t, metLabel: fmtT(this.t),
-        warp: this.warp, warpReq: this.warpReq, warpMax: this._warpLimit(), paused: this.paused, eventHold: this.eventHold,
-        assist: this.assist, autoLand: this.autoLand, autoDock: this.autoDock,
+        schemaVersion: 2,
+        missionId: this.missionId,
+        revision: this.revision,
+        mode: "artemis-ii-flyby",
+        phase: this.phase,
+        phaseNumber: meta.num,
+        totalPhases: 13,
+        phaseTitle: meta.title,
+        simTime: this.t,
+        met: this.phase === "launch" && this.launch.elapsed < 0 ? this.launch.elapsed : this.t,
+        metLabel: fmtT(this.phase === "launch" && this.launch.elapsed < 0 ? this.launch.elapsed : this.t),
+        warp: this.warp,
+        warpReq: this.warpReq,
+        warpMax: this._warpLimit(),
+        paused: this.paused,
+        eventHold: this.eventHold,
+        assist: this.assist,
+        autoDock: this.prox.autoMode,
+        autoLand: false,
+        commStatus,
+        inBlackout: !!(occ.blackout || this.flyby.inBlackout),
+        nav: {
+          earthAltM: earthAlt,
+          earthAltKm: earthAlt / 1000,
+          earthDistKm: earthDist / 1000,
+          earthDistMi: (earthDist / 1000) * 0.621371,
+          lunarDistKm: lunarDist / 1000,
+          lunarAltKm: lunarAlt / 1000,
+          lunarAltMi: (lunarAlt / 1000) * 0.621371,
+          speedMps,
+          speedMph: speedMps * 2.236936
+        },
         vessel: {
-          orion: this._vesselView(this.orion), lander: this._vesselView(this.lander),
-          icps: { prop: this.icps.prop, dry: this.icps.dry },
-          stack: { attached: ["briefing", "launch", "earth_orbit"].includes(this.phase), mass: this._stackMass() }
+          orion: this._vesselView(this.orion),
+          lander: this._vesselView(this.lander),
+          icps: {
+            prop: this.icps.prop,
+            propStart: this.icps.propStart,
+            dry: this.icps.dry,
+            attached: this.icps.attached,
+            r: this.icps.r,
+            v: this.icps.v
+          },
+          stack: {
+            attached: ["briefing", "launch_prep", "launch", "earth_orbit"].includes(this.phase) && this.icps.attached,
+            solarArrays: this.flags.solarArrays,
+            smSeparated: this.entry.smSeparated,
+            lasJettisoned: this.flags.lasJettison,
+            srbSeparated: this.flags.srbSep,
+            fairingSeparated: this.flags.fairingSep,
+            coreSeparated: this.flags.coreSep,
+            mass: this._stackMass()
+          }
         },
         moon: { r: moon.r, v: moon.v },
         lunarRel: rel,
-        launch: { elapsed: this.launch.elapsed, stage: this.launch.stage },
-        tliPlan: this.tliPlan ? { dv: this.tliPlan.dvMag, tofDays: this.tliPlan.tof / 86400, tDepart: this.tliPlan.tDepart } : null,
-        teiPlan: this.teiPlan ? { dv: this.teiPlan.dvMag, tofDays: this.teiPlan.tof / 86400 } : null,
-        docking: Object.assign({}, this.docking, { active: this.docking.active }),
-        descent: Object.assign({}, this.descent),
-        surface: { active: this.surface.active, elapsed: this.surface.elapsed, tasks: this.surface.tasks, samples: this.surface.samples, photos: this.surface.photos, astronauts: this.surface.astronauts, targets: this._surfaceTargets(), experimentDeployed: this.surface.experimentDeployed },
+        launch: Object.assign({}, this.launch),
+        orbitState: Object.assign({}, this.orbitState),
+        prox: Object.assign({}, this.prox),
+        docking: Object.assign({}, this.prox),
+        tliPlan: this.tliPlan ? {
+          tDepart: this.tliPlan.tDepart,
+          tFlybyIn: this.tliPlan.tFlybyIn,
+          tPerilune: this.tliPlan.tPerilune,
+          tFlybyOut: this.tliPlan.tFlybyOut,
+          tEntry: this.tliPlan.tEntry,
+          dv: this.tliPlan.dvMag,
+          esmDv: this.tliPlan.esmDvCost,
+          tofDays: this.tliPlan.tofOut / 86400,
+          periluneAltKm: this.tliPlan.periluneAltKm,
+          periluneAltMi: this.tliPlan.periluneAltMi,
+          maxEarthDistKm: this.tliPlan.maxEarthDistKm,
+          maxEarthDistMi: this.tliPlan.maxEarthDistMi
+        } : null,
+        flyby: Object.assign({}, this.flyby),
         entry: Object.assign({}, this.entry),
+        chutes: Object.assign({}, this.chutes),
+        splashdownState: Object.assign({}, this.splashdownState),
+        recoveryState: Object.assign({}, this.recoveryState),
+        telemetry: Object.assign({}, this.telemetry),
+        descent: this.descent,
+        surface: this.surface,
         resources: {
-          orionProp: this.orion.prop, orionPropStart: SIM.VEHICLES.orion.prop, orionRcs: this.orion.rcs,
-          landerDescent: this.lander.descentProp, landerDescentStart: SIM.VEHICLES.lander.descentProp,
-          landerAscent: this.lander.ascentProp, landerAscentStart: SIM.VEHICLES.lander.ascentProp,
-          landerRcs: this.lander.rcs, samples: this.surface.samples, photos: this.surface.photos
+          orionProp: this.orion.prop,
+          orionPropStart: SIM.VEHICLES.orion.prop,
+          orionRcs: this.orion.rcs,
+          orionRcsStart: SIM.VEHICLES.orion.rcs,
+          icpsProp: this.icps.prop,
+          icpsPropStart: this.icps.propStart,
+          slsCorePct: this.launch.corePropPct,
+          slsSrbPct: this.launch.srbPropPct,
+          photos: this.telemetry.photos,
+          observations: this.telemetry.observations,
+          samples: this.telemetry.observations
         },
-        crew: this.crew, duties: this.duties,
+        flags: Object.assign({}, this.flags),
+        crew: this.crew,
+        duties: this.duties,
         objectives: OBJECTIVES.map((o) => ({ id: o.id, phase: o.phase, label: o.label, status: this.obj[o.id] })),
         guidance: this._guidance(),
         allowedCommands: this.allowedCommands(),
-        failure: this.failure, result: this.result,
+        failure: this.failure,
+        result: this.result,
         checkpoints: CHECKPOINTS.filter((c) => this.checkpoints[c]),
-        messages: this.messages.slice(-8), retries: this.retries
+        messages: this.messages.slice(-8),
+        retries: this.retries
       };
     }
+
     _vesselView(v) {
-      return { kind: v.kind, r: v.r, v: v.v, q: v.q, w: v.w, mass: SIM.mass(v), prop: v.prop, dryMass: v.dryMass, descentProp: v.descentProp, ascentProp: v.ascentProp, rcs: v.rcs, heat: v.heat, loadG: v.loadG, landed: v.landed, chute: v.chute };
+      return {
+        kind: v.kind, r: v.r, v: v.v, q: v.q, w: v.w,
+        mass: SIM.mass(v), prop: v.prop, dryMass: v.dryMass,
+        descentProp: v.descentProp, ascentProp: v.ascentProp,
+        rcs: v.rcs, heat: v.heat, loadG: v.loadG,
+        landed: v.landed, chute: v.chute
+      };
     }
-    _stackMass() { return SIM.mass(this.orion) + this.icps.dry + this.icps.prop; }
+
+    _stackMass() {
+      return SIM.mass(this.orion) + (this.icps.attached ? this.icps.dry + this.icps.prop : 0);
+    }
+
     _guidance() {
       const g = { phase: this.phase };
-      if (this.phase === "earth_orbit") {
-        const plan = SIM.planTLI({ r: this.orion.r, v: this.orion.v }, this.t);
-        g.tli = plan ? { dv: plan.dvMag, tofDays: plan.tof / 86400, feasible: SIM.tliFeasible(plan) } : null;
+      if (this.phase === "tli_prep" || this.phase === "earth_orbit") {
+        const plan = this.tliPlan || SIM.planFreeReturnTLI({ r: this.orion.r, v: this.orion.v }, this.t);
+        g.tli = plan ? {
+          dv: plan.dvMag,
+          esmDv: plan.esmDvCost,
+          tofDays: plan.tofOut / 86400,
+          periluneAltKm: plan.periluneAltKm,
+          periluneAltMi: plan.periluneAltMi,
+          feasible: SIM.tliFeasible(plan)
+        } : null;
       }
-      if (this.phase === "lunar_orbit") {
-        const rel = SIM.moonRelative(this.orion.r, this.orion.v, this.t);
-        const el = SIM.elements(rel.r, rel.v, SIM.MU_M);
-        g.lunarOrbit = { periapsisAlt: el.periapsisAlt, apoapsisAlt: el.apoapsisAlt, target: "100 km circular" };
+      if (this.phase === "entry" || this.phase === "chutes") {
+        g.entry = {
+          alt: this.entry.alt,
+          speed: this.entry.speed,
+          gamma: this.entry.gamma / DEG,
+          heat: this.entry.heat,
+          tempF: this.entry.tempF,
+          loadG: this.entry.loadG,
+          chute: this.entry.chute,
+          ready: this.entry.ready,
+          smSeparated: this.entry.smSeparated
+        };
       }
-      if (this.phase === "descent") {
-        const site = SIM.siteById(this.descent.siteId);
-        g.descent = { site: site.name, alt: this.descent.alt, terrain: this.descent.terrainH, slope: this.descent.slope, vertical: -this.descent.vy, horizontal: Math.hypot(this.descent.vx, this.descent.vz), fuel: this.lander.descentProp, reserve: this.lander.descentProp - (this.descent.final ? 1800 : 8000), final: this.descent.final };
-      }
-      if (this.phase === "entry") g.entry = { alt: this.entry.alt, speed: this.entry.speed, gamma: this.entry.gamma / DEG, heat: this.entry.heat, loadG: this.entry.loadG, chute: this.entry.chute, ready: this.entry.ready };
       return g;
     }
+
     allowedCommands() {
       const out = ["PAUSE", "RESTART", "SET_ASSIST"];
       if (Object.keys(this.checkpoints).length) out.push("RETRY_CHECKPOINT");
-      if (this.result) return out;
+      if (this.result && this.phase === "debrief") return out;
       out.push("SET_WARP");
+
       switch (this.phase) {
-        case "briefing": out.push("START"); break;
-        case "earth_orbit": out.push("TLI", "CHECKOUT", "ORION_CHECK", "ABORT"); break;
-        case "outbound": out.push("ORION_CHECK", "ABORT"); break;
-        case "lunar_arrival": out.push("CAPTURE", "ABORT"); break;
-        case "lunar_orbit": out.push("CIRCULARIZE", "PHASING", "ORION_CHECK", "ABORT"); break;
-        case "docking": case "reunion": out.push("AUTO_DOCK"); break;
-        case "transfer": out.push("TRANSFER_CREW", "UNDOCK"); break;
-        case "descent": out.push("SELECT_SITE", "BEGIN_DESCENT", "AUTO_LAND", "ABORT"); break;
-        case "landed": out.push("EGRESS"); break;
-        case "surface": out.push("SURFACE_INTERACT", "END_EVA", "ORION_CHECK"); break;
-        case "ascent": out.push("ASCENT"); break;
-        case "return_prep": out.push("TRANSFER_RETURN", "TEI", "ORION_CHECK"); break;
-        case "return": out.push("ABORT"); break;
-        case "entry": out.push("ENTRY_PREP", "DEPLOY_CHUTE"); break;
-        case "splashdown": out.push("DEBRIEF"); break;
+        case "briefing":
+          if (!this.flags.crewReady) out.push("CREW_CHECK");
+          if (!this.flags.spacecraftChecked) out.push("SPACECRAFT_CHECK");
+          out.push("START");
+          break;
+        case "launch_prep":
+          if (!this.flags.crewIngress) out.push("CREW_INGRESS");
+          if (!this.flags.propLoaded) out.push("LOAD_PROPELLANT");
+          out.push("COMMIT_LAUNCH");
+          break;
+        case "launch":
+          if (!this.flags.srbSep && this.launch.elapsed >= 115) out.push("STAGE_SRB");
+          if (!this.flags.lasJettison && this.launch.elapsed >= 185) out.push("JETTISON_LAS");
+          out.push("ABORT");
+          break;
+        case "earth_orbit":
+          if (!this.flags.solarArrays) out.push("DEPLOY_SOLAR_ARRAYS");
+          if (!this.flags.checkout) out.push("CHECKOUT");
+          if (!this.flags.heoBurn) out.push("HEO_BURN");
+          if (!this.flags.orionCheck) out.push("ORION_CHECK");
+          out.push("SEPARATE_ICPS", "ABORT");
+          break;
+        case "prox_ops":
+          out.push("PROX_APPROACH", "PROX_HOLD", "PROX_RETREAT", "AUTO_PROX", "CONFIRM_PROX_EXIT", "ABORT");
+          break;
+        case "tli_prep":
+          if (!this.flags.tliVerified) out.push("VERIFY_TLI");
+          out.push("TLI", "ABORT");
+          break;
+        case "outbound":
+          if (!this.flags.outboundCheck) out.push("ORION_CHECK");
+          if (!this.flags.radiationDrill) out.push("RADIATION_DRILL");
+          if (!this.flags.outboundTrim) out.push("TRAJECTORY_TRIM");
+          out.push("ABORT");
+          break;
+        case "lunar_flyby":
+          if (!this.flyby.lunarObserved) out.push("LUNAR_OBSERVATION");
+          out.push("CONFIRM_FLYBY_EXIT", "ABORT");
+          break;
+        case "return_coast":
+          if (!this.flags.returnCheck) out.push("RETURN_CHECK");
+          if (!this.flags.returnTrim) out.push("RETURN_TRIM");
+          out.push("ABORT");
+          break;
+        case "entry":
+          if (!this.entry.smSeparated) out.push("SEPARATE_SM");
+          if (!this.entry.ready) out.push("ENTRY_PREP");
+          break;
+        case "chutes":
+          if (!this.chutes.droguesDeployed) out.push("DEPLOY_DROGUES");
+          else if (!this.chutes.mainsDeployed) out.push("DEPLOY_MAINS");
+          break;
+        case "splashdown":
+          if (!this.splashdownState.stabilized) out.push("STABILIZE_CAPSULE");
+          out.push("CONFIRM_CREW_SAFE");
+          break;
+        case "recovery":
+          if (!this.recoveryState.frontPorch) out.push("DEPLOY_FRONT_PORCH");
+          if (!this.recoveryState.crewExtracted) out.push("HELICOPTER_EXTRACTION");
+          if (this.recoveryState.crewExtracted) out.push("DEBRIEF");
+          break;
       }
       return out;
     }
-
-    // ---------------------------------------------------------------- api
   }
 
-  const api = { ArtemisMission, PHASES, OBJECTIVES, CHECKPOINTS, WARP_LIMIT, DUTIES, COMMAND_DUTY, DT, fmtT };
+  const api = {
+    ArtemisMission,
+    PHASES,
+    PHASE_META,
+    OBJECTIVES,
+    CHECKPOINTS,
+    WARP_LIMIT,
+    DUTIES,
+    COMMAND_DUTY,
+    CREW_ROSTER,
+    DT,
+    fmtT
+  };
   root.ArtemisMissionLib = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

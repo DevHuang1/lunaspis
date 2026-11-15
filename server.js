@@ -569,10 +569,10 @@ const COOP_OBJECTIVE_IDS = new Set(MISSION_OBJECTIVES.map((o) => o.id));
 const MISSION_CATALOG = {
   artemis_expedition: {
     id: "artemis_expedition",
-    name: "Artemis Lunar Expedition (Training)",
-    code: "ARTEMIS",
-    badge: "LUNAR EXPEDITION",
-    summary: "Launch on SLS, fly Orion to lunar orbit, dock with a Blue Moon-style lander, land at the south pole, return samples, and splash down. Dated training scenario, not an exact reconstruction."
+    name: "Artemis II Crewed Lunar Flyby",
+    code: "ARTEMIS-II",
+    badge: "LUNAR FLYBY",
+    summary: "Launch 4 astronauts aboard Orion on SLS Block 1 from LC-39B, complete High Earth Orbit checkout and ICPS proximity operations, execute Trans-Lunar Injection, fly ~4,600 miles behind the Moon's far side on a figure-eight free-return trajectory, and splash down in the Pacific Ocean."
   },
   lunar_south_pole: {
     id: "lunar_south_pole",
@@ -1733,9 +1733,24 @@ function mergedArtemisInputs(room) {
   for (const [id, input] of Object.entries((room && room.artemisSurfaceInputs) || {})) {
     if (room.players && room.players[id]) surface[id] = input;
   }
+  const allInputs = (room && room.artemisInputs) || {};
+  const navIn = allInputs[duties.orion_nav] || {};
+  const pltIn = allInputs[duties.surface_pilot] || {};
+  const mergedFlight = {};
+  // Only flight crew may contribute control inputs; ground stations can watch but not fly.
+  const flightControllers = Object.entries(allInputs).filter(([id]) => {
+    const p = room && room.players && room.players[id];
+    return p && getTeamForRole(p.role) !== "ground";
+  });
+  for (const inp of [navIn, pltIn, ...flightControllers.map(([, v]) => v)]) {
+    if (!inp) continue;
+    for (const k of ["pitch", "yaw", "roll", "tx", "ty", "tz", "throttle", "fine"]) {
+      if (inp[k] && !mergedFlight[k]) mergedFlight[k] = inp[k];
+    }
+  }
   return {
-    docking: (room.artemisInputs && room.artemisInputs[duties.orion_nav]) || {},
-    descent: (room.artemisInputs && room.artemisInputs[duties.surface_pilot]) || {},
+    docking: Object.assign({}, mergedFlight, navIn),
+    descent: Object.assign({}, mergedFlight, pltIn),
     surface
   };
 }
@@ -1768,10 +1783,23 @@ async function recordArtemisResult(room) {
       failure: result.failure || null,
       samples: result.samples || 0,
       photos: result.photos || 0,
+      observations: result.observations || 0,
       fuel: result.fuel || {},
       assistance: !!result.assistance,
       retries: result.retries || 0,
       met: result.met || 0,
+      durationDays: result.durationDays || 0,
+      maxSpeedMps: result.maxSpeedMps || 0,
+      maxSpeedMph: result.maxSpeedMph || 0,
+      maxEarthDistKm: result.maxEarthDistKm || 0,
+      maxEarthDistMi: result.maxEarthDistMi || 0,
+      closestLunarAltKm: result.closestLunarAltKm || null,
+      closestLunarAltMi: result.closestLunarAltMi || null,
+      maxEntryG: result.maxEntryG || 0,
+      maxHeatTempF: result.maxHeatTempF || 70,
+      completedObjectives: result.completedObjectives || [],
+      crewStatus: result.crewStatus || "NOMINAL",
+      spacecraftStatus: result.spacecraftStatus || "RECOVERED",
       splashdown: result.splashdown || null
     }
   };
@@ -2752,7 +2780,7 @@ io.on("connection", (socket) => {
 
     if (room.mission.flightProfile === "artemis") {
       room.mission.phase = "artemis";
-      room.tasks = { completed: 0, total: 11 };
+      room.tasks = { completed: 0, total: 13 };
       room.completedTaskIds = {};
       room.artemisDuties = assignArtemisDuties(room);
       const duty = room.artemisDuties || {};
@@ -2913,7 +2941,7 @@ io.on("connection", (socket) => {
     if (!room || !room.artemisMission || !player) return false;
     const flight = Object.values(room.players || {}).filter((p) => p && getTeamForRole(p.role) !== "ground");
     if (flight.length < 4) return true;
-    if (type === "START" && room.hostId === player.id) return true;
+    if (room.hostId === player.id || normalizeRoleId(player.role) === "commander") return true;
     if (["PAUSE", "SET_WARP", "RETRY_CHECKPOINT", "RESTART", "EXIT", "SET_ASSIST", "DEBRIEF"].includes(type)) return true;
     const duties = room.artemisDuties || (room.artemisDuties = assignArtemisDuties(room));
     if (!duties) return false;

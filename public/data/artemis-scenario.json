@@ -1,34 +1,31 @@
 {
-  "schema": "lunaspis.artemis.scenario.v1",
+  "schema": "lunaspis.artemis.scenario.v2",
   "scenarioId": "artemis_expedition",
-  "title": "Artemis Lunar Expedition — Blue Moon-style lunar-rendezvous training scenario",
-  "architectureDate": "2026-11-14",
-  "architectureStatus": "Dated training interpretation of the public NASA October 2026 Artemis IV concept-of-operations updates. It is not a claim that NASA has selected Blue Origin for a specific landing.",
+  "title": "Artemis II Crewed Lunar Flyby — 13-Phase Free-Return Simulation",
+  "architectureDate": "2026-11-15",
+  "architectureStatus": "Complete 13-phase crewed lunar flyby and figure-eight free-return trajectory simulation inspired by NASA's Artemis II mission. Orion flies around the Moon without landing.",
   "publishedFacts": [
-    "NASA's October 2026 update places Artemis III in Earth orbit in 2027 as a rendezvous/docking test with lander test articles.",
-    "NASA's Artemis IV page describes a crewed lunar landing in early 2028 at the lunar South Pole, with two crew descending while two remain with Orion.",
-    "The October 2026 Blue Origin concept uses transfer stages to deliver a Blue Moon Mark 2 lander to an elliptical polar lunar orbit, where it meets Orion; the lander then takes two crew to the surface and returns them to Orion.",
-    "The SpaceX concept for the same period meets Orion in Earth orbit and uses Starship to push the combined stack toward low lunar orbit.",
-    "NASA states that the lander provider assignment for the near-term landing missions remains to be determined.",
-    "Axiom Space's suit and two approximately two-hour moonwalks are part of the published initial surface-mission planning."
+    "Artemis II is NASA's first crewed flight of the Space Launch System (SLS Block 1) and Orion spacecraft, carrying four astronauts: Reid Wiseman, Victor Glover, Christina Koch, and Jeremy Hansen.",
+    "SLS Block 1 launches from Launch Complex 39B with 8.8 million pounds of liftoff thrust, separating twin Solid Rocket Boosters at ~2 minutes, Service Module fairings and the Launch Abort System shortly after ~3 minutes, and the Core Stage at ~8 minutes.",
+    "After an initial ~90-minute Earth orbit and solar array deployment, the Interim Cryogenic Propulsion Stage (ICPS) raises Orion into a High Earth Orbit (~24-hour period) for systems checkout.",
+    "Orion separates from the ICPS and performs an interactive Proximity Operations demonstration using the spent ICPS and adapter as a handling target.",
+    "Orion's European Service Module performs the Trans-Lunar Injection (TLI) burn, sending the crew on a ~4-day outbound transfer and a figure-eight free-return trajectory passing ~4,600 miles (~7,400 km) beyond the lunar far side (>240,000 miles from Earth).",
+    "While behind the Moon, Orion experiences an expected geometric radio blackout (~43 minutes) before emerging with restored Deep Space Network communications and returning to Earth on a gravity-driven ~4-day return arc.",
+    "Prior to Earth Entry Interface (~75.7 miles / 121.9 km altitude at ~25,000 mph), the Crew Module separates from the Service Module, experiences ~4G peak deceleration and ~5,000°F peak Avcoat heat-shield temperature, deploys an 11-parachute sequence (3 FBC, 2 drogues, 3 pilots, 3 mains), and splashes down below 20 mph in the Pacific Ocean (~50 NM off California) for U.S. Navy recovery."
   ],
   "trainingAssumptions": [
-    "This implementation selects the Blue Moon-style lunar-rendezvous architecture only. It does not implement the SpaceX Earth-orbit stack by default.",
-    "The lunar transfer uses a patched-conic training model with a 20,000 km arrival gate and Moon-only two-body motion inside the lunar sphere of influence.",
-    "The Moon follows a circular 384,400 km orbit inclined 5.145 degrees to the equator with a fixed training epoch phase.",
-    "SLS launch is a guided ascent profile with automatic staging and a physically validated 200 km parking orbit; it is not a 6-DOF SLS ascent simulation.",
-    "Orion, ICPS and lander masses, propellant loads, thrusts and Isp values are training values, not published flight constants.",
-    "The lander is a procedural Blue Moon-style proxy because no flight lander or usable interior was present in the repository.",
-    "The south-polar terrain is a procedural 2 km training patch; its height function is used for both rendering and collision. It is not LOLA data.",
-    "The EVA sample, photo and experiment tasks are training tasks; they are not confirmed Artemis IV flight procedures or instruments.",
-    "Voice communications remain the existing real-time social channel; the simulation does not impose a light-time delay on voice."
+    "The trajectory uses a deterministic 3-segment patched-conic figure-eight free-return model (outbound Kepler transfer -> Moon-centred retrograde hyperbolic flyby at 7,400 km perilune -> return Kepler transfer to 121.92 km Earth Entry Interface).",
+    "The Moon follows a 384,400 km orbit inclined 5.145 degrees to the equator with nodal alignment for the translunar transfer window.",
+    "SLS launch uses a continuous guided ascent profile (T-15s to T+510s) with ROFI, RS-25, SRB, fairing, LAS, and Core Stage staging events.",
+    "Atmospheric entry integrates point-mass skip-entry aerodynamics with lift-modulated deceleration capped near ~4.0G and heat-shield temperature peaking near ~5,000°F.",
+    "Time acceleration advances the underlying physical simulation state continuously without skipping phase guards or checks."
   ],
-  "epoch": "Training epoch T+0 at SLS launch; no real UTC epoch is claimed.",
-  "units": "SI internally (m, s, kg, N, rad); HUD converts to km, m/s, kg and degrees.",
+  "epoch": "Simulation epoch T-15s at terminal countdown; T+0s at SLS liftoff.",
+  "units": "SI internally (m, s, kg, N, rad); HUD displays both metric (km, m/s, kg) and imperial reference units (miles, ft, mph, °F, M lbs).",
   "frames": {
     "ECI": "Earth-centred inertial, equatorial XY, Z north",
     "MCI": "Moon-centred inertial, axes parallel to ECI",
-    "LOCAL": "South-polar site frame, x east, y north, z up"
+    "LOCAL": "Local reference frame (LC-39B pad, ICPS relative frame, or Pacific Ocean recovery zone)"
   },
   "moon": {
     "radiusM": 1737400,
@@ -36,52 +33,44 @@
     "orbitRadiusM": 384400000,
     "periodDays": 27.321661,
     "inclinationDeg": 5.145,
-    "arrivalGateM": 20000000
+    "flybyPeriluneAltM": 7400000
   },
   "vehicles": {
-    "sls": { "role": "crew launch", "trainingDryKg": 250000, "trainingPropKg": 2200000 },
-    "icps": { "role": "trans-lunar injection", "trainingDryKg": 3500, "trainingPropKg": 55000, "ispS": 462 },
-    "orion": { "role": "crew transport and Earth return", "trainingDryKg": 15000, "trainingPropKg": 25000, "ispS": 316 },
-    "lander": { "role": "surface access", "trainingDryKg": 18000, "trainingDescentPropKg": 25000, "trainingAscentPropKg": 12000, "descentIspS": 330, "ascentIspS": 340 }
+    "sls": { "role": "heavy-lift launch vehicle", "dryKg": 250000, "propKg": 2470000, "liftoffThrustLbs": 8800000 },
+    "icps": { "role": "high Earth orbit insertion & proximity ops target", "dryKg": 3500, "propKg": 29000, "ispS": 462 },
+    "orion": { "role": "crewed spacecraft, TLI, lunar flyby & Earth entry", "dryKg": 15400, "propKg": 9200, "rcsKg": 650, "ispS": 316 }
   },
-  "landingSites": [
-    { "id": "shackleton_rim", "name": "Shackleton Rim", "trainingNote": "Near a permanent-shadow boundary; slope varies." },
-    { "id": "connecting_ridge", "name": "Connecting Ridge", "trainingNote": "Ridge crest with a broad Earth view." },
-    { "id": "degerlager", "name": "de Gerlager Rim", "trainingNote": "Rougher approach and higher slope hazard." }
+  "phases": [
+    "1. briefing — Mission Briefing & Crew Preparation",
+    "2. launch_prep — Crew Transportation & Launch Complex 39B Preparation",
+    "3. launch — SLS Launch & Ascent",
+    "4. earth_orbit — Earth Orbit, HEO Burn & 24h Systems Checkout",
+    "5. prox_ops — Proximity Operations Demonstration",
+    "6. tli_prep — Trans-Lunar Injection (TLI)",
+    "7. outbound — Outbound Deep-Space Cruise",
+    "8. lunar_flyby — Lunar Far-Side Flyby & Communications Blackout",
+    "9. return_coast — Free-Return Journey to Earth",
+    "10. entry — Service Module Separation & Atmospheric Entry",
+    "11. chutes — 11-Parachute Deployment Sequence",
+    "12. splashdown — Pacific Ocean Splashdown",
+    "13. recovery — U.S. Navy Crew Recovery & Mission Debrief"
   ],
-  "terrain": {
-    "patchSizeM": 2000,
-    "source": "procedural training height function",
-    "collision": "same height function; landing legs and slope are evaluated against it"
-  },
   "calculatedReference": {
-    "tliImpulseMps": 3626,
-    "tliTimeOfFlightDays": 2.5,
-    "lunarCaptureMps": 1261,
-    "lunarOrbitKm": "100 x 100 circular after capture sequence",
-    "teiMps": 1407,
-    "orionPropAfterCaptureKg": 11408,
-    "orionPropAfterTeiKg": 1532,
-    "automaticDescentPropRemainingKg": 9595,
-    "automaticAscentPropRemainingKg": 6800,
-    "notes": "Values are observed from the current training simulation and will change if the manifest parameters change. Re-run tests/artemis/run_checks.js after edits."
-  },
-  "limitations": [
-    "No real JPL Horizons ephemeris or NAIF SPICE kernels are loaded.",
-    "No J2, solar gravity, lunar mascons or finite-burn optimization.",
-    "No exact SLS/Orion/Blue Moon flight model or certified entry guidance.",
-    "No Gateway, NRHO, HLS elevator, rover, or surface habitat; these are outside this scenario.",
-    "No real-time comms light-time delay or DSN scheduling.",
-    "The visual SLS/Orion asset is a derived copy of the existing display model; the lander/capsule/astronaut/terrain visuals are labelled proxies."
-  ],
-  "references": [
-    "https://www.nasa.gov/missions/artemis/nasa-shares-plans-to-accelerate-artemis-return-to-moon/",
-    "https://www.nasa.gov/missions/artemis/nasa-partners-accelerate-lander-development-for-2028-moon-missions/",
-    "https://www.nasa.gov/mission/artemis-iv/",
-    "https://www.nasa.gov/artemis-ii-press-kit/",
-    "https://ssd.jpl.nasa.gov/horizons/",
-    "https://naif.jpl.nasa.gov/",
-    "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/",
-    "https://www.nasa.gov/reference/moonbase-environment/"
-  ]
+    "heoRaiseImpulseMps": 2491,
+    "tliTotalImpulseFromLeoMps": 3143,
+    "tliEsmBurnFromHeoMps": 652,
+    "outboundTimeOfFlightDays": 3.6,
+    "lunarFlybyPeriluneAltKm": 7400,
+    "lunarFlybyPeriluneAltMi": 4598,
+    "maxEarthDistanceKm": 393537,
+    "maxEarthDistanceMi": 244533,
+    "farSideBlackoutDurationMin": 43.0,
+    "entryInterfaceAltKm": 121.92,
+    "entryInterfaceSpeedMps": 10998,
+    "entryInterfaceSpeedMph": 24601,
+    "peakEntryG": 4.02,
+    "peakHeatShieldTempF": 5050,
+    "splashdownSpeedMps": 7.8,
+    "splashdownSpeedMph": 17.4
+  }
 }

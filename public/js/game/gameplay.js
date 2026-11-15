@@ -30,18 +30,18 @@
   const MISSION_SCENARIOS = {
     artemis_expedition: {
       id: "artemis_expedition",
-      name: "Artemis Lunar Expedition (Training)",
-      code: "ARTEMIS",
-      badge: "LUNAR EXPEDITION",
+      name: "Artemis II Crewed Lunar Flyby",
+      code: "ARTEMIS-II",
+      badge: "LUNAR FLYBY",
       isArtemis: true,
       baseBudgetM: 3200,
       targetLifetimeMonths: 1,
       recommendedOrbits: ["lunar_polar_100"],
       requiredScienceTypes: ["optical", "spectrometer"],
-      minDeltaV: 3800,
+      minDeltaV: 3150,
       minRadiationKrad: 55,
-      summary: "Launch on SLS, fly Orion to lunar orbit, dock with a Blue Moon-style lander, land at the south pole, return samples, and splash down. Dated training scenario, not an exact reconstruction.",
-      tradeoffTip: "This is a flight expedition, not a design study. The mission uses a dated Blue Moon-style lunar-rendezvous architecture and clearly labelled training assumptions."
+      summary: "Launch 4 astronauts aboard Orion on SLS Block 1 from LC-39B, complete High Earth Orbit checkout and ICPS proximity operations, execute Trans-Lunar Injection, fly ~4,600 miles behind the Moon's far side on a figure-eight free-return trajectory, and splash down in the Pacific Ocean.",
+      tradeoffTip: "Complete 13-phase Artemis II-inspired crewed lunar flyby simulation: SLS ascent, HEO checkout, ICPS proximity ops, TLI, far-side flyby & blackout, 25,000 mph skip entry, 11-parachute descent, and Pacific recovery."
     },
     earth_climate: {
       id: "earth_climate",
@@ -156,9 +156,9 @@
     artemis_expedition: {
       title: "ARTEMIS EXPEDITION",
       destination: "MOON",
-      job: "LAND & RETURN",
+      job: "LUNAR FLYBY",
       risk: "DEEP SPACE",
-      goal: "Land at the south pole and bring the crew home.",
+      goal: "Fly around the Moon's far side and bring the crew home.",
       accent: "#fbbf24",
       art: "moon",
       riskIcon: "signal"

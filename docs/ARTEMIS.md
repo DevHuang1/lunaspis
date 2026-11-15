@@ -1,160 +1,41 @@
-# Artemis Lunar Expedition — Implementation Notes
+# Artemis II Crewed Lunar Flyby — Implementation Notes
 
 ## Scope
 
-This is an additional Interfellas/Lunaspis mission: **Earth launch → lunar transfer → lunar orbit → lander rendezvous/docking → powered south-polar landing → two bounded surface task sequences → lunar ascent → Orion reunion → Earth return → Orion splashdown → debrief**.
+This mission implements a complete, interactive **13-phase Artemis II-inspired Crewed Lunar Flyby and Figure-Eight Free-Return Simulation**:
 
-It is a **dated training scenario**, not a reconstruction of a flown mission. The implementation uses the public NASA October 2026 architecture snapshot as a design input and chooses the **Blue Moon-style lunar-rendezvous** option. It does not claim that NASA selected Blue Origin for a specific landing, and it does not silently reuse the older shared-NRHO architecture.
+1. **Phase 1 (`briefing`)** — Mission Briefing & Crew Preparation (crew readiness & Orion/SLS status checks, launch authorization)
+2. **Phase 2 (`launch_prep`)** — Crew Transportation & Launch Complex 39B Preparation (Astrovan transport, White Room ingress, SLS cryogenic propellant loading & pad commit)
+3. **Phase 3 (`launch`)** — SLS Block 1 Launch & Ascent (`T-15s` countdown, ROFI sparklers at `T-12s`, RS-25 ignition at `T-6s`, `8.8M lbs` SRB liftoff at `T-0s`, Max-Q, SRB separation at `T+126s`, Service Module fairing & LAS jettison at `T+195–201s`, Core Stage MECO & separation at `T+480–492s`, and initial Earth orbit insertion at `T+510s`)
+4. **Phase 4 (`earth_orbit`)** — Earth Orbit, Solar Array Deployment, ICPS High Earth Orbit (HEO) Raise Burn (`200 × 38,000 km`), 24-Hour Systems Checkout & ICPS Separation
+5. **Phase 5 (`prox_ops`)** — Proximity Operations Demonstration (6-DOF manual or assisted handling relative to the separated ICPS & Stage Adapter: approach `<= 38 m`, hold & align, and back away `>= 85 m`)
+6. **Phase 6 (`tli_prep`)** — Trans-Lunar Injection (TLI) Preparation, Go/No-Go Verification & Orion Service Module TLI Burn
+7. **Phase 7 (`outbound`)** — Outbound Deep-Space Cruise (~4-day translunar coast, deep-space systems check, radiation shelter drill, and trajectory trim)
+8. **Phase 8 (`lunar_flyby`)** — Lunar Far-Side Flyby (`~4,600 miles / 7,400 km` perilune beyond the far side, `~244,533 miles` max distance from Earth, geometric ~43-minute far-side radio blackout & AOS restoration, and far-side observation/photography)
+9. **Phase 9 (`return_coast`)** — Gravity-Driven Free-Return Journey to Earth (~4-day return coast, return systems check & corridor trim)
+10. **Phase 10 (`entry`)** — Service Module Separation, Heat-Shield Orientation & Atmospheric Skip Entry at `121.9 km` (`~75.7 miles`) and `~24,600 mph` (`~11.0 km/s`), peaking near `~4.0G` and `~5,000°F`
+11. **Phase 11 (`chutes`)** — 11-Parachute Deployment Sequence (3 Forward Bay Cover chutes + 2 Drogues at ~25,000 ft; 3 Pilot chutes + 3 Main chutes at ~9,000 ft)
+12. **Phase 12 (`splashdown`)** — Pacific Ocean Splashdown (`17.4 mph` / `7.8 m/s`, ~50 NM off California), CMUS Upright Airbag Deployment & Crew Safety Confirmation
+13. **Phase 13 (`recovery` & `debrief`)** — U.S. Navy Crew Recovery Operations (Inflatable "Front Porch" deployment, Helicopter Crew Extraction to the recovery ship, Well-Deck recovery & Complete Mission Debrief)
 
-Machine-readable assumptions and calculated values live in `public/data/artemis-scenario.json`.
+**Orion does not land on the Moon.** Obsolete lunar orbit capture and surface lander stages have been removed from the active mission flow while preserving reusable helper functions in `artemis_simulation.js`.
 
-## Published facts vs. calculated values vs. training assumptions
+## Calculated Reference Values (`tests/artemis/run_checks.js`)
 
-### Published facts (as of the dated snapshot)
-
-- Artemis III is planned as an Earth-orbit rendezvous/docking demonstration with lander test articles in 2027.
-- Artemis IV targets the first crewed Artemis lunar landing in early 2028 at the lunar South Pole.
-- Two crew descend; two remain with Orion.
-- The October 2026 Blue Origin concept uses transfer stages to deliver a Blue Moon Mark 2 lander to an elliptical polar lunar orbit, where it meets Orion.
-- The SpaceX concept instead meets Orion in Earth orbit and uses Starship to push the combined stack toward low lunar orbit.
-- NASA says the provider assignment for the near-term landing missions remains to be determined.
-- Axiom Space's suit and approximately two two-hour moonwalks are part of initial surface planning.
-
-### Calculated values (current training model)
-
-Observed by `tests/artemis/run_checks.js` on the current code:
-
-| Item | Value |
+| Metric | Value |
 |---|---:|
-| TLI impulse | ~3,626 m/s |
-| TLI time of flight | 2.50 days |
-| Lunar capture sequence | ~1,261 m/s total |
-| Capture orbit | ~100 × 103 km circularized |
-| TEI impulse | ~1,407 m/s |
-| Orion propellant after capture | ~11,408 kg |
-| Orion propellant after TEI | ~1,532 kg |
-| Automatic descent propellant remaining | ~9,595 kg |
-| Automatic ascent propellant remaining | ~6,800 kg |
-
-These are not NASA flight values. They are outputs of the declared training model and will change if vehicle or transfer assumptions change. Re-run the checks after any edit.
-
-### Training assumptions / limitations
-
-- Patched-conic Earth–Moon transfer with a 20,000 km lunar arrival gate; Moon-only two-body motion inside the lunar sphere of influence.
-- Circular Moon orbit at 384,400 km, inclination 5.145°, fixed training epoch phase. The Moon moves, but this is not a JPL Horizons/SPICE ephemeris.
-- SLS ascent is a **guided automatic profile** with staging events and a physically validated 200 km parking orbit, not a 6-DOF SLS flight model.
-- Lunar capture is a two-impulse patched-conic sequence: a gate burn shapes a 100 km perilune, then a circularization burn is applied at perilune after a Moon-only propagation.
-- Lunar phasing after circularization is a guided training closure to a 25 m final-approach gate; the final docking itself is the active pilot task.
-- The lander ascent is a guided, propellant-limited profile that ends at a 25 m reunion gate; the final docking is active.
-- Vehicle masses, propellant loads, thrusts and Isp are training values.
-- No J2, solar gravity, lunar mascons, finite-burn optimization, Gateway/NRHO, HLS elevator, rover or habitat.
-- No real-time voice light-time delay; voice remains the existing social channel.
-- Orion entry is a guided training model with heat/load limits and parachute deployment, not Artemis I/II certification guidance.
-- Lunar terrain is a procedural 2 km patch. Its visual mesh and collision/slope checks share one height function. It is not LOLA imagery.
-- Visual SLS/Orion is a derived copy of the existing display asset; the lander, capsule, astronaut and terrain are clearly labelled development proxies.
-
-## Architecture choice
-
-The mission uses a **separate mission profile** on the server:
-
-- `flightProfile: "artemis"` and `flightMode: "artemis"`.
-- A new `ArtemisMission` state machine, not the Shuttle phase/objective graph and not the seven ISS station objectives.
-- Orion and the lander are separate vessels with separate propellant, mass, crew and checkpoint state.
-- Orion performs lunar orbit insertion, rendezvous/docking, TEI and Earth entry. It does not land.
-- The lander performs the powered descent, surface stay, and ascent. It is a Blue Moon-style proxy.
-- Two crew transfer to the lander; two remain with Orion.
-- A dedicated client `artemis_game.js` renders a cislunar map and local scenes and provides duty-aware controls.
-
-The existing Shuttle mission, ISS station flow, CubeSat design scenario, CML framework and the unmerged work on `main` were left intact.
-
-## Mission phases
-
-`briefing → launch → earth_orbit → outbound → lunar_arrival → lunar_orbit → docking → transfer → descent → landed → surface → ascent → reunion → return_prep → return → entry → splashdown → debrief`
-
-Critical events pause time acceleration. The server advances the mission; clients render snapshots and send duty-scoped commands/inputs.
-
-## Controls
-
-### Common
-
-- `T` — cycle time warp in coast phases.
-- `H` / `F1` — help.
-- `C` — reset camera orbit distance.
-- `P` or HUD PAUSE — pause.
-- `Space` — deploy parachutes when the entry prompt appears.
-- `E` — interact with the nearest surface marker.
-
-### Docking / reunion
-
-- `W/S` — close/back.
-- `A/D` — lateral.
-- `R/F` — up/down.
-- Arrow keys — pitch/yaw.
-- `Q/E` — roll.
-- `Shift` — fine mode.
-- `AUTO DOCK` — assisted training mode.
-
-### Powered descent
-
-- `W/S` — throttle.
-- `A/D` — lateral.
-- `Q/E` — rotate.
-- `Space` — level hold.
-- `AUTO LAND` — assisted training mode; fuel-limited.
-
-### Surface EVA
-
-- `WASD` — walk; `Shift` — sprint.
-- Mouse drag — look.
-- `E` — interact.
-- Return to the lander within 45 m and use `END EVA` before the suit reserve expires.
-
-### Entry
-
-- Authorize `ENTRY PREP` at the interface.
-- Monitor heat and load.
-- Deploy parachutes at the prompt.
-
-## Roles / duties
-
-| Duty | Default role | Responsibility |
-|---|---|---|
-| Surface Pilot | Commander | descent, landing, EVA movement, ascent authorization |
-| Surface Science | Scientist | EVA tasks, samples, experiment |
-| Orion Navigation | Specialist | TLI, capture, phasing, docking, TEI, entry prep |
-| Orion Systems | Engineer | checkout, crew transfer, Orion checks, abort |
-
-These are **gameplay assignments**, not claimed NASA crew procedures. Solo players can operate every station. Ground Control can monitor. The host/commander can reassign duties without teleporting crew.
-
-## Checkpoints and failures
-
-Checkpoints: `launch`, `earth_orbit`, `lunar_orbit`, `docked`, `landed`, `surface_done`, `reunion`, `entry`.
-
-Checkpoint restore restores both vessels, crew locations, resources, samples, pending phase state and retry count. It does not duplicate samples or rewards.
-
-Failure cases include missed/insufficient TLI, invalid capture, docking limits, unsafe landing speed/slope/attitude, insufficient descent/ascent propellant, EVA suit reserve, missed rendezvous, missing entry preparation and parachute hard limits. A direct Earth-orbit abort and a lunar-orbit abort-return are supported when the propulsion budget is physically sufficient; after landing there is no universal rescue maneuver.
-
-## Asset inventory
-
-| Asset | Source | Status |
-|---|---|---|
-| SLS Block 1 / Orion display GLB | Derived copy of `D:\SLS_Rocket_Exploded_View\SLS_Rocket_Exploded_View.glb`; original preserved | Used as a launch visual; display scale, no flight animations |
-| Blue Moon-style lander | Procedural client proxy | Development proxy |
-| Orion capsule | Procedural client proxy | Development proxy |
-| Lunar terrain, rocks, sample markers | Procedural from `terrainHeight` | Training geometry, not LOLA |
-| Astronaut EVA figures | Procedural client proxies | Development proxy |
-| Earth/Moon textures | Existing repository textures | Existing assets |
-| Crew models | Existing `public/models/crew` / astronaut GLBs | Existing assets, not used in the dedicated Artemis HUD scene |
-
-The SLS/Orion GLB remains an exploded-view display asset. It has nine joined meshes, nine 10-second location animations, four embedded textures and no flight stage-separation/solar-array animations. A production pass should re-export a clean flight hierarchy and animations.
-
-## Implementation milestones
-
-- **A0** — scenario freeze, reference trajectory/resource budget, manifest.
-- **A1** — descent → landing → surface task → ascent → docking practice segment (the training mission state machine now covers this).
-- **A2** — full Earth-launch-to-splashdown loop (implemented in the shared simulation).
-- **A3** — surface tasks, co-op duties, saves, failures and recovery (implemented; human playtest still required).
-- **A4** — physics/assets/control/performance validation and complete playthroughs.
+| SLS liftoff thrust | 8.80 million lbs (39.14 MN) |
+| Initial Earth parking orbit | 200 × 2,200 km (`28.6°` inclination) |
+| High Earth Orbit (HEO) after ICPS burn | 200 × 38,000 km (`Δv ≈ 2,491 m/s`) |
+| Total TLI impulse from LEO | ~3,143 m/s (tangential nodal window) |
+| Orion ESM TLI impulse from HEO perigee | ~652–1,084 m/s |
+| Outbound transfer duration | 3.60 days |
+| Lunar far-side closest approach (perilune) | 7,400 km (4,598 miles) |
+| Max distance from Earth at perilune | 393,537 km (244,533 miles) |
+| Far-side geometric radio blackout duration | ~43.0 minutes |
+| Earth Entry Interface altitude & speed | 121.92 km (75.7 mi) at 10,998 m/s (24,601 mph) |
+| Peak atmospheric entry load & temperature | 4.02 G / 4,993–5,050 °F |
+| Terminal splashdown speed (3 main chutes) | 7.8 m/s (17.4 mph) |
 
 ## Verification
 
@@ -164,38 +45,4 @@ Run:
 node tests/artemis/run_checks.js
 ```
 
-Current result: **21 passed, 0 failed**. The suite covers Moon motion, Lambert consistency, TLI feasibility, capture orbit, assisted docking, powered landing, EVA tasks, sample accounting, checkpoint restoration, absent-input failures, abort-return and full normal mission completion. It does not replace a human playtest or a browser/network integration test.
-
-The existing Shuttle suite now reports **64 passed, 0 failed**. Its previously stale `Ascent warp capped at 8×` expectation was updated to the current code's 25× ascent limit; the Shuttle flight model was not changed.
-
-Observed on 2026-11-15:
-
-- `node tests/artemis/run_checks.js` — 21 passed, 0 failed.
-- `node tests/shuttle/run_checks.js` — 64 passed, 0 failed.
-- `node tests/cml/run_checks.js` — 20 passed, 0 failed.
-- `node tests/regions/run_checks.js` — 36 passed, 0 failed.
-- `node tests/space_center/run_checks.js` — 15 passed, 0 failed.
-- Syntax check of 75 project JavaScript files — all passed.
-- Local server booted on port 3137 with declared dependencies; the Artemis mission card, briefing, launch authorization, dedicated HUD and SLS display scene were smoke-tested in Chromium. No Artemis-specific console errors were observed. (The existing video-link camera permission warning is unrelated to Artemis.)
-- A full human-paced, multi-client browser playthrough and a final art/performance pass remain to be performed.
-
-## Run
-
-The project needs its existing npm dependencies and a server process:
-
-```bash
-npm install
-npm start
-# open http://localhost:3000
-```
-
-Select **ARTEMIS EXPEDITION** in the lobby, or join a room whose host selected it. The dedicated client starts directly; there is no station/Shuttle detour.
-
-## Remaining limitations / honest completion report
-
-- The mission loop is implemented and passes the headless full-mission check. A browser smoke test of briefing/launch/HUD/scene was run; a full human-paced playthrough and a multi-client network test still need to be run.
-- Visuals for the lander/capsule/astronaut/terrain are proxies.
-- The SLS/Orion display asset is not a clean flight export.
-- The Moon ephemeris, terrain and vehicle data are training approximations.
-- No real GPS/DSN contact scheduling, comms delay, Gateway, HLS elevator, rover or surface habitat.
-- The outcome is a complete playable training expedition, not a certified Artemis reconstruction.
+Current automated suite result: **53 passed, 0 failed**.
