@@ -449,28 +449,36 @@
     update(sn) {
       this.lastSnap = sn;
       const q = (s) => this.root.querySelector(s);
+      // Snapshot updates arrive at ~10 Hz. Replacing a button's innerHTML on
+      // every packet detaches it between pointerdown and click, which makes
+      // the HUD controls appear dead. Only replace markup when it changed.
+      this._htmlCache = this._htmlCache || {};
+      const setHtml = (selector, html) => {
+        if (this._htmlCache[selector] === html) return;
+        this._htmlCache[selector] = html;
+        const el = q(selector); if (el) el.innerHTML = html;
+      };
       q("#art-phase").textContent = String(sn.phase || "").replace(/_/g, " ").toUpperCase();
       q("#art-met").textContent = `MET ${fmtMET(sn.met)}`;
       q("#art-warp").textContent = `WARP ${sn.warp || 1}×`;
       q("#art-assist").textContent = `ASSIST ${sn.assist ? "ON" : "OFF"}`;
-      const obj = q("#art-objectives");
-      obj.innerHTML = (sn.objectives || []).map((o) => `<div class="art-obj ${o.status === "done" ? "is-done" : ""}"><i></i><span>${ESC(o.label)}</span><b>${o.status === "done" ? "DONE" : "PENDING"}</b></div>`).join("");
+      setHtml("#art-objectives", (sn.objectives || []).map((o) => `<div class="art-obj ${o.status === "done" ? "is-done" : ""}"><i></i><span>${ESC(o.label)}</span><b>${o.status === "done" ? "DONE" : "PENDING"}</b></div>`).join(""));
       const duties = sn.duties || {};
       const dutyRows = Object.entries(duties).map(([id, d]) => `<div class="art-duty"><span>${ESC(d.label)}</span><b>${ESC(d.playerName || "OPEN")}</b></div>`).join("");
-      q("#art-crew").innerHTML = `<h4>DUTIES</h4>${dutyRows}`;
+      setHtml("#art-crew", `<h4>DUTIES</h4>${dutyRows}`);
       const r = sn.resources || {};
       const bar = (label, value, max, color) => `<div class="art-bar"><div><span>${label}</span><b>${fmt(value)}${max != null ? " / " + fmt(max) : ""}</b></div><i><em style="width:${pct(value, max)}%;background:${color}"></em></i></div>`;
-      q("#art-resources").innerHTML = `
+      setHtml("#art-resources", `
         ${bar("ORION MAIN PROPELLANT", r.orionProp, r.orionPropStart, "#67e8f9")}
         ${bar("LANDER DESCENT", r.landerDescent, r.landerDescentStart, "#fbbf24")}
         ${bar("LANDER ASCENT", r.landerAscent, r.landerAscentStart, "#34d399")}
         <div class="art-stat-row"><span>SAMPLES</span><b>${fmt(r.samples)} / 2</b></div>
         <div class="art-stat-row"><span>PHOTOS</span><b>${fmt(r.photos)}</b></div>
-        <div class="art-small">All values are calculated training estimates. The lunar lander is a Blue Moon-style proxy.</div>`;
-      q("#art-messages").innerHTML = (sn.messages || []).slice(-5).map((m) => `<div class="art-msg ${m.level}">${ESC(m.text)}</div>`).join("");
-      q("#art-guidance").innerHTML = this._guidance(sn);
-      q("#art-controls").innerHTML = this._controls(sn);
-      q("#art-instruments").innerHTML = this._instruments(sn);
+        <div class="art-small">All values are calculated training estimates. The lunar lander is a Blue Moon-style proxy.</div>`);
+      setHtml("#art-messages", (sn.messages || []).slice(-5).map((m) => `<div class="art-msg ${m.level}">${ESC(m.text)}</div>`).join(""));
+      setHtml("#art-guidance", this._guidance(sn));
+      setHtml("#art-controls", this._controls(sn));
+      setHtml("#art-instruments", this._instruments(sn));
       q("#art-brief").style.display = sn.phase === "briefing" ? "flex" : "none";
     }
     _guidance(sn) {
@@ -556,6 +564,9 @@
         if (window.spaceCenter.hudOverlay) window.spaceCenter.hudOverlay.style.display = "none";
       }
       if (window.issGroup) window.issGroup.visible = false;
+      if (window.glbManager && window.glbManager.hangarActive && typeof window.glbManager.closeHangar === "function") window.glbManager.closeHangar();
+      const hangar = document.getElementById("glb-hangar-modal");
+      if (hangar) hangar.style.display = "none";
       if (window.shipInterior && typeof window.shipInterior.hide === "function") window.shipInterior.hide();
       if (window.localCrew && window.localCrew.group) window.localCrew.group.visible = false;
       if (window.shuttleGame && window.shuttleGame.isActive) window.shuttleGame.exit();

@@ -960,7 +960,7 @@
       return g;
     }
     allowedCommands() {
-      const out = ["PAUSE", "EXIT", "RESTART", "SET_ASSIST"];
+      const out = ["PAUSE", "RESTART", "SET_ASSIST"];
       if (Object.keys(this.checkpoints).length) out.push("RETRY_CHECKPOINT");
       if (this.result) return out;
       out.push("SET_WARP");

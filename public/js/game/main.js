@@ -4239,6 +4239,7 @@
     let lastMouseX = 0, lastMouseY = 0;
 
     window.addEventListener("keydown", (e) => {
+      if (window.artemisGame && window.artemisGame.isActive) return;
       if (window.shuttleGame && window.shuttleGame.isActive) return;
       if (window.shipInterior && window.shipInterior.isLargeMapOpen) {
         if (e.code === "Escape" || e.key === "Escape") {
