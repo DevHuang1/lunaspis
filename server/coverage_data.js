@@ -26,14 +26,38 @@ const cooldown = new Map();      // key -> until (ms)
 const inflight = new Map();      // key -> Promise (one upstream request per key at a time)
 const UA = "Interfellas-coverage/1.0 (educational game; geometric visibility only)";
 
+function cleanText(value, maxLength = 80) {
+  return String(value == null ? "" : value)
+    .replace(/[\u0000-\u001F\u007F<>]/g, "")
+    .trim()
+    .slice(0, maxLength);
+}
+
+function sanitizeOmm(omm) {
+  if (!omm || typeof omm !== "object") return omm;
+  return {
+    ...omm,
+    OBJECT_NAME: cleanText(omm.OBJECT_NAME, 80),
+    OBJECT_ID: cleanText(omm.OBJECT_ID, 32)
+  };
+}
+
 const offline = () => process.env.COVERAGE_OFFLINE === "1";
 const sha256 = (s) => crypto.createHash("sha256").update(s).digest("hex");
 const ensureDir = (d) => { try { fs.mkdirSync(d, { recursive: true }); } catch (e) { /* read-only disk: cache stays in memory */ } };
 const readJson = (f) => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch (e) { return null; } };
 const writeJson = (f, o) => { try { ensureDir(path.dirname(f)); fs.writeFileSync(f, JSON.stringify(o)); } catch (e) { /* ignore */ } };
 const memCache = new Map();
-function cacheGet(file) { if (memCache.has(file)) return memCache.get(file); const v = readJson(file); if (v) memCache.set(file, v); return v; }
-function cachePut(file, v) { memCache.set(file, v); writeJson(file, v); }
+const MEM_CACHE_MAX = 500;
+function cacheGet(file) { if (memCache.has(file)) return memCache.get(file); const v = readJson(file); if (v) cachePut(file, v); return v; }
+function cachePut(file, v) {
+  if (!memCache.has(file) && memCache.size >= MEM_CACHE_MAX) {
+    const oldest = memCache.keys().next().value;
+    if (oldest !== undefined) memCache.delete(oldest);
+  }
+  memCache.set(file, v);
+  writeJson(file, v);
+}
 
 function budgetLeft(now) { BUDGET.errors = BUDGET.errors.filter((t) => now - t < BUDGET.windowMs); return BUDGET.max - BUDGET.errors.length; }
 function noteError(key, now) { BUDGET.errors.push(now); cooldown.set(key, now + COOLDOWN); }
@@ -69,7 +93,8 @@ async function getGp(catnr) {
     if (!Array.isArray(arr) || !arr.length) { noteError(key, Date.now()); return { error: `No published elements for catalog number ${catnr}`, status: 404 }; }
     const omm = arr[0], v = C.validateOmm(omm);
     if (!v.ok) { noteError(key, Date.now()); return { error: "Invalid orbital elements from the source: " + v.errors[0], status: 502 }; }
-    const rec = { omm, fetchedAt: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"), sourceUrl: url, sha256: sha256(JSON.stringify(omm)) };
+    const safeOmm = sanitizeOmm(omm);
+    const rec = { omm: safeOmm, fetchedAt: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"), sourceUrl: url, sha256: sha256(JSON.stringify(safeOmm)) };
     cachePut(file, rec);
     return { ...rec, from: "live" };
   });
@@ -87,9 +112,9 @@ async function searchName(term) {
     if (res.status !== 200) { noteError(key, Date.now()); return { error: `CelesTrak returned HTTP ${res.status}`, status: 502 }; }
     let arr = null; try { arr = JSON.parse(res.text); } catch (e) { arr = []; }
     if (!Array.isArray(arr)) arr = [];
-    const results = arr.filter((o) => C.validateOmm(o).ok).slice(0, 25).map((o) => ({ catnr: String(o.NORAD_CAT_ID), name: o.OBJECT_NAME, epoch: o.EPOCH }));
+    const results = arr.filter((o) => C.validateOmm(o).ok).slice(0, 25).map((o) => ({ catnr: String(o.NORAD_CAT_ID), name: cleanText(o.OBJECT_NAME, 80), epoch: o.EPOCH }));
     // the same response holds full records: cache them as GP records too (avoids a second download)
-    for (const o of arr.slice(0, 25)) if (C.validateOmm(o).ok) cachePut(path.join(ROOT, "gp", String(o.NORAD_CAT_ID) + ".json"), { omm: o, fetchedAt: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"), sourceUrl: url, sha256: sha256(JSON.stringify(o)) });
+    for (const o of arr.slice(0, 25)) if (C.validateOmm(o).ok) { const safeOmm = sanitizeOmm(o); cachePut(path.join(ROOT, "gp", String(o.NORAD_CAT_ID) + ".json"), { omm: safeOmm, fetchedAt: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"), sourceUrl: url, sha256: sha256(JSON.stringify(safeOmm)) }); }
     const rec = { results, fetchedAt: new Date().toISOString().replace(/\.\d{3}Z$/, "Z") };
     cachePut(file, rec);
     return { ...rec, from: "live" };
@@ -99,8 +124,8 @@ async function searchName(term) {
 // ------------------------------------------------------------------ SatNOGS stations
 function reduceStations(list) {
   return list.filter((s) => s && typeof s.lat === "number" && typeof s.lng === "number" && isFinite(s.lat) && isFinite(s.lng))
-    .map((s) => ({ id: s.id, name: String(s.name || "").slice(0, 60), lat: s.lat, lng: s.lng, altitude: typeof s.altitude === "number" ? s.altitude : 0,
-                   min_horizon: typeof s.min_horizon === "number" ? s.min_horizon : null, status: s.status || "", last_seen: s.last_seen || null }));
+    .map((s) => ({ id: s.id, name: cleanText(s.name, 60), lat: s.lat, lng: s.lng, altitude: typeof s.altitude === "number" ? s.altitude : 0,
+                   min_horizon: typeof s.min_horizon === "number" ? s.min_horizon : null, status: cleanText(s.status, 24), last_seen: s.last_seen || null }));
 }
 async function getStations() {
   const key = "satnogs", file = path.join(ROOT, "satnogs_stations.json"), now = Date.now();

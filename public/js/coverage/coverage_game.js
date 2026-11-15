@@ -10,6 +10,12 @@
 (function () {
   "use strict";
   const C = window.CoverageCore;
+  const escapeHtml = (value) => String(value == null ? "" : value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
   const RATES = [1, 10, 60, 300, 1000];
   const store = {
     get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
@@ -341,7 +347,7 @@
           catch (e) { this.hud.toast("Search needs the network — showing bundled matches"); }
           const local = (this.satellites || []).filter((s) => s.name.toLowerCase().includes(q.toLowerCase())).map((s) => ({ catnr: s.catnr, name: s.name, bundled: true }));
           const all = [...local, ...list.filter((x) => !local.some((l) => l.catnr === String(x.catnr)))].slice(0, 25);
-          const el = this.hud.editorHtml("cv-search-res", all.length ? all.map((s) => `<div><button data-sr="${s.catnr}">${s.name} (#${s.catnr})${s.bundled ? " · offline" : ""}</button></div>`).join("") : `<div class="empty">No matches.</div>`);
+          const el = this.hud.editorHtml("cv-search-res", all.length ? all.map((s) => `<div><button data-sr="${escapeHtml(s.catnr)}">${escapeHtml(s.name)} (#${escapeHtml(s.catnr)})${s.bundled ? " · offline" : ""}</button></div>`).join("") : `<div class="empty">No matches.</div>`);
           if (el) el.querySelectorAll("[data-sr]").forEach((b) => b.addEventListener("click", async () => { const id = b.getAttribute("data-sr"); const rec = this._snapshotRecord(id) || await this._fetchGp(id); if (rec) this._setReal(d, rec); }));
           return;
         }
@@ -377,7 +383,7 @@
         }
         case "ED_LOAD": {
           const list = store.get("interfellas_cov_saved", []) || [];
-          const box = this.hud.editorHtml("cv-ed-body", `<div class="sec"><h4>Saved in this browser<em>${list.length} scenario${list.length === 1 ? "" : "s"}</em></h4>${list.length ? `<table>${list.map((s, i) => `<tr><td>${s.name.replace(/</g, "&lt;")}</td><td><button data-ld="${i}">LOAD</button> <button data-rm="${i}">DELETE</button></td></tr>`).join("")}</table>` : `<div class="empty">Nothing saved yet. SAVE… stores the scenario in this browser; EXPORT JSON gives you a file.</div>`}<div style="margin-top:8px"><button data-back>BACK</button></div></div>`);
+          const box = this.hud.editorHtml("cv-ed-body", `<div class="sec"><h4>Saved in this browser<em>${list.length} scenario${list.length === 1 ? "" : "s"}</em></h4>${list.length ? `<table>${list.map((s, i) => `<tr><td>${escapeHtml(s.name)}</td><td><button data-ld="${i}">LOAD</button> <button data-rm="${i}">DELETE</button></td></tr>`).join("")}</table>` : `<div class="empty">Nothing saved yet. SAVE… stores the scenario in this browser; EXPORT JSON gives you a file.</div>`}<div style="margin-top:8px"><button data-back>BACK</button></div></div>`);
           if (!box) return;
           box.querySelectorAll("[data-ld]").forEach((b) => b.addEventListener("click", () => { const s = list[+b.getAttribute("data-ld")].scenario; const v = C.validate(s); if (!v.ok) { this.hud.toast("That saved scenario is no longer valid: " + v.errors[0].msg); return; } this._draft = clone(s); this.hud.showEditor(this._draft, { isEditor: this.isEditor(), satellites: this.satellites || [] }); }));
           box.querySelectorAll("[data-rm]").forEach((b) => b.addEventListener("click", () => { list.splice(+b.getAttribute("data-rm"), 1); store.set("interfellas_cov_saved", list); this._editorCommand("ED_LOAD"); }));
@@ -399,7 +405,7 @@
         const list = cat.stations.filter((s) => (!online || s.status === "Online") && (!f || s.name.toLowerCase().includes(f))).slice(0, 40);
         const el = this.hud.el.querySelector("#cv-cat-list");
         if (el) {
-          el.innerHTML = list.map((s) => `<tr><td class="nm" title="${s.name.replace(/"/g, "&quot;")}">${s.name.replace(/</g, "&lt;")}</td><td>${s.lat.toFixed(2)}, ${s.lng.toFixed(2)}</td><td class="muted">${s.status}</td><td><button data-cat="${s.id}">ADD</button></td></tr>`).join("") || `<tr><td class="empty">No matching stations.</td></tr>`;
+          el.innerHTML = list.map((s) => `<tr><td class="nm" title="${escapeHtml(s.name)}">${escapeHtml(s.name)}</td><td>${s.lat.toFixed(2)}, ${s.lng.toFixed(2)}</td><td class="muted">${escapeHtml(s.status)}</td><td><button data-cat="${escapeHtml(s.id)}">ADD</button></td></tr>`).join("") || `<tr><td class="empty">No matching stations.</td></tr>`;
           el.querySelectorAll("[data-cat]").forEach((b) => b.addEventListener("click", () => { const s = cat.stations.find((x) => String(x.id) === b.getAttribute("data-cat")); this._addCatalogStation(d, s, cat); }));
         }
       };

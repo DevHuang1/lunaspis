@@ -81,7 +81,7 @@ function settle(cov, now) {
 function publicState(cov, room) {
   const now = Date.now();
   settle(cov, now);
-  const ed = room.players[cov.editorId];
+  const ed = Object.prototype.hasOwnProperty.call(room.players, cov.editorId) ? room.players[cov.editorId] : null;
   return { revision: cov.revision, pinsRev: cov.pinsRev || 0, scenario: cov.scenario, editorId: cov.editorId, editorName: ed ? ed.name : null,
            clock: { ...cov.clock }, serverNow: now, desync: cov.desync,
            deployActive: !!(cov.deploy && cov.deploy.active), deployResult: cov.deployResult };
@@ -165,8 +165,9 @@ function applyRequest(cov, room, socketId, req) {
     }
     case "SET_EDITOR": {
       if (!isHost) return { accepted: false, reason: "Only the host can hand over editing" };
-      if (!room.players[req.playerId]) return { accepted: false, reason: "That player is not in the room" };
-      cov.editorId = req.playerId;
+      const targetId = typeof req.playerId === "string" ? req.playerId.slice(0, 128) : "";
+      if (!Object.prototype.hasOwnProperty.call(room.players, targetId)) return { accepted: false, reason: "That player is not in the room" };
+      cov.editorId = targetId;
       return { accepted: true, changed: "editor" };
     }
     case "HASH": {
