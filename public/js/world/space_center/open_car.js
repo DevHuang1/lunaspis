@@ -44,14 +44,31 @@
       this.label = null;
       this.hud = null;
       this.speedEl = null;
+      this.mphEl = null;
+      this.gearEl = null;
       this.statusEl = null;
       this.stateEl = null;
       this.camBtn = null;
       this.boostBtn = null;
+      this.gaugeCanvas = null;
+      this.gaugeCtx = null;
+      this.throttleFill = null;
+      this.boostFill = null;
+      this.throttlePctEl = null;
+      this.boostPctEl = null;
+      this.brakeLight = null;
+      this.boostLight = null;
+      this.driftLight = null;
+      this._lastGaugeDraw = 0;
 
       this.isDriving = false;
       this.speed = 0;
       this.steer = 0;
+      this.throttleInput = 0;
+      this.steerInput = 0;
+      this.displayKmh = 0;
+      this.displayThrottle = 0;
+      this.displayBoost = 0;
       this.spawn = Object.assign({}, FALLBACK_CAR_SPAWN);
       this.yaw = this.spawn.yaw;
       this.brakeHeld = false;
@@ -825,51 +842,276 @@
             letter-spacing: 0.7px;
             color: #94a3b8;
           }
+          #open-car-hud .oc-dashboard {
+            display: grid;
+            grid-template-columns: 160px minmax(150px, 1fr) 138px;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+          }
+          #open-car-hud .oc-gauge {
+            width: 160px;
+            height: 160px;
+            filter: drop-shadow(0 0 18px rgba(251, 191, 36, 0.14));
+          }
+          #open-car-hud .oc-gauge canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+          }
+          #open-car-hud .oc-readouts {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 0;
+            text-align: left;
+          }
+          #open-car-hud .oc-digital {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            color: #f8fafc;
+          }
+          #open-car-hud .oc-digital b {
+            font-size: 34px;
+            font-weight: 900;
+            line-height: 0.9;
+            letter-spacing: 1px;
+            text-shadow: 0 0 18px rgba(251, 191, 36, 0.28);
+          }
+          #open-car-hud .oc-digital small {
+            font-size: 9px;
+            font-weight: 800;
+            letter-spacing: 1.2px;
+            color: #fbbf24;
+          }
+          #open-car-hud .oc-digital em {
+            margin-left: auto;
+            font-style: normal;
+            font-size: 9px;
+            letter-spacing: 0.8px;
+            color: #94a3b8;
+            white-space: nowrap;
+          }
+          #open-car-hud .oc-gear-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          }
+          #open-car-hud .oc-gear {
+            min-width: 38px;
+            padding: 2px 6px;
+            border: 1px solid rgba(148, 163, 184, 0.45);
+            border-radius: 5px;
+            background: rgba(8, 20, 34, 0.9);
+            color: #cbd5e1;
+            font-size: 24px;
+            font-weight: 900;
+            line-height: 1.05;
+            text-align: center;
+            box-shadow: inset 0 0 12px rgba(34, 211, 238, 0.08);
+          }
+          #open-car-hud .oc-gear.is-drive {
+            color: #a5f3fc;
+            border-color: rgba(103, 232, 249, 0.6);
+          }
+          #open-car-hud .oc-gear.is-reverse {
+            color: #fca5a5;
+            border-color: rgba(239, 68, 68, 0.65);
+          }
+          #open-car-hud .oc-gear-row small {
+            font-size: 8px;
+            font-weight: 800;
+            letter-spacing: 1.5px;
+            color: #64748b;
+          }
+          #open-car-hud .oc-meter {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+          }
+          #open-car-hud .oc-meter label {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 6px;
+            font-size: 8px;
+            font-weight: 800;
+            letter-spacing: 1.3px;
+            color: #94a3b8;
+          }
+          #open-car-hud .oc-meter label b {
+            font-size: 8px;
+            color: #cbd5e1;
+          }
+          #open-car-hud .oc-meter-track {
+            height: 7px;
+            border-radius: 4px;
+            border: 1px solid rgba(148, 163, 184, 0.24);
+            background: rgba(15, 23, 42, 0.92);
+            overflow: hidden;
+          }
+          #open-car-hud .oc-meter-track i {
+            display: block;
+            width: 0%;
+            height: 100%;
+            border-radius: 3px;
+            background: linear-gradient(90deg, #f59e0b, #fde68a);
+            box-shadow: 0 0 8px rgba(251, 191, 36, 0.55);
+            transition: width 80ms linear;
+          }
+          #open-car-hud .oc-meter-track i.is-reverse {
+            background: linear-gradient(90deg, #dc2626, #fca5a5);
+            box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+          }
+          #open-car-hud .oc-meter-boost .oc-meter-track i {
+            background: linear-gradient(90deg, #0891b2, #67e8f9);
+            box-shadow: 0 0 8px rgba(103, 232, 249, 0.55);
+          }
+          #open-car-hud .oc-tell-tales {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+          }
+          #open-car-hud .oc-tell {
+            padding: 2px 5px;
+            border: 1px solid rgba(100, 116, 139, 0.35);
+            border-radius: 3px;
+            background: rgba(15, 23, 42, 0.55);
+            color: #475569;
+            font-size: 8px;
+            font-weight: 800;
+            letter-spacing: 0.8px;
+          }
+          #open-car-hud .oc-tell.is-on {
+            color: #fecaca;
+            border-color: rgba(239, 68, 68, 0.7);
+            box-shadow: 0 0 8px rgba(239, 68, 68, 0.35);
+          }
+          #open-car-hud #open-car-boost-light.is-on {
+            color: #a5f3fc;
+            border-color: rgba(103, 232, 249, 0.75);
+            box-shadow: 0 0 8px rgba(103, 232, 249, 0.4);
+          }
+          #open-car-hud #open-car-drift-light.is-on {
+            color: #fde68a;
+            border-color: rgba(251, 191, 36, 0.75);
+            box-shadow: 0 0 8px rgba(251, 191, 36, 0.4);
+          }
+          #open-car-hud .oc-drive-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+          }
+          #open-car-hud .oc-drive-controls .oc-btn {
+            padding: 8px 4px;
+            font-size: 9px;
+            letter-spacing: 0.7px;
+          }
+          #open-car-hud .oc-state.is-reverse { color: #fca5a5; }
           #open-car-hud:not(.is-driving) .oc-drive-only { display: none; }
           #open-car-hud.is-driving .oc-near-only { display: none; }
-          /* While driving, keep only the speed/controls strip so the road and
-             dashboard stay visible instead of a second full menu card. */
-          #open-car-hud.is-driving .oc-card { min-width: 0; padding: 6px 12px; }
+          /* While driving, use a cockpit instrument cluster rather than a menu. */
+          #open-car-hud.is-driving .oc-card {
+            min-width: 540px;
+            max-width: min(94vw, 620px);
+            padding: 10px 14px 8px;
+            border-color: rgba(251, 191, 36, 0.68);
+          }
           #open-car-hud.is-driving .oc-title { display: none; }
           #open-car-hud.is-driving .oc-hint { display: none; }
-          #open-car-hud.is-driving .oc-state { margin-top: 2px; font-size: 8px; }
+          #open-car-hud.is-driving .oc-state { margin-top: 6px; font-size: 9px; }
           @media (max-width: 820px) {
             #open-car-hud {
               bottom: max(140px, calc(env(safe-area-inset-bottom) + 128px));
             }
+            #open-car-hud.is-driving .oc-card {
+              min-width: 0;
+              width: calc(100vw - 16px);
+              max-width: 460px;
+              padding: 7px 9px 6px;
+            }
+            #open-car-hud.is-driving .oc-dashboard {
+              grid-template-columns: 108px minmax(0, 1fr);
+              grid-template-areas: "gauge readouts" "controls controls";
+              gap: 6px 10px;
+            }
+            #open-car-hud.is-driving .oc-gauge {
+              width: 108px;
+              height: 108px;
+              grid-area: gauge;
+            }
+            #open-car-hud.is-driving .oc-readouts {
+              grid-area: readouts;
+              gap: 4px;
+            }
+            #open-car-hud.is-driving .oc-drive-controls {
+              grid-area: controls;
+              grid-template-columns: repeat(4, minmax(0, 1fr));
+            }
+            #open-car-hud.is-driving .oc-digital b { font-size: 24px; }
+            #open-car-hud.is-driving .oc-digital em { display: none; }
+            #open-car-hud.is-driving .oc-gear { font-size: 18px; min-width: 30px; }
+            #open-car-hud.is-driving .oc-meter label { font-size: 7px; letter-spacing: 0.9px; }
+            #open-car-hud.is-driving .oc-meter-track { height: 6px; }
+            #open-car-hud.is-driving .oc-tell { font-size: 7px; padding: 1px 4px; }
+            #open-car-hud.is-driving .oc-drive-controls .oc-btn {
+              padding: 6px 2px;
+              font-size: 8px;
+              letter-spacing: 0.3px;
+            }
+            #open-car-hud.is-driving .oc-state { margin-top: 4px; font-size: 8px; }
           }
           @media (max-width: 620px) {
             #open-car-hud .oc-card { min-width: 0; padding: 7px 10px; }
             #open-car-hud .oc-hint { display: none; }
             #open-car-hud .oc-btn { padding: 7px 10px; font-size: 10px; }
-            #open-car-hud .oc-speed span { font-size: 20px; }
-            /* Driving on a phone: four short controls in one row and the speed
-               underneath, never a tall portrait stack over the car. */
             #open-car-hud.is-driving .oc-card {
               width: calc(100vw - 16px);
               max-width: 380px;
               padding: 6px 8px;
-            }
-            #open-car-hud.is-driving .oc-row {
-              display: grid;
-              grid-template-columns: repeat(4, minmax(0, 1fr));
-              gap: 5px;
-              width: 100%;
             }
             #open-car-hud.is-driving .oc-btn {
               padding: 6px 3px;
               font-size: 9px;
               letter-spacing: 0.4px;
             }
-            #open-car-hud.is-driving .oc-speed {
-              grid-column: 1 / -1;
-              flex-direction: row;
-              justify-content: center;
-              gap: 6px;
-              min-width: 0;
+          }
+          @media (max-width: 900px) and (orientation: landscape) {
+            #open-car-hud.is-driving {
+              bottom: max(8px, env(safe-area-inset-bottom));
             }
-            #open-car-hud.is-driving .oc-speed span { font-size: 18px; }
-            #open-car-hud.is-driving .oc-state { margin-top: 2px; }
+            #open-car-hud.is-driving .oc-card {
+              width: min(500px, calc(100vw - 300px));
+              max-width: 500px;
+              padding: 6px 9px 5px;
+            }
+            #open-car-hud.is-driving .oc-dashboard {
+              grid-template-columns: 96px minmax(0, 1fr) 130px;
+              grid-template-areas: none;
+              gap: 8px;
+            }
+            #open-car-hud.is-driving .oc-gauge {
+              width: 96px;
+              height: 96px;
+              grid-area: auto;
+            }
+            #open-car-hud.is-driving .oc-readouts {
+              grid-area: auto;
+              gap: 3px;
+            }
+            #open-car-hud.is-driving .oc-drive-controls {
+              grid-area: auto;
+              grid-template-columns: 1fr 1fr;
+            }
+            #open-car-hud.is-driving .oc-digital b { font-size: 22px; }
+            #open-car-hud.is-driving .oc-digital em { display: none; }
+            #open-car-hud.is-driving .oc-gear { font-size: 16px; min-width: 26px; }
+            #open-car-hud.is-driving .oc-meter label { font-size: 7px; letter-spacing: 0.7px; }
+            #open-car-hud.is-driving .oc-meter-track { height: 5px; }
+            #open-car-hud.is-driving .oc-tell { font-size: 7px; padding: 1px 3px; }
+            #open-car-hud.is-driving .oc-drive-controls .oc-btn { padding: 5px 2px; font-size: 8px; }
+            #open-car-hud.is-driving .oc-state { display: none; }
           }
         `;
         document.head.appendChild(style);
@@ -879,17 +1121,46 @@
         hud.innerHTML = `
           <div class="oc-card">
             <div class="oc-title">LAUNCH CENTER · NASA ROAMING CAR</div>
-            <div class="oc-row">
-              <button type="button" class="oc-btn oc-btn-primary oc-near-only" id="open-car-action">E · DRIVE</button>
-              <button type="button" class="oc-btn oc-btn-primary oc-drive-only" id="open-car-exit">E · EXIT</button>
-              <button type="button" class="oc-btn oc-btn-boost oc-drive-only" id="open-car-boost">HOLD · BOOST</button>
-              <button type="button" class="oc-btn oc-drive-only" id="open-car-cam">CAM · 3RD</button>
-              <button type="button" class="oc-btn oc-btn-brake oc-drive-only" id="open-car-brake">HOLD · BRAKE</button>
-              <div class="oc-speed oc-drive-only"><span id="open-car-speed">0</span><small>KM/H</small></div>
-            </div>
-            <div class="oc-state oc-drive-only" id="open-car-state">CRUISE</div>
-            <div class="oc-hint oc-drive-only">W/S THROTTLE · A/D STEER · SHIFT BOOST · SPACE HANDBRAKE/DRIFT · C VIEW</div>
+            <button type="button" class="oc-btn oc-btn-primary oc-near-only" id="open-car-action">E · DRIVE</button>
             <div class="oc-hint oc-near-only">WALK UP AND PRESS [E] OR TAP TO DRIVE</div>
+
+            <div class="oc-dashboard oc-drive-only">
+              <div class="oc-gauge">
+                <canvas id="open-car-speedometer" width="360" height="360" aria-label="Speedometer"></canvas>
+              </div>
+              <div class="oc-readouts">
+                <div class="oc-digital">
+                  <b id="open-car-speed">0</b>
+                  <small>KM/H</small>
+                  <em id="open-car-mph">0 MPH</em>
+                </div>
+                <div class="oc-gear-row">
+                  <span class="oc-gear" id="open-car-gear">N</span>
+                  <small>GEAR</small>
+                </div>
+                <div class="oc-meter">
+                  <label><span>THROTTLE</span><b id="open-car-throttle-pct">0%</b></label>
+                  <div class="oc-meter-track"><i id="open-car-throttle-fill"></i></div>
+                </div>
+                <div class="oc-meter oc-meter-boost">
+                  <label><span>BOOST</span><b id="open-car-boost-pct">0%</b></label>
+                  <div class="oc-meter-track"><i id="open-car-boost-fill"></i></div>
+                </div>
+                <div class="oc-tell-tales">
+                  <span class="oc-tell" id="open-car-brake-light">BRAKE</span>
+                  <span class="oc-tell" id="open-car-boost-light">BOOST</span>
+                  <span class="oc-tell" id="open-car-drift-light">DRIFT</span>
+                </div>
+              </div>
+              <div class="oc-drive-controls">
+                <button type="button" class="oc-btn oc-btn-primary" id="open-car-exit">E · EXIT</button>
+                <button type="button" class="oc-btn oc-btn-boost" id="open-car-boost">HOLD · BOOST</button>
+                <button type="button" class="oc-btn" id="open-car-cam">CAM · 3RD</button>
+                <button type="button" class="oc-btn oc-btn-brake" id="open-car-brake">HOLD · BRAKE</button>
+              </div>
+            </div>
+
+            <div class="oc-state oc-drive-only" id="open-car-state">CRUISE</div>
           </div>
         `;
         document.body.appendChild(hud);
@@ -897,10 +1168,21 @@
       }
 
       this.speedEl = document.getElementById("open-car-speed");
+      this.mphEl = document.getElementById("open-car-mph");
+      this.gearEl = document.getElementById("open-car-gear");
       this.statusEl = document.querySelector("#open-car-hud .oc-title");
       this.stateEl = document.getElementById("open-car-state");
       this.camBtn = document.getElementById("open-car-cam");
       this.boostBtn = document.getElementById("open-car-boost");
+      this.gaugeCanvas = document.getElementById("open-car-speedometer");
+      this.gaugeCtx = this.gaugeCanvas ? this.gaugeCanvas.getContext("2d") : null;
+      this.throttleFill = document.getElementById("open-car-throttle-fill");
+      this.boostFill = document.getElementById("open-car-boost-fill");
+      this.throttlePctEl = document.getElementById("open-car-throttle-pct");
+      this.boostPctEl = document.getElementById("open-car-boost-pct");
+      this.brakeLight = document.getElementById("open-car-brake-light");
+      this.boostLight = document.getElementById("open-car-boost-light");
+      this.driftLight = document.getElementById("open-car-drift-light");
 
       const action = document.getElementById("open-car-action");
       const exit = document.getElementById("open-car-exit");
@@ -1081,6 +1363,14 @@
     // =========================================================================
     // ENTER / EXIT
     // =========================================================================
+    _resetDriveReadouts() {
+      this.throttleInput = 0;
+      this.steerInput = 0;
+      this.displayKmh = 0;
+      this.displayThrottle = 0;
+      this.displayBoost = 0;
+    }
+
     enter() {
       if (this.isDriving || !this._canDrive()) return false;
       this.isDriving = true;
@@ -1095,6 +1385,7 @@
       this._lookDragging = false;
       this.keys = Object.create(null);
       this._camInitialised = false;
+      this._resetDriveReadouts();
 
       if (window.localCrew && window.localCrew.group) {
         this.localCrewWasVisible = window.localCrew.group.visible;
@@ -1141,6 +1432,7 @@
       this._lookDragging = false;
       this.keys = Object.create(null);
       this._camInitialised = false;
+      this._resetDriveReadouts();
 
       if (this.driver) this.driver.visible = false;
       if (this.label) this.label.visible = true;
@@ -1188,6 +1480,7 @@
       this._lookDragging = false;
       this.keys = Object.create(null);
       this._camInitialised = false;
+      this._resetDriveReadouts();
       if (this.driver) this.driver.visible = false;
       if (this.label) this.label.visible = true;
       if (window.localCrew && window.localCrew.group) {
@@ -1276,6 +1569,8 @@
       const boosting = boostHeld && throttle > 0 && this.speed >= -0.1;
       this.boosting = boosting;
       this.drifting = drifting;
+      this.throttleInput = throttle;
+      this.steerInput = steerInput;
 
       if (throttle > 0) {
         if (boosting) {
@@ -1672,22 +1967,56 @@
       }
       this.hud.classList.toggle("is-visible", show);
       this.hud.classList.toggle("is-driving", this.isDriving);
-      if (this.speedEl) {
-        const kmh = Math.round(Math.abs(this.speed) * 3.6);
-        this.speedEl.textContent = String(kmh).padStart(2, "0");
+      const rawKmh = Math.abs(this.speed) * 3.6;
+      const smoothDt = Math.max(0.001, Math.min(0.05, this._lastDelta || 0.016));
+      const smoothing = 1 - Math.exp(-smoothDt * 10);
+      this.displayKmh += (rawKmh - this.displayKmh) * smoothing;
+      const throttle = this.throttleInput || 0;
+      const throttleTarget = throttle > 0 ? throttle : Math.abs(throttle) * 0.65;
+      this.displayThrottle += (throttleTarget - this.displayThrottle) * smoothing;
+      const boostTarget = this.boosting ? 1 : 0;
+      this.displayBoost += (boostTarget - this.displayBoost) * smoothing;
+
+      const braking = this.brakeHeld || this._key("Space", " ");
+      const kmh = Math.round(this.displayKmh);
+      if (this.speedEl) this.speedEl.textContent = String(kmh);
+      if (this.mphEl) this.mphEl.textContent = `${Math.round(kmh * 0.621371)} MPH`;
+      if (this.gearEl) {
+        const gear = this.speed < -0.4 || (Math.abs(this.speed) < 0.4 && throttle < -0.05)
+          ? "R"
+          : (Math.abs(this.speed) < 0.4 && Math.abs(throttle) < 0.05 ? "N" : "D");
+        this.gearEl.textContent = gear;
+        this.gearEl.classList.toggle("is-drive", gear === "D");
+        this.gearEl.classList.toggle("is-reverse", gear === "R");
       }
+      const throttlePct = Math.round(this.displayThrottle * 100);
+      if (this.throttleFill) {
+        this.throttleFill.style.width = `${throttlePct}%`;
+        this.throttleFill.classList.toggle("is-reverse", throttle < -0.05);
+      }
+      if (this.throttlePctEl) this.throttlePctEl.textContent = `${throttlePct}%`;
+      const boostPct = Math.round(this.displayBoost * 100);
+      if (this.boostFill) this.boostFill.style.width = `${boostPct}%`;
+      if (this.boostPctEl) this.boostPctEl.textContent = `${boostPct}%`;
+      if (this.brakeLight) this.brakeLight.classList.toggle("is-on", !!braking);
+      if (this.boostLight) this.boostLight.classList.toggle("is-on", !!(this.boosting || this.boostHeld));
+      if (this.driftLight) this.driftLight.classList.toggle("is-on", !!this.drifting);
+      if (this.isDriving && show) {
+        this._drawSpeedometer(this.displayKmh, this.displayThrottle, this.displayBoost);
+      }
+
       if (this.statusEl) {
         this.statusEl.textContent = this.isDriving
           ? "LAUNCH CENTER · NASA ROAMING CAR · DRIVING"
           : "LAUNCH CENTER · NASA ROAMING CAR";
       }
       if (this.stateEl) {
-        const braking = this.brakeHeld || this._key("Space", " ");
-        const state = this.drifting ? "DRIFT" : this.boosting ? "BOOST" : braking ? "BRAKE" : "CRUISE";
+        const state = this.drifting ? "DRIFT" : this.boosting ? "BOOST" : braking ? "BRAKE" : this.speed < -0.4 ? "REVERSE" : "CRUISE";
         this.stateEl.textContent = state;
         this.stateEl.classList.toggle("is-drift", state === "DRIFT");
         this.stateEl.classList.toggle("is-boost", state === "BOOST");
         this.stateEl.classList.toggle("is-brake", state === "BRAKE");
+        this.stateEl.classList.toggle("is-reverse", state === "REVERSE");
       }
       if (this.camBtn) {
         this.camBtn.textContent = this.firstPerson ? "CAM · 1ST" : "CAM · 3RD";
@@ -1697,6 +2026,127 @@
         this.boostBtn.classList.toggle("is-active", this.boosting || this.boostHeld);
       }
       this._stackAboveGroundHud();
+    }
+
+    _drawSpeedometer(kmh, throttle, boost) {
+      const canvas = this.gaugeCanvas;
+      if (!canvas) return;
+      const now = performance.now();
+      if (now - this._lastGaugeDraw < 32) return;
+      this._lastGaugeDraw = now;
+      const ctx = this.gaugeCtx || (this.gaugeCtx = canvas.getContext("2d"));
+      if (!ctx) return;
+
+      const W = canvas.width || 360;
+      const H = canvas.height || 360;
+      const cx = W * 0.5;
+      const cy = H * 0.5;
+      const r = Math.min(W, H) * 0.42;
+      const start = Math.PI * 0.75;
+      const sweep = Math.PI * 1.5;
+      const maxKmh = 120;
+      const speed = Math.max(0, Math.min(maxKmh, kmh));
+      const needleAngle = start + (speed / maxKmh) * sweep;
+
+      ctx.clearRect(0, 0, W, H);
+
+      // Instrument housing and face.
+      ctx.beginPath();
+      ctx.arc(cx, cy, r + 12, 0, Math.PI * 2);
+      ctx.fillStyle = "#070c14";
+      ctx.fill();
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "rgba(251, 191, 36, 0.42)";
+      ctx.stroke();
+
+      const face = ctx.createRadialGradient(cx, cy, 8, cx, cy, r);
+      face.addColorStop(0, "#101b2b");
+      face.addColorStop(1, "#03070d");
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = face;
+      ctx.fill();
+
+      // Scale ticks and labels.
+      for (let v = 0; v <= maxKmh; v += 5) {
+        const a = start + (v / maxKmh) * sweep;
+        const major = v % 20 === 0;
+        const inner = r - (major ? 30 : 20);
+        ctx.beginPath();
+        ctx.moveTo(cx + Math.cos(a) * inner, cy + Math.sin(a) * inner);
+        ctx.lineTo(cx + Math.cos(a) * (r - 8), cy + Math.sin(a) * (r - 8));
+        ctx.strokeStyle = v >= 90
+          ? "rgba(248, 113, 113, 0.9)"
+          : major ? "rgba(226, 232, 240, 0.9)" : "rgba(148, 163, 184, 0.4)";
+        ctx.lineWidth = major ? 3 : 1.5;
+        ctx.stroke();
+        if (major) {
+          const labelR = r - 48;
+          ctx.fillStyle = v >= 90 ? "#fca5a5" : "#cbd5e1";
+          ctx.font = "700 20px Courier New, monospace";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(String(v), cx + Math.cos(a) * labelR, cy + Math.sin(a) * labelR);
+        }
+      }
+
+      // Accelerator and boost arcs inside the scale.
+      if (throttle > 0.01) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, r - 64, start, start + sweep * Math.min(1, throttle));
+        ctx.strokeStyle = "rgba(251, 191, 36, 0.88)";
+        ctx.lineWidth = 6;
+        ctx.stroke();
+      }
+      if (boost > 0.01) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, r - 74, start, start + sweep * Math.min(1, boost));
+        ctx.strokeStyle = "rgba(103, 232, 249, 0.9)";
+        ctx.lineWidth = 4;
+        ctx.stroke();
+      }
+
+      // Redline arc.
+      ctx.beginPath();
+      ctx.arc(cx, cy, r - 8, start + (90 / maxKmh) * sweep, start + sweep);
+      ctx.strokeStyle = "rgba(239, 68, 68, 0.72)";
+      ctx.lineWidth = 5;
+      ctx.stroke();
+
+      // Needle.
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(needleAngle);
+      ctx.beginPath();
+      ctx.moveTo(-10, -5);
+      ctx.lineTo(r - 26, 0);
+      ctx.lineTo(-10, 5);
+      ctx.closePath();
+      ctx.fillStyle = "#fbbf24";
+      ctx.shadowColor = "rgba(251, 191, 36, 0.8)";
+      ctx.shadowBlur = 12;
+      ctx.fill();
+      ctx.restore();
+      ctx.shadowBlur = 0;
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, 14, 0, Math.PI * 2);
+      ctx.fillStyle = "#0f172a";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(251, 191, 36, 0.8)";
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      ctx.fillStyle = "#fbbf24";
+      ctx.font = "900 20px Arial, Helvetica, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("KM/H", cx, cy + 62);
+      ctx.fillStyle = "#64748b";
+      ctx.font = "700 12px Arial, Helvetica, sans-serif";
+      ctx.fillText("LC-39A ROVER", cx, cy + 84);
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "700 11px monospace";
+      ctx.fillText("NASA", cx, cy - 82);
     }
 
     /**
