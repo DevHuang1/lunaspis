@@ -127,10 +127,11 @@ async function issueSessionToken(userId) {
 
   if (pool) {
     try {
-      await pool.query(
+      const sessionResult = await pool.query(
         "UPDATE users SET session_token_hash = $1, session_expires_at = $2 WHERE id = $3",
         [tokenHash, expiresAt, userId]
       );
+      if (sessionResult.rowCount === 0) return null;
     } catch (e) {
       console.error("[DB] Error issuing session token:", e.message);
       return null;
@@ -478,6 +479,11 @@ async function loginUser(username, password) {
   if (!cleanUsername || !password) {
     return { success: false, error: "Username and password are required." };
   }
+  if (cleanUsername.length > MAX_USERNAME_LENGTH || String(password).length > MAX_PASSWORD_LENGTH) {
+    // Keep timing roughly uniform without touching the database.
+    await verifyPassword(String(password).slice(0, 16), DUMMY_PASSWORD_HASH);
+    return { success: false, error: "Invalid username or password." };
+  }
   const invalid = { success: false, error: "Invalid username or password." };
 
   if (pool) {
@@ -499,6 +505,8 @@ async function loginUser(username, password) {
       await pool.query("UPDATE users SET last_seen_at = CURRENT_TIMESTAMP WHERE id = $1", [user.id]);
       const sanitized = { ...user };
       delete sanitized.password_hash;
+      delete sanitized.session_token_hash;
+      delete sanitized.session_expires_at;
       return { success: true, user: sanitized };
     } catch (err) {
       console.error("[DB] loginUser error:", err.message);
@@ -523,6 +531,8 @@ async function loginUser(username, password) {
 
   const sanitized = { ...user };
   delete sanitized.password_hash;
+  delete sanitized.session_token_hash;
+  delete sanitized.session_expires_at;
   return { success: true, user: sanitized };
 }
 
@@ -543,6 +553,9 @@ async function resetPassword(username, currentPassword, newPassword) {
   }
   if (!currentPassword || String(currentPassword).length < 1) {
     return { success: false, error: "Current password is required." };
+  }
+  if (String(currentPassword).length > MAX_PASSWORD_LENGTH) {
+    return { success: false, error: "Current password is invalid." };
   }
 
   const passHash = await hashPassword(newPassword);

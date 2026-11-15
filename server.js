@@ -123,7 +123,7 @@ app.use((req, res, next) => {
   res.setHeader(
     "Content-Security-Policy",
     "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; " +
+    "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdnjs.cloudflare.com; " +
     "style-src 'self' 'unsafe-inline'; " +
     "img-src 'self' data: blob:; " +
     "media-src 'self' blob:; " +
@@ -173,6 +173,10 @@ function createRateLimiter({ windowMs, max, maxKeys = 20_000 }) {
 app.use("/api/auth", (req, res, next) => {
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("Pragma", "no-cache");
+  next();
+});
+app.use("/api/user", (req, res, next) => {
+  res.setHeader("Cache-Control", "no-store");
   next();
 });
 app.use("/api/auth", createRateLimiter({ windowMs: 60_000, max: 20 }));
@@ -274,7 +278,12 @@ async function requireAuth(req, res, next) {
 }
 
 function isValidAssetFilename(filename) {
-  return typeof filename === "string" && /^[A-Za-z0-9._-]+$/.test(filename) && !filename.includes("..");
+  return (
+    typeof filename === "string" &&
+    /^[A-Za-z0-9._-]+$/.test(filename) &&
+    !filename.includes("..") &&
+    /\.(glb|gltf|bin|obj|mtl|png|jpe?g|webp|ktx2|wasm)$/i.test(filename)
+  );
 }
 
 function assetContentType(filename) {
@@ -2321,6 +2330,45 @@ function countActiveRoomsForIp(ip) {
   return count;
 }
 
+const JOIN_FAILURE_WINDOW_MS = 60_000;
+const JOIN_FAILURE_MAX = 20;
+const joinFailureBuckets = new Map();
+
+function joinFailureBucket(ip) {
+  const key = ip || "unknown";
+  const now = Date.now();
+  let bucket = joinFailureBuckets.get(key);
+  if (!bucket || now - bucket.start >= JOIN_FAILURE_WINDOW_MS) {
+    bucket = { start: now, count: 0 };
+    joinFailureBuckets.set(key, bucket);
+  }
+  return bucket;
+}
+
+function isJoinBlocked(ip) {
+  return joinFailureBucket(ip).count >= JOIN_FAILURE_MAX;
+}
+
+function recordJoinFailure(ip) {
+  const bucket = joinFailureBucket(ip);
+  bucket.count += 1;
+  if (joinFailureBuckets.size > 10_000) {
+    const now = Date.now();
+    for (const [key, value] of joinFailureBuckets) {
+      if (now - value.start >= JOIN_FAILURE_WINDOW_MS) joinFailureBuckets.delete(key);
+    }
+    while (joinFailureBuckets.size > 10_000) {
+      const oldest = joinFailureBuckets.keys().next().value;
+      if (oldest === undefined) break;
+      joinFailureBuckets.delete(oldest);
+    }
+  }
+}
+
+function clearJoinFailures(ip) {
+  joinFailureBuckets.delete(ip || "unknown");
+}
+
 // Estimate the wire size of a Socket.IO packet without JSON-expanding binary
 // buffers (which would over-count voice chunks by roughly 3-4×).
 function estimateSocketPacketBytes(packet) {
@@ -2550,9 +2598,17 @@ io.on("connection", (socket) => {
     }
     socket.lastRoomActionAt = now;
 
+    if (isJoinBlocked(socket.clientIp)) {
+      const err = { success: false, message: "Too many failed join attempts. Please wait a minute." };
+      if (typeof callback === "function") callback(err);
+      socket.emit("join_error", err);
+      return;
+    }
+
     const targetRoom = rooms[targetCode];
 
     if (!targetRoom) {
+      recordJoinFailure(socket.clientIp);
       const err = { success: false, message: `Room "${targetCode}" does not exist. Check the code and try again!` };
       if (typeof callback === "function") callback(err);
       socket.emit("join_error", err);
@@ -2566,6 +2622,7 @@ io.on("connection", (socket) => {
           Object.keys(targetRoom.players).length === 0 &&
           (!targetRoom.hostUserId || String(targetRoom.hostUserId).startsWith("guest_"))));
     if (targetRoom.isSolo && !isSoloOwnerReconnect) {
+      recordJoinFailure(socket.clientIp);
       const err = { success: false, message: "This expedition is a single-player mission and is not accepting crew." };
       if (typeof callback === "function") callback(err);
       socket.emit("join_error", err);
@@ -2607,12 +2664,14 @@ io.on("connection", (socket) => {
     }
 
     if (Object.keys(room.players).length >= MAX_PLAYERS && !room.players[socket.id]) {
+      recordJoinFailure(socket.clientIp);
       const err = { success: false, message: `Room "${targetCode}" is already full (${MAX_PLAYERS}/${MAX_PLAYERS} astronauts in the co-op crew)!` };
       if (typeof callback === "function") callback(err);
       socket.emit("join_error", err);
       return;
     }
 
+    clearJoinFailures(socket.clientIp);
     currentRoomId = targetCode;
     socket.join(targetCode);
 
@@ -2985,6 +3044,13 @@ io.on("connection", (socket) => {
     data = asObject(data);
     if (!currentRoomId || !rooms[currentRoomId]) return;
     const room = rooms[currentRoomId];
+    const swapNow = Date.now();
+    if (socket.lastSwapRequestAt && swapNow - socket.lastSwapRequestAt < 1000) {
+      const err = { success: false, message: "Please wait before requesting another swap." };
+      if (typeof callback === "function") callback(err);
+      return;
+    }
+    socket.lastSwapRequestAt = swapNow;
     const pFrom = room.players[socket.id];
     const targetId = typeof data.targetId === "string" ? data.targetId.slice(0, 128) : "";
     const pTo = roomPlayerById(room, targetId);

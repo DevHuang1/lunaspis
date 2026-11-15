@@ -189,7 +189,7 @@ Module relationships and interior details were also checked against NASA's [stat
 - **Gameplay authority:** docking completion requires the helm pilot, commander or host; mission reset requires the host or commander; the boarding arm requires the engineer, commander or host. Client-supplied `corridorCapture`/`naturalEnd` hints are not treated as authority.
 - **Client asset ids:** astronaut `modelId` values are restricted to catalog-id characters and the browser only loads paths from its local catalog, preventing untrusted URLs from being fetched by other players.
 - **3D Crew Link:** the Earth Control ↔ Flight Crew link is rendered with animated 3D models, so it needs no camera permission, WebRTC media, STUN or TURN configuration. The legacy unauthenticated `/api/video/ice` TURN credential endpoint has been removed; if a future media feature needs TURN, use authenticated short-lived HMAC credentials.
-- **Headers:** CSP disallows `unsafe-eval`, HSTS is sent on secure requests, frame/opener/resource isolation headers are enabled, and the app runs as a non-root user in the container.
+- **Headers:** CSP disallows `unsafe-eval` but allows `wasm-unsafe-eval` for the meshopt and Basis/KTX2 WebAssembly decoders, HSTS is sent on secure requests, frame/opener/resource isolation headers are enabled, and the app runs as a non-root user in the container.
 - **Dependencies:** `npm audit --omit=dev` should be run in CI (currently reports 0 vulnerabilities). `npm run test:security` covers the crash payloads, validation forgery, auth backoff and header checks.
 
 ## 🌐 Server Regions

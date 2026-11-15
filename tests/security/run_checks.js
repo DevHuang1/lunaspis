@@ -17,7 +17,6 @@
  */
 "use strict";
 
-const assert = require("assert");
 const { spawn } = require("child_process");
 const fs = require("fs");
 const os = require("os");
@@ -264,20 +263,26 @@ async function testMissionAuthority() {
   await new Promise((resolve) => setTimeout(resolve, 450));
 
   const guestPlayer = joined[0].player;
-  const guestIsAuthorized = guestPlayer.role === "commander";
+  // Deterministically make the guest a non-commander flight role so the reset
+  // authority check is exercised regardless of random role assignment.
+  await host.emit("host_assign_role", { targetId: guestPlayer.id, role: "engineer" });
+  const guestIsAuthorized = guestPlayer.role === "commander" && guestPlayer.id === created[0].hostId;
   guest.emit("space_reset", {}, false);
   guest.emit("mission_design_sync", {
     designPatch: { orbitId: "sso_705", scenarioId: "earth_climate", difficultyId: "cadet" }
   }, false);
   await new Promise((resolve) => setTimeout(resolve, 500));
 
-  const roomUpdates = guest.events
-    .filter((entry) => entry[0] === "room_update")
+  const missionUpdates = guest.events
+    .filter((entry) => entry[0] === "mission_update")
     .map((entry) => entry[1])
-    .filter((payload) => payload && payload.roomId === roomId);
-  const latest = roomUpdates[roomUpdates.length - 1] || null;
-  check("non-host cannot switch the live scenario/difficulty", latest && latest.mission && latest.mission.scenarioId !== "earth_climate" && latest.mission.difficultyId !== "cadet",
-    latest && latest.mission ? `${latest.mission.scenarioId}/${latest.mission.difficultyId}` : "no room_update");
+    .filter((payload) => payload && payload.mission);
+  const latestMission = missionUpdates[missionUpdates.length - 1] || null;
+  const designApplied = !!(latestMission && latestMission.mission.design && latestMission.mission.design.orbitId === "sso_705");
+  check("crew design trade changes still sync", designApplied);
+  check("non-host cannot switch the live scenario/difficulty",
+    !latestMission || (latestMission.mission.scenarioId !== "earth_climate" && latestMission.mission.difficultyId !== "cadet"),
+    latestMission ? `${latestMission.mission.scenarioId}/${latestMission.mission.difficultyId}` : "no mission_update");
 
   if (!guestIsAuthorized) {
     const denied = guest.events.some((entry) => entry[0] === "ground_support_event" && entry[1] && entry[1].type === "reset_denied");
@@ -305,7 +310,8 @@ async function testHttpHardening() {
   const home = await fetch(`${BASE}/`, { headers: { "X-Forwarded-Proto": "https" } });
   const csp = home.headers.get("content-security-policy") || "";
   const hsts = home.headers.get("strict-transport-security") || "";
-  check("CSP no longer allows unsafe-eval", !csp.includes("unsafe-eval"), csp.slice(0, 120));
+  check("CSP allows WebAssembly without full unsafe-eval",
+    csp.includes("'wasm-unsafe-eval'") && !csp.includes("'unsafe-eval'"), csp.slice(0, 160));
   check("HSTS is sent on secure proxied requests", hsts.includes("max-age="), hsts);
   check("COOP/CORP isolation headers are present",
     home.headers.get("cross-origin-opener-policy") === "same-origin" &&
@@ -336,6 +342,29 @@ async function testHttpHardening() {
     body: JSON.stringify({ username: lockName, password: "wrong-password" })
   });
   check("repeated credential failures trigger account backoff", lastStatus === 400 && locked.status === 429, `last=${lastStatus}, locked=${locked.status}`);
+
+  const authName = `audit${Date.now()}`;
+  const register = await fetch(`${BASE}/api/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username: authName, password: "audit-password-123" })
+  });
+  const registered = await register.json();
+  check("registration still issues a valid session", register.status === 200 && !!registered.token, `status=${register.status}`);
+  if (registered.token) {
+    const me = await fetch(`${BASE}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${registered.token}` }
+    });
+    check("bearer session resolves", me.status === 200, `status=${me.status}`);
+    const logout = await fetch(`${BASE}/api/auth/logout`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${registered.token}` }
+    });
+    const meAfter = await fetch(`${BASE}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${registered.token}` }
+    });
+    check("logout revokes the session", logout.status === 200 && meAfter.status === 401, `logout=${logout.status}, after=${meAfter.status}`);
+  }
 }
 
 // ---------------------------------------------------------------------------
