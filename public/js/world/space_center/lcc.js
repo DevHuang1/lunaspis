@@ -144,10 +144,10 @@
       (ctx, w, h) => {
         ctx.fillStyle = "#0f172a";
         ctx.fillRect(0, 0, w, h);
-        ctx.strokeStyle = "#d0a15c";
+        ctx.strokeStyle = "#c9f04b";
         ctx.lineWidth = 6;
         ctx.strokeRect(4, 4, w - 8, h - 8);
-        ctx.fillStyle = "#eceae3";
+        ctx.fillStyle = "#efeee7";
         ctx.font = "900 48px Arial, Helvetica, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";

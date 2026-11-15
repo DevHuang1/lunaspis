@@ -407,7 +407,7 @@ app.use((err, req, res, next) => {
 const ROLES = ["commander", "engineer", "scientist"];
 const MAX_PLAYERS = 6;
 const GAME_MODE = "coop";
-const SUIT_COLORS = ["#ef4444", "#3b82f6", "#10b981", "#f59e0b", "#06b6d4", "#a855f7"];
+const SUIT_COLORS = ["#c9f04b", "#63e6a8", "#ff6b6b", "#7dd3fc", "#8a8194", "#efeee7"];
 
 function normalizeRoleId(rawRole, fallback = "commander") {
   const s = String(rawRole || "").trim().toLowerCase().replace(/[_-]+/g, " ");
@@ -566,7 +566,7 @@ const ROLE_INFO = {
     short: "CMD",
     title: "Commander",
     callsign: "FLIGHT-CDR",
-    color: "#c67979",
+    color: "#ff6b6b",
     primaryDuty: "Initiate Liftoff [L], Pilot Orbital Docking [WASD/QE] & Charter/Navigation Consoles [HUB, CMD]",
     padDuty: "Board White Room & Initiate Liftoff [L]",
     dockDuty: "Primary 6DOF Docking Pilot & Capture Latch [SPACE]",
@@ -577,7 +577,7 @@ const ROLE_INFO = {
     short: "ENG",
     title: "Flight Engineer",
     callsign: "SYSTEMS-ENG",
-    color: "#d0a15c",
+    color: "#f5c451",
     primaryDuty: "Operate Pad Access Arm [F], Stabilize Docking RCS [1/2] & Power/Hull Consoles [PWR, HULL]",
     padDuty: "Extend & Lock Orbiter Access Arm [F]",
     dockDuty: "RCS Attitude Stabilizer [1] & Fine Trim [2]",
@@ -588,7 +588,7 @@ const ROLE_INFO = {
     short: "SCI",
     title: "Science Officer",
     callsign: "PAYLOAD-SCI",
-    color: "#83a896",
+    color: "#63e6a8",
     primaryDuty: "White Room Bio-Check, Boresight Lidar Telemetry [3/4] & Science/ECLSS Consoles [SCI, LSS]",
     padDuty: "Complete White Room Ingress & Bio-Check",
     dockDuty: "Boresight Auto-Align [3] & Corridor Telemetry Ping [4]",
@@ -1000,7 +1000,7 @@ io.on("connection", (socket) => {
       user = socket.authUser || await db.getUserById(socket.userId);
     } else {
       const name = String(data.playerName || "Astronaut").replace(/[\u0000-\u001F\u007F<>]/g, "").trim().slice(0, 16) || "Astronaut";
-      const color = /^#[0-9a-fA-F]{6}$/.test(data.suitColor) ? data.suitColor : "#ef4444";
+      const color = /^#[0-9a-fA-F]{6}$/.test(data.suitColor) ? data.suitColor : "#c9f04b";
       const role = normalizeRoleId(data.role, "commander");
       // Guests are session-only; do not grow persistent user tables.
       user = {
@@ -2023,7 +2023,7 @@ io.on("connection", (socket) => {
 
     const comm = {
       sender: String(p.name || "Astronaut").slice(0, 16),
-      color: /^#[0-9a-fA-F]{6}$/.test(p.color) ? p.color : "#ef4444",
+      color: /^#[0-9a-fA-F]{6}$/.test(p.color) ? p.color : "#c9f04b",
       role: String(p.role || "commander").slice(0, 16),
       team: "crew",
       teamOnly: false,

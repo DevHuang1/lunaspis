@@ -118,7 +118,7 @@
       (ctx, w, h) => {
         ctx.fillStyle = "#0b3d91";
         ctx.fillRect(0, 0, w, h);
-        ctx.fillStyle = "#eceae3";
+        ctx.fillStyle = "#efeee7";
         ctx.font = "900 72px Arial, Helvetica, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";

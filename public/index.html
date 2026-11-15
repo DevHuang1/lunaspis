@@ -1,27 +1,41 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="flight-lime">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="theme-color" content="#080a0e" />
+  <meta name="theme-color" content="#080b10" />
+  <script>
+    (function () {
+      try {
+        var theme = localStorage.getItem("lunaspis_ui_theme");
+        if (theme === "gloss-silver" || theme === "flight-lime" || theme === "lunar-champagne") {
+          document.documentElement.dataset.theme = theme;
+        }
+      } catch (_) {}
+    })();
+  </script>
   <title>Lunaspis — Orbital Transit &amp; ISS Simulator</title>
-  <link rel="stylesheet" href="css/style.css?v=5.1.3" />
-  <link rel="stylesheet" href="css/premium.css?v=5.1.3" />
-  <link rel="stylesheet" href="css/lunar-glass.css?v=5.1.3" />
+  <link rel="stylesheet" href="css/style.css?v=6.1.9" />
+  <link rel="stylesheet" href="css/premium.css?v=6.1.9" />
+  <link rel="stylesheet" href="css/lunar-glass.css?v=6.1.9" />
+  <link rel="stylesheet" href="css/flightdeck.css?v=6.1.9" />
+  <link rel="stylesheet" href="css/ui-polish.css?v=6.1.9" />
+  <link rel="preload" href="fonts/chakra-petch-700.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="fonts/ibm-plex-mono-500.woff2" as="font" type="font/woff2" crossorigin />
   <!-- Three.js Engine & 3D GLTF/GLB/Draco/KTX2/Meshopt Loaders -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" integrity="sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu" crossorigin="anonymous"></script>
-  <script src="js/loaders/DRACOLoader.js?v=4.0.0"></script>
-  <script src="js/loaders/KTX2Loader.js?v=4.0.0"></script>
-  <script src="js/loaders/meshopt_decoder.js?v=4.0.0"></script>
-  <script src="js/loaders/GLTFLoader.js?v=4.0.0"></script>
-  <script src="js/loaders/SkeletonUtils.js?v=4.0.0"></script>
+  <script src="js/loaders/DRACOLoader.js?v=6.1.9"></script>
+  <script src="js/loaders/KTX2Loader.js?v=6.1.9"></script>
+  <script src="js/loaders/meshopt_decoder.js?v=6.1.9"></script>
+  <script src="js/loaders/GLTFLoader.js?v=6.1.9"></script>
+  <script src="js/loaders/SkeletonUtils.js?v=6.1.9"></script>
   <!-- Socket.IO Client -->
   <script src="/socket.io/socket.io.js"></script>
 </head>
-<body>
+<body class="menu-active">
 
   <!-- Icon sprite -->
   <svg width="0" height="0" style="position:absolute;overflow:hidden;" aria-hidden="true" focusable="false">
@@ -59,6 +73,7 @@
     <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></symbol>
     <symbol id="i-deck" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
     <symbol id="i-enter" viewBox="0 0 24 24"><path d="M9 10l3 3 3-3"/><path d="M12 13V3"/><path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
   </svg>
 
   <!-- Persistent Top Performance Bar (FPS & PING) -->
@@ -113,6 +128,24 @@
     </div>
   </div>
 
+  <!-- FLIGHT SYSTEMS BOOT SEQUENCE -->
+  <div id="boot-overlay" class="boot-overlay" role="status" aria-live="polite">
+    <div class="boot-grid" aria-hidden="true"></div>
+    <div class="boot-emblem" aria-hidden="true">L</div>
+    <div class="boot-copy">
+      <div class="boot-eyebrow">LUNASPIS FLIGHT SYSTEMS</div>
+      <div class="boot-title">SPIN-UP</div>
+      <div class="boot-checks">
+        <span>GNC</span><span>ECLSS</span><span>COMMS</span><span>PROP</span>
+      </div>
+      <div class="boot-track"><span id="boot-track-fill"></span></div>
+      <div class="boot-hint">CLICK OR PRESS ANY KEY TO SKIP</div>
+    </div>
+  </div>
+
+  <!-- Screen transition veil -->
+  <div id="screen-transition-veil" aria-hidden="true"></div>
+
   <!-- 3D WebGL Canvas Layer -->
   <div id="canvas-container"></div>
 
@@ -123,11 +156,28 @@
     <!-- Top Hairline Header -->
     <header class="title-topbar">
       <div class="title-brand">
-        <span class="title-brand-dot"></span>
-        <span>LUNASPIS</span>
+        <span class="title-brand-mark" aria-hidden="true">L</span>
+        <span class="title-brand-copy">
+          <strong>LUNASPIS</strong>
+          <small>ORBITAL TRANSIT SYSTEMS</small>
+        </span>
       </div>
+      <div class="title-nav-scrim" id="title-nav-scrim" aria-hidden="true"></div>
+      <nav class="title-nav" id="title-primary-nav" aria-label="Primary">
+        <button type="button" class="title-nav-link is-active">FLIGHT DECK</button>
+        <button type="button" class="title-nav-link" id="btn-open-hangar-menu">HANGAR</button>
+        <button type="button" class="title-nav-link" id="btn-title-dossier">DOSSIER</button>
+        <button type="button" class="title-nav-link" id="btn-title-settings">SETTINGS</button>
+      </nav>
       <div class="title-top-actions">
-        <button class="title-chip-btn" id="btn-open-hangar-menu">3D HANGAR</button>
+        <button type="button" class="title-menu-btn" id="btn-title-nav-toggle" aria-controls="title-primary-nav" aria-expanded="false" aria-label="Open navigation menu">
+          <svg class="ui-icon" aria-hidden="true"><use href="#i-menu"></use></svg>
+          <span>MENU</span>
+        </button>
+        <div class="title-status-rail" aria-hidden="true">
+          <span class="status-pill status-pill--ok"><i></i>NET NOMINAL</span>
+          <span class="status-pill">LEO // LUNAR</span>
+        </div>
         <div id="auth-status-bar" class="title-auth-pill">
           <span id="auth-status-icon" class="auth-status-dot"></span>
           <span id="auth-status-title" class="auth-status-title">GUEST</span>
@@ -140,6 +190,7 @@
 
     <!-- Bottom-Left Asymmetric Hero Lockup (Leaves 3D Earth & ISS Unobstructed) -->
     <main class="title-hero">
+      <div class="title-eyebrow">EXPEDITION CONTROL // 06 CREW</div>
       <h1 class="title-display">LUNASPIS</h1>
       <p class="title-premise">
         Stabilize systems. Reach the Moon.
@@ -151,8 +202,8 @@
       </div>
 
       <div class="title-cta-row">
-        <button class="btn-title-primary" id="btn-quick-play">PLAY</button>
-        <button class="btn-title-secondary" id="btn-host-game">HOST</button>
+        <button class="btn-title-primary" id="btn-quick-play"><span>INITIATE</span><b class="btn-keycap">&#8629;</b></button>
+        <button class="btn-title-secondary" id="btn-host-game">HOST EXPEDITION</button>
       </div>
 
       <div class="title-join-row">
@@ -168,6 +219,13 @@
         <span>REPAIRS <strong id="stat-tasks" class="val-amber">0</strong></span>
       </div>
     </main>
+
+    <footer class="title-control-strip" aria-hidden="true">
+      <span class="ctl-group"><kbd class="ctl-glyph" data-action="navigate">WASD</kbd> NAVIGATE</span>
+      <span class="ctl-group"><kbd class="ctl-glyph" data-action="select">ENTER</kbd> SELECT</span>
+      <span class="ctl-group"><kbd class="ctl-glyph" data-action="close">ESC</kbd> BACK</span>
+      <span class="title-control-meta">LUNASPIS // BUILD 6.0 · LEO &rarr; LUNAR</span>
+    </footer>
   </div>
 
   <!-- ========================================================================
@@ -179,6 +237,11 @@
         <span class="field-label" style="margin:0;">CODE</span>
         <span class="room-code-text" id="lobby-room-code">------</span>
         <button class="btn-copy" id="btn-copy-invite">COPY</button>
+      </div>
+      <div class="lobby-step-rail" aria-hidden="true">
+        <span class="is-active"><b>01</b> BRIEF</span>
+        <span><b>02</b> CREW</span>
+        <span><b>03</b> LAUNCH</span>
       </div>
       <div class="lobby-top-actions">
         <button id="btn-lobby-voice" class="btn-lobby-voice" title="Toggle microphone">
@@ -197,7 +260,7 @@
     </div>
 
     <div class="lobby-mission-panel" id="lobby-mission-panel">
-      <div class="lobby-mission-header" hidden>
+      <div class="lobby-mission-header">
         <div>
           <div class="field-label" style="margin:0;">EXPEDITION PROFILE</div>
           <div id="lobby-mission-selected" class="lobby-mission-selected">ARTEMIS-LSP · LUNAR EXPLORATION</div>
@@ -222,12 +285,12 @@
         <div>
           <label class="field-label">COLOR</label>
           <div class="color-swatches">
-            <button class="lobby-color-btn" data-color="#d0a15c" style="background:#d0a15c;" title="Lunar Brass"></button>
-            <button class="lobby-color-btn" data-color="#b88355" style="background:#b88355;" title="Solar Copper"></button>
-            <button class="lobby-color-btn" data-color="#83a896" style="background:#83a896;" title="ECLSS Sage"></button>
-            <button class="lobby-color-btn" data-color="#c67979" style="background:#c67979;" title="Hull Rose"></button>
+            <button class="lobby-color-btn active" data-color="#c9f04b" style="background:#c9f04b;" title="Flight Lime"></button>
+            <button class="lobby-color-btn" data-color="#63e6a8" style="background:#63e6a8;" title="ECLSS Mint"></button>
+            <button class="lobby-color-btn" data-color="#ff6b6b" style="background:#ff6b6b;" title="Hull Coral"></button>
+            <button class="lobby-color-btn" data-color="#7dd3fc" style="background:#7dd3fc;" title="Ion Cyan"></button>
             <button class="lobby-color-btn" data-color="#8a8194" style="background:#8a8194;" title="Regolith Violet"></button>
-            <button class="lobby-color-btn" data-color="#eceae3" style="background:#eceae3;" title="EVA Ivory"></button>
+            <button class="lobby-color-btn" data-color="#efeee7" style="background:#efeee7;" title="EVA Ivory"></button>
           </div>
         </div>
 
@@ -284,6 +347,12 @@
   <div class="app-screen" id="screen-game">
     <div id="helmet-visor-overlay"></div>
 
+    <div id="hud-compass" aria-hidden="true">
+      <div class="hud-compass-ticks"></div>
+      <div class="hud-compass-heading" id="hud-compass-heading">000&deg;</div>
+      <div class="hud-compass-label">LEO // TRANSIT</div>
+    </div>
+
     <div id="hud-crosshair">
       <div class="crosshair-dot"></div>
       <div class="crosshair-ring"></div>
@@ -328,6 +397,7 @@
           <span id="hud-checklist-chevron" class="checklist-chevron" aria-hidden="true">&#9662;</span>
         </div>
       </div>
+      <div class="hud-checklist-progress" aria-hidden="true"><span id="hud-checklist-progress-fill"></span></div>
       <div id="hud-crew-roster" class="hud-crew-roster" hidden>
         <!-- Rendered dynamically by main.js: WHO MUST DO WHAT & CREW ROLES -->
       </div>
@@ -351,30 +421,34 @@
     <!-- Top-Right Condensed Controls (Camera, Mic, Deck, Settings, Leave) -->
     <div id="hud-voice-panel">
       <div class="voice-header-row">
-        <button id="btn-camera-mode" class="voice-mic-btn" title="Camera [C]" aria-label="Switch camera view">
+        <button id="btn-camera-mode" class="voice-mic-btn" data-label="CAMERA" title="Camera [C]" aria-label="Switch camera view">
           <span id="cam-mode-icon" class="voice-btn__icon" aria-hidden="true"></span>
           <span id="cam-mode-label" class="voice-btn__label">3RD PERSON</span>
         </button>
-        <button id="btn-voice-mic" class="voice-mic-btn" title="Mute [M]" aria-label="Toggle microphone">
+        <button id="btn-voice-mic" class="voice-mic-btn" data-label="MIC" title="Mute [M]" aria-label="Toggle microphone">
           <span id="voice-mic-icon" class="voice-btn__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-mic"></use></svg></span>
           <span id="voice-mic-label" class="voice-btn__label">ON</span>
         </button>
-        <button id="btn-quick-deck" class="voice-mic-btn" title="Quick Deck [Q] / Emotes [X]" aria-label="Open Quick Deck" aria-haspopup="dialog" aria-expanded="false">
+        <span class="hud-action-divider" aria-hidden="true"></span>
+        <button id="btn-quick-deck" class="voice-mic-btn" data-label="QUICK DECK" title="Quick Deck [Q] / Emotes [X]" aria-label="Open Quick Deck" aria-haspopup="dialog" aria-expanded="false">
           <span class="voice-btn__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-deck"></use></svg></span>
           <span class="voice-btn__label">DECK</span>
         </button>
-        <button id="btn-voice-settings" class="voice-settings-btn" title="Settings" aria-label="Settings">
+        <button id="btn-voice-settings" class="voice-settings-btn" data-label="SETTINGS" title="Settings" aria-label="Settings">
           <svg class="ui-icon"><use href="#i-settings"></use></svg>
         </button>
-        <button id="btn-hud-leave-room" class="voice-mic-btn btn-danger-outline" title="Leave" aria-label="Leave room">
+        <span class="hud-action-divider" aria-hidden="true"></span>
+        <button id="btn-hud-leave-room" class="voice-mic-btn btn-danger-outline" data-label="LEAVE" title="Leave" aria-label="Leave room">
           <span class="voice-btn__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-leave"></use></svg></span>
           <span class="voice-btn__label">LEAVE</span>
         </button>
       </div>
     </div>
 
+
     <!-- Quick Deck: crew expressions + systems, frosted glass command panel -->
     <div id="quick-deck" class="glass-panel" role="dialog" aria-modal="false" aria-labelledby="quick-deck-title" aria-hidden="true">
+      <div class="deck-grabber" id="deck-grabber" aria-hidden="true"></div>
       <div class="deck-head">
         <span class="deck-emblem" aria-hidden="true"><svg class="ui-icon"><use href="#i-deck"></use></svg></span>
         <div class="deck-head-copy">
@@ -383,11 +457,12 @@
         </div>
         <button type="button" class="deck-close" id="btn-deck-close" title="Close [ESC]" aria-label="Close Quick Deck">&times;</button>
       </div>
-      <div class="deck-tabs" role="tablist" aria-label="Quick Deck sections">
+      <div class="deck-tabs" data-tab="crew" role="tablist" aria-label="Quick Deck sections">
+        <span class="deck-tab-indicator" aria-hidden="true"></span>
         <button type="button" class="deck-tab active" id="tab-deck-crew" data-deck-tab="crew" role="tab" aria-selected="true" aria-controls="deck-crew-panel">CREW</button>
         <button type="button" class="deck-tab" id="tab-deck-systems" data-deck-tab="systems" role="tab" aria-selected="false" aria-controls="deck-systems-panel">SYSTEMS</button>
       </div>
-      <div class="deck-detail" id="deck-detail">
+      <div class="deck-detail" id="deck-detail" aria-live="polite">
         <span class="detail-dot" aria-hidden="true"></span>
         <span id="deck-detail-text">Crew expressions and ship systems in one place.</span>
       </div>
@@ -395,6 +470,7 @@
         <!-- Rendered by main.js from ASTRONAUT_EMOTES -->
       </div>
       <div class="deck-body" id="deck-systems-panel" role="tabpanel" aria-labelledby="tab-deck-systems" hidden>
+        <div class="deck-section-label">VIEWS</div>
         <button type="button" id="btn-hud-hangar" class="deck-row" title="Open the 3D model hangar [H]">
           <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-box"></use></svg></span>
           <span class="deck-row__copy"><span class="deck-row__label">3D HANGAR</span><span class="deck-row__sub">Inspect and equip GLB models</span></span>
@@ -425,6 +501,7 @@
           <span class="deck-row__copy"><span class="deck-row__label">LUNAR SCENE</span><span class="deck-row__sub">Apollo touchdown on the Moon</span></span>
           <span class="deck-row__hint">K</span>
         </button>
+        <div class="deck-section-label">DISPLAY MODES</div>
         <button type="button" id="btn-hud-vr-main" class="deck-row" title="Toggle WebXR / stereo VR">
           <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-vr"></use></svg></span>
           <span class="deck-row__copy"><span class="deck-row__label">VR MODE</span><span class="deck-row__sub">WebXR or side-by-side stereo</span></span>
@@ -435,6 +512,7 @@
           <span class="deck-row__copy"><span class="deck-row__label">LC-39A / SHIP</span><span class="deck-row__sub">Ground site and interior transit</span></span>
           <span class="deck-row__hint">G</span>
         </button>
+        <div class="deck-section-label">SYSTEM</div>
         <button type="button" id="btn-deck-settings" class="deck-row" title="Open systems and performance settings">
           <span class="deck-row__icon" aria-hidden="true"><svg class="ui-icon"><use href="#i-settings"></use></svg></span>
           <span class="deck-row__copy"><span class="deck-row__label">SYSTEMS SETTINGS</span><span class="deck-row__sub">Audio, graphics, network, display</span></span>
@@ -469,6 +547,13 @@
         <button class="dpad-btn" id="dpad-down">&#9660;</button>
         <button class="dpad-btn" id="dpad-right">&#9658;</button>
       </div>
+    </div>
+
+    <div id="hud-control-strip" aria-hidden="true">
+      <span class="ctl-group"><kbd class="ctl-glyph" data-action="interact">E</kbd> INTERACT</span>
+      <span class="ctl-group"><kbd class="ctl-glyph" data-action="deck">Q</kbd> DECK</span>
+      <span class="ctl-group"><kbd class="ctl-glyph" data-action="camera">C</kbd> CAMERA</span>
+      <span class="ctl-group"><kbd class="ctl-glyph" data-action="close">ESC</kbd> CLOSE</span>
     </div>
   </div>
 
@@ -535,7 +620,8 @@
         </div>
       </div>
 
-      <div class="systems-tabs-bar">
+      <div class="systems-tabs-bar" style="--tab-index:0;">
+        <span class="sys-tab-indicator" aria-hidden="true"></span>
         <button type="button" class="sys-tab-btn active" data-tab="tab-comms">COMMS</button>
         <button type="button" class="sys-tab-btn" data-tab="tab-graphics">GRAPHICS</button>
         <button type="button" class="sys-tab-btn" data-tab="tab-network">NETWORK</button>
@@ -665,7 +751,7 @@
           <div class="network-diagnostics-summary">
             <div class="net-diag-col">
               <div class="net-diag-lbl">SERVER</div>
-              <div class="net-diag-val" id="net-diag-status" style="color:#83a896;">ONLINE</div>
+              <div class="net-diag-val" id="net-diag-status" style="color:#63e6a8;">ONLINE</div>
             </div>
             <div class="net-diag-col">
               <div class="net-diag-lbl">RTT</div>
@@ -679,6 +765,29 @@
         </div>
 
         <div id="tab-display" class="sys-tab-content">
+          <div class="settings-group">
+            <div class="settings-label-row">
+              <label class="settings-label">UI THEME</label>
+              <span id="theme-val-badge" class="settings-val-badge">FLIGHT LIME</span>
+            </div>
+            <div class="theme-picker" role="radiogroup" aria-label="Interface theme">
+              <button type="button" class="theme-card is-active" data-theme-choice="flight-lime" role="radio" aria-checked="true">
+                <span class="theme-swatch theme-swatch--lime" aria-hidden="true"></span>
+                <span class="theme-copy"><b>FLIGHT LIME</b><small>MISSION CONTROL</small></span>
+                <span class="theme-check" aria-hidden="true">&#10003;</span>
+              </button>
+              <button type="button" class="theme-card" data-theme-choice="gloss-silver" role="radio" aria-checked="false">
+                <span class="theme-swatch theme-swatch--silver" aria-hidden="true"></span>
+                <span class="theme-copy"><b>GLOSS SILVER</b><small>FROSTED CHROME</small></span>
+                <span class="theme-check" aria-hidden="true">&#10003;</span>
+              </button>
+              <button type="button" class="theme-card" data-theme-choice="lunar-champagne" role="radio" aria-checked="false">
+                <span class="theme-swatch theme-swatch--champagne" aria-hidden="true"></span>
+                <span class="theme-copy"><b>LUNAR CHAMPAGNE</b><small>WARM BRASS</small></span>
+                <span class="theme-check" aria-hidden="true">&#10003;</span>
+              </button>
+            </div>
+          </div>
           <div class="settings-group">
             <div class="settings-toggle-row">
               <div>
@@ -789,12 +898,12 @@
           <div class="settings-group">
             <label class="settings-label">SUIT ACCENT</label>
             <div class="color-swatches" id="reg-color-swatches">
-              <button type="button" class="lobby-color-btn active" data-color="#d0a15c" style="background:#d0a15c;"></button>
-              <button type="button" class="lobby-color-btn" data-color="#d0a15c" style="background:#d0a15c;"></button>
-              <button type="button" class="lobby-color-btn" data-color="#83a896" style="background:#83a896;"></button>
-              <button type="button" class="lobby-color-btn" data-color="#c67979" style="background:#c67979;"></button>
-              <button type="button" class="lobby-color-btn" data-color="#8a8194" style="background:#8a8194;"></button>
-              <button type="button" class="lobby-color-btn" data-color="#eceae3" style="background:#eceae3;"></button>
+              <button type="button" class="lobby-color-btn active" data-color="#c9f04b" style="background:#c9f04b;" title="Flight Lime"></button>
+              <button type="button" class="lobby-color-btn" data-color="#63e6a8" style="background:#63e6a8;" title="ECLSS Mint"></button>
+              <button type="button" class="lobby-color-btn" data-color="#ff6b6b" style="background:#ff6b6b;" title="Hull Coral"></button>
+              <button type="button" class="lobby-color-btn" data-color="#7dd3fc" style="background:#7dd3fc;" title="Ion Cyan"></button>
+              <button type="button" class="lobby-color-btn" data-color="#8a8194" style="background:#8a8194;" title="Regolith Violet"></button>
+              <button type="button" class="lobby-color-btn" data-color="#efeee7" style="background:#efeee7;" title="EVA Ivory"></button>
             </div>
           </div>
           <button type="submit" class="btn-primary form-submit">ISSUE CREDENTIAL</button>
@@ -858,12 +967,12 @@
           <div class="settings-group">
             <label class="settings-label">SUIT ACCENT</label>
             <div class="color-swatches" id="dossier-color-swatches">
-              <button type="button" class="lobby-color-btn" data-color="#d0a15c" style="background:#d0a15c;"></button>
-              <button type="button" class="lobby-color-btn" data-color="#d0a15c" style="background:#d0a15c;"></button>
-              <button type="button" class="lobby-color-btn" data-color="#83a896" style="background:#83a896;"></button>
-              <button type="button" class="lobby-color-btn" data-color="#c67979" style="background:#c67979;"></button>
-              <button type="button" class="lobby-color-btn" data-color="#8a8194" style="background:#8a8194;"></button>
-              <button type="button" class="lobby-color-btn" data-color="#eceae3" style="background:#eceae3;"></button>
+              <button type="button" class="lobby-color-btn" data-color="#c9f04b" style="background:#c9f04b;" title="Flight Lime"></button>
+              <button type="button" class="lobby-color-btn" data-color="#63e6a8" style="background:#63e6a8;" title="ECLSS Mint"></button>
+              <button type="button" class="lobby-color-btn" data-color="#ff6b6b" style="background:#ff6b6b;" title="Hull Coral"></button>
+              <button type="button" class="lobby-color-btn" data-color="#7dd3fc" style="background:#7dd3fc;" title="Ion Cyan"></button>
+              <button type="button" class="lobby-color-btn" data-color="#8a8194" style="background:#8a8194;" title="Regolith Violet"></button>
+              <button type="button" class="lobby-color-btn" data-color="#efeee7" style="background:#efeee7;" title="EVA Ivory"></button>
             </div>
           </div>
 
@@ -880,37 +989,37 @@
   <div id="action-toast">NOTIFICATION</div>
 
   <!-- Shared UI theme tokens, input prompts & canvas palette -->
-  <script src="js/core/ui_theme.js?v=5.1.3"></script>
+  <script src="js/core/ui_theme.js?v=6.1.9"></script>
 
   <!-- Core Engine Systems (Lunaspis Shaders, Audio, GLB Assets, Network & Voice) -->
-  <script src="js/core/cinematic_pass.js?v=4.3.2"></script>
-  <script src="js/core/audio_synth.js?v=4.0.0"></script>
-  <script src="js/core/glb_manager.js?v=5.1.3"></script>
-  <script src="js/core/network.js?v=5.1.3"></script>
-  <script src="js/core/voice.js?v=4.3.1"></script>
+  <script src="js/core/cinematic_pass.js?v=6.1.9"></script>
+  <script src="js/core/audio_synth.js?v=6.1.9"></script>
+  <script src="js/core/glb_manager.js?v=6.1.9"></script>
+  <script src="js/core/network.js?v=6.1.9"></script>
+  <script src="js/core/voice.js?v=6.1.9"></script>
 
   <!-- 3D World & Environments (Space Center LC-39A, Launch, Docking, Ship Interior, ISS Showcase & Earth) -->
-  <script src="js/world/station_modules.js?v=5.1.3"></script>
-  <script src="js/world/photorealistic_earth.js?v=4.1.0"></script>
-  <script src="js/world/space_center/shared.js?v=4.9.1"></script>
-  <script src="js/world/space_center/environment.js?v=4.9.1"></script>
-  <script src="js/world/space_center/pad.js?v=4.9.0"></script>
-  <script src="js/world/space_center/vab.js?v=4.9.1"></script>
-  <script src="js/world/space_center/lcc.js?v=4.9.0"></script>
-  <script src="js/world/space_center/crawler.js?v=4.9.0"></script>
-  <script src="js/world/space_center/utilities.js?v=4.9.0"></script>
-  <script src="js/world/space_center/site.js?v=4.9.0"></script>
-  <script src="js/world/space_center.js?v=5.1.3"></script>
-  <script src="js/world/launch_cutscene.js?v=5.1.3"></script>
-  <script src="js/world/docking_simulator.js?v=5.1.3"></script>
-  <script src="js/world/ship_interior.js?v=5.1.3"></script>
-  <script src="js/world/mission_viz.js?v=5.1.3"></script>
-  <script src="js/world/solar_system.js?v=5.1.3"></script>
-  <script src="js/world/vr_mode.js?v=5.1.3"></script>
+  <script src="js/world/station_modules.js?v=6.1.9"></script>
+  <script src="js/world/photorealistic_earth.js?v=6.1.9"></script>
+  <script src="js/world/space_center/shared.js?v=6.1.9"></script>
+  <script src="js/world/space_center/environment.js?v=6.1.9"></script>
+  <script src="js/world/space_center/pad.js?v=6.1.9"></script>
+  <script src="js/world/space_center/vab.js?v=6.1.9"></script>
+  <script src="js/world/space_center/lcc.js?v=6.1.9"></script>
+  <script src="js/world/space_center/crawler.js?v=6.1.9"></script>
+  <script src="js/world/space_center/utilities.js?v=6.1.9"></script>
+  <script src="js/world/space_center/site.js?v=6.1.9"></script>
+  <script src="js/world/space_center.js?v=6.1.9"></script>
+  <script src="js/world/launch_cutscene.js?v=6.1.9"></script>
+  <script src="js/world/docking_simulator.js?v=6.1.9"></script>
+  <script src="js/world/ship_interior.js?v=6.1.9"></script>
+  <script src="js/world/mission_viz.js?v=6.1.9"></script>
+  <script src="js/world/solar_system.js?v=6.1.9"></script>
+  <script src="js/world/vr_mode.js?v=6.1.9"></script>
 
   <!-- Mission Simulation & Main Loop -->
-  <script src="js/game/gameplay.js?v=5.1.3"></script>
-  <script src="js/game/main.js?v=5.1.3"></script>
+  <script src="js/game/gameplay.js?v=6.1.9"></script>
+  <script src="js/game/main.js?v=6.1.9"></script>
 
 </body>
 </html>

@@ -20,7 +20,8 @@ Interfellas/
 │   ├── css/
 │   │   ├── style.css              # Desktop + mobile responsive layout & touch thumbstick UI
 │   │   ├── premium.css            # Interface tokens & component system
-│   │   └── lunar-glass.css        # Lunar Brass accent, frosted glass surfaces & Quick Deck
+│   │   ├── lunar-glass.css        # Flight Lime accent & frosted glass surfaces
+│   │   └── flightdeck.css         # Technical HUD layer, chamfered chrome & Quick Deck
 │   ├── basis/                     # Basis Universal / KTX2 GPU texture transcoder (JS + WASM)
 │   ├── draco/                     # Google Draco 3D mesh decompression workers (JS + WASM)
 │   ├── models/                    # Primary SpaceShip (Lunaspis) 3D GLB assets
@@ -80,6 +81,8 @@ Interfellas/
 - **3D NASA Mission Viz & GMAT Trajectory Theater (`mission_viz.js`, `[U]`)**: Inspect Earth/Moon/L2/Asteroid orbital trajectories, Van Allen radiation belts, Earth shadow umbra cones, ground station coverage cones & RF beams, and scrub mission event timelines across all mission phases.
 - **WebXR & Stereo VR Mode (`vr_mode.js`)**: Enter native `immersive-vr` WebXR headsets or universal Desktop/Mobile Side-by-Side Stereo VR (with adjustable IPD & mobile gyro support) for Mission Viz, the 27-part ISS Showcase, and Station exploration.
 - **Interactive VAB High Bay & LCC Firing Room Terminals (`space_center.js`)**: Open the pre-flight MDL Spacecraft Integration Desk inside the VAB and the Flight Dynamics / 3D Mission Viz console inside the LCC during the LC-39A Site Tour (`[E]`).
+- **Dual UI Themes (Settings → Display → UI Theme)**: Switch instantly between **Flight Lime** mission-control lime and **Gloss Silver** frosted-chrome finishes. The choice persists per browser and applies across the title screen, lobby, HUD, modals, world terminals, and Quick Deck without touching layout or gameplay.
+- **Flight Deck UI Themes**: Switch between Flight Lime, Gloss Silver, and Lunar Champagne in Settings → Display, with frosted glass surfaces, objective progress/status animations, resource-meter target ticks, Quick Deck hover detail, input-aware prompts, and reduced-motion support.
 - **Full Mobile Compatibility (Width, Height & Performance)**:
   - Dynamic viewport adaptation (`visualViewport`, `100dvw`/`100dvh`, safe-area insets, and portrait-adaptive vertical FOV).
   - Multi-touch controls: left-thumb analog virtual joystick with auto-sprint, right-thumb 360° camera look, and 2-finger pinch-to-zoom.

@@ -1,0 +1,863 @@
+/* ==========================================================================
+   LUNASPIS — UI POLISH LAYER
+   Micro-interactions, accessibility, live HUD detail and transition motion.
+   Loaded after flightdeck.css.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Top-right action bar
+   -------------------------------------------------------------------------- */
+
+.hud-action-divider {
+  width: 1px;
+  height: 18px;
+  flex: 0 0 auto;
+  margin: 0 2px;
+  background: linear-gradient(180deg, transparent, var(--ui-border-strong), transparent);
+  opacity: 0.7;
+}
+
+#hud-voice-panel [data-label] {
+  position: relative;
+}
+
+#hud-voice-panel [data-label]::after {
+  content: attr(data-label);
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 40;
+  padding: 4px 7px;
+  border: 1px solid var(--ui-brand-line);
+  border-radius: 2px;
+  background: rgba(10, 13, 17, 0.94);
+  color: var(--ui-brand-strong);
+  font-family: var(--ui-font-mono);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+  transition: opacity var(--ui-dur-fast) var(--ui-ease), transform var(--ui-dur-fast) var(--ui-ease);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
+}
+
+#hud-voice-panel [data-label]:hover::after,
+#hud-voice-panel [data-label]:focus-visible::after {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+#hud-voice-panel .voice-mic-btn.active::before,
+#hud-voice-panel .voice-settings-btn.active::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  bottom: 2px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--ui-brand);
+  box-shadow: 0 0 8px rgba(var(--ui-brand-rgb), 0.5);
+}
+
+#hud-voice-panel .voice-mic-btn:focus-visible,
+#hud-voice-panel .voice-settings-btn:focus-visible {
+  outline: 1px solid var(--ui-brand);
+  outline-offset: 1px;
+}
+
+/* Performance pill: de-emphasise after the opening minutes, restore on hover. */
+#perf-overlay {
+  transition: opacity 220ms var(--ui-ease), transform 220ms var(--ui-ease), border-color 180ms var(--ui-ease);
+}
+
+body.perf-dim #perf-overlay {
+  opacity: 0.34;
+  transform: translateY(-3px);
+}
+
+body.perf-dim #perf-overlay:hover,
+body.perf-dim #perf-overlay:focus-within {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+body.menu-active #perf-overlay {
+  opacity: 0.82;
+}
+
+/* --------------------------------------------------------------------------
+   Quick Deck detail, sections, tabs and sheet affordances
+   -------------------------------------------------------------------------- */
+
+.deck-grabber {
+  display: none;
+}
+
+.deck-tabs {
+  position: relative;
+  overflow: hidden;
+}
+
+.deck-tab-indicator {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 10px;
+  width: calc(50% - 12px);
+  border: 1px solid var(--ui-brand-line);
+  border-radius: 5px;
+  background: var(--ui-brand-soft);
+  pointer-events: none;
+  transition: transform 190ms var(--ui-ease), background 190ms var(--ui-ease);
+}
+
+.deck-tabs[data-tab="systems"] .deck-tab-indicator {
+  transform: translateX(calc(100% + 4px));
+}
+
+.deck-tabs .deck-tab {
+  position: relative;
+  z-index: 1;
+  background: transparent !important;
+  border-color: transparent !important;
+}
+
+.deck-tabs .deck-tab.active {
+  color: var(--ui-brand-strong);
+}
+
+.deck-detail {
+  min-height: 38px;
+}
+
+.deck-detail #deck-detail-text {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.35;
+}
+
+.deck-section-label {
+  padding: 8px 10px 4px;
+  color: var(--ui-text-dim);
+  font-family: var(--ui-font-mono);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.deck-section-label:first-child {
+  padding-top: 2px;
+}
+
+.deck-body {
+  mask-image: linear-gradient(180deg, transparent 0, #000 10px, #000 calc(100% - 12px), transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 10px, #000 calc(100% - 12px), transparent 100%);
+}
+
+.deck-row {
+  animation: deck-row-in 220ms var(--ui-ease) both;
+  animation-delay: calc(var(--row-i, 0) * 18ms);
+}
+
+@keyframes deck-row-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.deck-row[data-detail] {
+  cursor: pointer;
+}
+
+/* --------------------------------------------------------------------------
+   Objectives: progress, status, role dots, completion
+   -------------------------------------------------------------------------- */
+
+.hud-checklist-progress {
+  position: relative;
+  height: 3px;
+  margin: -2px 0 2px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+#hud-checklist-progress-fill {
+  display: block;
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--ui-brand-dim), var(--ui-brand), var(--ui-brand-strong));
+  box-shadow: 0 0 8px rgba(var(--ui-brand-rgb), 0.35);
+  transition: width 420ms var(--ui-ease);
+}
+
+.objective-card {
+  position: relative;
+}
+
+.objective-card__state {
+  flex: 0 0 auto;
+  padding: 2px 5px;
+  border: 1px solid var(--ui-border);
+  border-radius: 2px;
+  font-family: var(--ui-font-mono);
+  font-size: 7.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--ui-text-dim);
+  line-height: 1.2;
+}
+
+.objective-card.is-mine .objective-card__state {
+  border-color: var(--ui-brand-line);
+  color: var(--ui-brand-strong);
+}
+
+.objective-card.is-locked .objective-card__state {
+  color: var(--ui-text-dim);
+  opacity: 0.75;
+}
+
+.objective-card.is-done .objective-card__state {
+  border-color: rgba(99, 230, 168, 0.35);
+  color: var(--ui-ok);
+}
+
+.objective-card .task-badge {
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-size: 0 !important;
+  line-height: 0;
+  transition: width 160ms var(--ui-ease), border-radius 160ms var(--ui-ease), font-size 160ms var(--ui-ease);
+}
+
+.objective-card .task-badge::after {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.objective-card:hover .task-badge,
+.objective-card:focus-visible .task-badge {
+  width: auto;
+  min-width: 30px;
+  padding: 2px 5px;
+  border-radius: 2px;
+  font-size: 7.5px !important;
+  line-height: 1.2;
+}
+
+.objective-card:hover .task-badge::after,
+.objective-card:focus-visible .task-badge::after {
+  display: none;
+}
+
+.objective-card.is-newly-done {
+  animation: objective-complete 360ms var(--ui-ease) both;
+}
+
+@keyframes objective-complete {
+  0% { background: rgba(var(--ui-brand-rgb), 0.14); }
+  100% { background: var(--glass-fill); }
+}
+
+.objective-card.is-newly-done .objective-card__status .ui-icon {
+  stroke-dasharray: 32;
+  stroke-dashoffset: 32;
+  animation: check-draw 320ms 80ms var(--ui-ease) forwards;
+}
+
+@keyframes check-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+.objective-card.is-done .objective-card__title {
+  color: var(--ui-text-muted);
+}
+
+/* --------------------------------------------------------------------------
+   Resource meters
+   -------------------------------------------------------------------------- */
+
+.lunaspis-res-item {
+  position: relative;
+  min-width: 84px;
+}
+
+.lunaspis-res-head {
+  font-size: 9.5px !important;
+  letter-spacing: 0.055em !important;
+  color: var(--ui-text-muted);
+}
+
+.lunaspis-res-head span:last-child {
+  color: var(--ui-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.lunaspis-res-track {
+  position: relative;
+  height: 4px !important;
+  margin-top: 4px !important;
+  overflow: visible !important;
+}
+
+.lunaspis-res-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 420ms var(--ui-ease), background 240ms var(--ui-ease);
+}
+
+.lunaspis-res-target {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.5);
+  pointer-events: none;
+}
+
+.lunaspis-res-item.is-critical .lunaspis-res-head span:first-child {
+  color: var(--ui-crit) !important;
+}
+
+.lunaspis-res-item.is-new-critical {
+  animation: res-pulse 1100ms var(--ui-ease) 1;
+}
+
+@keyframes res-pulse {
+  0% { filter: drop-shadow(0 0 0 rgba(255, 107, 107, 0)); }
+  40% { filter: drop-shadow(0 0 6px rgba(255, 107, 107, 0.55)); }
+  100% { filter: drop-shadow(0 0 0 rgba(255, 107, 107, 0)); }
+}
+
+/* --------------------------------------------------------------------------
+   Modals, settings controls and tabs
+   -------------------------------------------------------------------------- */
+
+@keyframes ui-scrim-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ui-modal-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.settings-modal-overlay,
+#task-modal-overlay,
+#mission-briefing-overlay,
+#victory-overlay {
+  animation: ui-scrim-in 160ms var(--ui-ease) both;
+}
+
+.settings-modal-card,
+.task-modal-card,
+.mission-briefing-card,
+.hangar-modal-card,
+.auth-modal-card {
+  animation: ui-modal-in 220ms var(--ui-ease) both;
+}
+
+.systems-tabs-bar {
+  position: relative;
+}
+
+.sys-tab-indicator {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 25%;
+  height: 2px;
+  background: var(--ui-brand);
+  transform: translateX(calc(var(--tab-index, 0) * 100%));
+  transition: transform 190ms var(--ui-ease);
+  pointer-events: none;
+}
+
+.sys-tab-btn.active {
+  border-bottom-color: transparent !important;
+}
+
+.settings-slider::-webkit-slider-thumb {
+  transition: transform 120ms var(--ui-ease), box-shadow 120ms var(--ui-ease);
+}
+
+.settings-slider:active::-webkit-slider-thumb {
+  transform: scale(1.18);
+  box-shadow: 0 0 0 4px rgba(var(--ui-brand-rgb), 0.18);
+}
+
+.switch-slider,
+.switch-slider:before {
+  transition: background 180ms var(--ui-ease), transform 180ms var(--ui-ease);
+}
+
+.theme-card {
+  transition: border-color 160ms var(--ui-ease), background 160ms var(--ui-ease), transform 160ms var(--ui-ease);
+}
+
+.theme-card:hover {
+  transform: translateY(-1px);
+}
+
+/* --------------------------------------------------------------------------
+   Screen fade veil and loading shimmer
+   -------------------------------------------------------------------------- */
+
+#screen-transition-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 24000;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(var(--ui-brand-rgb), 0.045), transparent 46%),
+    #04060a;
+  opacity: 0;
+}
+
+#screen-transition-veil.is-active {
+  animation: screen-veil-out 300ms var(--ui-ease) both;
+}
+
+@keyframes screen-veil-out {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.hangar-viewport-status {
+  position: relative;
+  overflow: hidden;
+}
+
+.hangar-viewport-status.is-loading::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(var(--ui-brand-rgb), 0.16), transparent);
+  transform: translateX(-100%);
+  animation: ui-shimmer 1.3s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes ui-shimmer {
+  to { transform: translateX(100%); }
+}
+
+/* --------------------------------------------------------------------------
+   Focus and reduced motion
+   -------------------------------------------------------------------------- */
+
+.deck-row:focus-visible,
+.theme-card:focus-visible,
+.title-nav-link:focus-visible,
+.voice-mic-btn:focus-visible,
+.voice-settings-btn:focus-visible {
+  outline: 1px solid var(--ui-brand);
+  outline-offset: 2px;
+}
+
+@media (max-width: 900px), (pointer: coarse) {
+  .deck-grabber {
+    display: block;
+    width: 42px;
+    height: 4px;
+    margin: 8px auto 2px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.24);
+    touch-action: none;
+  }
+
+  #quick-deck {
+    touch-action: none;
+  }
+
+  #quick-deck .deck-body {
+    touch-action: pan-y;
+  }
+
+  #hud-voice-panel [data-label]::after {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #screen-transition-veil.is-active,
+  .deck-row,
+  .objective-card.is-newly-done,
+  .lunaspis-res-item.is-new-critical,
+  .hangar-viewport-status.is-loading::after {
+    animation: none !important;
+  }
+}
+
+.objective-card__title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.objective-card__title-row {
+  flex-wrap: wrap;
+}
+
+/* Mobile: keep the action bar on one row and clear of the objectives panel. */
+@media (max-width: 900px), (pointer: coarse) {
+  #hud-voice-panel {
+    width: auto !important;
+    max-width: calc(100vw - 16px) !important;
+    padding: 4px 5px !important;
+  }
+
+  #hud-voice-panel .voice-header-row {
+    display: flex !important;
+    grid-template-columns: none !important;
+    flex-wrap: nowrap !important;
+    gap: 4px !important;
+  }
+
+  #hud-voice-panel .voice-mic-btn,
+  #hud-voice-panel .voice-settings-btn {
+    width: 40px !important;
+    min-width: 40px !important;
+    height: 40px !important;
+    min-height: 40px !important;
+  }
+
+  .hud-action-divider {
+    display: none !important;
+  }
+
+  body.game-active #perf-overlay {
+    top: auto !important;
+    right: calc(8px + var(--safe-right)) !important;
+    bottom: calc(122px + var(--safe-bottom)) !important;
+    left: auto !important;
+    transform: none !important;
+  }
+}
+
+@media (max-width: 540px) {
+  .hud-checklist-panel {
+    top: calc(68px + var(--safe-top)) !important;
+  }
+}
+
+.checklist-count-pill.is-bumped {
+  animation: count-bump 300ms var(--ui-ease);
+}
+
+@keyframes count-bump {
+  0% { transform: scale(1); }
+  42% { transform: scale(1.16); border-color: var(--ui-brand-line); }
+  100% { transform: scale(1); }
+}
+
+body.deck-open #perf-overlay {
+  opacity: 0 !important;
+  pointer-events: none;
+}
+
+@media (max-width: 900px), (pointer: coarse) {
+  body.game-active #perf-overlay {
+    top: calc(70px + var(--safe-top)) !important;
+    bottom: auto !important;
+  }
+}
+
+/* Readability floor for the smallest persistent labels. */
+:root {
+  --ui-text-dim: #7e8792;
+}
+
+.objective-card__state {
+  font-size: 8px;
+}
+
+.deck-section-label {
+  font-size: 8.5px;
+}
+
+.theme-copy small {
+  font-size: 8.5px;
+}
+
+#hud-control-strip {
+  font-size: 8.5px;
+}
+
+#hud-control-strip .ctl-glyph {
+  font-size: 8.5px;
+}
+
+@media (min-width: 901px) and (pointer: fine) {
+  #quick-deck {
+    max-height: min(86vh, 780px);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Title header: three aligned zones instead of one continuous strip
+   -------------------------------------------------------------------------- */
+
+#screen-menu .title-topbar {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 20px;
+  padding: 0 0 12px;
+  border-bottom: 0;
+  background: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+#screen-menu .title-brand {
+  grid-column: 1;
+  justify-self: start;
+  min-width: 0;
+}
+
+#screen-menu .title-nav {
+  grid-column: 2;
+  justify-self: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--ui-border);
+  border-radius: 3px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.01)),
+    var(--ui-surface);
+  box-shadow: inset 0 1px 0 var(--ui-glass-highlight), 0 10px 30px rgba(0, 0, 0, 0.22);
+  -webkit-backdrop-filter: blur(12px) saturate(125%);
+  backdrop-filter: blur(12px) saturate(125%);
+}
+
+#screen-menu .title-nav-link {
+  border-radius: 2px;
+}
+
+#screen-menu .title-nav-link.is-active {
+  background: var(--ui-brand-soft);
+}
+
+#screen-menu .title-nav-link.is-active::after {
+  left: 10px;
+  right: 10px;
+  bottom: 2px;
+}
+
+#screen-menu .title-top-actions {
+  grid-column: 3;
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border: 1px solid var(--ui-border);
+  border-radius: 3px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.008)),
+    var(--ui-surface);
+  box-shadow: inset 0 1px 0 var(--ui-glass-highlight), 0 10px 30px rgba(0, 0, 0, 0.22);
+  -webkit-backdrop-filter: blur(12px) saturate(125%);
+  backdrop-filter: blur(12px) saturate(125%);
+}
+
+#screen-menu .title-status-rail {
+  padding-right: 8px;
+  border-right: 1px solid var(--ui-divider);
+}
+
+#screen-menu .title-auth-pill {
+  padding: 2px 3px;
+  border: 0;
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.title-menu-btn {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid var(--ui-border);
+  border-radius: 2px;
+  background: var(--ui-surface-3);
+  color: var(--ui-text-muted);
+  font-family: var(--ui-font-mono);
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+}
+
+.title-menu-btn:hover,
+.title-menu-btn[aria-expanded="true"] {
+  border-color: var(--ui-brand-line);
+  color: var(--ui-brand-strong);
+}
+
+.title-menu-btn .ui-icon {
+  width: 14px;
+  height: 14px;
+}
+
+@media (max-width: 980px) {
+  #screen-menu .title-topbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    padding-bottom: 8px;
+  }
+
+  #screen-menu .title-brand {
+    grid-column: 1;
+  }
+
+  #screen-menu .title-top-actions {
+    grid-column: 2;
+    justify-self: end;
+    padding: 3px 4px;
+    gap: 4px;
+  }
+
+  #screen-menu .title-status-rail {
+    display: none;
+  }
+
+  .title-menu-btn {
+    display: inline-flex;
+  }
+
+  #screen-menu .title-nav {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    left: auto;
+    width: min(260px, calc(100vw - 28px));
+    z-index: 60;
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    padding: 6px;
+    border-radius: 3px;
+    box-shadow: 0 22px 60px rgba(0, 0, 0, 0.55);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: rgba(12, 15, 20, 0.97);
+  }
+
+  #screen-menu .title-nav.is-open {
+    display: flex;
+    animation: title-nav-drop 180ms var(--ui-ease) both;
+  }
+
+  #screen-menu .title-nav-link {
+    width: 100%;
+    padding: 13px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--ui-divider);
+  }
+
+  #screen-menu .title-nav-link:last-child {
+    border-bottom: 0;
+  }
+
+  #screen-menu .title-nav-link.is-active {
+    background: var(--ui-brand-soft);
+  }
+
+  #screen-menu .title-nav-link.is-active::after {
+    left: 0;
+    right: auto;
+    top: 12px;
+    bottom: 12px;
+    width: 2px;
+    height: auto;
+  }
+
+  #screen-menu .title-auth-pill {
+    padding: 2px 3px;
+  }
+}
+
+@media (max-width: 420px) {
+  .title-menu-btn span {
+    display: none;
+  }
+
+  .title-menu-btn {
+    min-width: 36px;
+    justify-content: center;
+    padding: 4px 6px;
+  }
+}
+
+@keyframes title-nav-drop {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #screen-menu .title-nav.is-open {
+    animation: none;
+  }
+}
+
+@media (max-width: 980px) {
+  #screen-menu .title-top-actions {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: rgba(12, 15, 20, 0.92);
+  }
+}
+
+body.quality-fast #screen-menu .title-nav,
+body.quality-fast #screen-menu .title-top-actions {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  background: rgba(12, 15, 20, 0.95) !important;
+}
+
+.title-nav-scrim {
+  display: none;
+}
+
+@media (max-width: 980px) {
+  .title-nav-scrim.is-open {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 5;
+    background: rgba(4, 6, 9, 0.58);
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+  }
+}
+
+body.title-nav-open #screen-menu .title-topbar {
+  z-index: 50;
+}

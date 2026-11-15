@@ -139,7 +139,7 @@
       site.label(g, idx === 0 ? "LOX" : "LH2 PROPELLANT", x, 11.5, prop.z - 8.2, {
         width: 7,
         height: 1.5,
-        color: "#e7c58c",
+        color: "#e4ff7e",
         fontSize: 46
       });
       site.addCircleCollider(x, prop.z, 7.5, "Propellant sphere");
@@ -167,10 +167,10 @@
       (ctx, w, h) => {
         ctx.fillStyle = "#b91c1c";
         ctx.fillRect(0, 0, w, h);
-        ctx.strokeStyle = "#eceae3";
+        ctx.strokeStyle = "#efeee7";
         ctx.lineWidth = 6;
         ctx.strokeRect(6, 6, w - 12, h - 12);
-        ctx.fillStyle = "#eceae3";
+        ctx.fillStyle = "#efeee7";
         ctx.font = "900 42px Arial, Helvetica, sans-serif";
         ctx.textAlign = "center";
         ctx.fillText("DANGER · NO OPEN FLAME", w * 0.5, h * 0.45);

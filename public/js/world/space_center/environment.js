@@ -204,14 +204,14 @@
       (ctx, w, h) => {
         ctx.fillStyle = "#064e3b";
         ctx.fillRect(0, 0, w, h);
-        ctx.strokeStyle = "#eceae3";
+        ctx.strokeStyle = "#efeee7";
         ctx.lineWidth = 8;
         ctx.strokeRect(8, 8, w - 16, h - 16);
-        ctx.fillStyle = "#eceae3";
+        ctx.fillStyle = "#efeee7";
         ctx.font = "900 44px Arial, Helvetica, sans-serif";
         ctx.textAlign = "center";
         ctx.fillText("KENNEDY SPACE CENTER · LC-39A  →", w * 0.5, h * 0.44);
-        ctx.fillStyle = "#e7c58c";
+        ctx.fillStyle = "#e4ff7e";
         ctx.font = "700 30px Arial, Helvetica, sans-serif";
         ctx.fillText("VAB / LCC AHEAD  ·  AUTHORIZED PERSONNEL", w * 0.5, h * 0.76);
       },
@@ -229,14 +229,14 @@
       (ctx, w, h) => {
         ctx.fillStyle = "#0f172a";
         ctx.fillRect(0, 0, w, h);
-        ctx.strokeStyle = "#e7c58c";
+        ctx.strokeStyle = "#e4ff7e";
         ctx.lineWidth = 8;
         ctx.strokeRect(6, 6, w - 12, h - 12);
-        ctx.fillStyle = "#e7c58c";
+        ctx.fillStyle = "#e4ff7e";
         ctx.font = "900 42px Arial, Helvetica, sans-serif";
         ctx.textAlign = "center";
         ctx.fillText("CAUTION: CRAWLERWAY XING", w * 0.5, h * 0.44);
-        ctx.fillStyle = "#eceae3";
+        ctx.fillStyle = "#efeee7";
         ctx.font = "700 32px Arial, Helvetica, sans-serif";
         ctx.fillText("HEAVY TRANSPORTER RIGHT OF WAY", w * 0.5, h * 0.76);
       },
@@ -276,17 +276,17 @@
     const drawClockFace = (ctx, w, h) => {
       ctx.fillStyle = "#080c12";
       ctx.fillRect(0, 0, w, h);
-      ctx.strokeStyle = "#eceae3";
+      ctx.strokeStyle = "#efeee7";
       ctx.lineWidth = 8;
       ctx.strokeRect(8, 8, w - 16, h - 16);
-      ctx.fillStyle = "#d0a15c";
+      ctx.fillStyle = "#c9f04b";
       ctx.font = "700 32px Arial, Helvetica, sans-serif";
       ctx.textAlign = "center";
       ctx.fillText("KENNEDY SPACE CENTER · LC-39A", w * 0.5, 48);
-      ctx.fillStyle = "#e7c58c";
+      ctx.fillStyle = "#e4ff7e";
       ctx.font = "900 104px Courier New, monospace";
       ctx.fillText("T-00:08:42", w * 0.5, 144);
-      ctx.fillStyle = "#83a896";
+      ctx.fillStyle = "#63e6a8";
       ctx.font = "800 28px Arial, Helvetica, sans-serif";
       ctx.fillText("STAGE 1 GO · BOARDING IN PROGRESS", w * 0.5, 212);
     };
@@ -350,10 +350,10 @@
       (ctx, w, h) => {
         ctx.fillStyle = "#14532d";
         ctx.fillRect(0, 0, w, h);
-        ctx.strokeStyle = "#eceae3";
+        ctx.strokeStyle = "#efeee7";
         ctx.lineWidth = 6;
         ctx.strokeRect(6, 6, w - 12, h - 12);
-        ctx.fillStyle = "#eceae3";
+        ctx.fillStyle = "#efeee7";
         ctx.font = "900 40px Arial, Helvetica, sans-serif";
         ctx.textAlign = "center";
         ctx.fillText("CANAVERAL SHORE", w * 0.5, h * 0.42);

@@ -72,7 +72,7 @@
     },
     {
       id: "moon", label: "The Moon", kind: "moon", parent: "earth",
-      accent: "#eceae3", radius: 0.3, angle: 1.4, moonOrbit: 2.35,
+      accent: "#d9d6ce", radius: 0.3, angle: 1.4, moonOrbit: 2.35,
       texture: "textures/planets/moon.jpg",
       facts: {
         diameterKm: 3475, gravity: 1.62, dayLength: "29.5 Earth days", meanTempC: -20,
@@ -85,9 +85,9 @@
       profiles: ["Water Prospector", "Sample Return", "Relay", "Orbiter"]
     },
     {
-      id: "mars", label: "Mars", kind: "planet", accent: "#d0a15c",
+      id: "mars", label: "Mars", kind: "planet", accent: "#e07a4f",
       radius: 0.6, angle: 5.4, distance: 19, texture: "textures/planets/mars.jpg",
-      atmosphere: "#d0a15c", atmosphereOpacity: 0.1,
+      atmosphere: "#e07a4f", atmosphereOpacity: 0.1,
       facts: {
         diameterKm: 6779, gravity: 3.71, dayLength: "24.6 h", meanTempC: -63,
         atmosphere: "Thin CO2 (0.6 kPa)", moons: "2",
@@ -99,9 +99,9 @@
       profiles: ["Water Prospector", "Sample Return", "Life Detection", "Orbiter"]
     },
     {
-      id: "venus", label: "Venus", kind: "planet", accent: "#d0a15c",
+      id: "venus", label: "Venus", kind: "planet", accent: "#e8c37a",
       radius: 0.68, angle: 2.3, distance: 9, texture: "textures/planets/venus.jpg",
-      atmosphere: "#d0a15c", atmosphereOpacity: 0.26,
+      atmosphere: "#e8c37a", atmosphereOpacity: 0.26,
       facts: {
         diameterKm: 12104, gravity: 8.87, dayLength: "243 Earth days", meanTempC: 464,
         atmosphere: "CO2, 92 bar", moons: "0",
@@ -113,7 +113,7 @@
       profiles: ["Atmospheric Probe", "Climate Monitor", "Orbiter"]
     },
     {
-      id: "mercury", label: "Mercury", kind: "planet", accent: "#eceae3",
+      id: "mercury", label: "Mercury", kind: "planet", accent: "#b8b0a4",
       radius: 0.48, angle: 0.6, distance: 6, texture: "textures/planets/mercury.jpg",
       facts: {
         diameterKm: 4880, gravity: 3.7, dayLength: "59 Earth days", meanTempC: 167,
@@ -126,7 +126,7 @@
       profiles: ["Orbiter", "Flyby"]
     },
     {
-      id: "ceres", label: "Ceres", kind: "dwarf", accent: "#eceae3",
+      id: "ceres", label: "Ceres", kind: "dwarf", accent: "#a9a49a",
       radius: 0.26, angle: 0.1, distance: 23, texture: "textures/planets/ceres.jpg",
       facts: {
         diameterKm: 940, gravity: 0.28, dayLength: "9 h", meanTempC: -105,
@@ -139,9 +139,9 @@
       profiles: ["Sample Return", "Orbiter"]
     },
     {
-      id: "jupiter", label: "Jupiter", kind: "planet", accent: "#e7c58c",
+      id: "jupiter", label: "Jupiter", kind: "planet", accent: "#d8a46a",
       radius: 1.55, angle: 1.5, distance: 28, texture: "textures/planets/jupiter.jpg",
-      atmosphere: "#e7c58c", atmosphereOpacity: 0.08,
+      atmosphere: "#d8a46a", atmosphereOpacity: 0.08,
       facts: {
         diameterKm: 139820, gravity: 24.79, dayLength: "9.9 h", meanTempC: -110,
         atmosphere: "Hydrogen / helium", moons: "95+",
@@ -154,10 +154,10 @@
     },
     {
       id: "europa", label: "Europa", kind: "moon", parent: "jupiter",
-      accent: "#93c5fd", radius: 0.34, angle: 2.2, moonOrbit: 3.35,
-      texture: "textures/planets/europa.webp", tint: "#eceae3",
+      accent: "#cfe8ff", radius: 0.34, angle: 2.2, moonOrbit: 3.35,
+      texture: "textures/planets/europa.webp", tint: "#efeee7",
       roughness: 0.55, metalness: 0.06,
-      atmosphere: "#93c5fd", atmosphereOpacity: 0.08,
+      atmosphere: "#a5c8ff", atmosphereOpacity: 0.08,
       facts: {
         diameterKm: 3122, gravity: 1.31, dayLength: "3.6 Earth days", meanTempC: -160,
         atmosphere: "Trace oxygen", moons: "0",
@@ -169,9 +169,9 @@
       profiles: ["Ice Prospector", "Life Detection", "Orbiter"]
     },
     {
-      id: "saturn", label: "Saturn", kind: "planet", accent: "#e7c58c",
+      id: "saturn", label: "Saturn", kind: "planet", accent: "#e3c98b",
       radius: 1.38, angle: 2.8, distance: 37, texture: "textures/planets/saturn.jpg",
-      atmosphere: "#e7c58c", atmosphereOpacity: 0.08,
+      atmosphere: "#e3c98b", atmosphereOpacity: 0.08,
       facts: {
         diameterKm: 116460, gravity: 10.44, dayLength: "10.7 h", meanTempC: -140,
         atmosphere: "Hydrogen / helium", moons: "146+",
@@ -184,10 +184,10 @@
     },
     {
       id: "titan", label: "Titan", kind: "moon", parent: "saturn",
-      accent: "#d0a15c", radius: 0.38, angle: 3.6, moonOrbit: 3.55,
-      texture: "textures/planets/titan.jpg", tint: "#d9a35b",
+      accent: "#e0a050", radius: 0.38, angle: 3.6, moonOrbit: 3.55,
+      texture: "textures/planets/titan.jpg", tint: "#c98b4b",
       emissive: "#8a4f18", emissiveIntensity: 0.18,
-      atmosphere: "#d0a15c", atmosphereOpacity: 0.34,
+      atmosphere: "#e0a050", atmosphereOpacity: 0.34,
       facts: {
         diameterKm: 5150, gravity: 1.35, dayLength: "15.9 Earth days", meanTempC: -179,
         atmosphere: "Dense nitrogen (1.47 bar)", moons: "0",
@@ -199,9 +199,9 @@
       profiles: ["Lake Probe", "Life Detection", "Atmospheric Probe", "Orbiter"]
     },
     {
-      id: "uranus", label: "Uranus", kind: "planet", accent: "#e7c58c",
+      id: "uranus", label: "Uranus", kind: "planet", accent: "#9ad9db",
       radius: 0.94, angle: 4.2, distance: 46, texture: "textures/planets/uranus.jpg",
-      atmosphere: "#e7c58c", atmosphereOpacity: 0.12,
+      atmosphere: "#9ad9db", atmosphereOpacity: 0.12,
       facts: {
         diameterKm: 50724, gravity: 8.69, dayLength: "17.2 h", meanTempC: -195,
         atmosphere: "Hydrogen / helium / methane", moons: "27",
@@ -213,9 +213,9 @@
       profiles: ["Orbiter", "Flyby"]
     },
     {
-      id: "neptune", label: "Neptune", kind: "planet", accent: "#93c5fd",
+      id: "neptune", label: "Neptune", kind: "planet", accent: "#5b8def",
       radius: 0.9, angle: 5.5, distance: 53, texture: "textures/planets/neptune.jpg",
-      atmosphere: "#93c5fd", atmosphereOpacity: 0.12,
+      atmosphere: "#5b8def", atmosphereOpacity: 0.12,
       facts: {
         diameterKm: 49244, gravity: 11.15, dayLength: "16.1 h", meanTempC: -200,
         atmosphere: "Hydrogen / helium / methane", moons: "14",
@@ -338,7 +338,7 @@
       ctx.beginPath();
       ctx.arc(34, 64, 8, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = "#eceae3";
+      ctx.fillStyle = "#efeee7";
       ctx.textAlign = "left";
       ctx.textBaseline = "middle";
       ctx.font = "600 40px ui-monospace, SFMono-Regular, Menlo, monospace";
@@ -745,46 +745,46 @@
       root.style.display = "none";
       root.innerHTML = [
         "<style>",
-        "#solar-system-ui{position:fixed;inset:0;z-index:162;pointer-events:none;color:#eceae3;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}",
-        "#solar-system-ui .ss-panel{pointer-events:auto;background:rgba(6,11,22,0.9);border:1px solid rgba(208,161,92,0.28);backdrop-filter:blur(12px);border-radius:10px;}",
+        "#solar-system-ui{position:fixed;inset:0;z-index:162;pointer-events:none;color:#efeee7;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}",
+        "#solar-system-ui .ss-panel{pointer-events:auto;background:rgba(6,11,22,0.9);border:1px solid rgba(var(--ui-brand-rgb),0.28);backdrop-filter:blur(12px);border-radius:10px;}",
         "#ss-topbar{position:absolute;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 14px;}",
         "#ss-brand{display:flex;align-items:center;gap:10px;}",
-        "#ss-brand .ss-dot{width:9px;height:9px;border-radius:50%;background:#d0a15c;box-shadow:0 0 10px #d0a15c;}",
-        "#ss-title{font-size:11px;font-weight:700;letter-spacing:1.5px;color:#d0a15c;}",
-        "#ss-sub{font-size:10px;color:#a6adb6;margin-top:2px;}",
+        "#ss-brand .ss-dot{width:9px;height:9px;border-radius:50%;background:var(--ui-brand);box-shadow:0 0 10px var(--ui-brand);}",
+        "#ss-title{font-size:11px;font-weight:700;letter-spacing:1.5px;color:var(--ui-brand);}",
+        "#ss-sub{font-size:10px;color:#a7b0ba;margin-top:2px;}",
         "#ss-actions{display:flex;gap:6px;flex-wrap:wrap;}",
-        ".ss-btn{pointer-events:auto;padding:6px 11px;border-radius:5px;border:1px solid rgba(208,161,92,0.45);background:rgba(208,161,92,0.14);color:#e7c58c;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;letter-spacing:0.4px;}",
-        ".ss-btn:hover{background:rgba(208,161,92,0.24);}",
-        "#ss-exit{border-color:rgba(198,121,121,0.55);background:rgba(198,121,121,0.16);color:#c67979;}",
-        "#ss-exit:hover{background:rgba(198,121,121,0.28);}",
+        ".ss-btn{pointer-events:auto;padding:6px 11px;border-radius:5px;border:1px solid rgba(var(--ui-brand-rgb),0.45);background:rgba(var(--ui-brand-rgb),0.14);color:var(--ui-brand-strong);font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;letter-spacing:0.4px;}",
+        ".ss-btn:hover{background:rgba(var(--ui-brand-rgb),0.24);}",
+        "#ss-exit{border-color:rgba(255,107,107,0.55);background:rgba(255,107,107,0.16);color:#ff6b6b;}",
+        "#ss-exit:hover{background:rgba(255,107,107,0.28);}",
         "#ss-dossier{pointer-events:auto;position:absolute;top:78px;left:12px;width:302px;max-width:calc(100vw - 24px);max-height:calc(100vh - 200px);overflow-y:auto;padding:14px;}",
-        ".ss-kicker{font-size:9px;font-weight:700;letter-spacing:1.4px;color:#d0a15c;margin-bottom:6px;}",
-        ".ss-name{font-size:19px;font-weight:700;letter-spacing:0.4px;color:#eceae3;}",
-        ".ss-kind{font-size:9.5px;text-transform:uppercase;letter-spacing:1.2px;color:#a6adb6;margin-top:2px;margin-bottom:10px;}",
+        ".ss-kicker{font-size:9px;font-weight:700;letter-spacing:1.4px;color:var(--ui-brand);margin-bottom:6px;}",
+        ".ss-name{font-size:19px;font-weight:700;letter-spacing:0.4px;color:#efeee7;}",
+        ".ss-kind{font-size:9.5px;text-transform:uppercase;letter-spacing:1.2px;color:#a7b0ba;margin-top:2px;margin-bottom:10px;}",
         ".ss-section{margin-top:11px;padding-top:9px;border-top:1px solid rgba(255,255,255,0.09);}",
-        ".ss-section-title{font-size:9px;font-weight:700;letter-spacing:1.3px;color:#d0a15c;margin-bottom:6px;}",
-        ".ss-row{display:flex;justify-content:space-between;gap:10px;font-size:10.5px;line-height:1.75;color:#a6adb6;}",
-        ".ss-row b{color:#eceae3;font-weight:600;text-align:right;}",
-        ".ss-note{font-size:9px;color:#6f7782;line-height:1.5;margin-top:8px;}",
+        ".ss-section-title{font-size:9px;font-weight:700;letter-spacing:1.3px;color:var(--ui-brand);margin-bottom:6px;}",
+        ".ss-row{display:flex;justify-content:space-between;gap:10px;font-size:10.5px;line-height:1.75;color:#a7b0ba;}",
+        ".ss-row b{color:#efeee7;font-weight:600;text-align:right;}",
+        ".ss-note{font-size:9px;color:#7a8490;line-height:1.5;margin-top:8px;}",
         ".ss-chip{display:inline-block;margin:2px 3px 2px 0;padding:2px 7px;border-radius:10px;font-size:9px;letter-spacing:0.3px;}",
-        ".ss-chip-hazard{background:rgba(198,121,121,0.13);border:1px solid rgba(198,121,121,0.3);color:#c67979;}",
-        ".ss-chip-profile{background:rgba(208,161,92,0.12);border:1px solid rgba(208,161,92,0.3);color:#e7c58c;}",
-        ".ss-overview-row{display:flex;align-items:center;gap:8px;width:100%;padding:6px 4px;border:0;border-bottom:1px solid rgba(255,255,255,0.06);background:transparent;color:#eceae3;font-family:inherit;font-size:10.5px;cursor:pointer;text-align:left;}",
+        ".ss-chip-hazard{background:rgba(255,107,107,0.13);border:1px solid rgba(255,107,107,0.3);color:#ff6b6b;}",
+        ".ss-chip-profile{background:rgba(var(--ui-brand-rgb),0.12);border:1px solid rgba(var(--ui-brand-rgb),0.3);color:var(--ui-brand-strong);}",
+        ".ss-overview-row{display:flex;align-items:center;gap:8px;width:100%;padding:6px 4px;border:0;border-bottom:1px solid rgba(255,255,255,0.06);background:transparent;color:#efeee7;font-family:inherit;font-size:10.5px;cursor:pointer;text-align:left;}",
         ".ss-overview-row:hover{background:rgba(255,255,255,0.05);}",
         ".ss-overview-dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto;}",
         ".ss-overview-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}",
-        ".ss-overview-meta{flex:0 0 auto;color:#a6adb6;font-size:9px;}",
+        ".ss-overview-meta{flex:0 0 auto;color:#a7b0ba;font-size:9px;}",
         "#ss-strip{pointer-events:auto;position:absolute;bottom:12px;left:12px;right:12px;display:flex;gap:6px;overflow-x:auto;padding:8px 10px;scrollbar-width:thin;}",
-        ".ss-strip-btn{pointer-events:auto;display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;padding:6px 10px;border-radius:14px;border:1px solid rgba(255,255,255,0.14);background:rgba(255,255,255,0.04);color:#eceae3;font-family:inherit;font-size:9.5px;cursor:pointer;white-space:nowrap;}",
+        ".ss-strip-btn{pointer-events:auto;display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;padding:6px 10px;border-radius:14px;border:1px solid rgba(255,255,255,0.14);background:rgba(255,255,255,0.04);color:#efeee7;font-family:inherit;font-size:9.5px;cursor:pointer;white-space:nowrap;}",
         ".ss-strip-btn:hover{background:rgba(255,255,255,0.09);}",
-        ".ss-strip-btn.is-active{border-color:rgba(208,161,92,0.7);background:rgba(208,161,92,0.16);color:#eceae3;}",
+        ".ss-strip-btn.is-active{border-color:rgba(var(--ui-brand-rgb),0.7);background:rgba(var(--ui-brand-rgb),0.16);color:#efeee7;}",
         ".ss-strip-dot{width:6px;height:6px;border-radius:50%;}",
         "#ss-loader{pointer-events:auto;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:280px;padding:16px;display:none;flex-direction:column;gap:9px;}",
-        "#ss-loader-label{font-size:10px;font-weight:700;letter-spacing:1.3px;color:#d0a15c;}",
+        "#ss-loader-label{font-size:10px;font-weight:700;letter-spacing:1.3px;color:var(--ui-brand);}",
         "#ss-loader-track{height:5px;border-radius:3px;background:rgba(255,255,255,0.1);overflow:hidden;}",
-        "#ss-loader-fill{height:100%;width:0%;background:linear-gradient(90deg,#d0a15c,#d0a15c);transition:width 0.2s;}",
-        "#ss-loader-pct{font-size:9.5px;color:#a6adb6;text-align:right;}",
-        "#ss-credits{position:absolute;bottom:62px;right:12px;font-size:8px;color:#6f7782;letter-spacing:0.3px;max-width:340px;text-align:right;line-height:1.5;}",
+        "#ss-loader-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--ui-brand),var(--ui-brand));transition:width 0.2s;}",
+        "#ss-loader-pct{font-size:9.5px;color:#a7b0ba;text-align:right;}",
+        "#ss-credits{position:absolute;bottom:62px;right:12px;font-size:8px;color:#7a8490;letter-spacing:0.3px;max-width:340px;text-align:right;line-height:1.5;}",
         "</style>",
         '<div id="ss-topbar" class="ss-panel">',
         '  <div id="ss-brand">',

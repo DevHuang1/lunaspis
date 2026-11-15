@@ -608,8 +608,8 @@
       this.autoAssist = typeof force === "boolean" ? force : !this.autoAssist;
       const btnAuto = this.hudOverlay ? this.hudOverlay.querySelector("#btn-dock-auto") : null;
       if (btnAuto) {
-        btnAuto.style.borderColor = this.autoAssist ? "#83a896" : "rgba(208,161,92,0.4)";
-        btnAuto.style.color = this.autoAssist ? "#83a896" : "#e7c58c";
+        btnAuto.style.borderColor = this.autoAssist ? "#63e6a8" : "rgba(var(--ui-brand-rgb),0.4)";
+        btnAuto.style.color = this.autoAssist ? "#63e6a8" : "var(--ui-brand-strong)";
         btnAuto.textContent = this.autoAssist ? "AUTO-DOCK: ON [T]" : "AUTO-DOCK ASSIST [T]";
       }
       if (window.spaceAudio) window.spaceAudio.playClick();
@@ -619,8 +619,8 @@
       this.fineControl = typeof force === "boolean" ? force : !this.fineControl;
       const btnFine = this.hudOverlay ? this.hudOverlay.querySelector("#btn-dock-fine") : null;
       if (btnFine) {
-        btnFine.style.borderColor = this.fineControl ? "#83a896" : "rgba(255,255,255,0.2)";
-        btnFine.style.color = this.fineControl ? "#83a896" : "#eceae3";
+        btnFine.style.borderColor = this.fineControl ? "#63e6a8" : "rgba(255,255,255,0.2)";
+        btnFine.style.color = this.fineControl ? "#63e6a8" : "#efeee7";
         btnFine.textContent = this.fineControl ? "FINE RCS: ON" : "FINE RCS: OFF";
       }
       if (window.spaceAudio) window.spaceAudio.playClick();
@@ -1010,11 +1010,11 @@
       if (this.rangeValEl) this.rangeValEl.textContent = `${dist.toFixed(1)} m`;
       if (this.rateValEl) {
         this.rateValEl.textContent = `${closureRate >= 0 ? "+" : ""}${closureRate.toFixed(2)} m/s`;
-        this.rateValEl.style.color = Math.abs(closureRate) > 1.8 ? "#c67979" : "#d0a15c";
+        this.rateValEl.style.color = Math.abs(closureRate) > 1.8 ? "#ff6b6b" : "#63e6a8";
       }
       if (this.alignValEl) {
         this.alignValEl.textContent = `${angleDeviation.toFixed(1)}°`;
-        this.alignValEl.style.color = angleDeviation < 4.5 ? "#83a896" : angleDeviation < 10.0 ? "#d0a15c" : "#c67979";
+        this.alignValEl.style.color = angleDeviation < 4.5 ? "#63e6a8" : angleDeviation < 10.0 ? "#f5c451" : "#ff6b6b";
       }
 
       if (this.crosshairBox) {
@@ -1027,28 +1027,28 @@
         const now = performance.now();
         if (this._assistFlashText && now < this._assistFlashUntil) {
           this.statusBadgeEl.textContent = this._assistFlashText;
-          this.statusBadgeEl.style.color = "#e7c58c";
-          this.statusBadgeEl.style.borderColor = "rgba(208,161,92,0.75)";
+          this.statusBadgeEl.style.color = "var(--ui-brand-strong)";
+          this.statusBadgeEl.style.borderColor = "rgba(var(--ui-brand-rgb),0.75)";
         } else if (this.contactTimer > 0 && !this._isInsideCaptureCorridor()) {
           this.statusBadgeEl.textContent = "STATION CONTACT • BACK AWAY OR USE FINE RCS";
-          this.statusBadgeEl.style.color = "#c67979";
-          this.statusBadgeEl.style.borderColor = "rgba(198,121,121,0.7)";
+          this.statusBadgeEl.style.color = "#ff6b6b";
+          this.statusBadgeEl.style.borderColor = "rgba(255,107,107,0.7)";
         } else if (this._isInsideCaptureCorridor()) {
           this.statusBadgeEl.textContent = "CAPTURE CORRIDOR LOCKED • PRESS [SPACE] / [ENTER] OR LATCH BUTTON";
-          this.statusBadgeEl.style.color = "#83a896";
-          this.statusBadgeEl.style.borderColor = "#83a896";
+          this.statusBadgeEl.style.color = "#63e6a8";
+          this.statusBadgeEl.style.borderColor = "#63e6a8";
         } else if (dist < 14.0) {
           this.statusBadgeEl.textContent = "FINAL PROXIMITY APPROACH • KEEP CLOSURE < 1.2 m/s";
-          this.statusBadgeEl.style.color = "#d0a15c";
-          this.statusBadgeEl.style.borderColor = "rgba(208,161,92,0.5)";
+          this.statusBadgeEl.style.color = "#f5c451";
+          this.statusBadgeEl.style.borderColor = "rgba(245,196,81,0.5)";
         } else {
           this.statusBadgeEl.textContent = this.autoAssist
             ? "AUTO-DOCK RCS GUIDANCE ACTIVE • APPROACHING PMA-2"
             : (this._isHelmPilot()
               ? "YOU HAVE HELM • [WASD/QE] RCS · ALIGN PMA-2 PORT"
               : "COPILOT TELEMETRY LOCKED TO PILOT • ASSIST [1-4]");
-          this.statusBadgeEl.style.color = "#d0a15c";
-          this.statusBadgeEl.style.borderColor = "rgba(208,161,92,0.5)";
+          this.statusBadgeEl.style.color = "var(--ui-brand)";
+          this.statusBadgeEl.style.borderColor = "rgba(var(--ui-brand-rgb),0.5)";
         }
       }
     }
@@ -1071,8 +1071,8 @@
 
       if (this.statusBadgeEl) {
         this.statusBadgeEl.textContent = "HARD CAPTURE & PRESSURE SEAL CONFIRMED • ENTERING STATION INTERIOR...";
-        this.statusBadgeEl.style.color = "#83a896";
-        this.statusBadgeEl.style.borderColor = "#83a896";
+        this.statusBadgeEl.style.color = "#63e6a8";
+        this.statusBadgeEl.style.borderColor = "#63e6a8";
       }
 
       const captureFlag = this._lastCorridorCapture;
@@ -1100,7 +1100,7 @@
       const pilotName = pilot ? pilot.name : (nm && nm.localPlayer ? nm.localPlayer.name : "Commander");
       const pilotRoleMeta = window.InterfellasRoles
         ? window.InterfellasRoles.getRoleMeta(pilot ? pilot.role : "commander")
-        : { short: "CMD", color: "#d0a15c" };
+        : { short: "CMD", color: "var(--ui-brand)" };
       const myRole = window.InterfellasRoles && nm && nm.localPlayer
         ? window.InterfellasRoles.normalizeRole(nm.localPlayer.role, "commander")
         : "commander";
@@ -1119,13 +1119,13 @@
           <span style="padding:3px 7px;border-radius:4px;border:1px solid ${pilotRoleMeta.color};color:${pilotRoleMeta.color};font-weight:800;">
             HELM: [${pilotRoleMeta.short}] ${String(pilotName).replace(/[<>&"]/g, "")}${isPilot ? " (YOU)" : ""}
           </span>
-          <span style="color:#eceae3;">${roleInstruction}</span>
+          <span style="color:#efeee7;">${roleInstruction}</span>
           <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;">
-            <button type="button" id="btn-dock-assist-1" class="dock-assist-btn" style="padding:4px 8px;border-radius:4px;border:1px solid ${myRole === "engineer" ? "#d0a15c" : "rgba(255,255,255,0.22)"};background:${myRole === "engineer" ? "rgba(208,161,92,0.18)" : "rgba(255,255,255,0.06)"};color:#e7c58c;font-family:inherit;font-size:9px;font-weight:700;cursor:pointer;">[1] ENG STABILIZE</button>
-            <button type="button" id="btn-dock-assist-2" class="dock-assist-btn" style="padding:4px 8px;border-radius:4px;border:1px solid ${myRole === "engineer" ? "#d0a15c" : "rgba(255,255,255,0.22)"};background:${myRole === "engineer" ? "rgba(208,161,92,0.18)" : "rgba(255,255,255,0.06)"};color:#e7c58c;font-family:inherit;font-size:9px;font-weight:700;cursor:pointer;">[2] ENG FINE TRIM</button>
-            <button type="button" id="btn-dock-assist-3" class="dock-assist-btn" style="padding:4px 8px;border-radius:4px;border:1px solid ${myRole === "scientist" ? "#83a896" : "rgba(255,255,255,0.22)"};background:${myRole === "scientist" ? "rgba(131,168,150,0.18)" : "rgba(255,255,255,0.06)"};color:#83a896;font-family:inherit;font-size:9px;font-weight:700;cursor:pointer;">[3] SCI BORESIGHT</button>
-            <button type="button" id="btn-dock-assist-4" class="dock-assist-btn" style="padding:4px 8px;border-radius:4px;border:1px solid ${myRole === "scientist" ? "#83a896" : "rgba(255,255,255,0.22)"};background:${myRole === "scientist" ? "rgba(131,168,150,0.18)" : "rgba(255,255,255,0.06)"};color:#83a896;font-family:inherit;font-size:9px;font-weight:700;cursor:pointer;">[4] SCI PING</button>
-            ${!isPilot ? `<button type="button" id="btn-dock-take-helm" style="padding:4px 8px;border-radius:4px;border:1px solid rgba(208,161,92,0.6);background:rgba(208,161,92,0.16);color:#e7c58c;font-family:inherit;font-size:9px;font-weight:800;cursor:pointer;">TAKE HELM</button>` : ""}
+            <button type="button" id="btn-dock-assist-1" class="dock-assist-btn" style="padding:4px 8px;border-radius:4px;border:1px solid ${myRole === "engineer" ? "var(--ui-brand)" : "rgba(255,255,255,0.22)"};background:${myRole === "engineer" ? "rgba(var(--ui-brand-rgb),0.18)" : "rgba(255,255,255,0.06)"};color:var(--ui-brand-strong);font-family:inherit;font-size:9px;font-weight:700;cursor:pointer;">[1] ENG STABILIZE</button>
+            <button type="button" id="btn-dock-assist-2" class="dock-assist-btn" style="padding:4px 8px;border-radius:4px;border:1px solid ${myRole === "engineer" ? "var(--ui-brand)" : "rgba(255,255,255,0.22)"};background:${myRole === "engineer" ? "rgba(var(--ui-brand-rgb),0.18)" : "rgba(255,255,255,0.06)"};color:var(--ui-brand-strong);font-family:inherit;font-size:9px;font-weight:700;cursor:pointer;">[2] ENG FINE TRIM</button>
+            <button type="button" id="btn-dock-assist-3" class="dock-assist-btn" style="padding:4px 8px;border-radius:4px;border:1px solid ${myRole === "scientist" ? "#63e6a8" : "rgba(255,255,255,0.22)"};background:${myRole === "scientist" ? "rgba(99,230,168,0.18)" : "rgba(255,255,255,0.06)"};color:#63e6a8;font-family:inherit;font-size:9px;font-weight:700;cursor:pointer;">[3] SCI BORESIGHT</button>
+            <button type="button" id="btn-dock-assist-4" class="dock-assist-btn" style="padding:4px 8px;border-radius:4px;border:1px solid ${myRole === "scientist" ? "#63e6a8" : "rgba(255,255,255,0.22)"};background:${myRole === "scientist" ? "rgba(99,230,168,0.18)" : "rgba(255,255,255,0.06)"};color:#63e6a8;font-family:inherit;font-size:9px;font-weight:700;cursor:pointer;">[4] SCI PING</button>
+            ${!isPilot ? `<button type="button" id="btn-dock-take-helm" style="padding:4px 8px;border-radius:4px;border:1px solid rgba(var(--ui-brand-rgb),0.6);background:rgba(var(--ui-brand-rgb),0.16);color:var(--ui-brand-strong);font-family:inherit;font-size:9px;font-weight:800;cursor:pointer;">TAKE HELM</button>` : ""}
           </div>
         `;
         const b1 = roleBar.querySelector("#btn-dock-assist-1");
@@ -1169,8 +1169,8 @@
       this.hudOverlay.innerHTML = `
         <div class="dock-header-row">
           <div class="dock-title-card">
-            <div style="font-size:9.5px;font-weight:700;letter-spacing:1.6px;color:#d0a15c;">PHASE 3 // COORDINATED ORBITAL DOCKING</div>
-            <div class="dock-title-main" style="font-size:13px;font-weight:700;color:#eceae3;letter-spacing:0.8px;">ISS FORWARD PORT PMA-2 / IDA-2</div>
+            <div style="font-size:9.5px;font-weight:700;letter-spacing:1.6px;color:var(--ui-brand);">PHASE 3 // COORDINATED ORBITAL DOCKING</div>
+            <div class="dock-title-main" style="font-size:13px;font-weight:700;color:#efeee7;letter-spacing:0.8px;">ISS FORWARD PORT PMA-2 / IDA-2</div>
           </div>
 
           <div id="dock-status-badge">
@@ -1178,19 +1178,19 @@
           </div>
 
           <div class="dock-actions-wrap">
-            <button type="button" id="dock-cam-badge" style="background:rgba(6,10,16,0.9);border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:7px 12px;font-family:inherit;font-size:10px;font-weight:700;color:#eceae3;cursor:pointer;">
+            <button type="button" id="dock-cam-badge" style="background:rgba(6,10,16,0.9);border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:7px 12px;font-family:inherit;font-size:10px;font-weight:700;color:#efeee7;cursor:pointer;">
               VIEW: ${this.cameraMode === "chase" ? "CHASE" : "COCKPIT"} [V]
             </button>
-            <button type="button" id="btn-dock-auto" style="background:rgba(208,161,92,0.12);border:1px solid rgba(208,161,92,0.4);border-radius:6px;padding:7px 12px;font-family:inherit;font-size:10px;font-weight:700;color:#e7c58c;cursor:pointer;">
+            <button type="button" id="btn-dock-auto" style="background:rgba(var(--ui-brand-rgb),0.12);border:1px solid rgba(var(--ui-brand-rgb),0.4);border-radius:6px;padding:7px 12px;font-family:inherit;font-size:10px;font-weight:700;color:var(--ui-brand-strong);cursor:pointer;">
               AUTO-DOCK ASSIST [T]
             </button>
-            <button type="button" id="btn-dock-fine" style="background:rgba(6,10,16,0.9);border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:7px 12px;font-family:inherit;font-size:10px;font-weight:700;color:#eceae3;cursor:pointer;">
+            <button type="button" id="btn-dock-fine" style="background:rgba(6,10,16,0.9);border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:7px 12px;font-family:inherit;font-size:10px;font-weight:700;color:#efeee7;cursor:pointer;">
               FINE RCS: OFF
             </button>
-            <button type="button" id="btn-dock-latch-now" style="background:rgba(131,168,150,0.16);border:1px solid rgba(131,168,150,0.55);color:#83a896;padding:7px 14px;border-radius:6px;font-family:inherit;font-size:10px;font-weight:700;letter-spacing:1px;cursor:pointer;">
+            <button type="button" id="btn-dock-latch-now" style="background:rgba(99,230,168,0.16);border:1px solid rgba(99,230,168,0.55);color:#63e6a8;padding:7px 14px;border-radius:6px;font-family:inherit;font-size:10px;font-weight:700;letter-spacing:1px;cursor:pointer;">
               COMPLETE DOCK &amp; BOARD STATION ⏩
             </button>
-            <button type="button" id="btn-dock-leave" style="background:rgba(198,121,121,0.14);border:1px solid rgba(198,121,121,0.5);color:#c67979;padding:7px 12px;border-radius:6px;font-family:inherit;font-size:10px;font-weight:700;letter-spacing:1px;cursor:pointer;">
+            <button type="button" id="btn-dock-leave" style="background:rgba(255,107,107,0.14);border:1px solid rgba(255,107,107,0.5);color:#ff6b6b;padding:7px 12px;border-radius:6px;font-family:inherit;font-size:10px;font-weight:700;letter-spacing:1px;cursor:pointer;">
               LEAVE
             </button>
             <div class="dock-hint-line">
@@ -1199,39 +1199,39 @@
           </div>
         </div>
 
-        <div id="dock-crew-role-bar" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:7px 12px;margin:4px auto 0;max-width:1180px;background:rgba(6,10,16,0.88);border:1px solid rgba(208,161,92,0.28);border-radius:6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;pointer-events:auto;"></div>
+        <div id="dock-crew-role-bar" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:7px 12px;margin:4px auto 0;max-width:1180px;background:rgba(6,10,16,0.88);border:1px solid rgba(var(--ui-brand-rgb),0.28);border-radius:6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;pointer-events:auto;"></div>
 
         <div class="dock-reticle">
-          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:36px;height:36px;border:2px solid rgba(208,161,92,0.65);border-radius:50%;">
-            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:4px;height:4px;background:#d0a15c;border-radius:50%;"></div>
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:36px;height:36px;border:2px solid rgba(var(--ui-brand-rgb),0.65);border-radius:50%;">
+            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:4px;height:4px;background:var(--ui-brand);border-radius:50%;"></div>
           </div>
-          <div id="dock-target-box" style="position:absolute;top:50%;left:50%;width:56px;height:56px;border:2px dashed #d0a15c;transform:translate(-50%,-50%);transition:transform 0.05s linear;">
-            <div style="position:absolute;top:-16px;left:0;font-size:9px;font-weight:700;color:#d0a15c;letter-spacing:1px;">PMA-2</div>
+          <div id="dock-target-box" style="position:absolute;top:50%;left:50%;width:56px;height:56px;border:2px dashed var(--ui-brand);transform:translate(-50%,-50%);transition:transform 0.05s linear;">
+            <div style="position:absolute;top:-16px;left:0;font-size:9px;font-weight:700;color:var(--ui-brand);letter-spacing:1px;">PMA-2</div>
           </div>
         </div>
 
         <div class="dock-bottom-row">
           <div class="dock-telem-grid">
             <div class="dock-telem-card">
-              <div style="font-size:8.5px;font-weight:700;color:#a6adb6;letter-spacing:1px;">RANGE TO PORT</div>
-              <div id="dock-range-val" style="font-size:15px;font-weight:700;color:#d0a15c;">-- m</div>
+              <div style="font-size:8.5px;font-weight:700;color:#a7b0ba;letter-spacing:1px;">RANGE TO PORT</div>
+              <div id="dock-range-val" style="font-size:15px;font-weight:700;color:var(--ui-brand);">-- m</div>
             </div>
             <div class="dock-telem-card">
-              <div style="font-size:8.5px;font-weight:700;color:#a6adb6;letter-spacing:1px;">CLOSURE RATE</div>
-              <div id="dock-rate-val" style="font-size:15px;font-weight:700;color:#d0a15c;">-- m/s</div>
+              <div style="font-size:8.5px;font-weight:700;color:#a7b0ba;letter-spacing:1px;">CLOSURE RATE</div>
+              <div id="dock-rate-val" style="font-size:15px;font-weight:700;color:var(--ui-brand);">-- m/s</div>
             </div>
             <div class="dock-telem-card">
-              <div style="font-size:8.5px;font-weight:700;color:#a6adb6;letter-spacing:1px;">ATTITUDE ERR</div>
-              <div id="dock-align-val" style="font-size:15px;font-weight:700;color:#83a896;">--°</div>
+              <div style="font-size:8.5px;font-weight:700;color:#a7b0ba;letter-spacing:1px;">ATTITUDE ERR</div>
+              <div id="dock-align-val" style="font-size:15px;font-weight:700;color:#63e6a8;">--°</div>
             </div>
           </div>
           <div class="dock-rcs-bar">
-            <button type="button" class="rcs-btn" data-key="KeyW" style="padding:6px 9px;border-radius:4px;border:1px solid rgba(208,161,92,0.35);background:rgba(255,255,255,0.05);color:#eceae3;font-family:inherit;font-size:9.5px;font-weight:700;cursor:pointer;">FWD [W]</button>
-            <button type="button" class="rcs-btn" data-key="KeyS" style="padding:6px 9px;border-radius:4px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.05);color:#eceae3;font-family:inherit;font-size:9.5px;font-weight:700;cursor:pointer;">AFT [S]</button>
-            <button type="button" class="rcs-btn" data-key="KeyA" style="padding:6px 9px;border-radius:4px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.05);color:#eceae3;font-family:inherit;font-size:9.5px;font-weight:700;cursor:pointer;">PORT [A]</button>
-            <button type="button" class="rcs-btn" data-key="KeyD" style="padding:6px 9px;border-radius:4px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.05);color:#eceae3;font-family:inherit;font-size:9.5px;font-weight:700;cursor:pointer;">STBD [D]</button>
-            <button type="button" class="rcs-btn" data-key="KeyR" style="padding:6px 9px;border-radius:4px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.05);color:#eceae3;font-family:inherit;font-size:9.5px;font-weight:700;cursor:pointer;">UP [R]</button>
-            <button type="button" class="rcs-btn" data-key="KeyF" style="padding:6px 9px;border-radius:4px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.05);color:#eceae3;font-family:inherit;font-size:9.5px;font-weight:700;cursor:pointer;">DN [F]</button>
+            <button type="button" class="rcs-btn" data-key="KeyW" style="padding:6px 9px;border-radius:4px;border:1px solid rgba(var(--ui-brand-rgb),0.35);background:rgba(255,255,255,0.05);color:#efeee7;font-family:inherit;font-size:9.5px;font-weight:700;cursor:pointer;">FWD [W]</button>
+            <button type="button" class="rcs-btn" data-key="KeyS" style="padding:6px 9px;border-radius:4px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.05);color:#efeee7;font-family:inherit;font-size:9.5px;font-weight:700;cursor:pointer;">AFT [S]</button>
+            <button type="button" class="rcs-btn" data-key="KeyA" style="padding:6px 9px;border-radius:4px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.05);color:#efeee7;font-family:inherit;font-size:9.5px;font-weight:700;cursor:pointer;">PORT [A]</button>
+            <button type="button" class="rcs-btn" data-key="KeyD" style="padding:6px 9px;border-radius:4px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.05);color:#efeee7;font-family:inherit;font-size:9.5px;font-weight:700;cursor:pointer;">STBD [D]</button>
+            <button type="button" class="rcs-btn" data-key="KeyR" style="padding:6px 9px;border-radius:4px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.05);color:#efeee7;font-family:inherit;font-size:9.5px;font-weight:700;cursor:pointer;">UP [R]</button>
+            <button type="button" class="rcs-btn" data-key="KeyF" style="padding:6px 9px;border-radius:4px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.05);color:#efeee7;font-family:inherit;font-size:9.5px;font-weight:700;cursor:pointer;">DN [F]</button>
           </div>
         </div>
       `;

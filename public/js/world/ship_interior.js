@@ -54,7 +54,7 @@
       description: "Central spine, mission table, and pressure bulkheads.",
       center: [0, 0],
       size: [8, 8],
-      color: "#d0a15c",
+      color: "#c9f04b",
       doors: ["north", "south", "east", "west"]
     },
     {
@@ -64,7 +64,7 @@
       description: "Flight plan, mission clock, and transit telemetry.",
       center: [0, -8.3],
       size: [8, 7.8],
-      color: "#d0a15c",
+      color: "#7dd3fc",
       doors: ["south"]
     },
     {
@@ -74,7 +74,7 @@
       description: "Solar bus relays, battery banks, and manual reroute panel.",
       center: [-8.3, 0],
       size: [7.8, 8],
-      color: "#d0a15c",
+      color: "#f5c451",
       doors: ["east"]
     },
     {
@@ -84,7 +84,7 @@
       description: "Scrubbers, oxygen reserves, and cabin atmosphere controls.",
       center: [8.3, 0],
       size: [7.8, 8],
-      color: "#83a896",
+      color: "#63e6a8",
       doors: ["west"]
     },
     {
@@ -94,7 +94,7 @@
       description: "Pressure seals, breach lockers, and the lander airlock.",
       center: [0, 7.8],
       size: [8, 6.8],
-      color: "#c67979",
+      color: "#ff6b6b",
       doors: ["north", "south"]
     },
     {
@@ -104,7 +104,7 @@
       description: "Three-seat cockpit and the final descent alignment station.",
       center: [0, 15.9],
       size: [9, 8.2],
-      color: "#d0a15c",
+      color: "#efeee7",
       doors: ["north"]
     }
   ];
@@ -128,7 +128,7 @@
       position: [0, 1.02, 0],
       workPosition: [0, 0, 1.5],
       interactRadius: 2.1,
-      color: "#d0a15c",
+      color: "#c9f04b",
       description: "Transit cycle status, resource trends, and crew assignments."
     },
     command: {
@@ -139,7 +139,7 @@
       position: [0, 0.92, -11.2],
       workPosition: [0, 0, -9.5],
       interactRadius: 2.6,
-      color: "#d0a15c",
+      color: "#7dd3fc",
       description: "Mission clock, transit telemetry, and the lunar approach plan."
     },
     power: {
@@ -150,7 +150,7 @@
       position: [-11.2, 0.92, 0],
       workPosition: [-9.5, 0, 0],
       interactRadius: 2.6,
-      color: "#d0a15c",
+      color: "#f5c451",
       description: "Manual bus reroute and battery load balancing."
     },
     "life-support": {
@@ -161,7 +161,7 @@
       position: [11.2, 0.92, 0],
       workPosition: [9.5, 0, 0],
       interactRadius: 2.6,
-      color: "#83a896",
+      color: "#63e6a8",
       description: "Oxygen, CO₂ scrubbing, pressure, and cabin temperature."
     },
     hull: {
@@ -172,7 +172,7 @@
       position: [0, 0.92, 10.4],
       workPosition: [0, 0, 9.1],
       interactRadius: 2.6,
-      color: "#c67979",
+      color: "#ff6b6b",
       description: "Hull breach seals, pressure doors, and repair drones."
     },
     lander: {
@@ -183,7 +183,7 @@
       position: [0, 0.92, 18.9],
       workPosition: [0, 0, 17.4],
       interactRadius: 2.8,
-      color: "#d0a15c",
+      color: "#efeee7",
       description: "Three-axis descent alignment and touchdown authority."
     }
   };
@@ -590,7 +590,7 @@
     context.strokeRect(4, 4, width - 8, height - 8);
     context.globalAlpha = 1;
 
-    context.fillStyle = "#eceae3";
+    context.fillStyle = "#efeee7";
     context.textAlign = "center";
     context.textBaseline = "middle";
     context.font = `600 ${subtext ? 38 : 42}px ui-monospace, SFMono-Regular, Menlo, monospace`;
@@ -1384,8 +1384,8 @@
 
     if (roomId === "command") {
       [-6.9, -8.5, -10.1].forEach((z) => {
-        g.add(buildRack({ position: [-3.54, 0, z], rotation: [0, Math.PI / 2, 0], label: "LAB-A", accent: "#a6adb6" }));
-        g.add(buildRack({ position: [3.54, 0, z], rotation: [0, -Math.PI / 2, 0], label: "LAB-B", accent: "#a6adb6" }));
+        g.add(buildRack({ position: [-3.54, 0, z], rotation: [0, Math.PI / 2, 0], label: "LAB-A", accent: "#a7b0ba" }));
+        g.add(buildRack({ position: [3.54, 0, z], rotation: [0, -Math.PI / 2, 0], label: "LAB-B", accent: "#a7b0ba" }));
       });
       g.add(buildStowageBag({ position: [-2.8, 0, -7.1], rotation: [0, 0.35, 0], scale: 0.9 }));
       g.add(buildStowageBag({ position: [2.8, 0, -9.4], rotation: [0, -0.3, 0], scale: 0.9 }));
@@ -1401,8 +1401,8 @@
     }
 
     if (roomId === "power") {
-      g.add(buildRack({ position: [-8.3, 0, -3.54], label: "PWR-A", accent: "#b88355" }));
-      g.add(buildRack({ position: [-8.3, 0, 3.54], rotation: [0, Math.PI, 0], label: "PWR-B", accent: "#b88355" }));
+      g.add(buildRack({ position: [-8.3, 0, -3.54], label: "PWR-A", accent: "#f5c451" }));
+      g.add(buildRack({ position: [-8.3, 0, 3.54], rotation: [0, Math.PI, 0], label: "PWR-B", accent: "#f5c451" }));
       g.add(buildStowageBag({ position: [-6.6, 0, 2.9], rotation: [0, 0.4, 0], scale: 0.9 }));
       [-2.6, 2.6].forEach((z) => {
         const bg = new THREE.Group();
@@ -1436,8 +1436,8 @@
     }
 
     if (roomId === "life-support") {
-      g.add(buildRack({ position: [8.3, 0, -3.54], label: "ECLSS-A", accent: "#83a896" }));
-      g.add(buildRack({ position: [8.3, 0, 3.54], rotation: [0, Math.PI, 0], label: "ECLSS-B", accent: "#83a896" }));
+      g.add(buildRack({ position: [8.3, 0, -3.54], label: "ECLSS-A", accent: "#63e6a8" }));
+      g.add(buildRack({ position: [8.3, 0, 3.54], rotation: [0, Math.PI, 0], label: "ECLSS-B", accent: "#63e6a8" }));
       g.add(buildStowageBag({ position: [6.6, 0, -3.0], rotation: [0, -0.35, 0], scale: 0.9 }));
       [-2.45, 2.45].forEach((z) => {
         const tg = new THREE.Group();
@@ -1496,8 +1496,8 @@
     }
 
     if (roomId === "lander") {
-      g.add(buildRack({ position: [-4.0, 0, 13.4], rotation: [0, Math.PI / 2, 0], label: "LDR-A", accent: "#a6adb6" }));
-      g.add(buildRack({ position: [4.0, 0, 13.4], rotation: [0, -Math.PI / 2, 0], label: "LDR-B", accent: "#a6adb6" }));
+      g.add(buildRack({ position: [-4.0, 0, 13.4], rotation: [0, Math.PI / 2, 0], label: "LDR-A", accent: "#a7b0ba" }));
+      g.add(buildRack({ position: [4.0, 0, 13.4], rotation: [0, -Math.PI / 2, 0], label: "LDR-B", accent: "#a7b0ba" }));
       g.add(buildStowageBag({ position: [-3.2, 0, 15.4], rotation: [0, 0.35, 0], scale: 0.9 }));
 
       const pad = new THREE.Mesh(
@@ -1597,10 +1597,10 @@
     }
 
     // Hub props
-    g.add(buildRack({ position: [-3.54, 0, -1.55], rotation: [0, Math.PI / 2, 0], label: "HUB-A2", accent: "#a6adb6" }));
-    g.add(buildRack({ position: [-3.54, 0, 1.55], rotation: [0, Math.PI / 2, 0], label: "HUB-A4", accent: "#a6adb6" }));
-    g.add(buildLocker({ position: [3.54, 0, 1.75], rotation: [0, -Math.PI / 2, 0], accent: "#a6adb6" }));
-    g.add(buildLocker({ position: [3.54, 0, -1.75], rotation: [0, -Math.PI / 2, 0], accent: "#a6adb6" }));
+    g.add(buildRack({ position: [-3.54, 0, -1.55], rotation: [0, Math.PI / 2, 0], label: "HUB-A2", accent: "#a7b0ba" }));
+    g.add(buildRack({ position: [-3.54, 0, 1.55], rotation: [0, Math.PI / 2, 0], label: "HUB-A4", accent: "#a7b0ba" }));
+    g.add(buildLocker({ position: [3.54, 0, 1.75], rotation: [0, -Math.PI / 2, 0], accent: "#a7b0ba" }));
+    g.add(buildLocker({ position: [3.54, 0, -1.75], rotation: [0, -Math.PI / 2, 0], accent: "#a7b0ba" }));
     g.add(buildStowageBag({ position: [-2.95, 0, 0.55], rotation: [0, 0.35, 0] }));
     g.add(buildStowageBag({ position: [2.95, 0, 0.2], rotation: [0, -0.25, 0], scale: 0.9 }));
     g.add(buildStowageBag({ position: [2.65, 0, 2.7], rotation: [0, 0.5, 0], scale: 0.8 }));
@@ -2212,7 +2212,7 @@
           const labelTex = createStationLabelTexture({
             text: station.shortLabel,
             subtext: "FAULT",
-            accent: "#c67979"
+            accent: "#ff6b6b"
           });
           const labelSpriteMat = new THREE.SpriteMaterial({
             map: labelTex,
@@ -2277,7 +2277,7 @@
           const nextTex = createStationLabelTexture({
             text: entry.station.shortLabel,
             subtext: hasFault ? "FAULT" : "READY",
-            accent: hasFault ? "#c67979" : entry.station.color
+            accent: hasFault ? "#ff6b6b" : entry.station.color
           });
           if (entry.labelSpriteMat.map) entry.labelSpriteMat.map.dispose();
           entry.labelSpriteMat.map = nextTex;
@@ -2315,21 +2315,21 @@
       this.hudPill = document.createElement("div");
       this.hudPill.id = "ship-interior-hud";
       this.hudPill.innerHTML = `
-        <span style="width:6px;height:6px;border-radius:50%;background:#d0a15c;flex-shrink:0;"></span>
-        <span style="font-size:10px;font-weight:700;letter-spacing:1.6px;color:#eceae3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="ship-room-title">STATION · TRANSIT HUB</span>
-        <button id="btn-return-space-center" style="background:rgba(208,161,92,0.12);border:1px solid rgba(208,161,92,0.45);color:#e7c58c;font-size:9px;font-weight:700;letter-spacing:1.2px;padding:3px 8px;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;" title="Return the whole crew to Kennedy Space Center LC-39A [G]">
+        <span style="width:6px;height:6px;border-radius:50%;background:var(--ui-brand);flex-shrink:0;"></span>
+        <span style="font-size:10px;font-weight:700;letter-spacing:1.6px;color:#efeee7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="ship-room-title">STATION · TRANSIT HUB</span>
+        <button id="btn-return-space-center" style="background:rgba(var(--ui-brand-rgb),0.12);border:1px solid rgba(var(--ui-brand-rgb),0.45);color:var(--ui-brand-strong);font-size:9px;font-weight:700;letter-spacing:1.2px;padding:3px 8px;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;" title="Return the whole crew to Kennedy Space Center LC-39A [G]">
           PAD LC-39A [G]
         </button>
-        <button id="btn-toggle-iss-showcase" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.16);color:#eceae3;font-size:9px;font-weight:700;letter-spacing:1.2px;padding:3px 8px;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;" title="Inspect 27-Part NASA ISS 3D Reference Model [J]">
+        <button id="btn-toggle-iss-showcase" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.16);color:#efeee7;font-size:9px;font-weight:700;letter-spacing:1.2px;padding:3px 8px;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;" title="Inspect 27-Part NASA ISS 3D Reference Model [J]">
           ISS 3D [J]
         </button>
-        <button id="btn-toggle-lunar-scene" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.16);color:#a6adb6;font-size:9px;font-weight:700;letter-spacing:1.2px;padding:3px 8px;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;" title="Toggle 3D Lunar Touchdown Scene [K]">
+        <button id="btn-toggle-lunar-scene" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.16);color:#a7b0ba;font-size:9px;font-weight:700;letter-spacing:1.2px;padding:3px 8px;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;" title="Toggle 3D Lunar Touchdown Scene [K]">
           MOON [K]
         </button>
-        <button id="btn-toggle-mission-viz" style="background:rgba(208,161,92,0.12);border:1px solid rgba(208,161,92,0.45);color:#d0a15c;font-size:9px;font-weight:700;letter-spacing:1.2px;padding:3px 8px;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;" title="Open 3D NASA Mission Viz & GMAT Trajectory Theater [U]">
+        <button id="btn-toggle-mission-viz" style="background:rgba(var(--ui-brand-rgb),0.12);border:1px solid rgba(var(--ui-brand-rgb),0.45);color:var(--ui-brand);font-size:9px;font-weight:700;letter-spacing:1.2px;padding:3px 8px;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;" title="Open 3D NASA Mission Viz & GMAT Trajectory Theater [U]">
           ORBIT VIZ [U]
         </button>
-        <button id="btn-hud-vr" style="background:rgba(208,161,92,0.12);border:1px solid rgba(208,161,92,0.45);color:#e7c58c;font-size:9px;font-weight:700;letter-spacing:1.2px;padding:3px 8px;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;" title="Toggle WebXR / Stereo VR View">
+        <button id="btn-hud-vr" style="background:rgba(var(--ui-brand-rgb),0.12);border:1px solid rgba(var(--ui-brand-rgb),0.45);color:var(--ui-brand-strong);font-size:9px;font-weight:700;letter-spacing:1.2px;padding:3px 8px;border-radius:4px;cursor:pointer;font-family:inherit;white-space:nowrap;" title="Toggle WebXR / Stereo VR View">
           VR VIEW
         </button>
       `;
@@ -2459,7 +2459,7 @@
           (e) => e.station.room === room.id && e.hasFault
         );
         const fault = Boolean(stEntry);
-        const color = stEntry ? stEntry.station.color : "#eceae3";
+        const color = stEntry ? stEntry.station.color : "#efeee7";
         const active = curRoomObj.shortLabel === room.shortLabel;
         const fill = fault
           ? `${color}22`
@@ -2500,13 +2500,13 @@
         const pos = rp && (rp.curPos || rp.targetPos);
         if (!pos || !Number.isFinite(pos[0]) || !Number.isFinite(pos[2])) return;
         if (pos[0] < -13.2 || pos[0] > 13.2 || pos[2] < -13.2 || pos[2] > 21.2) return;
-        const color = /^#[0-9a-fA-F]{6}$/.test(rp.color) ? rp.color : "#d0a15c";
+        const color = /^#[0-9a-fA-F]{6}$/.test(rp.color) ? rp.color : "#c9f04b";
         const rawName = String(rp.name || `Crew ${index + 1}`).slice(0, 12);
         const safeName = this._escapeMapText(rawName);
         friendMarkers.push(`
           <g transform="translate(${pos[0].toFixed(2)} ${pos[2].toFixed(2)})">
             <title>${safeName}</title>
-            <circle r="1.05" fill="${color}" stroke="#05060a" stroke-width="0.32" />
+            <circle r="1.05" fill="${color}" stroke="#05070a" stroke-width="0.32" />
             <circle r="0.3" fill="rgba(5,6,10,0.72)" />
           </g>
         `);
@@ -2521,7 +2521,7 @@
         ? `
           <div style="display:flex;flex-wrap:wrap;gap:4px 7px;border-top:1px solid rgba(255,255,255,0.1);padding:4px 8px;font-size:7px;letter-spacing:0.3px;color:rgba(166,173,182,0.85);">
             <span style="display:inline-flex;align-items:center;gap:3px;">
-              <span style="width:5px;height:5px;border-radius:50%;background:#eceae3;flex:0 0 auto;"></span>YOU
+              <span style="width:5px;height:5px;border-radius:50%;background:#efeee7;flex:0 0 auto;"></span>YOU
             </span>
             ${friendLegend.join("")}
           </div>
@@ -2535,7 +2535,7 @@
       this.minimapEl.innerHTML = `
         <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:${this.minimapCollapsed ? "none" : "1px solid rgba(255,255,255,0.1)"};padding:5px 8px;" title="Tap to collapse/expand ship map">
           <span style="font-size:8px;text-transform:uppercase;letter-spacing:1.6px;color:rgba(166,173,182,0.8);">MAP ${this.minimapCollapsed ? "▸" : "▾"}</span>
-          <span style="font-size:8px;text-transform:uppercase;letter-spacing:1.4px;color:#eceae3;font-weight:700;">${curRoomObj.shortLabel}</span>
+          <span style="font-size:8px;text-transform:uppercase;letter-spacing:1.4px;color:#efeee7;font-weight:700;">${curRoomObj.shortLabel}</span>
         </div>
         ${this.minimapCollapsed ? "" : `
           <svg viewBox="-13.5 -13.5 27 35" style="height:${svgHeight}px;width:100%;display:block;">
@@ -2544,7 +2544,7 @@
             ${stationsSvg}
             ${friendsSvg}
             <g transform="translate(${px.toFixed(2)} ${pz.toFixed(2)}) rotate(${rotDeg.toFixed(1)})">
-              <path d="M 0 -2.3 L 1.7 1.9 L 0 1.1 L -1.7 1.9 Z" fill="#eceae3" stroke="#05060a" stroke-width="0.2" />
+              <path d="M 0 -2.3 L 1.7 1.9 L 0 1.1 L -1.7 1.9 Z" fill="#efeee7" stroke="#05070a" stroke-width="0.2" />
             </g>
           </svg>
           ${friendsLegendHtml}

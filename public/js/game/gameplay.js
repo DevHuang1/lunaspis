@@ -845,6 +845,8 @@
         oxygen: 95,
         fuel: 94
       };
+      this._criticalResources = {};
+      this._knownCompletedTasks = new Set();
 
       this.activeTask = null;
       this.nearbyTask = null;
@@ -1389,62 +1391,96 @@
       const isPhone = window.innerWidth <= 540;
       const metrics = [
         {
+          key: "budget",
           label: isPhone ? "BUDG" : "BUDGET",
           val: `$${t.totalCostM}/${t.budgetCapM}M`,
           pct: Math.min(100, Math.round((t.totalCostM / Math.max(1, t.budgetCapM)) * 100)),
+          target: 100,
           ok: t.budgetOk,
-          color: t.budgetOk ? "#83a896" : "#c67979"
+          color: t.budgetOk ? "#63e6a8" : "#ff6b6b",
+          tip: "Mission cost versus the scenario budget cap."
         },
         {
+          key: "mass",
           label: isPhone ? "MASS" : "MASS",
           val: `${t.wetMassKg}/${t.lvCapacityKg}kg`,
           pct: Math.min(100, Math.round((t.wetMassKg / Math.max(1, t.lvCapacityKg)) * 100)),
+          target: 100,
           ok: t.massOk,
-          color: t.massOk ? "#d0a15c" : "#c67979"
+          color: t.massOk ? "#63e6a8" : "#ff6b6b",
+          tip: "Wet spacecraft mass versus launch vehicle capacity."
         },
         {
+          key: "power",
           label: isPhone ? "PWR" : "POWER",
           val: `${t.totalPowerLoadW}/${t.daylightGenW}W`,
           pct: Math.min(100, Math.round((t.totalPowerLoadW / Math.max(1, t.daylightGenW)) * 100)),
+          target: 100,
           ok: t.powerOk,
-          color: t.powerOk ? "#d0a15c" : "#c67979"
+          color: t.powerOk ? "#63e6a8" : "#ff6b6b",
+          tip: "Power load versus daylight generation. Watch eclipse battery DoD."
         },
         {
+          key: "data",
           label: isPhone ? "DATA" : "COMMS/DATA",
           val: `${t.linkMarginDb}dB`,
           pct: Math.min(100, Math.max(10, Math.round((t.downlinkCapGbPerDay / Math.max(1, t.dataGeneratedGbPerDay)) * 55))),
+          target: 100,
           ok: t.commsOk,
-          color: t.commsOk ? "#a6adb6" : "#d0a15c"
+          color: t.commsOk ? "#a7b0ba" : "#f5c451",
+          tip: "Downlink capacity versus generated science data."
         },
         {
+          key: "delta-v",
           label: isPhone ? "ΔV" : "DELTA-V",
           val: `${t.achievedDeltaV}m/s`,
           pct: Math.min(100, Math.round((t.achievedDeltaV / Math.max(1, t.requiredDeltaV)) * 80)),
+          target: 80,
           ok: t.deltaVOk,
-          color: t.deltaVOk ? "#d0a15c" : "#c67979"
+          color: t.deltaVOk ? "#63e6a8" : "#ff6b6b",
+          tip: "Achieved delta-v versus the mission requirement."
         },
         {
+          key: "science",
           label: isPhone ? "SCI" : "SCIENCE",
           val: `${t.scienceScore}/100`,
           pct: t.scienceScore,
+          target: 60,
           ok: t.scienceScore >= 60,
-          color: "#83a896"
+          color: t.scienceScore >= 60 ? "#63e6a8" : "#f5c451",
+          tip: "Science value score. The mission objective requires at least 60."
         }
       ];
+      const previousCritical = this._criticalResources || {};
+      const previousPct = this._resourcePct || {};
+      const nextCritical = {};
 
       bar.innerHTML = metrics
-        .map((m) => `
-          <div class="lunaspis-res-item">
+        .map((m) => {
+          nextCritical[m.key] = !m.ok;
+          const isNewCritical = !m.ok && !previousCritical[m.key];
+          return `
+          <div class="lunaspis-res-item${m.ok ? "" : " is-critical"}${isNewCritical ? " is-new-critical" : ""}" data-res-key="${m.key}" title="${this._escapeHtml(m.tip)}">
             <div class="lunaspis-res-head">
               <span style="color:${m.color};font-weight:700;">${m.label}</span>
               <span>${m.val}</span>
             </div>
             <div class="lunaspis-res-track">
-              <div style="height:100%;width:${m.pct}%;background:${m.color};transition:width 0.25s;"></div>
+              <div class="lunaspis-res-fill" style="width:${previousPct[m.key] === undefined ? 0 : previousPct[m.key]}%;background:${m.color};"></div>
+              <span class="lunaspis-res-target" style="left:${Math.max(0, Math.min(100, m.target))}%"></span>
             </div>
           </div>
-        `)
+        `;
+        })
         .join("");
+      requestAnimationFrame(() => {
+        metrics.forEach((m) => {
+          const fill = bar.querySelector(`[data-res-key="${m.key}"] .lunaspis-res-fill`);
+          if (fill) fill.style.width = `${m.pct}%`;
+        });
+      });
+      this._resourcePct = Object.fromEntries(metrics.map((m) => [m.key, m.pct]));
+      this._criticalResources = nextCritical;
     }
 
     _getRoleAssignment(roleId) {
@@ -1462,7 +1498,7 @@
           role: "all",
           short: "ALL",
           label: "ALL CREW",
-          color: "#a6adb6",
+          color: "#a7b0ba",
           holders: players,
           namesText: players.length ? `${players.length} crew` : "CREW",
           isMine: true,
@@ -1473,7 +1509,7 @@
 
       const meta = window.InterfellasRoles
         ? window.InterfellasRoles.getRoleMeta(role)
-        : { short: role.slice(0, 3).toUpperCase(), label: role.toUpperCase(), color: "#d0a15c" };
+        : { short: role.slice(0, 3).toUpperCase(), label: role.toUpperCase(), color: "#a7b0ba" };
       const grouped = window.InterfellasRoles
         ? window.InterfellasRoles.getCrewByRole(players)
         : { [role]: [] };
@@ -1520,35 +1556,35 @@
       }
 
       const pill = (label, value, sub, ok) => `
-        <div style="padding:7px 9px;border-radius:6px;background:rgba(0,0,0,0.38);border:1px solid ${ok ? "rgba(131,168,150,0.32)" : "rgba(198,121,121,0.55)"};">
-          <div style="display:flex;justify-content:space-between;align-items:center;font-family:monospace;font-size:9px;color:#a6adb6;letter-spacing:0.8px;">
+        <div style="padding:7px 9px;border-radius:6px;background:rgba(0,0,0,0.38);border:1px solid ${ok ? "rgba(99,230,168,0.32)" : "rgba(255,107,107,0.55)"};">
+          <div style="display:flex;justify-content:space-between;align-items:center;font-family:monospace;font-size:9px;color:#a7b0ba;letter-spacing:0.8px;">
             <span>${label}</span>
-            <span style="color:${ok ? "#83a896" : "#c67979"};font-weight:700;">${ok ? "NOMINAL" : "CONSTRAINT"}</span>
+            <span style="color:${ok ? "#63e6a8" : "#ff6b6b"};font-weight:700;">${ok ? "NOMINAL" : "CONSTRAINT"}</span>
           </div>
-          <div style="font-family:monospace;font-size:12px;font-weight:700;color:#eceae3;margin-top:2px;">${value}</div>
-          <div style="font-family:monospace;font-size:9px;color:#a6adb6;margin-top:1px;">${sub}</div>
+          <div style="font-family:monospace;font-size:12px;font-weight:700;color:#efeee7;margin-top:2px;">${value}</div>
+          <div style="font-family:monospace;font-size:9px;color:#a7b0ba;margin-top:1px;">${sub}</div>
         </div>
       `;
 
       const segBadge = (seg) => `
-        <span style="padding:2px 6px;border-radius:4px;font-family:monospace;font-size:9px;font-weight:700;border:1px solid ${seg.ok ? "rgba(74,222,128,0.45)" : "rgba(198,121,121,0.45)"};background:${seg.ok ? "rgba(74,222,128,0.12)" : "rgba(198,121,121,0.12)"};color:${seg.ok ? "#83a896" : "#c67979"};">
+        <span style="padding:2px 6px;border-radius:4px;font-family:monospace;font-size:9px;font-weight:700;border:1px solid ${seg.ok ? "rgba(74,222,128,0.45)" : "rgba(255,107,107,0.45)"};background:${seg.ok ? "rgba(74,222,128,0.12)" : "rgba(255,107,107,0.12)"};color:${seg.ok ? "#63e6a8" : "#ff6b6b"};">
           ${seg.ok ? "✓" : "!"} ${seg.label}
         </span>
       `;
 
       const cmlPills = [1, 2, 3, 4].map((lvl) => {
         const active = lvl <= t.cmlLevel;
-        return `<span style="padding:2px 5px;border-radius:3px;font-family:monospace;font-size:8.5px;font-weight:700;background:${active ? "rgba(208,161,92,0.22)" : "rgba(255,255,255,0.05)"};color:${active ? "#d0a15c" : "#6f7782"};border:1px solid ${active ? "rgba(208,161,92,0.5)" : "rgba(255,255,255,0.08)"};">CML ${lvl}</span>`;
+        return `<span style="padding:2px 5px;border-radius:3px;font-family:monospace;font-size:8.5px;font-weight:700;background:${active ? "rgba(var(--ui-brand-rgb),0.22)" : "rgba(255,255,255,0.05)"};color:${active ? "var(--ui-brand)" : "#7a8490"};border:1px solid ${active ? "rgba(var(--ui-brand-rgb),0.5)" : "rgba(255,255,255,0.08)"};">CML ${lvl}</span>`;
       }).join("");
 
       let tradeDeltaHtml = "";
       if (this.tradeBaselineA) {
         const a = this.tradeBaselineA;
         const fmtDelta = (val, unit, lowerBetter = false) => {
-          if (val === 0) return `<span style="color:#a6adb6;">0${unit}</span>`;
+          if (val === 0) return `<span style="color:#a7b0ba;">0${unit}</span>`;
           const good = lowerBetter ? val < 0 : val > 0;
           const sign = val > 0 ? "+" : "";
-          return `<span style="color:${good ? "#83a896" : "#c67979"};font-weight:700;">${sign}${val}${unit}</span>`;
+          return `<span style="color:${good ? "#63e6a8" : "#ff6b6b"};font-weight:700;">${sign}${val}${unit}</span>`;
         };
         const dCost = Number((t.totalCostM - a.totalCostM).toFixed(0));
         const dMass = Number((t.wetMassKg - a.wetMassKg).toFixed(1));
@@ -1557,12 +1593,12 @@
         const dSci = Number((t.scienceScore - a.scienceScore).toFixed(0));
         const dScore = Number((t.overallScore - a.overallScore).toFixed(0));
         tradeDeltaHtml = `
-          <div style="margin-top:8px;padding:6px 9px;border-radius:6px;background:rgba(208,161,92,0.08);border:1px solid rgba(208,161,92,0.35);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-family:monospace;font-size:9.5px;">
-            <span style="color:#e7c58c;font-weight:700;">MDL TRADE Δ (vs Option A: ${this._escapeHtml(a.scenario.code)} / ${this._escapeHtml(a.orbit.id.toUpperCase())})</span>
-            <span style="color:#eceae3;">
+          <div style="margin-top:8px;padding:6px 9px;border-radius:6px;background:rgba(var(--ui-brand-rgb),0.08);border:1px solid rgba(var(--ui-brand-rgb),0.35);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-family:monospace;font-size:9.5px;">
+            <span style="color:var(--ui-brand-strong);font-weight:700;">MDL TRADE Δ (vs Option A: ${this._escapeHtml(a.scenario.code)} / ${this._escapeHtml(a.orbit.id.toUpperCase())})</span>
+            <span style="color:#efeee7;">
               Cost ${fmtDelta(dCost, "M", true)} · Mass ${fmtDelta(dMass, "kg", true)} · Pwr ${fmtDelta(dPwr, "W")} · ΔV ${fmtDelta(dDv, "m/s")} · Sci ${fmtDelta(dSci, "pt")} · Grade ${fmtDelta(dScore, "pt")}
             </span>
-            <button type="button" id="btn-mdl-clear-a" style="padding:2px 6px;border-radius:4px;border:1px solid rgba(255,255,255,0.2);background:rgba(0,0,0,0.35);color:#eceae3;font-family:inherit;font-size:8.5px;cursor:pointer;">CLEAR A</button>
+            <button type="button" id="btn-mdl-clear-a" style="padding:2px 6px;border-radius:4px;border:1px solid rgba(255,255,255,0.2);background:rgba(0,0,0,0.35);color:#efeee7;font-family:inherit;font-size:8.5px;cursor:pointer;">CLEAR A</button>
           </div>
         `;
       }
@@ -1573,15 +1609,15 @@
 
       return `
         ${roleStrip}
-        <div style="margin-bottom:14px;padding:10px 12px;border-radius:8px;background:rgba(208,161,92,0.04);border:1px solid rgba(255,255,255,0.12);">
+        <div style="margin-bottom:14px;padding:10px 12px;border-radius:8px;background:rgba(var(--ui-brand-rgb),0.04);border:1px solid rgba(255,255,255,0.12);">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px;">
-            <span style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.2px;color:#d0a15c;">
+            <span style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.2px;color:var(--ui-brand);">
               ${t.cmlLabel.toUpperCase()} · ${t.scenario.name.toUpperCase()}
             </span>
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-              <button type="button" id="btn-mdl-snapshot-a" style="padding:3px 7px;border-radius:4px;border:1px solid rgba(208,161,92,0.45);background:rgba(208,161,92,0.12);color:#e7c58c;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">📸 ${this.tradeBaselineA ? "UPDATE OPTION A" : "SAVE OPTION A"}</button>
-              <button type="button" id="btn-mdl-open-viz" style="padding:3px 7px;border-radius:4px;border:1px solid rgba(208,161,92,0.5);background:rgba(208,161,92,0.14);color:#d0a15c;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">🛰️ 3D ORBIT VIZ [U]</button>
-              <span style="font-family:monospace;font-size:10px;font-weight:700;color:${t.overallScore >= 75 ? "#83a896" : "#d0a15c"};">
+              <button type="button" id="btn-mdl-snapshot-a" style="padding:3px 7px;border-radius:4px;border:1px solid rgba(var(--ui-brand-rgb),0.45);background:rgba(var(--ui-brand-rgb),0.12);color:var(--ui-brand-strong);font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">📸 ${this.tradeBaselineA ? "UPDATE OPTION A" : "SAVE OPTION A"}</button>
+              <button type="button" id="btn-mdl-open-viz" style="padding:3px 7px;border-radius:4px;border:1px solid rgba(var(--ui-brand-rgb),0.5);background:rgba(var(--ui-brand-rgb),0.14);color:var(--ui-brand);font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">🛰️ 3D ORBIT VIZ [U]</button>
+              <span style="font-family:monospace;font-size:10px;font-weight:700;color:${t.overallScore >= 75 ? "#63e6a8" : "#f5c451"};">
                 SCORE ${t.overallScore}/100 (SCI ${t.scienceScore} · ENG ${t.engineeringScore})
               </span>
             </div>
@@ -1716,7 +1752,7 @@
       }
 
       const canvas = this._pdRenderer.domElement;
-      canvas.style.cssText = "width:100%;height:156px;display:block;border-radius:6px;border:1px solid rgba(208,161,92,0.3);";
+      canvas.style.cssText = "width:100%;height:156px;display:block;border-radius:6px;border:1px solid rgba(var(--ui-brand-rgb),0.3);";
       slotEl.innerHTML = "";
       slotEl.appendChild(canvas);
 
@@ -1871,12 +1907,16 @@
       const w = canvas.width;
       const h = canvas.height;
       const t = this.evaluateMissionDesign();
+      const theme = (window.UITheme && window.UITheme.palette) || {};
+      const brand = theme.brand || "#c9f04b";
+      const brandStrong = theme.brandStrong || "#e4ff7e";
+      const brandRgb = theme.brandRgb || "201, 240, 75";
 
       ctx.fillStyle = "#060b17";
       ctx.fillRect(0, 0, w, h);
 
       // Subtle grid
-      ctx.strokeStyle = "rgba(208,161,92,0.12)";
+      ctx.strokeStyle = `rgba(${brandRgb},0.12)`;
       ctx.lineWidth = 1;
       for (let x = 0; x < w; x += 36) {
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
@@ -1894,16 +1934,16 @@
           const sx = 10 + rng(i) * (halfW - 20);
           const sy = 14 + rng(i + 99) * (h - 28);
           const r = rng(i + 200) * 2.2 + 0.5;
-          ctx.fillStyle = i % 5 === 0 ? "#d0a15c" : (i % 3 === 0 ? "#d0a15c" : "#eceae3");
+          ctx.fillStyle = i % 5 === 0 ? brand : (i % 3 === 0 ? brand : "#efeee7");
           ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2); ctx.fill();
           if (i < 6) {
-            ctx.strokeStyle = "rgba(208,161,92,0.5)";
+            ctx.strokeStyle = `rgba(${brandRgb},0.5)`;
             ctx.beginPath(); ctx.moveTo(sx - 6, sy); ctx.lineTo(sx + 6, sy); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(sx, sy - 6); ctx.lineTo(sx, sy + 6); ctx.stroke();
           }
         }
         // Spectral plot
-        ctx.strokeStyle = t.telescopeOk ? "#83a896" : "#c67979";
+        ctx.strokeStyle = t.telescopeOk ? "#63e6a8" : "#ff6b6b";
         ctx.lineWidth = 2;
         ctx.beginPath();
         for (let x = halfW + 14; x < w - 12; x += 4) {
@@ -1915,7 +1955,7 @@
           if (x === halfW + 14) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         }
         ctx.stroke();
-        ctx.fillStyle = "#e7c58c";
+        ctx.fillStyle = brandStrong;
         ctx.font = "bold 10px monospace";
         ctx.fillText(`BAND: ${t.wavelength.shortLabel} · H2O / CO2 ABSORPTION LINES`, halfW + 14, h - 10);
       } else if (scId === "lunar_south_pole") {
@@ -1923,15 +1963,15 @@
         const cx = w * 0.25;
         const cy = h * 0.54;
         const grad = ctx.createRadialGradient(cx, cy, 4, cx, cy, 52);
-        grad.addColorStop(0, "rgba(208,161,92,0.9)");
+        grad.addColorStop(0, `rgba(${brandRgb},0.9)`);
         grad.addColorStop(0.55, "rgba(30,64,175,0.45)");
         grad.addColorStop(1, "rgba(15,23,42,0.05)");
         ctx.fillStyle = grad;
         ctx.beginPath(); ctx.arc(cx, cy, 52, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = "#a6adb6";
+        ctx.strokeStyle = "#a7b0ba";
         ctx.strokeRect(cx - 56, cy - 52, 112, 100);
         // Altimetry curve
-        ctx.strokeStyle = "#d0a15c";
+        ctx.strokeStyle = brand;
         ctx.lineWidth = 2;
         ctx.beginPath();
         for (let x = w * 0.5; x < w - 14; x += 4) {
@@ -1941,12 +1981,12 @@
           if (x === w * 0.5) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         }
         ctx.stroke();
-        ctx.fillStyle = "#d0a15c";
+        ctx.fillStyle = brand;
         ctx.font = "bold 10px monospace";
         ctx.fillText("SHACKLETON PSR ICE (NEUTRON) + LIDAR DEPTH PROFILE", w * 0.48, h - 10);
       } else {
         // Earth Climate / Cubesat / Asteroid / Sandbox Multi-channel telemetry waveform
-        ctx.strokeStyle = "#d0a15c";
+        ctx.strokeStyle = brand;
         ctx.lineWidth = 2;
         ctx.beginPath();
         for (let x = 14; x < w - 14; x += 4) {
@@ -1955,7 +1995,7 @@
           if (x === 14) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         }
         ctx.stroke();
-        ctx.strokeStyle = "#83a896";
+        ctx.strokeStyle = "#63e6a8";
         ctx.beginPath();
         for (let x = 14; x < w - 14; x += 4) {
           const phase = (x / w) * Math.PI * 4;
@@ -1963,12 +2003,12 @@
           if (x === 14) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         }
         ctx.stroke();
-        ctx.fillStyle = "#83a896";
+        ctx.fillStyle = "#63e6a8";
         ctx.font = "bold 10px monospace";
         ctx.fillText(`${t.analogue.productTitle.toUpperCase()} · SNR +${Math.max(4, t.linkMarginDb)} dB`, 14, h - 10);
       }
 
-      ctx.fillStyle = "#d0a15c";
+      ctx.fillStyle = brand;
       ctx.font = "bold 10px monospace";
       ctx.fillText(`USER SEGMENT SCIENCE PRODUCT · SCI SCORE ${t.scienceScore}/100`, 10, 14);
     }
@@ -2053,7 +2093,7 @@
         const md = this.missionDesign;
         const t = this.evaluateMissionDesign();
         const mkTab = (id, label) => `
-          <button type="button" class="mdl-desk-tab" data-tab="${id}" style="padding:6px 10px;border-radius:5px;border:1px solid ${activeTab === id ? "#d0a15c" : "rgba(255,255,255,0.14)"};background:${activeTab === id ? "rgba(208,161,92,0.16)" : "rgba(255,255,255,0.03)"};color:${activeTab === id ? "#eceae3" : "#a6adb6"};font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
+          <button type="button" class="mdl-desk-tab" data-tab="${id}" style="padding:6px 10px;border-radius:5px;border:1px solid ${activeTab === id ? "var(--ui-brand)" : "rgba(255,255,255,0.14)"};background:${activeTab === id ? "rgba(var(--ui-brand-rgb),0.16)" : "rgba(255,255,255,0.03)"};color:${activeTab === id ? "#efeee7" : "#a7b0ba"};font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
             ${label}
           </button>
         `;
@@ -2063,14 +2103,14 @@
           tabContent = `
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px;margin-bottom:10px;">
               ${Object.values(MISSION_SCENARIOS).map((sc) => `
-                <div class="mdl-q-sc" data-id="${sc.id}" style="padding:9px;border-radius:7px;border:1px solid ${md.scenarioId === sc.id ? "#d0a15c" : "rgba(255,255,255,0.12)"};background:${md.scenarioId === sc.id ? "rgba(208,161,92,0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                  <div style="font-family:monospace;font-size:9px;color:#d0a15c;font-weight:700;">${sc.badge} · $${sc.baseBudgetM}M</div>
-                  <div style="font-size:12px;font-weight:700;color:#eceae3;margin:2px 0;">${sc.name}</div>
-                  <div style="font-size:10px;color:#a6adb6;">${sc.summary}</div>
+                <div class="mdl-q-sc" data-id="${sc.id}" style="padding:9px;border-radius:7px;border:1px solid ${md.scenarioId === sc.id ? "var(--ui-brand)" : "rgba(255,255,255,0.12)"};background:${md.scenarioId === sc.id ? "rgba(var(--ui-brand-rgb),0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                  <div style="font-family:monospace;font-size:9px;color:var(--ui-brand);font-weight:700;">${sc.badge} · $${sc.baseBudgetM}M</div>
+                  <div style="font-size:12px;font-weight:700;color:#efeee7;margin:2px 0;">${sc.name}</div>
+                  <div style="font-size:10px;color:#a7b0ba;">${sc.summary}</div>
                 </div>
               `).join("")}
             </div>
-            <button type="button" id="btn-mdl-auto-baseline" style="padding:6px 12px;border-radius:5px;border:1px solid rgba(74,222,128,0.5);background:rgba(74,222,128,0.14);color:#83a896;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
+            <button type="button" id="btn-mdl-auto-baseline" style="padding:6px 12px;border-radius:5px;border:1px solid rgba(74,222,128,0.5);background:rgba(74,222,128,0.14);color:#63e6a8;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
               ⚡ APPLY RECOMMENDED BASELINE FOR ${t.scenario.code}
             </button>
           `;
@@ -2078,17 +2118,17 @@
           tabContent = `
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:8px;margin-bottom:10px;">
               ${Object.values(ORBIT_OPTIONS).map((o) => `
-                <div class="mdl-q-orb" data-id="${o.id}" style="padding:9px;border-radius:7px;border:1px solid ${md.orbitId === o.id ? "#d0a15c" : "rgba(255,255,255,0.12)"};background:${md.orbitId === o.id ? "rgba(208,161,92,0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                  <div style="font-size:11.5px;font-weight:700;color:#eceae3;">${o.name}</div>
-                  <div style="font-family:monospace;font-size:9.5px;color:#d0a15c;">Req ΔV ${o.reqInsertionDv} m/s · Rad ${o.radiationEnvKrad} krad</div>
+                <div class="mdl-q-orb" data-id="${o.id}" style="padding:9px;border-radius:7px;border:1px solid ${md.orbitId === o.id ? "var(--ui-brand)" : "rgba(255,255,255,0.12)"};background:${md.orbitId === o.id ? "rgba(var(--ui-brand-rgb),0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                  <div style="font-size:11.5px;font-weight:700;color:#efeee7;">${o.name}</div>
+                  <div style="font-family:monospace;font-size:9.5px;color:var(--ui-brand);">Req ΔV ${o.reqInsertionDv} m/s · Rad ${o.radiationEnvKrad} krad</div>
                 </div>
               `).join("")}
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;">
               ${Object.values(LAUNCH_VEHICLES).map((v) => `
-                <div class="mdl-q-lv" data-id="${v.id}" style="padding:9px;border-radius:7px;border:1px solid ${md.launchVehicleId === v.id ? "#d0a15c" : "rgba(255,255,255,0.12)"};background:${md.launchVehicleId === v.id ? "rgba(208,161,92,0.12)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                  <div style="font-size:11px;font-weight:700;color:#eceae3;">${v.name}</div>
-                  <div style="font-family:monospace;font-size:9.5px;color:#d0a15c;">$${v.costM}M · Lift: ${v.capacityKg[md.orbitId] || 0} kg</div>
+                <div class="mdl-q-lv" data-id="${v.id}" style="padding:9px;border-radius:7px;border:1px solid ${md.launchVehicleId === v.id ? "var(--ui-brand)" : "rgba(255,255,255,0.12)"};background:${md.launchVehicleId === v.id ? "rgba(var(--ui-brand-rgb),0.12)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                  <div style="font-size:11px;font-weight:700;color:#efeee7;">${v.name}</div>
+                  <div style="font-family:monospace;font-size:9.5px;color:var(--ui-brand);">$${v.costM}M · Lift: ${v.capacityKg[md.orbitId] || 0} kg</div>
                 </div>
               `).join("")}
             </div>
@@ -2098,19 +2138,19 @@
             <div style="display:grid;grid-template-columns:260px 1fr;gap:12px;align-items:start;">
               <div>
                 <div id="mdl-point-design-3d" style="width:100%;height:156px;border-radius:6px;background:#050914;"></div>
-                <div style="font-family:monospace;font-size:9px;color:#a6adb6;text-align:center;margin-top:4px;">LIVE 3D POINT DESIGN (${t.bus.id.toUpperCase()})</div>
+                <div style="font-family:monospace;font-size:9px;color:#a7b0ba;text-align:center;margin-top:4px;">LIVE 3D POINT DESIGN (${t.bus.id.toUpperCase()})</div>
               </div>
               <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:7px;">
                 ${Object.values(SPACECRAFT_BUSES).map((b) => `
-                  <div class="mdl-q-bus" data-id="${b.id}" style="padding:8px;border-radius:6px;border:1px solid ${md.busId === b.id ? "#d0a15c" : "rgba(255,255,255,0.12)"};background:${md.busId === b.id ? "rgba(208,161,92,0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                    <div style="font-size:11px;font-weight:700;color:#eceae3;">${b.name}</div>
-                    <div style="font-family:monospace;font-size:9px;color:#d0a15c;">$${b.costM}M · ${b.dryMassKg} kg · ${b.maxInstruments} bays</div>
+                  <div class="mdl-q-bus" data-id="${b.id}" style="padding:8px;border-radius:6px;border:1px solid ${md.busId === b.id ? "var(--ui-brand)" : "rgba(255,255,255,0.12)"};background:${md.busId === b.id ? "rgba(var(--ui-brand-rgb),0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                    <div style="font-size:11px;font-weight:700;color:#efeee7;">${b.name}</div>
+                    <div style="font-family:monospace;font-size:9px;color:var(--ui-brand);">$${b.costM}M · ${b.dryMassKg} kg · ${b.maxInstruments} bays</div>
                   </div>
                 `).join("")}
                 ${Object.values(POWER_SYSTEMS).map((p) => `
-                  <div class="mdl-q-pwr" data-id="${p.id}" style="padding:8px;border-radius:6px;border:1px solid ${md.powerId === p.id ? "#d0a15c" : "rgba(255,255,255,0.12)"};background:${md.powerId === p.id ? "rgba(208,161,92,0.12)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                    <div style="font-size:11px;font-weight:700;color:#eceae3;">${p.name}</div>
-                    <div style="font-family:monospace;font-size:9px;color:#83a896;">+$${p.costM}M · +${p.genW} W</div>
+                  <div class="mdl-q-pwr" data-id="${p.id}" style="padding:8px;border-radius:6px;border:1px solid ${md.powerId === p.id ? "var(--ui-brand)" : "rgba(255,255,255,0.12)"};background:${md.powerId === p.id ? "rgba(var(--ui-brand-rgb),0.12)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                    <div style="font-size:11px;font-weight:700;color:#efeee7;">${p.name}</div>
+                    <div style="font-family:monospace;font-size:9px;color:#63e6a8;">+$${p.costM}M · +${p.genW} W</div>
                   </div>
                 `).join("")}
               </div>
@@ -2118,15 +2158,15 @@
           `;
         } else {
           tabContent = `
-            <canvas id="sim-science-canvas" width="680" height="150" style="width:100%;height:150px;border-radius:6px;border:1px solid rgba(208,161,92,0.3);margin-bottom:8px;display:block;"></canvas>
-            <div style="font-family:monospace;font-size:10px;color:#e7c58c;margin-bottom:6px;">
-              REAL NASA / CSA ANALOGUE: <strong style="color:#eceae3;">${t.analogue.missions}</strong>
+            <canvas id="sim-science-canvas" width="680" height="150" style="width:100%;height:150px;border-radius:6px;border:1px solid rgba(var(--ui-brand-rgb),0.3);margin-bottom:8px;display:block;"></canvas>
+            <div style="font-family:monospace;font-size:10px;color:var(--ui-brand-strong);margin-bottom:6px;">
+              REAL NASA / CSA ANALOGUE: <strong style="color:#efeee7;">${t.analogue.missions}</strong>
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:6px;">
               ${t.riskMatrix.map((r) => `
-                <div style="padding:6px;border-radius:5px;background:rgba(0,0,0,0.35);border-left:3px solid ${r.level === "GREEN" ? "#83a896" : r.level === "AMBER" ? "#d0a15c" : "#c67979"};">
-                  <div style="font-family:monospace;font-size:9px;font-weight:700;color:#eceae3;">${r.subsystem} (${r.level})</div>
-                  <div style="font-family:monospace;font-size:8.5px;color:#a6adb6;">L:${r.likelihood} / C:${r.consequence}</div>
+                <div style="padding:6px;border-radius:5px;background:rgba(0,0,0,0.35);border-left:3px solid ${r.level === "GREEN" ? "#63e6a8" : r.level === "AMBER" ? "#f5c451" : "#ff6b6b"};">
+                  <div style="font-family:monospace;font-size:9px;font-weight:700;color:#efeee7;">${r.subsystem} (${r.level})</div>
+                  <div style="font-family:monospace;font-size:8.5px;color:#a7b0ba;">L:${r.likelihood} / C:${r.consequence}</div>
                 </div>
               `).join("")}
             </div>
@@ -2143,10 +2183,10 @@
           </div>
           ${tabContent}
           <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.1);">
-            <button type="button" id="btn-mdl-export-json" style="padding:8px 12px;border-radius:5px;border:1px solid rgba(208,161,92,0.5);background:rgba(208,161,92,0.12);color:#e7c58c;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
+            <button type="button" id="btn-mdl-export-json" style="padding:8px 12px;border-radius:5px;border:1px solid rgba(var(--ui-brand-rgb),0.5);background:rgba(var(--ui-brand-rgb),0.12);color:var(--ui-brand-strong);font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
               💾 EXPORT POINT DESIGN (.JSON)
             </button>
-            <button type="button" id="btn-mdl-sync-crew" style="padding:9px 18px;border-radius:6px;border:1px solid #d0a15c;background:#eceae3;color:#05060a;font-family:monospace;font-size:10.5px;font-weight:800;letter-spacing:1.2px;cursor:pointer;">
+            <button type="button" id="btn-mdl-sync-crew" style="padding:9px 18px;border-radius:6px;border:1px solid var(--ui-brand);background:#efeee7;color:#05070a;font-family:monospace;font-size:10.5px;font-weight:800;letter-spacing:1.2px;cursor:pointer;">
               SYNC POINT DESIGN TO CREW & CLOSE
             </button>
           </div>
@@ -2556,16 +2596,16 @@
         if (t.scenario.requiresWavelength) {
           specializationHtml = `
             <div style="margin-bottom:12px;">
-              <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#e7c58c;margin-bottom:6px;">
+              <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:var(--ui-brand-strong);margin-bottom:6px;">
                 STEP 1C · TELESCOPE OBSERVING WAVELENGTH (CONSTRAINS OPTICS, ORBIT & CRYO THERMAL)
               </div>
               <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;">
                 ${Object.values(WAVELENGTH_BANDS).map((wb) => {
                   const active = md.wavelengthId === wb.id;
                   return `
-                    <div class="md-wave-card" data-id="${wb.id}" style="padding:10px;border-radius:7px;border:1px solid ${active ? "#d0a15c" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(208,161,92,0.14)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                      <div style="font-size:11.5px;font-weight:700;color:#eceae3;">${wb.name}</div>
-                      <div style="font-size:10px;color:#a6adb6;margin-top:3px;line-height:1.35;">${wb.explain}</div>
+                    <div class="md-wave-card" data-id="${wb.id}" style="padding:10px;border-radius:7px;border:1px solid ${active ? "var(--ui-brand)" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(var(--ui-brand-rgb),0.14)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                      <div style="font-size:11.5px;font-weight:700;color:#efeee7;">${wb.name}</div>
+                      <div style="font-size:10px;color:#a7b0ba;margin-top:3px;line-height:1.35;">${wb.explain}</div>
                     </div>
                   `;
                 }).join("")}
@@ -2575,17 +2615,17 @@
         } else if (t.scenario.isCubesat) {
           specializationHtml = `
             <div style="margin-bottom:12px;">
-              <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#d0a15c;margin-bottom:6px;">
+              <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:var(--ui-brand);margin-bottom:6px;">
                 STEP 1C · NASA CSLI CUBESAT FORM FACTOR (CONSTRAINS MASS, VOLUME & POWER)
               </div>
               <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;">
                 ${Object.values(CUBESAT_FORMS).map((cf) => {
                   const active = md.cubesatFormId === cf.id;
                   return `
-                    <div class="md-csform-card" data-id="${cf.id}" style="padding:10px;border-radius:7px;border:1px solid ${active ? "#d0a15c" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(208,161,92,0.14)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                      <div style="font-size:11.5px;font-weight:700;color:#eceae3;">${cf.name}</div>
-                      <div style="font-family:monospace;font-size:9.5px;color:#83a896;margin:3px 0;">Max Mass: ${cf.maxMassKg} kg · Max Bays: ${cf.maxInst}</div>
-                      <div style="font-size:10px;color:#a6adb6;line-height:1.35;">${cf.explain}</div>
+                    <div class="md-csform-card" data-id="${cf.id}" style="padding:10px;border-radius:7px;border:1px solid ${active ? "var(--ui-brand)" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(var(--ui-brand-rgb),0.14)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                      <div style="font-size:11.5px;font-weight:700;color:#efeee7;">${cf.name}</div>
+                      <div style="font-family:monospace;font-size:9.5px;color:#63e6a8;margin:3px 0;">Max Mass: ${cf.maxMassKg} kg · Max Bays: ${cf.maxInst}</div>
+                      <div style="font-size:10px;color:#a7b0ba;line-height:1.35;">${cf.explain}</div>
                     </div>
                   `;
                 }).join("")}
@@ -2598,10 +2638,10 @@
           ${this._renderLiveTradeoffStrip({ onRerender: render })}
           <div style="margin-bottom:12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
-              <span style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#a6adb6;">
+              <span style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#a7b0ba;">
                 STEP 1A · SELECT PRIMARY MISSION OBJECTIVE & SCENARIO
               </span>
-              <button type="button" id="btn-arch-apply-rec" style="padding:4px 9px;border-radius:5px;border:1px solid rgba(74,222,128,0.45);background:rgba(74,222,128,0.12);color:#83a896;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">
+              <button type="button" id="btn-arch-apply-rec" style="padding:4px 9px;border-radius:5px;border:1px solid rgba(74,222,128,0.45);background:rgba(74,222,128,0.12);color:#63e6a8;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">
                 ⚡ APPLY RECOMMENDED BASELINE FOR ${t.scenario.code}
               </button>
             </div>
@@ -2613,7 +2653,7 @@
           ${specializationHtml}
 
           <div style="margin-bottom:12px;">
-            <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#a6adb6;margin-bottom:6px;">
+            <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#a7b0ba;margin-bottom:6px;">
               STEP 1B · ENGINEERING CONSTRAINTS & DIFFICULTY TIER
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -2622,10 +2662,10 @@
           </div>
 
           <div style="padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.1);margin-bottom:14px;">
-            <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.3px;color:#d0a15c;margin-bottom:6px;">
+            <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.3px;color:var(--ui-brand);margin-bottom:6px;">
               ACTIVE 3-ROLE CREW DUTY ROSTER (CLICK A ROLE TO SWITCH DUTY)
             </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;font-size:10.5px;color:#eceae3;margin-top:6px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;font-size:10.5px;color:#efeee7;margin-top:6px;">
               ${(["commander", "engineer", "scientist"]).map((rId) => {
                 const a = this._getRoleAssignment(rId);
                 const duties = rId === "commander"
@@ -2634,27 +2674,27 @@
                     ? "Pad Access Arm [F] · Docking RCS [1/2] · Console 3 [PWR] & Console 6 [ENG]"
                     : "Docking Boresight [3/4] · Console 4 [SCI] & Console 5 [LSS ECLSS]";
                 return `
-                  <div style="padding:8px 10px;border-radius:6px;border:1px solid ${a.isMine ? a.color : "rgba(255,255,255,0.12)"};background:${a.isMine ? "rgba(208,161,92,0.08)" : "rgba(0,0,0,0.25)"};display:flex;flex-direction:column;gap:4px;">
+                  <div style="padding:8px 10px;border-radius:6px;border:1px solid ${a.isMine ? a.color : "rgba(255,255,255,0.12)"};background:${a.isMine ? "rgba(var(--ui-brand-rgb),0.08)" : "rgba(0,0,0,0.25)"};display:flex;flex-direction:column;gap:4px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
                       <strong style="color:${a.color};">[${a.short}] ${this._escapeHtml(a.label)}</strong>
-                      <span style="font-family:monospace;font-size:9px;color:${a.isUnstaffed ? "#d0a15c" : "#83a896"};">${this._escapeHtml(a.namesText)}</span>
+                      <span style="font-family:monospace;font-size:9px;color:${a.isUnstaffed ? "#f5c451" : "#63e6a8"};">${this._escapeHtml(a.namesText)}</span>
                     </div>
-                    <div style="font-size:10px;color:#eceae3;line-height:1.35;">${duties}</div>
-                    <button type="button" class="md-switch-role-btn" data-role="${rId}" style="margin-top:2px;padding:4px 8px;border-radius:4px;border:1px solid ${a.isMine ? a.color : "rgba(255,255,255,0.2)"};background:${a.isMine ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.04)"};color:#eceae3;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">
+                    <div style="font-size:10px;color:#efeee7;line-height:1.35;">${duties}</div>
+                    <button type="button" class="md-switch-role-btn" data-role="${rId}" style="margin-top:2px;padding:4px 8px;border-radius:4px;border:1px solid ${a.isMine ? a.color : "rgba(255,255,255,0.2)"};background:${a.isMine ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.04)"};color:#efeee7;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">
                       ${a.isMine ? "★ YOUR ACTIVE ROLE" : `ASSUME ${a.short}`}
                     </button>
                   </div>
                 `;
               }).join("")}
             </div>
-            <div style="font-size:11px;color:#83a896;margin-top:8px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.08);">
+            <div style="font-size:11px;color:#63e6a8;margin-top:8px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.08);">
               💡 <strong>Engineering Insight:</strong> ${t.scenario.tradeoffTip}
             </div>
           </div>
 
           <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
-            <span style="font-family:monospace;font-size:10px;color:#a6adb6;">
-              Active Objective: <strong style="color:#eceae3;">${t.scenario.code}</strong> · Budget Cap: <strong style="color:#83a896;">$${t.budgetCapM}M</strong>
+            <span style="font-family:monospace;font-size:10px;color:#a7b0ba;">
+              Active Objective: <strong style="color:#efeee7;">${t.scenario.code}</strong> · Budget Cap: <strong style="color:#63e6a8;">$${t.budgetCapM}M</strong>
             </span>
             <button type="button" id="btn-commit-arch" class="btn-primary">
               LOCK MISSION CHARTER & CONTINUE
@@ -2714,7 +2754,7 @@
               window.netManager.customizeAstronaut(null, null, targetRole, null, null, null, { explicitRole: true });
             }
             if (typeof window.buildLocalAstronaut === "function") {
-              const col = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.color) || "#d0a15c";
+              const col = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.color) || "#c9f04b";
               window.buildLocalAstronaut(col, targetRole);
             }
             if (typeof window.syncLobbySelectionUI === "function") window.syncLobbySelectionUI();
@@ -2758,15 +2798,15 @@
             const active = md.orbitId === orb.id;
             const rec = t.scenario.recommendedOrbits.includes(orb.id);
             return `
-              <div class="md-orbit-card" data-id="${orb.id}" style="padding:11px;border-radius:8px;border:1px solid ${active ? "#d0a15c" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(208,161,92,0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+              <div class="md-orbit-card" data-id="${orb.id}" style="padding:11px;border-radius:8px;border:1px solid ${active ? "var(--ui-brand)" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(var(--ui-brand-rgb),0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-                  <span style="font-size:12px;font-weight:700;color:#eceae3;">${orb.name}</span>
-                  ${rec ? `<span style="font-family:monospace;font-size:8.5px;padding:2px 6px;border-radius:4px;background:rgba(131,168,150,0.18);color:#83a896;font-weight:700;">RECOMMENDED</span>` : ""}
+                  <span style="font-size:12px;font-weight:700;color:#efeee7;">${orb.name}</span>
+                  ${rec ? `<span style="font-family:monospace;font-size:8.5px;padding:2px 6px;border-radius:4px;background:rgba(99,230,168,0.18);color:#63e6a8;font-weight:700;">RECOMMENDED</span>` : ""}
                 </div>
-                <div style="font-family:monospace;font-size:10px;color:#d0a15c;margin-bottom:5px;">
+                <div style="font-family:monospace;font-size:10px;color:var(--ui-brand);margin-bottom:5px;">
                   Period: ${orb.periodMin} min · Eclipse: ${Math.round(orb.eclipseFraction * 100)}% · Insertion ΔV: ${orb.reqInsertionDv} m/s · Rad: ${orb.radiationEnvKrad} krad
                 </div>
-                <div style="font-size:10.5px;color:#a6adb6;line-height:1.4;">${orb.explain}</div>
+                <div style="font-size:10.5px;color:#a7b0ba;line-height:1.4;">${orb.explain}</div>
               </div>
             `;
           })
@@ -2778,15 +2818,15 @@
             const capForOrbit = veh.capacityKg[md.orbitId] || 0;
             const fits = t.wetMassKg <= capForOrbit;
             return `
-              <div class="md-lv-card" data-id="${veh.id}" style="padding:11px;border-radius:8px;border:1px solid ${active ? "#d0a15c" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(208,161,92,0.12)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+              <div class="md-lv-card" data-id="${veh.id}" style="padding:11px;border-radius:8px;border:1px solid ${active ? "var(--ui-brand)" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(var(--ui-brand-rgb),0.12)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-                  <span style="font-size:12px;font-weight:700;color:#eceae3;">${veh.name}</span>
-                  <span style="font-family:monospace;font-size:10.5px;font-weight:700;color:#d0a15c;">$${veh.costM}M</span>
+                  <span style="font-size:12px;font-weight:700;color:#efeee7;">${veh.name}</span>
+                  <span style="font-family:monospace;font-size:10.5px;font-weight:700;color:var(--ui-brand);">$${veh.costM}M</span>
                 </div>
-                <div style="font-family:monospace;font-size:10px;color:${fits ? "#83a896" : "#c67979"};margin-bottom:5px;">
+                <div style="font-family:monospace;font-size:10px;color:${fits ? "#63e6a8" : "#ff6b6b"};margin-bottom:5px;">
                   Max Lift to Selected Orbit: ${capForOrbit} kg (Your Spacecraft: ${t.wetMassKg} kg) · Fairing: ${veh.fairingM}m
                 </div>
-                <div style="font-size:10.5px;color:#a6adb6;line-height:1.4;">${veh.explain}</div>
+                <div style="font-size:10.5px;color:#a7b0ba;line-height:1.4;">${veh.explain}</div>
               </div>
             `;
           })
@@ -2797,7 +2837,7 @@
         container.innerHTML = `
           ${this._renderLiveTradeoffStrip({ onRerender: render })}
           <div style="margin-bottom:12px;">
-            <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#a6adb6;margin-bottom:6px;">
+            <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#a7b0ba;margin-bottom:6px;">
               STEP 2A · SELECT TARGET ORBITAL REGIME
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:8px;">
@@ -2806,7 +2846,7 @@
           </div>
 
           <div style="margin-bottom:12px;">
-            <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#a6adb6;margin-bottom:6px;">
+            <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#a7b0ba;margin-bottom:6px;">
               STEP 2B · SELECT LAUNCH VEHICLE (CHECK MASS vs. ORBIT CAPACITY)
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:8px;">
@@ -2814,7 +2854,7 @@
             </div>
           </div>
 
-          <div style="padding:10px 12px;border-radius:8px;background:${t.massOk ? "rgba(131,168,150,0.08)" : "rgba(198,121,121,0.12)"};border:1px solid ${t.massOk ? "rgba(131,168,150,0.35)" : "rgba(198,121,121,0.45)"};margin-bottom:14px;font-size:11.5px;color:#eceae3;">
+          <div style="padding:10px 12px;border-radius:8px;background:${t.massOk ? "rgba(99,230,168,0.08)" : "rgba(255,107,107,0.12)"};border:1px solid ${t.massOk ? "rgba(99,230,168,0.35)" : "rgba(255,107,107,0.45)"};margin-bottom:14px;font-size:11.5px;color:#efeee7;">
             ${
               t.massOk
                 ? `✅ <strong>Launch Compatibility Verified:</strong> ${t.lv.name} can inject <strong>${t.lvCapacityKg} kg</strong> into ${t.orbit.name}, giving your <strong>${t.wetMassKg} kg</strong> spacecraft a <strong>+${t.massMarginPct}%</strong> launch mass margin.`
@@ -2823,10 +2863,10 @@
           </div>
 
           <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
-            <span style="font-family:monospace;font-size:10px;color:#a6adb6;">
+            <span style="font-family:monospace;font-size:10px;color:#a7b0ba;">
               ${compatible ? "Trajectory & Lift Margins Nominal" : "Resolve mass or budget constraint before locking"}
             </span>
-            <button type="button" id="btn-commit-orbit" style="padding:10px 20px;border-radius:6px;border:1px solid ${t.massOk ? "#d0a15c" : "rgba(198,121,121,0.6)"};background:${t.massOk ? "#eceae3" : "rgba(198,121,121,0.2)"};color:${t.massOk ? "#05060a" : "#c67979"};font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1.4px;cursor:pointer;">
+            <button type="button" id="btn-commit-orbit" style="padding:10px 20px;border-radius:6px;border:1px solid ${t.massOk ? "var(--ui-brand)" : "rgba(255,107,107,0.6)"};background:${t.massOk ? "#efeee7" : "rgba(255,107,107,0.2)"};color:${t.massOk ? "#05070a" : "#ff6b6b"};font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1.4px;cursor:pointer;">
               ${t.massOk ? "CONFIRM ORBIT & LAUNCHER" : "REQUIRE MASS ≤ LIFT CAPACITY"}
             </button>
           </div>
@@ -2878,15 +2918,15 @@
           .map((b) => {
             const active = md.busId === b.id;
             return `
-              <div class="md-bus-card" data-id="${b.id}" style="padding:10px;border-radius:8px;border:1px solid ${active ? "#d0a15c" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(208,161,92,0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:#eceae3;">
+              <div class="md-bus-card" data-id="${b.id}" style="padding:10px;border-radius:8px;border:1px solid ${active ? "var(--ui-brand)" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(var(--ui-brand-rgb),0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:#efeee7;">
                   <span>${b.name}</span>
-                  <span style="font-family:monospace;color:#d0a15c;">$${b.costM}M</span>
+                  <span style="font-family:monospace;color:var(--ui-brand);">$${b.costM}M</span>
                 </div>
-                <div style="font-family:monospace;font-size:9.5px;color:#d0a15c;margin:4px 0;">
+                <div style="font-family:monospace;font-size:9.5px;color:var(--ui-brand);margin:4px 0;">
                   Dry Mass: ${b.dryMassKg} kg · Base Load: ${b.basePowerLoadW} W · Max Instruments: ${b.maxInstruments}
                 </div>
-                <div style="font-size:10px;color:#a6adb6;line-height:1.35;">${b.explain}</div>
+                <div style="font-size:10px;color:#a7b0ba;line-height:1.35;">${b.explain}</div>
               </div>
             `;
           })
@@ -2896,15 +2936,15 @@
           .map((p) => {
             const active = md.powerId === p.id;
             return `
-              <div class="md-pwr-card" data-id="${p.id}" style="padding:10px;border-radius:8px;border:1px solid ${active ? "#d0a15c" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(208,161,92,0.12)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:#eceae3;">
+              <div class="md-pwr-card" data-id="${p.id}" style="padding:10px;border-radius:8px;border:1px solid ${active ? "var(--ui-brand)" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(var(--ui-brand-rgb),0.12)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:#efeee7;">
                   <span>${p.name}</span>
-                  <span style="font-family:monospace;color:#d0a15c;">$${p.costM}M</span>
+                  <span style="font-family:monospace;color:var(--ui-brand);">$${p.costM}M</span>
                 </div>
-                <div style="font-family:monospace;font-size:9.5px;color:#83a896;margin:4px 0;">
+                <div style="font-family:monospace;font-size:9.5px;color:#63e6a8;margin:4px 0;">
                   Output: +${p.genW} W · Mass: ${p.massKg} kg
                 </div>
-                <div style="font-size:10px;color:#a6adb6;line-height:1.35;">${p.explain}</div>
+                <div style="font-size:10px;color:#a7b0ba;line-height:1.35;">${p.explain}</div>
               </div>
             `;
           })
@@ -2914,25 +2954,25 @@
           .map((b) => {
             const active = md.batteryId === b.id;
             return `
-              <div class="md-bat-card" data-id="${b.id}" style="padding:10px;border-radius:8px;border:1px solid ${active ? "#83a896" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(131,168,150,0.12)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:#eceae3;">
+              <div class="md-bat-card" data-id="${b.id}" style="padding:10px;border-radius:8px;border:1px solid ${active ? "#63e6a8" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(99,230,168,0.12)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:#efeee7;">
                   <span>${b.name}</span>
-                  <span style="font-family:monospace;color:#d0a15c;">$${b.costM}M</span>
+                  <span style="font-family:monospace;color:var(--ui-brand);">$${b.costM}M</span>
                 </div>
-                <div style="font-family:monospace;font-size:9.5px;color:#d0a15c;margin:4px 0;">
+                <div style="font-family:monospace;font-size:9.5px;color:var(--ui-brand);margin:4px 0;">
                   Storage: ${b.capacityWh} Wh · Mass: ${b.massKg} kg
                 </div>
-                <div style="font-size:10px;color:#a6adb6;line-height:1.35;">${b.explain}</div>
+                <div style="font-size:10px;color:#a7b0ba;line-height:1.35;">${b.explain}</div>
               </div>
             `;
           })
           .join("");
 
         const csFormBar = t.scenario.isCubesat
-          ? `<div style="margin-bottom:10px;padding:8px 10px;border-radius:7px;background:rgba(208,161,92,0.06);border:1px solid rgba(208,161,92,0.28);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-              <span style="font-family:monospace;font-size:9.5px;font-weight:700;color:#d0a15c;">CUBESAT FORM FACTOR:</span>
+          ? `<div style="margin-bottom:10px;padding:8px 10px;border-radius:7px;background:rgba(var(--ui-brand-rgb),0.06);border:1px solid rgba(var(--ui-brand-rgb),0.28);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+              <span style="font-family:monospace;font-size:9.5px;font-weight:700;color:var(--ui-brand);">CUBESAT FORM FACTOR:</span>
               <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                ${Object.values(CUBESAT_FORMS).map((cf) => `<button type="button" class="md-csform-btn" data-id="${cf.id}" style="padding:4px 9px;border-radius:4px;border:1px solid ${md.cubesatFormId === cf.id ? "#d0a15c" : "rgba(255,255,255,0.16)"};background:${md.cubesatFormId === cf.id ? "rgba(208,161,92,0.22)" : "rgba(0,0,0,0.3)"};color:#eceae3;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">${cf.shortLabel}</button>`).join("")}
+                ${Object.values(CUBESAT_FORMS).map((cf) => `<button type="button" class="md-csform-btn" data-id="${cf.id}" style="padding:4px 9px;border-radius:4px;border:1px solid ${md.cubesatFormId === cf.id ? "var(--ui-brand)" : "rgba(255,255,255,0.16)"};background:${md.cubesatFormId === cf.id ? "rgba(var(--ui-brand-rgb),0.22)" : "rgba(0,0,0,0.3)"};color:#efeee7;font-family:monospace;font-size:9.5px;font-weight:700;cursor:pointer;">${cf.shortLabel}</button>`).join("")}
               </div>
             </div>`
           : "";
@@ -2941,15 +2981,15 @@
           ${this._renderLiveTradeoffStrip({ onRerender: render })}
           ${csFormBar}
           <div style="display:grid;grid-template-columns:260px 1fr;gap:12px;align-items:start;margin-bottom:10px;">
-            <div style="padding:8px;border-radius:8px;background:rgba(0,0,0,0.35);border:1px solid rgba(208,161,92,0.24);">
-              <div style="font-family:monospace;font-size:9px;font-weight:700;letter-spacing:1px;color:#d0a15c;margin-bottom:5px;">LIVE 3D POINT DESIGN</div>
+            <div style="padding:8px;border-radius:8px;background:rgba(0,0,0,0.35);border:1px solid rgba(var(--ui-brand-rgb),0.24);">
+              <div style="font-family:monospace;font-size:9px;font-weight:700;letter-spacing:1px;color:var(--ui-brand);margin-bottom:5px;">LIVE 3D POINT DESIGN</div>
               <div id="mdl-point-design-3d" style="width:100%;height:156px;border-radius:6px;background:#050914;"></div>
-              <div style="font-family:monospace;font-size:9px;color:#a6adb6;margin-top:5px;">
-                Bus: <strong style="color:#eceae3;">${t.bus.name.split(" ")[0]}</strong> · Dry: <strong>${t.dryMassKg} kg</strong>
+              <div style="font-family:monospace;font-size:9px;color:#a7b0ba;margin-top:5px;">
+                Bus: <strong style="color:#efeee7;">${t.bus.name.split(" ")[0]}</strong> · Dry: <strong>${t.dryMassKg} kg</strong>
               </div>
             </div>
             <div>
-              <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#a6adb6;margin-bottom:6px;">
+              <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#a7b0ba;margin-bottom:6px;">
                 STEP 3A · SPACECRAFT PRIMARY STRUCTURE & AVIONICS BUS
               </div>
               <div style="display:grid;grid-template-columns:1fr;gap:7px;">
@@ -2959,7 +2999,7 @@
           </div>
 
           <div style="margin-bottom:10px;">
-            <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#a6adb6;margin-bottom:6px;">
+            <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#a7b0ba;margin-bottom:6px;">
               STEP 3B · SOLAR ARRAY / RTG POWER GENERATION
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;">
@@ -2968,7 +3008,7 @@
           </div>
 
           <div style="margin-bottom:12px;">
-            <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#a6adb6;margin-bottom:6px;">
+            <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#a7b0ba;margin-bottom:6px;">
               STEP 3C · ECLIPSE ENERGY STORAGE (LI-ION / SOLID-STATE BATTERY)
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;">
@@ -2976,16 +3016,16 @@
             </div>
           </div>
 
-          <div style="padding:10px 12px;border-radius:8px;background:${t.powerOk ? "rgba(131,168,150,0.08)" : "rgba(198,121,121,0.12)"};border:1px solid ${t.powerOk ? "rgba(131,168,150,0.35)" : "rgba(198,121,121,0.45)"};margin-bottom:12px;font-size:11px;color:#eceae3;line-height:1.45;">
+          <div style="padding:10px 12px;border-radius:8px;background:${t.powerOk ? "rgba(99,230,168,0.08)" : "rgba(255,107,107,0.12)"};border:1px solid ${t.powerOk ? "rgba(99,230,168,0.35)" : "rgba(255,107,107,0.45)"};margin-bottom:12px;font-size:11px;color:#efeee7;line-height:1.45;">
             <strong>Electrical Power Balance Equation:</strong> Continuous spacecraft + instrument load is <strong>${t.totalPowerLoadW} W</strong>, plus <strong>${t.rechargePowerNeededW} W</strong> needed during daylight to recharge the battery after each <strong>${(t.eclipseHours * 60).toFixed(0)}-minute</strong> orbital eclipse (${t.eclipseEnergyNeedWh} Wh drawn, <strong>${t.batteryDodPct}% Depth-of-Discharge</strong>).
             ${t.powerOk ? `✅ Net daylight power margin is <strong>+${t.netDaylightMarginW} W</strong> and Battery DoD is safe (≤80%).` : `⚠️ Power deficit or excessive battery discharge (>80% DoD). Select larger solar wings/RTG or a higher-capacity battery bank.`}
           </div>
 
           <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
-            <span style="font-family:monospace;font-size:10px;color:#a6adb6;">
+            <span style="font-family:monospace;font-size:10px;color:#a7b0ba;">
               Bus Bays Used: ${t.selectedInsts.length}/${t.maxInstruments} · Net Margin: ${t.netDaylightMarginW >= 0 ? `+${t.netDaylightMarginW}W` : `${t.netDaylightMarginW}W`}
             </span>
-            <button type="button" id="btn-commit-bus" style="padding:10px 20px;border-radius:6px;border:1px solid ${t.powerOk ? "#d0a15c" : "rgba(198,121,121,0.6)"};background:${t.powerOk ? "#eceae3" : "rgba(198,121,121,0.2)"};color:${t.powerOk ? "#05060a" : "#c67979"};font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1.4px;cursor:pointer;">
+            <button type="button" id="btn-commit-bus" style="padding:10px 20px;border-radius:6px;border:1px solid ${t.powerOk ? "var(--ui-brand)" : "rgba(255,107,107,0.6)"};background:${t.powerOk ? "#efeee7" : "rgba(255,107,107,0.2)"};color:${t.powerOk ? "#05070a" : "#ff6b6b"};font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1.4px;cursor:pointer;">
               ${t.powerOk ? "LOCK BUS & ELECTRICAL POWER SYSTEM" : "RESOLVE POWER / BATTERY DEFICIT"}
             </button>
           </div>
@@ -3059,15 +3099,15 @@
           const selected = md.instruments.includes(inst.id);
           const isPriority = t.scenario.requiredScienceTypes.includes(inst.type);
           return `
-            <div class="md-inst-card" data-id="${inst.id}" style="padding:11px;border-radius:8px;border:1px solid ${selected ? "#83a896" : "rgba(255,255,255,0.12)"};background:${selected ? "rgba(74,222,128,0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+            <div class="md-inst-card" data-id="${inst.id}" style="padding:11px;border-radius:8px;border:1px solid ${selected ? "#63e6a8" : "rgba(255,255,255,0.12)"};background:${selected ? "rgba(74,222,128,0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                <span style="font-size:12px;font-weight:700;color:#eceae3;">${selected ? "☑ " : "☐ "}${inst.name}</span>
-                ${isPriority ? `<span style="font-family:monospace;font-size:8.5px;padding:2px 6px;border-radius:4px;background:rgba(208,161,92,0.16);color:#d0a15c;font-weight:700;">MISSION PRIORITY</span>` : ""}
+                <span style="font-size:12px;font-weight:700;color:#efeee7;">${selected ? "☑ " : "☐ "}${inst.name}</span>
+                ${isPriority ? `<span style="font-family:monospace;font-size:8.5px;padding:2px 6px;border-radius:4px;background:rgba(var(--ui-brand-rgb),0.16);color:var(--ui-brand);font-weight:700;">MISSION PRIORITY</span>` : ""}
               </div>
-              <div style="font-family:monospace;font-size:9.5px;color:#d0a15c;margin-bottom:5px;">
+              <div style="font-family:monospace;font-size:9.5px;color:var(--ui-brand);margin-bottom:5px;">
                 Mass: ${inst.massKg} kg · Power: ${inst.powerW} W · Cost: $${inst.costM}M · Data: ${inst.dataMbps} Mbps · Sci: +${inst.scienceVal}
               </div>
-              <div style="font-size:10px;color:#a6adb6;line-height:1.35;">${inst.explain}</div>
+              <div style="font-size:10px;color:#a7b0ba;line-height:1.35;">${inst.explain}</div>
             </div>
           `;
         }).join("");
@@ -3076,14 +3116,14 @@
         const payloadValid = baysOk && t.scienceScore >= 55 && t.telescopeOk;
 
         const waveBanner = t.scenario.requiresWavelength
-          ? `<div style="margin-bottom:10px;padding:9px 11px;border-radius:7px;background:${t.telescopeOk ? "rgba(208,161,92,0.08)" : "rgba(198,121,121,0.12)"};border:1px solid ${t.telescopeOk ? "rgba(208,161,92,0.35)" : "rgba(198,121,121,0.45)"};">
+          ? `<div style="margin-bottom:10px;padding:9px 11px;border-radius:7px;background:${t.telescopeOk ? "rgba(var(--ui-brand-rgb),0.08)" : "rgba(255,107,107,0.12)"};border:1px solid ${t.telescopeOk ? "rgba(var(--ui-brand-rgb),0.35)" : "rgba(255,107,107,0.45)"};">
               <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
-                <span style="font-family:monospace;font-size:9.5px;font-weight:700;color:#e7c58c;">TELESCOPE WAVELENGTH BAND:</span>
+                <span style="font-family:monospace;font-size:9.5px;font-weight:700;color:var(--ui-brand-strong);">TELESCOPE WAVELENGTH BAND:</span>
                 <div style="display:flex;gap:5px;flex-wrap:wrap;">
-                  ${Object.values(WAVELENGTH_BANDS).map((wb) => `<button type="button" class="md-wave-pill" data-id="${wb.id}" style="padding:3px 7px;border-radius:4px;border:1px solid ${md.wavelengthId === wb.id ? "#d0a15c" : "rgba(255,255,255,0.16)"};background:${md.wavelengthId === wb.id ? "rgba(208,161,92,0.22)" : "rgba(0,0,0,0.3)"};color:#eceae3;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">${wb.shortLabel}</button>`).join("")}
+                  ${Object.values(WAVELENGTH_BANDS).map((wb) => `<button type="button" class="md-wave-pill" data-id="${wb.id}" style="padding:3px 7px;border-radius:4px;border:1px solid ${md.wavelengthId === wb.id ? "var(--ui-brand)" : "rgba(255,255,255,0.16)"};background:${md.wavelengthId === wb.id ? "rgba(var(--ui-brand-rgb),0.22)" : "rgba(0,0,0,0.3)"};color:#efeee7;font-family:monospace;font-size:9px;font-weight:700;cursor:pointer;">${wb.shortLabel}</button>`).join("")}
                 </div>
               </div>
-              <div style="font-size:10.5px;color:${t.telescopeOk ? "#83a896" : "#c67979"};">
+              <div style="font-size:10.5px;color:${t.telescopeOk ? "#63e6a8" : "#ff6b6b"};">
                 ${t.telescopeOk ? `✅ Wavelength (${t.wavelength.shortLabel}), Detectors, Thermal Control & Orbit are optically compatible.` : `⚠️ ${t.telescopeIssues.join(" · ")}`}
               </div>
             </div>`
@@ -3093,10 +3133,10 @@
           ${this._renderLiveTradeoffStrip({ onRerender: render })}
           ${waveBanner}
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
-            <span style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#a6adb6;">
+            <span style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#a7b0ba;">
               SELECT SCIENTIFIC INSTRUMENTS (BAYS USED: ${t.selectedInsts.length} / ${t.maxInstruments} MAX ON ${t.bus.name.toUpperCase()})
             </span>
-            <span style="font-family:monospace;font-size:10px;color:#83a896;">
+            <span style="font-family:monospace;font-size:10px;color:#63e6a8;">
               Matched Priority Objectives: ${t.matchedTypes.length} / ${t.scenario.requiredScienceTypes.length}
             </span>
           </div>
@@ -3105,15 +3145,15 @@
             ${instCards}
           </div>
 
-          <div style="padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);margin-bottom:12px;font-size:11px;color:#eceae3;line-height:1.45;">
+          <div style="padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);margin-bottom:12px;font-size:11px;color:#efeee7;line-height:1.45;">
             <strong>Payload Trade-Off Analysis:</strong> Your ${t.selectedInsts.length} selected instruments draw <strong>${t.selectedInsts.reduce((a, b) => a + b.powerW, 0)} W</strong>, weigh <strong>${t.selectedInsts.reduce((a, b) => a + b.massKg, 0)} kg</strong>, cost <strong>$${t.selectedInsts.reduce((a, b) => a + b.costM, 0)}M</strong>, and generate <strong>${t.dataGeneratedGbPerDay} GB/day</strong> of raw science telemetry. Adding high-value instruments like the L-Band SAR increases science return to <strong>${t.scienceScore}/100</strong>, but requires higher solar power and Ka/X-Band downlink capacity.
           </div>
 
           <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
-            <span style="font-family:monospace;font-size:10px;color:#a6adb6;">
-              Science Value Score: <strong style="color:#83a896;">${t.scienceScore}/100</strong> (Min 55 required)
+            <span style="font-family:monospace;font-size:10px;color:#a7b0ba;">
+              Science Value Score: <strong style="color:#63e6a8;">${t.scienceScore}/100</strong> (Min 55 required)
             </span>
-            <button type="button" id="btn-commit-science" style="padding:10px 20px;border-radius:6px;border:1px solid ${payloadValid ? "#d0a15c" : "rgba(198,121,121,0.6)"};background:${payloadValid ? "#eceae3" : "rgba(198,121,121,0.2)"};color:${payloadValid ? "#05060a" : "#c67979"};font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1.4px;cursor:pointer;">
+            <button type="button" id="btn-commit-science" style="padding:10px 20px;border-radius:6px;border:1px solid ${payloadValid ? "var(--ui-brand)" : "rgba(255,107,107,0.6)"};background:${payloadValid ? "#efeee7" : "rgba(255,107,107,0.2)"};color:${payloadValid ? "#05070a" : "#ff6b6b"};font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1.4px;cursor:pointer;">
               ${payloadValid ? "INTEGRATE SCIENCE PAYLOAD SUITE" : (!t.telescopeOk ? "RESOLVE WAVELENGTH / OPTICS CONFLICT" : `SELECT 2–${t.maxInstruments} INSTRUMENTS (SCI ≥ 55)`)}
             </button>
           </div>
@@ -3180,15 +3220,15 @@
           .map((pkg) => {
             const active = md.thermalId === pkg.id;
             return `
-              <div class="md-thm-card" data-id="${pkg.id}" style="padding:12px;border-radius:8px;border:1px solid ${active ? "#d0a15c" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(208,161,92,0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+              <div class="md-thm-card" data-id="${pkg.id}" style="padding:12px;border-radius:8px;border:1px solid ${active ? "var(--ui-brand)" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(var(--ui-brand-rgb),0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                  <span style="font-size:12px;font-weight:700;color:#eceae3;">${pkg.name}</span>
-                  <span style="font-family:monospace;font-size:11px;font-weight:700;color:#d0a15c;">$${pkg.costM}M</span>
+                  <span style="font-size:12px;font-weight:700;color:#efeee7;">${pkg.name}</span>
+                  <span style="font-family:monospace;font-size:11px;font-weight:700;color:var(--ui-brand);">$${pkg.costM}M</span>
                 </div>
-                <div style="font-family:monospace;font-size:9.5px;color:#83a896;margin-bottom:5px;">
+                <div style="font-family:monospace;font-size:9.5px;color:#63e6a8;margin-bottom:5px;">
                   Heat Rejection Cap: ${pkg.thermalCapW} W · Radiation Vault: ${pkg.radRatingKrad} krad · Mass: ${pkg.massKg} kg · Power: ${pkg.powerW} W
                 </div>
-                <div style="font-size:10.5px;color:#a6adb6;line-height:1.4;">${pkg.explain}</div>
+                <div style="font-size:10.5px;color:#a7b0ba;line-height:1.4;">${pkg.explain}</div>
               </div>
             `;
           })
@@ -3199,7 +3239,7 @@
         container.innerHTML = `
           ${this._renderLiveTradeoffStrip({ onRerender: render })}
           <div style="margin-bottom:12px;">
-            <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#a6adb6;margin-bottom:6px;">
+            <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#a7b0ba;margin-bottom:6px;">
               SELECT THERMAL REJECTION RADIATORS & AVIONICS RADIATION SHIELDING
             </div>
             <div style="display:grid;grid-template-columns:1fr;gap:8px;">
@@ -3208,34 +3248,34 @@
           </div>
 
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin-bottom:14px;">
-            <div style="padding:10px;border-radius:6px;background:rgba(0,0,0,0.35);border:1px solid ${t.thermalOk ? "rgba(131,168,150,0.35)" : "rgba(198,121,121,0.5)"};">
-              <div style="font-family:monospace;font-size:9.5px;color:#a6adb6;">THERMAL DISSIPATION</div>
-              <div style="font-family:monospace;font-size:13px;font-weight:700;color:${t.thermalOk ? "#83a896" : "#c67979"};margin-top:2px;">
+            <div style="padding:10px;border-radius:6px;background:rgba(0,0,0,0.35);border:1px solid ${t.thermalOk ? "rgba(99,230,168,0.35)" : "rgba(255,107,107,0.5)"};">
+              <div style="font-family:monospace;font-size:9.5px;color:#a7b0ba;">THERMAL DISSIPATION</div>
+              <div style="font-family:monospace;font-size:13px;font-weight:700;color:${t.thermalOk ? "#63e6a8" : "#ff6b6b"};margin-top:2px;">
                 ${t.thm.thermalCapW} W Cap vs ${t.totalPowerLoadW} W Load
               </div>
-              <div style="font-size:10px;color:#a6adb6;margin-top:2px;">All electrical power consumed onboard turns into waste heat that must be radiated to space.</div>
+              <div style="font-size:10px;color:#a7b0ba;margin-top:2px;">All electrical power consumed onboard turns into waste heat that must be radiated to space.</div>
             </div>
-            <div style="padding:10px;border-radius:6px;background:rgba(0,0,0,0.35);border:1px solid ${t.radiationOk ? "rgba(131,168,150,0.35)" : "rgba(198,121,121,0.5)"};">
-              <div style="font-family:monospace;font-size:9.5px;color:#a6adb6;">TOTAL IONIZING DOSE (TID)</div>
-              <div style="font-family:monospace;font-size:13px;font-weight:700;color:${t.radiationOk ? "#83a896" : "#c67979"};margin-top:2px;">
+            <div style="padding:10px;border-radius:6px;background:rgba(0,0,0,0.35);border:1px solid ${t.radiationOk ? "rgba(99,230,168,0.35)" : "rgba(255,107,107,0.5)"};">
+              <div style="font-family:monospace;font-size:9.5px;color:#a7b0ba;">TOTAL IONIZING DOSE (TID)</div>
+              <div style="font-family:monospace;font-size:13px;font-weight:700;color:${t.radiationOk ? "#63e6a8" : "#ff6b6b"};margin-top:2px;">
                 ${t.thm.radRatingKrad} krad vs ${Math.max(t.scenario.minRadiationKrad, t.orbit.radiationEnvKrad)} krad Req
               </div>
-              <div style="font-size:10px;color:#a6adb6;margin-top:2px;">Protects flight computers and focal-plane sensors from solar protons and Van Allen belt electrons.</div>
+              <div style="font-size:10px;color:#a7b0ba;margin-top:2px;">Protects flight computers and focal-plane sensors from solar protons and Van Allen belt electrons.</div>
             </div>
-            <div style="padding:10px;border-radius:6px;background:rgba(0,0,0,0.35);border:1px solid ${t.lifetimeOk ? "rgba(131,168,150,0.35)" : "rgba(198,121,121,0.5)"};">
-              <div style="font-family:monospace;font-size:9.5px;color:#a6adb6;">OPERATIONAL LIFETIME</div>
-              <div style="font-family:monospace;font-size:13px;font-weight:700;color:${t.lifetimeOk ? "#83a896" : "#c67979"};margin-top:2px;">
+            <div style="padding:10px;border-radius:6px;background:rgba(0,0,0,0.35);border:1px solid ${t.lifetimeOk ? "rgba(99,230,168,0.35)" : "rgba(255,107,107,0.5)"};">
+              <div style="font-family:monospace;font-size:9.5px;color:#a7b0ba;">OPERATIONAL LIFETIME</div>
+              <div style="font-family:monospace;font-size:13px;font-weight:700;color:${t.lifetimeOk ? "#63e6a8" : "#ff6b6b"};margin-top:2px;">
                 ${t.estimatedLifetimeMonths} Months (Target: ${t.scenario.targetLifetimeMonths} mo)
               </div>
-              <div style="font-size:10px;color:#a6adb6;margin-top:2px;">Determined by radiation shielding, battery cycle depth-of-discharge, and propellant reserve.</div>
+              <div style="font-size:10px;color:#a7b0ba;margin-top:2px;">Determined by radiation shielding, battery cycle depth-of-discharge, and propellant reserve.</div>
             </div>
           </div>
 
           <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
-            <span style="font-family:monospace;font-size:10px;color:#a6adb6;">
+            <span style="font-family:monospace;font-size:10px;color:#a7b0ba;">
               ${envSurvived ? "Thermal, Radiation & Lifetime Margins Verified" : "Upgrade shielding or battery to meet mission lifetime"}
             </span>
-            <button type="button" id="btn-commit-thm" style="padding:10px 20px;border-radius:6px;border:1px solid ${envSurvived ? "#d0a15c" : "rgba(198,121,121,0.6)"};background:${envSurvived ? "#eceae3" : "rgba(198,121,121,0.2)"};color:${envSurvived ? "#05060a" : "#c67979"};font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1.4px;cursor:pointer;">
+            <button type="button" id="btn-commit-thm" style="padding:10px 20px;border-radius:6px;border:1px solid ${envSurvived ? "var(--ui-brand)" : "rgba(255,107,107,0.6)"};background:${envSurvived ? "#efeee7" : "rgba(255,107,107,0.2)"};color:${envSurvived ? "#05070a" : "#ff6b6b"};font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1.4px;cursor:pointer;">
               ${envSurvived ? "QUALIFY THERMAL & RADIATION SHIELDING" : "RESOLVE THERMAL / RADIATION / LIFETIME"}
             </button>
           </div>
@@ -3278,15 +3318,15 @@
           .map((c) => {
             const active = md.commsId === c.id;
             return `
-              <div class="md-com-card" data-id="${c.id}" style="padding:10px;border-radius:8px;border:1px solid ${active ? "#d0a15c" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(208,161,92,0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                <div style="display:flex;justify-content:space-between;font-size:11.5px;font-weight:700;color:#eceae3;">
+              <div class="md-com-card" data-id="${c.id}" style="padding:10px;border-radius:8px;border:1px solid ${active ? "var(--ui-brand)" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(var(--ui-brand-rgb),0.10)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                <div style="display:flex;justify-content:space-between;font-size:11.5px;font-weight:700;color:#efeee7;">
                   <span>${c.name}</span>
-                  <span style="font-family:monospace;color:#d0a15c;">$${c.costM}M</span>
+                  <span style="font-family:monospace;color:var(--ui-brand);">$${c.costM}M</span>
                 </div>
-                <div style="font-family:monospace;font-size:9.5px;color:#d0a15c;margin:3px 0;">
+                <div style="font-family:monospace;font-size:9.5px;color:var(--ui-brand);margin:3px 0;">
                   Downlink: ${c.rateMbps} Mbps · Mass: ${c.massKg} kg · Power: ${c.powerW} W
                 </div>
-                <div style="font-size:10px;color:#a6adb6;line-height:1.35;">${c.explain}</div>
+                <div style="font-size:10px;color:#a7b0ba;line-height:1.35;">${c.explain}</div>
               </div>
             `;
           })
@@ -3296,15 +3336,15 @@
           .map((g) => {
             const active = md.groundNetId === g.id;
             return `
-              <div class="md-gnd-card" data-id="${g.id}" style="padding:10px;border-radius:8px;border:1px solid ${active ? "#a6adb6" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(154,143,196,0.14)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                <div style="display:flex;justify-content:space-between;font-size:11.5px;font-weight:700;color:#eceae3;">
+              <div class="md-gnd-card" data-id="${g.id}" style="padding:10px;border-radius:8px;border:1px solid ${active ? "#a7b0ba" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(154,143,196,0.14)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                <div style="display:flex;justify-content:space-between;font-size:11.5px;font-weight:700;color:#efeee7;">
                   <span>${g.name}</span>
-                  <span style="font-family:monospace;color:#d0a15c;">$${g.costM}M</span>
+                  <span style="font-family:monospace;color:var(--ui-brand);">$${g.costM}M</span>
                 </div>
-                <div style="font-family:monospace;font-size:9.5px;color:#e7c58c;margin:3px 0;">
+                <div style="font-family:monospace;font-size:9.5px;color:var(--ui-brand-strong);margin:3px 0;">
                   Receiver Gain: +${g.gainDb} dB · Pass Coverage: ${g.contactMultiplier}x
                 </div>
-                <div style="font-size:10px;color:#a6adb6;line-height:1.35;">${g.explain}</div>
+                <div style="font-size:10px;color:#a7b0ba;line-height:1.35;">${g.explain}</div>
               </div>
             `;
           })
@@ -3314,15 +3354,15 @@
           .map((p) => {
             const active = md.propulsionId === p.id;
             return `
-              <div class="md-prop-card" data-id="${p.id}" style="padding:10px;border-radius:8px;border:1px solid ${active ? "#83a896" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(131,168,150,0.12)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                <div style="display:flex;justify-content:space-between;font-size:11.5px;font-weight:700;color:#eceae3;">
+              <div class="md-prop-card" data-id="${p.id}" style="padding:10px;border-radius:8px;border:1px solid ${active ? "#63e6a8" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(99,230,168,0.12)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                <div style="display:flex;justify-content:space-between;font-size:11.5px;font-weight:700;color:#efeee7;">
                   <span>${p.name}</span>
-                  <span style="font-family:monospace;color:#d0a15c;">$${p.costM}M</span>
+                  <span style="font-family:monospace;color:var(--ui-brand);">$${p.costM}M</span>
                 </div>
-                <div style="font-family:monospace;font-size:9.5px;color:#83a896;margin:3px 0;">
+                <div style="font-family:monospace;font-size:9.5px;color:#63e6a8;margin:3px 0;">
                   Isp: ${p.ispSec} s · Fuel: ${p.propellantKg} kg · Dry: ${p.dryMassKg} kg · Power: ${p.powerW} W
                 </div>
-                <div style="font-size:10px;color:#a6adb6;line-height:1.35;">${p.explain}</div>
+                <div style="font-size:10px;color:#a7b0ba;line-height:1.35;">${p.explain}</div>
               </div>
             `;
           })
@@ -3332,15 +3372,15 @@
           .map((d) => {
             const active = md.disposalId === d.id;
             return `
-              <div class="md-disp-card" data-id="${d.id}" style="padding:10px;border-radius:8px;border:1px solid ${active ? "#d0a15c" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(208,161,92,0.12)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
-                <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:#eceae3;">
+              <div class="md-disp-card" data-id="${d.id}" style="padding:10px;border-radius:8px;border:1px solid ${active ? "var(--ui-brand)" : "rgba(255,255,255,0.12)"};background:${active ? "rgba(var(--ui-brand-rgb),0.12)" : "rgba(255,255,255,0.025)"};cursor:pointer;">
+                <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:#efeee7;">
                   <span>${d.name}</span>
-                  <span style="font-family:monospace;color:#d0a15c;">$${d.costM}M</span>
+                  <span style="font-family:monospace;color:var(--ui-brand);">$${d.costM}M</span>
                 </div>
-                <div style="font-family:monospace;font-size:9px;color:${d.id === "none_drift" ? "#c67979" : "#83a896"};margin:3px 0;">
+                <div style="font-family:monospace;font-size:9px;color:${d.id === "none_drift" ? "#ff6b6b" : "#63e6a8"};margin:3px 0;">
                   Deorbit: ${d.deorbitYears} yr · Mass: ${d.massKg} kg · Req ΔV: +${d.dvCostMs} m/s
                 </div>
-                <div style="font-size:10px;color:#a6adb6;line-height:1.35;">${d.explain}</div>
+                <div style="font-size:10px;color:#a7b0ba;line-height:1.35;">${d.explain}</div>
               </div>
             `;
           })
@@ -3351,7 +3391,7 @@
         container.innerHTML = `
           ${this._renderLiveTradeoffStrip({ onRerender: render })}
           <div style="margin-bottom:10px;">
-            <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#a6adb6;margin-bottom:6px;">
+            <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#a7b0ba;margin-bottom:6px;">
               STEP 6A · SPACECRAFT TRANSCEIVER & HIGH-GAIN ANTENNA
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;">
@@ -3360,7 +3400,7 @@
           </div>
 
           <div style="margin-bottom:10px;">
-            <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#a6adb6;margin-bottom:6px;">
+            <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#a7b0ba;margin-bottom:6px;">
               STEP 6B · GROUND STATION TRACKING NETWORK
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;">
@@ -3369,7 +3409,7 @@
           </div>
 
           <div style="margin-bottom:10px;">
-            <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#a6adb6;margin-bottom:6px;">
+            <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#a7b0ba;margin-bottom:6px;">
               STEP 6C · ORBITAL PROPULSION & DELTA-V (TSIOLKOVSKY ROCKET EQUATION)
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;">
@@ -3378,7 +3418,7 @@
           </div>
 
           <div style="margin-bottom:12px;">
-            <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:#d0a15c;margin-bottom:6px;">
+            <div style="font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1.4px;color:var(--ui-brand);margin-bottom:6px;">
               STEP 6D · END-OF-MISSION (EoM) DISPOSAL & ORBITAL DEBRIS MITIGATION
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;">
@@ -3386,17 +3426,17 @@
             </div>
           </div>
 
-          <div style="padding:10px 12px;border-radius:8px;background:${systemsReady ? "rgba(131,168,150,0.08)" : "rgba(198,121,121,0.12)"};border:1px solid ${systemsReady ? "rgba(131,168,150,0.35)" : "rgba(198,121,121,0.45)"};margin-bottom:12px;font-size:11px;color:#eceae3;line-height:1.45;">
+          <div style="padding:10px 12px;border-radius:8px;background:${systemsReady ? "rgba(99,230,168,0.08)" : "rgba(255,107,107,0.12)"};border:1px solid ${systemsReady ? "rgba(99,230,168,0.35)" : "rgba(255,107,107,0.45)"};margin-bottom:12px;font-size:11px;color:#efeee7;line-height:1.45;">
             <div><strong>1. Link Budget & Data Balance:</strong> Link Margin is <strong>${t.linkMarginDb} dB</strong> (min 3.0 dB required for carrier lock at ${t.orbit.altitudeKm.toLocaleString()} km) and daily downlink capacity is <strong>${t.downlinkCapGbPerDay} GB/day</strong> vs. <strong>${t.dataGeneratedGbPerDay} GB/day</strong> generated by your instruments.</div>
             <div style="margin-top:4px;"><strong>2. Tsiolkovsky Rocket Equation (Δv = I_sp · g₀ · ln(m₀ / m_f)):</strong> With wet mass m₀ = <strong>${t.wetMassKg} kg</strong> and dry mass m_f = <strong>${t.dryMassKg} kg</strong>, your propulsion delivers <strong>${t.achievedDeltaV} m/s</strong> vs. <strong>${t.requiredDeltaV} m/s</strong> required (incl. +${t.disposal.dvCostMs} m/s EoM disposal).</div>
             <div style="margin-top:4px;"><strong>3. Debris Compliance:</strong> ${t.disposalOk ? `✅ ${t.disposalNote}` : `⚠️ ${t.disposalNote}`}</div>
           </div>
 
           <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
-            <span style="font-family:monospace;font-size:10px;color:#a6adb6;">
+            <span style="font-family:monospace;font-size:10px;color:#a7b0ba;">
               Link: ${t.linkMarginDb} dB · ΔV: ${t.achievedDeltaV}/${t.requiredDeltaV} m/s · EoM: ${t.disposalOk ? "PASS" : "FAIL"}
             </span>
-            <button type="button" id="btn-commit-comms" style="padding:10px 20px;border-radius:6px;border:1px solid ${systemsReady ? "#d0a15c" : "rgba(198,121,121,0.6)"};background:${systemsReady ? "#eceae3" : "rgba(198,121,121,0.2)"};color:${systemsReady ? "#05060a" : "#c67979"};font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1.4px;cursor:pointer;">
+            <button type="button" id="btn-commit-comms" style="padding:10px 20px;border-radius:6px;border:1px solid ${systemsReady ? "var(--ui-brand)" : "rgba(255,107,107,0.6)"};background:${systemsReady ? "#efeee7" : "rgba(255,107,107,0.2)"};color:${systemsReady ? "#05070a" : "#ff6b6b"};font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1.4px;cursor:pointer;">
               ${systemsReady ? "LOCK COMMS, PROPULSION & EoM DISPOSAL" : "RESOLVE LINK, DELTA-V OR EoM DISPOSAL"}
             </button>
           </div>
@@ -3512,21 +3552,21 @@
         container.innerHTML = `
           ${this._renderLiveTradeoffStrip({ onRerender: render })}
 
-          <div style="padding:10px 12px;border-radius:8px;background:rgba(208,161,92,0.06);border:1px solid rgba(208,161,92,0.28);margin-bottom:10px;">
+          <div style="padding:10px 12px;border-radius:8px;background:rgba(var(--ui-brand-rgb),0.06);border:1px solid rgba(var(--ui-brand-rgb),0.28);margin-bottom:10px;">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
-              <span style="font-family:monospace;font-size:9.5px;font-weight:700;color:#e7c58c;">
-                ${t.analogue.agencyTag} HERITAGE MATCH: <strong style="color:#eceae3;">${t.analogue.missions}</strong>
+              <span style="font-family:monospace;font-size:9.5px;font-weight:700;color:var(--ui-brand-strong);">
+                ${t.analogue.agencyTag} HERITAGE MATCH: <strong style="color:#efeee7;">${t.analogue.missions}</strong>
               </span>
-              <span style="font-family:monospace;font-size:9.5px;color:#d0a15c;">
+              <span style="font-family:monospace;font-size:9.5px;color:var(--ui-brand);">
                 ${t.disposalOk ? `✓ EoM ${t.disposal.deorbitYears} yr COMPLIANT` : "⚠️ EoM NON-COMPLIANT"}
               </span>
             </div>
-            <canvas id="sim-science-canvas" width="700" height="150" style="width:100%;height:150px;border-radius:6px;border:1px solid rgba(208,161,92,0.28);display:block;margin-bottom:8px;"></canvas>
+            <canvas id="sim-science-canvas" width="700" height="150" style="width:100%;height:150px;border-radius:6px;border:1px solid rgba(var(--ui-brand-rgb),0.28);display:block;margin-bottom:8px;"></canvas>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:6px;">
               ${t.riskMatrix.map((r) => `
-                <div style="padding:5px 7px;border-radius:5px;background:rgba(0,0,0,0.35);border-left:3px solid ${r.level === "GREEN" ? "#83a896" : r.level === "AMBER" ? "#d0a15c" : "#c67979"};">
-                  <div style="font-family:monospace;font-size:8.5px;font-weight:700;color:#eceae3;">${r.subsystem} (${r.level})</div>
-                  <div style="font-family:monospace;font-size:8px;color:#a6adb6;">L:${r.likelihood} / C:${r.consequence}</div>
+                <div style="padding:5px 7px;border-radius:5px;background:rgba(0,0,0,0.35);border-left:3px solid ${r.level === "GREEN" ? "#63e6a8" : r.level === "AMBER" ? "#f5c451" : "#ff6b6b"};">
+                  <div style="font-family:monospace;font-size:8.5px;font-weight:700;color:#efeee7;">${r.subsystem} (${r.level})</div>
+                  <div style="font-family:monospace;font-size:8px;color:#a7b0ba;">L:${r.likelihood} / C:${r.consequence}</div>
                 </div>
               `).join("")}
             </div>
@@ -3534,10 +3574,10 @@
 
           <div style="padding:12px;border-radius:8px;background:rgba(0,0,0,0.42);border:1px solid rgba(255,255,255,0.12);margin-bottom:12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
-              <span style="font-family:monospace;font-size:10.5px;font-weight:700;letter-spacing:1.4px;color:#d0a15c;">
+              <span style="font-family:monospace;font-size:10.5px;font-weight:700;letter-spacing:1.4px;color:var(--ui-brand);">
                 INTEGRATED FLIGHT SIMULATION & POST-MISSION ENGINEERING REPORT
               </span>
-              <span style="font-family:monospace;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;background:${allNominal ? "rgba(74,222,128,0.15)" : "rgba(208,161,92,0.15)"};color:${allNominal ? "#83a896" : "#d0a15c"};">
+              <span style="font-family:monospace;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;background:${allNominal ? "rgba(74,222,128,0.15)" : "rgba(var(--ui-brand-rgb),0.15)"};color:${allNominal ? "#63e6a8" : "var(--ui-brand)"};">
                 ${allNominal ? "MISSION RATING: GRADE A (FLIGHT QUALIFIED)" : `MISSION RATING: ${t.overallScore}/100 (NEEDS REFINEMENT)`}
               </span>
             </div>
@@ -3546,14 +3586,14 @@
               ${phases
                 .map(
                   (p) => `
-                  <div style="padding:9px 11px;border-radius:6px;background:rgba(255,255,255,0.025);border-left:3px solid ${p.ok ? "#83a896" : "#c67979"};">
+                  <div style="padding:9px 11px;border-radius:6px;background:rgba(255,255,255,0.025);border-left:3px solid ${p.ok ? "#63e6a8" : "#ff6b6b"};">
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-                      <span style="font-family:monospace;font-size:10px;font-weight:700;color:${p.ok ? "#83a896" : "#c67979"};">
+                      <span style="font-family:monospace;font-size:10px;font-weight:700;color:${p.ok ? "#63e6a8" : "#ff6b6b"};">
                         ${p.ok ? "✅ " : "❌ "}${p.phase}
                       </span>
-                      <span style="font-family:monospace;font-size:9.5px;color:#eceae3;">${p.metric}</span>
+                      <span style="font-family:monospace;font-size:9.5px;color:#efeee7;">${p.metric}</span>
                     </div>
-                    <div style="font-size:11px;color:#a6adb6;margin-top:3px;line-height:1.4;">${p.detail}</div>
+                    <div style="font-size:11px;color:#a7b0ba;margin-top:3px;line-height:1.4;">${p.detail}</div>
                   </div>
                 `
                 )
@@ -3563,17 +3603,17 @@
 
           <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button type="button" id="btn-sim-lunar-3d" style="padding:9px 12px;border-radius:6px;border:1px solid rgba(208,161,92,0.5);background:rgba(208,161,92,0.12);color:#e7c58c;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
+              <button type="button" id="btn-sim-lunar-3d" style="padding:9px 12px;border-radius:6px;border:1px solid rgba(var(--ui-brand-rgb),0.5);background:rgba(var(--ui-brand-rgb),0.12);color:var(--ui-brand-strong);font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
                 🌕 LUNAR 3D [K]
               </button>
-              <button type="button" id="btn-sim-export-json" style="padding:9px 12px;border-radius:6px;border:1px solid rgba(208,161,92,0.5);background:rgba(208,161,92,0.12);color:#d0a15c;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
+              <button type="button" id="btn-sim-export-json" style="padding:9px 12px;border-radius:6px;border:1px solid rgba(var(--ui-brand-rgb),0.5);background:rgba(var(--ui-brand-rgb),0.12);color:var(--ui-brand);font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
                 💾 EXPORT MDL (.JSON)
               </button>
-              <button type="button" id="btn-sim-edit-arch" style="padding:9px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.05);color:#eceae3;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
+              <button type="button" id="btn-sim-edit-arch" style="padding:9px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.05);color:#efeee7;font-family:monospace;font-size:10px;font-weight:700;cursor:pointer;">
                 ⚙️ EDIT DESIGN
               </button>
             </div>
-            <button type="button" id="btn-commit-sim" style="padding:10px 22px;border-radius:6px;border:1px solid ${allNominal ? "#83a896" : "#d0a15c"};background:${allNominal ? "#eceae3" : "rgba(208,161,92,0.22)"};color:${allNominal ? "#05060a" : "#e7c58c"};font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1.4px;cursor:pointer;">
+            <button type="button" id="btn-commit-sim" style="padding:10px 22px;border-radius:6px;border:1px solid ${allNominal ? "#63e6a8" : "var(--ui-brand)"};background:${allNominal ? "#efeee7" : "rgba(var(--ui-brand-rgb),0.22)"};color:${allNominal ? "#05070a" : "var(--ui-brand-strong)"};font-family:monospace;font-size:11px;font-weight:700;letter-spacing:1.4px;cursor:pointer;">
               ${allNominal ? "LAUNCH FULL MISSION SIMULATION & COMPLETE" : "COMPLETE WITH CURRENT DESIGN (" + t.overallScore + "/100)"}
             </button>
           </div>
@@ -3664,7 +3704,19 @@
         if (t.completed) completedCount++;
       });
       if (countPill) {
-        countPill.textContent = `${completedCount}/${this.tasks.length}`;
+        const nextCountText = `${completedCount}/${this.tasks.length}`;
+        if (countPill.textContent !== nextCountText) {
+          countPill.textContent = nextCountText;
+          countPill.classList.remove("is-bumped");
+          void countPill.offsetWidth;
+          countPill.classList.add("is-bumped");
+          setTimeout(() => countPill.classList.remove("is-bumped"), 340);
+        }
+      }
+      const progressFill = document.getElementById("hud-checklist-progress-fill");
+      if (progressFill) {
+        const progressPct = this.tasks.length ? Math.round((completedCount / this.tasks.length) * 100) : 0;
+        progressFill.style.width = `${progressPct}%`;
       }
 
       if (window.shipInterior && typeof window.shipInterior.syncStationFaults === "function") {
@@ -3675,9 +3727,12 @@
       container.innerHTML = "";
 
       const completedSet = new Set((mission && mission.completedObjectives) || []);
+      const previousCompleted = this._knownCompletedTasks || new Set();
+      const nextCompleted = new Set();
 
       this.tasks.forEach((t) => {
         const isCompleted = mission ? completedSet.has(t.id) : t.completed;
+        const isNewlyCompleted = isCompleted && !previousCompleted.has(t.id);
         const isAvailable = this.isTaskAvailable(t.id, mission);
         const isLocked = !isCompleted && !isAvailable;
         const lockReason = isLocked ? this.getTaskLockReason(t.id, mission) : "";
@@ -3688,7 +3743,9 @@
 
         const assign = this._getRoleAssignment(t.role);
         const item = document.createElement("div");
-        item.className = `objective-card${isCompleted ? " is-done" : ""}${isBlocked ? " is-locked" : ""}${assign.isMine && !isCompleted && !isBlocked ? " is-mine" : ""}`;
+        if (isCompleted) nextCompleted.add(t.id);
+        item.className = `objective-card${isCompleted ? " is-done" : ""}${isNewlyCompleted ? " is-newly-done" : ""}${isBlocked ? " is-locked" : ""}${assign.isMine && !isCompleted && !isBlocked ? " is-mine" : ""}`;
+        item.style.setProperty("--i", String(this.tasks.indexOf(t)));
         item.setAttribute("role", "button");
         item.setAttribute("tabindex", isBlocked ? "-1" : "0");
         item.setAttribute("aria-disabled", isBlocked ? "true" : "false");
@@ -3700,17 +3757,19 @@
         if (assign.role === "commander") badgeCls = "badge-cmd";
         else if (assign.role === "engineer") badgeCls = "badge-eng";
         else if (assign.role === "scientist") badgeCls = "badge-sci";
-        const roleBadge = `<span class="task-badge ${badgeCls}">${this._escapeHtml(assign.role === "all" ? "ALL" : assign.short)}</span>`;
+        const roleBadge = `<span class="task-badge ${badgeCls}" title="${this._escapeHtml(assign.label || assign.badgeText || "")}">${this._escapeHtml(assign.role === "all" ? "ALL" : assign.short)}</span>`;
 
         const statusName = isCompleted ? "check" : phaseLocked ? "orbit" : isLocked ? "lock" : "play";
         const statusIcon = `<svg class="ui-icon" aria-hidden="true" focusable="false"><use href="#i-${statusName}"></use></svg>`;
         const statusLabel = isCompleted ? "Complete" : isBlocked ? "Locked" : "Available";
+        const stateLabel = isCompleted ? "COMPLETE" : phaseLocked ? "ORBIT" : isLocked ? "LOCKED" : "OPEN";
 
         item.innerHTML = `
           <span class="objective-card__status" aria-label="${statusLabel}">${statusIcon}</span>
           <span class="objective-card__content">
             <span class="objective-card__title-row">
               <span class="objective-card__title">${this._escapeHtml(t.name)}</span>
+              <span class="objective-card__state">${stateLabel}</span>
               ${roleBadge}
             </span>
             <span class="objective-card__meta">
@@ -3736,6 +3795,7 @@
         });
         container.appendChild(item);
       });
+      this._knownCompletedTasks = nextCompleted;
       if (typeof window.renderHudCrewRoster === "function") {
         window.renderHudCrewRoster();
       }

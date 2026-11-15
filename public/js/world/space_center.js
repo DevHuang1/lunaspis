@@ -904,7 +904,7 @@
           ctx.lineTo(s, p);
           ctx.stroke();
         }
-        ctx.strokeStyle = "rgba(208,161,92,0.55)";
+        ctx.strokeStyle = "rgba(201,240,75,0.55)";
         ctx.lineWidth = 6;
         ctx.strokeRect(4, 4, s - 8, s - 8);
       }, 4, 4);
@@ -1050,10 +1050,10 @@
       const signCtx = signCanvas.getContext("2d");
       signCtx.fillStyle = "#101820";
       signCtx.fillRect(0, 0, 512, 160);
-      signCtx.strokeStyle = "#eceae3";
+      signCtx.strokeStyle = "#efeee7";
       signCtx.lineWidth = 8;
       signCtx.strokeRect(8, 8, 496, 144);
-      signCtx.fillStyle = "#eceae3";
+      signCtx.fillStyle = "#efeee7";
       signCtx.font = "900 82px Arial, Helvetica, sans-serif";
       signCtx.textAlign = "center";
       signCtx.textBaseline = "middle";
@@ -1509,7 +1509,7 @@
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
-      ctx.fillStyle = "#eceae3";
+      ctx.fillStyle = "#efeee7";
       ctx.font = "800 45px Arial, Helvetica, sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
@@ -1926,7 +1926,7 @@
         : ((r, f) => String(r || f || "commander").toLowerCase());
       const getMeta = window.InterfellasRoles
         ? window.InterfellasRoles.getRoleMeta
-        : ((r) => ({ short: String(r || "CMD").slice(0, 3).toUpperCase(), color: "#d0a15c" }));
+        : ((r) => ({ short: String(r || "CMD").slice(0, 3).toUpperCase(), color: "var(--ui-brand)" }));
 
       const roster = players.length
         ? players.map((p) => {
@@ -2061,7 +2061,7 @@
       const armKey = touchUI ? "TAP" : "[F]";
       const useKey = touchUI ? "TAP" : "[E]";
       let statusText = `ARM ${armKey}`;
-      let statusColor = "#d0a15c";
+      let statusColor = "var(--ui-brand)";
       let distance = null;
       let target = null;
 
@@ -2070,36 +2070,36 @@
         const current = tourSpawns[this.siteTourIndex] || tourSpawns[0];
         if (nearTerm) {
           statusText = `${useKey} ${nearTerm.label}`;
-          statusColor = "#d0a15c";
+          statusColor = "var(--ui-brand)";
         } else {
           const loc = (current && (current.short || current.label) ? (current.short || current.label) : "PAD 39A").toUpperCase();
           statusText = `TOUR · ${loc}`;
-          statusColor = "#d0a15c";
+          statusColor = "var(--ui-brand)";
         }
       } else if (this.isLaunching) {
         statusText = "LIFTOFF";
-        statusColor = "#c67979";
+        statusColor = "#ff6b6b";
       } else if (!step1Done) {
         distance = this._distanceToGuidancePoint(-25.9, -6.3);
         target = "arm";
         statusText = `ARM ${armKey}${distance !== null ? ` · ${Math.max(1, Math.round(distance))}m` : ""}`;
-        statusColor = "#d0a15c";
+        statusColor = "var(--ui-brand)";
       } else if (!step2Done) {
         distance = this._distanceToGuidancePoint(-7.8, -7.2);
         target = "hatch";
         statusText = `BOARD ${useKey} · ${crewState.aboardCount}/${crewState.crewTotal}${distance !== null ? ` · ${Math.max(1, Math.round(distance))}m` : ""}`;
-        statusColor = "#d0a15c";
+        statusColor = "var(--ui-brand)";
       } else if (this.autoLaunchRemaining !== null) {
         const seconds = Math.max(1, Math.ceil(this.autoLaunchRemaining));
         statusText = `LIFTOFF IN ${seconds}s`;
-        statusColor = "#83a896";
+        statusColor = "#63e6a8";
       } else if (crewState.allAboard) {
         statusText = "AUTO LIFTOFF";
-        statusColor = "#83a896";
+        statusColor = "#63e6a8";
       } else {
         const waitingOn = unboardedNames.length ? `WAIT: ${unboardedNames.join(", ")} · ` : "";
         statusText = `CREW ${crewState.aboardCount}/${crewState.crewTotal} · WAITING`;
-        statusColor = "#d0a15c";
+        statusColor = "#f5c451";
       }
 
       const canLaunchNow = this._canLaunchNow(crewState);
@@ -2306,23 +2306,23 @@
         const chip = this.hudOverlay.querySelector(`#${id}`);
         if (!chip) return;
         chip.textContent = `${done ? "✓" : active ? "●" : "○"} ${text}`;
-        chip.style.borderColor = done ? "rgba(131,168,150,0.55)" : active ? accent.border : "rgba(255,255,255,0.14)";
-        chip.style.background = done ? "rgba(131,168,150,0.12)" : active ? accent.background : "rgba(255,255,255,0.03)";
-        chip.style.color = done ? "#83a896" : active ? accent.color : "#6f7782";
+        chip.style.borderColor = done ? "rgba(99,230,168,0.55)" : active ? accent.border : "rgba(255,255,255,0.14)";
+        chip.style.background = done ? "rgba(99,230,168,0.12)" : active ? accent.background : "rgba(255,255,255,0.03)";
+        chip.style.color = done ? "#63e6a8" : active ? accent.color : "#7a8490";
         chip.style.boxShadow = active ? `0 0 8px ${accent.glow}` : "none";
       };
 
       applyChip("sc-step-1", `1 · ARM [F]`, guidance.step1Done, !guidance.step1Done, {
-        border: "rgba(208,161,92,0.62)",
-        background: "rgba(208,161,92,0.14)",
-        color: "#e7c58c",
-        glow: "rgba(208,161,92,0.18)"
+        border: "rgba(var(--ui-brand-rgb),0.62)",
+        background: "rgba(var(--ui-brand-rgb),0.14)",
+        color: "var(--ui-brand-strong)",
+        glow: "rgba(var(--ui-brand-rgb),0.18)"
       });
       applyChip("sc-step-2", `2 · HATCH [E/B] (${guidance.aboardCount}/${guidance.crewTotal})`, guidance.step2Done, guidance.step1Done && !guidance.step2Done, {
-        border: "rgba(208,161,92,0.62)",
-        background: "rgba(208,161,92,0.14)",
-        color: "#e7c58c",
-        glow: "rgba(208,161,92,0.18)"
+        border: "rgba(var(--ui-brand-rgb),0.62)",
+        background: "rgba(var(--ui-brand-rgb),0.14)",
+        color: "var(--ui-brand-strong)",
+        glow: "rgba(var(--ui-brand-rgb),0.18)"
       });
       const step3Chip = this.hudOverlay.querySelector("#sc-step-3");
       if (step3Chip) {
@@ -2334,10 +2334,10 @@
         this.isLaunching,
         guidance.canLaunchNow && !this.isLaunching,
         {
-          border: "rgba(131,168,150,0.62)",
-          background: "rgba(131,168,150,0.14)",
-          color: "#83a896",
-          glow: "rgba(131,168,150,0.18)"
+          border: "rgba(99,230,168,0.62)",
+          background: "rgba(99,230,168,0.14)",
+          color: "#63e6a8",
+          glow: "rgba(99,230,168,0.18)"
         }
       );
     }

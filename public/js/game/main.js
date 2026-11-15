@@ -238,7 +238,7 @@
     rightLeg: null,
     nameBadge: null,
     role: "commander",
-    color: "#d0a15c",
+    color: "#c9f04b",
     isEva: false,
     suitLights: true,
     magBoots: true,
@@ -319,13 +319,24 @@
   let quickDeckTab = "crew";
   let emoteToastTimer = null;
 
+  function deckDefaultDetail(tab = quickDeckTab) {
+    return tab === "systems"
+      ? "Ship systems, mission views, and display modes."
+      : "Crew expressions, ready for the whole expedition.";
+  }
+
+  function setDeckDetail(text) {
+    const detail = document.getElementById("deck-detail-text");
+    if (detail) detail.textContent = text || deckDefaultDetail();
+  }
+
   function setQuickDeckTab(tab) {
     quickDeckTab = tab === "systems" ? "systems" : "crew";
     const crewTab = document.getElementById("tab-deck-crew");
     const systemsTab = document.getElementById("tab-deck-systems");
+    const deckTabs = document.querySelector("#quick-deck .deck-tabs");
     const crewPanel = document.getElementById("deck-crew-panel");
     const systemsPanel = document.getElementById("deck-systems-panel");
-    const detail = document.getElementById("deck-detail-text");
     const isCrew = quickDeckTab === "crew";
     if (crewTab) {
       crewTab.classList.toggle("active", isCrew);
@@ -335,13 +346,10 @@
       systemsTab.classList.toggle("active", !isCrew);
       systemsTab.setAttribute("aria-selected", String(!isCrew));
     }
+    if (deckTabs) deckTabs.setAttribute("data-tab", quickDeckTab);
     if (crewPanel) crewPanel.hidden = !isCrew;
     if (systemsPanel) systemsPanel.hidden = isCrew;
-    if (detail) {
-      detail.textContent = isCrew
-        ? "Crew expressions, ready for the whole expedition."
-        : "Ship systems, mission views, and display modes.";
-    }
+    setDeckDetail(deckDefaultDetail(quickDeckTab));
   }
 
   function setQuickDeckOpen(open, tab) {
@@ -426,7 +434,7 @@
       ? { w: width, h: height }
       : getViewportSize();
     const isNarrow = size.w <= 900;
-    const isCompact = size.w <= 1024 || size.h <= 760 || isMobile;
+    const isCompact = size.w <= 1024 || size.h <= 700 || isMobile;
 
     if (isMobile) {
       document.body.classList.add("touch-ui");
@@ -499,6 +507,124 @@
     }
   }
 
+
+  function setupTitleChrome() {
+    const boot = document.getElementById("boot-overlay");
+    if (boot) {
+      let bootSeen = false;
+      try { bootSeen = sessionStorage.getItem("lunaspis_boot_seen") === "1"; } catch (_) { bootSeen = false; }
+      if (bootSeen) {
+        boot.remove();
+      } else {
+        let finished = false;
+        const finishBoot = () => {
+          if (finished) return;
+          finished = true;
+          boot.classList.add("is-done");
+          try { sessionStorage.setItem("lunaspis_boot_seen", "1"); } catch (_) { /* noop */ }
+          setTimeout(() => boot.remove(), 520);
+        };
+        const delay = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 550 : 2100;
+        setTimeout(finishBoot, delay);
+        boot.addEventListener("pointerdown", finishBoot, { once: true });
+        window.addEventListener("keydown", finishBoot, { once: true });
+      }
+    }
+    const dossierBtn = document.getElementById("btn-title-dossier");
+    if (dossierBtn) {
+      dossierBtn.addEventListener("click", () => {
+        const authBtn = document.getElementById("btn-open-auth");
+        if (authBtn) authBtn.click();
+      });
+    }
+    const settingsBtn = document.getElementById("btn-title-settings");
+    if (settingsBtn) {
+      settingsBtn.addEventListener("click", () => {
+        const source = document.getElementById("btn-voice-settings");
+        if (source) source.click();
+      });
+    }
+
+    const navToggle = document.getElementById("btn-title-nav-toggle");
+    const titleNav = document.getElementById("title-primary-nav");
+    const navScrim = document.getElementById("title-nav-scrim");
+    if (navToggle && titleNav) {
+      const setNavOpen = (open) => {
+        titleNav.classList.toggle("is-open", open);
+        if (navScrim) navScrim.classList.toggle("is-open", open);
+        document.body.classList.toggle("title-nav-open", open);
+        navToggle.setAttribute("aria-expanded", String(open));
+        navToggle.setAttribute("aria-label", open ? "Close navigation menu" : "Open navigation menu");
+      };
+      navToggle.addEventListener("click", () => {
+        setNavOpen(!titleNav.classList.contains("is-open"));
+      });
+      if (navScrim) navScrim.addEventListener("click", () => setNavOpen(false));
+      titleNav.querySelectorAll("button").forEach((button) => {
+        button.addEventListener("click", () => setNavOpen(false));
+      });
+      document.addEventListener("pointerdown", (event) => {
+        if (!titleNav.classList.contains("is-open")) return;
+        if (titleNav.contains(event.target) || navToggle.contains(event.target)) return;
+        setNavOpen(false);
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && titleNav.classList.contains("is-open")) {
+          setNavOpen(false);
+        }
+      });
+      window.matchMedia("(min-width: 981px)").addEventListener?.("change", (event) => {
+        if (event.matches) setNavOpen(false);
+      });
+    }
+  }
+
+  function setupPerfIdleState() {
+    const overlay = document.getElementById("perf-overlay");
+    if (!overlay) return;
+    let idleTimer = null;
+    let hovering = false;
+    const clearIdle = () => {
+      document.body.classList.remove("perf-dim");
+      if (idleTimer) clearTimeout(idleTimer);
+      idleTimer = null;
+    };
+    const scheduleIdle = () => {
+      clearIdle();
+      if (hovering) return;
+      idleTimer = setTimeout(() => {
+        if (!document.hidden) document.body.classList.add("perf-dim");
+      }, 6500);
+    };
+    overlay.addEventListener("pointerenter", () => {
+      hovering = true;
+      clearIdle();
+    });
+    overlay.addEventListener("pointerleave", () => {
+      hovering = false;
+      scheduleIdle();
+    });
+    document.addEventListener("pointerdown", scheduleIdle, { passive: true });
+    document.addEventListener("keydown", scheduleIdle, { passive: true });
+    window.addEventListener("gamepadconnected", scheduleIdle);
+    scheduleIdle();
+  }
+
+  let compassAccumulator = 0;
+  const compassForward = new THREE.Vector3();
+
+  function updateHudCompass(delta) {
+    const heading = document.getElementById("hud-compass-heading");
+    if (!heading || !camera) return;
+    compassAccumulator += delta;
+    if (compassAccumulator < 0.08) return;
+    compassAccumulator = 0;
+    camera.getWorldDirection(compassForward);
+    const degrees = ((Math.atan2(compassForward.x, compassForward.z) * 180 / Math.PI) + 360) % 360;
+    const rounded = Math.round(degrees) % 360;
+    heading.textContent = `${String(rounded).padStart(3, "0")}°`;
+  }
+
   function setupQuickDeck() {
     const deck = document.getElementById("quick-deck");
     const btn = document.getElementById("btn-quick-deck");
@@ -507,8 +633,8 @@
     if (!deck || !btn || !crewPanel) return;
 
     const defs = window.ASTRONAUT_EMOTES || [];
-    crewPanel.innerHTML = defs.map((def, index) => `
-      <button type="button" class="deck-row" data-emote="${def.id}" title="${def.label}">
+    crewPanel.innerHTML = '<div class="deck-section-label">EXPRESSIONS</div>' + defs.map((def, index) => `
+      <button type="button" class="deck-row" data-emote="${def.id}" data-detail="${def.label} — crew expression" title="${def.label}" style="--row-i:${index}">
         <span class="deck-row__icon" aria-hidden="true">${def.icon}</span>
         <span class="deck-row__copy">
           <span class="deck-row__label">${String(def.label || "").toUpperCase()}</span>
@@ -517,6 +643,18 @@
         <span class="deck-row__hint">${index + 1}</span>
       </button>
     `).join("");
+
+    // Stagger rows in the static systems panel and annotate them for live detail.
+    if (systemsPanel) {
+      systemsPanel.querySelectorAll(".deck-row").forEach((row, index) => {
+        row.style.setProperty("--row-i", index);
+        const label = row.querySelector(".deck-row__label");
+        const sub = row.querySelector(".deck-row__sub");
+        if (label && !row.getAttribute("data-detail")) {
+          row.setAttribute("data-detail", `${label.textContent}${sub ? ` — ${sub.textContent}` : ""}`);
+        }
+      });
+    }
 
     btn.addEventListener("click", () => {
       setQuickDeckOpen(!quickDeckOpen, quickDeckTab);
@@ -547,6 +685,52 @@
       systemsPanel.addEventListener("click", (event) => {
         if (event.target.closest(".deck-row")) setQuickDeckOpen(false);
       });
+    }
+
+    const bindDeckDetail = (panel) => {
+      if (!panel) return;
+      const showRow = (row) => {
+        if (!row || !row.getAttribute("data-detail")) return;
+        setDeckDetail(row.getAttribute("data-detail"));
+      };
+      panel.addEventListener("pointerover", (event) => showRow(event.target.closest(".deck-row")));
+      panel.addEventListener("focusin", (event) => showRow(event.target.closest(".deck-row")));
+      panel.addEventListener("pointerleave", () => setDeckDetail(deckDefaultDetail()));
+      panel.addEventListener("focusout", (event) => {
+        if (!panel.contains(event.relatedTarget)) setDeckDetail(deckDefaultDetail());
+      });
+    };
+    bindDeckDetail(crewPanel);
+    bindDeckDetail(systemsPanel);
+
+    // Drag the mobile sheet down to dismiss it.
+    let deckDragY = 0;
+    let deckDragging = false;
+    const isTouchDeck = () => window.matchMedia && window.matchMedia("(max-width: 900px), (pointer: coarse)").matches;
+    const deckHandle = document.getElementById("deck-grabber") || deck.querySelector(".deck-head");
+    if (deckHandle) {
+      deckHandle.addEventListener("pointerdown", (event) => {
+        if (!isTouchDeck()) return;
+        deckDragging = true;
+        deckDragY = event.clientY;
+        deckHandle.setPointerCapture?.(event.pointerId);
+      });
+      deckHandle.addEventListener("pointermove", (event) => {
+        if (!deckDragging) return;
+        const dy = Math.max(0, event.clientY - deckDragY);
+        deck.style.transform = `translateY(${Math.min(dy, 180)}px)`;
+        deck.style.opacity = String(Math.max(0.55, 1 - dy / 420));
+      });
+      const endDeckDrag = (event) => {
+        if (!deckDragging) return;
+        deckDragging = false;
+        const dy = Math.max(0, (event.clientY || 0) - deckDragY);
+        deck.style.transform = "";
+        deck.style.opacity = "";
+        if (dy > 70) setQuickDeckOpen(false);
+      };
+      deckHandle.addEventListener("pointerup", endDeckDrag);
+      deckHandle.addEventListener("pointercancel", endDeckDrag);
     }
 
     document.addEventListener("pointerdown", (event) => {
@@ -678,7 +862,7 @@
     };
 
     // 6. Build Local Player Astronaut Rig
-    buildLocalAstronaut("#d0a15c", "commander", isMobile ? "astronaut_lod1" : "astronaut_lod0");
+    buildLocalAstronaut("#c9f04b", "commander", isMobile ? "astronaut_lod1" : "astronaut_lod0");
 
     // 7. Setup UI & Network Flow
     setupMissionControlFlow();
@@ -707,6 +891,8 @@
     // 9. Input controls & resize/orientation listeners
     setupInputControls();
     setupQuickDeck();
+    setupTitleChrome();
+    setupPerfIdleState();
     setupMobileUX();
     window.addEventListener("resize", onWindowResize);
     window.addEventListener("orientationchange", () => {
@@ -832,7 +1018,7 @@
   // ============================================================================
   // NASA ASTRONAUT RIG, FLOATING NAMETAGS & FLIGHT SPECIALIZATION
   // ============================================================================
-  function createNameBadgeSprite(name = "Astronaut", color = "#d0a15c", role = "commander", isHost = false, team = "crew") {
+  function createNameBadgeSprite(name = "Astronaut", color = "#c9f04b", role = "commander", isHost = false, team = "crew") {
     const canvas = document.createElement("canvas");
     canvas.width = 512;
     canvas.height = 160;
@@ -841,11 +1027,13 @@
     function drawBadge(n, c, r, h, isSpeaking = false, isMuted = false, isRadio = false, currentTeam = "crew") {
       ctx.clearRect(0, 0, 512, 160);
       const pillX = 36, pillY = 24, pillW = 440, pillH = 112, rad = 24;
+      const themeBrand = (window.UITheme && window.UITheme.palette && window.UITheme.palette.brand) || "#c9f04b";
+      const themeStrong = (window.UITheme && window.UITheme.palette && window.UITheme.palette.brandStrong) || "#e4ff7e";
 
       ctx.save();
-      let glowColor = c || (currentTeam === "crew" ? "#d0a15c" : currentTeam === "bravo" ? "#8a8194" : "#c67979");
-      if (isRadio) glowColor = "#d0a15c";
-      else if (isSpeaking) glowColor = "#83a896";
+      let glowColor = c || (currentTeam === "crew" ? themeBrand : currentTeam === "bravo" ? "#8a8194" : "#ff6b6b");
+      if (isRadio) glowColor = themeBrand;
+      else if (isSpeaking) glowColor = "#63e6a8";
 
       ctx.shadowColor = glowColor;
       ctx.shadowBlur = (isRadio || isSpeaking) ? 30 : 18;
@@ -887,9 +1075,9 @@
 
       const displayName = prefix + String(n || "CREW").toUpperCase();
       ctx.font = "900 34px 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-      if (isRadio) ctx.fillStyle = "#e7c58c";
-      else if (isSpeaking) ctx.fillStyle = "#83a896";
-      else ctx.fillStyle = "#eceae3";
+      if (isRadio) ctx.fillStyle = themeStrong;
+      else if (isSpeaking) ctx.fillStyle = "#63e6a8";
+      else ctx.fillStyle = "#efeee7";
 
       ctx.fillText(displayName, 256, 62);
 
@@ -900,13 +1088,13 @@
 
       ctx.font = "800 22px 'SF Mono', Monaco, Consolas, monospace";
       if (isRadio) {
-        ctx.fillStyle = "#e7c58c";
+        ctx.fillStyle = themeStrong;
         ctx.fillText("● " + roleBanner + " [RADIO]", 256, 104);
       } else if (isSpeaking) {
-        ctx.fillStyle = "#83a896";
+        ctx.fillStyle = "#63e6a8";
         ctx.fillText("● " + roleBanner + " [PROX]", 256, 104);
       } else {
-        ctx.fillStyle = c || roleMeta.color || "#d0a15c";
+        ctx.fillStyle = c || roleMeta.color || themeBrand;
         ctx.fillText("● " + roleBanner, 256, 104);
       }
     }
@@ -941,7 +1129,7 @@
   }
   window.createNameBadgeSprite = createNameBadgeSprite;
 
-  function createAstronautMesh(suitHexColor = "#d0a15c", role = "commander", name = "Astronaut", isHost = false, modelKey = null, team = "crew", options = {}) {
+  function createAstronautMesh(suitHexColor = "#c9f04b", role = "commander", name = "Astronaut", isHost = false, modelKey = null, team = "crew", options = {}) {
     if (window.glbManager && typeof window.glbManager.createAstronautRig === "function") {
       return window.glbManager.createAstronautRig(suitHexColor, role, name, isHost, modelKey, team, options);
     }
@@ -949,7 +1137,7 @@
     return { root };
   }
 
-  function buildLocalAstronaut(color = "#d0a15c", role = "commander", modelKey = null) {
+  function buildLocalAstronaut(color = "#c9f04b", role = "commander", modelKey = null) {
     const prevPos = (isGameStarted && localCrew.group) ? localCrew.group.position.clone() : null;
     const prevRotY = (isGameStarted && localCrew.group) ? localCrew.group.rotation.y : null;
 
@@ -1012,6 +1200,40 @@
   // NASA EXPEDITION BRIEFING, FLIGHT CREDENTIALS & LOBBY CONTROLLER
   // ============================================================================
   let currentAstronaut = null;
+  let screenVeilTimer = null;
+
+  function setAnimatedNumber(el, value, duration = 320) {
+    if (!el) return;
+    const target = Number(value) || 0;
+    const start = Number(el.textContent) || 0;
+    const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion || start === target || typeof requestAnimationFrame !== "function") {
+      el.textContent = String(target);
+      return;
+    }
+    const startedAt = performance.now();
+    const step = (now) => {
+      const progress = Math.min(1, (now - startedAt) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      el.textContent = String(Math.round(start + (target - start) * eased));
+      if (progress < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  function playScreenVeil() {
+    const veil = document.getElementById("screen-transition-veil");
+    if (!veil) return;
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (screenVeilTimer) clearTimeout(screenVeilTimer);
+    veil.classList.remove("is-active");
+    void veil.offsetWidth;
+    veil.classList.add("is-active");
+    screenVeilTimer = setTimeout(() => {
+      veil.classList.remove("is-active");
+      screenVeilTimer = null;
+    }, 340);
+  }
 
   function setupMissionControlFlow() {
     if (!window.netManager) return;
@@ -1060,8 +1282,8 @@
     const authStatusDesc = document.getElementById("auth-status-desc");
     const authStatusIcon = document.getElementById("auth-status-icon");
 
-    let regSelectedColor = "#d0a15c";
-    let dossierSelectedColor = "#d0a15c";
+    let regSelectedColor = "#c9f04b";
+    let dossierSelectedColor = "#c9f04b";
 
     function showAuthBanner(msg, isError = false) {
       if (!authBanner) return;
@@ -1143,15 +1365,15 @@
         const defName = localStorage.getItem("interfellas_name") || "CDR. Vance";
         if (inputName) inputName.value = defName;
         window.netManager.localPlayer.name = defName;
-        window.netManager.localPlayer.color = "#d0a15c";
+        window.netManager.localPlayer.color = "#c9f04b";
         window.netManager.localPlayer.role = "commander";
-        buildLocalAstronaut("#d0a15c", "commander", defaultModel);
+        buildLocalAstronaut("#c9f04b", "commander", defaultModel);
         return;
       }
 
       const rank = astro.flight_title || "Commander";
       const callsign = astro.callsign || astro.username;
-      const color = astro.suit_color || "#d0a15c";
+      const color = astro.suit_color || "#c9f04b";
 
       if (authStatusTitle) authStatusTitle.textContent = `${callsign.toUpperCase()}`;
       if (authStatusDesc) authStatusDesc.textContent = `${rank.toUpperCase()}`;
@@ -1164,9 +1386,9 @@
       const statMissions = document.getElementById("stat-missions");
       const statVictories = document.getElementById("stat-victories");
       const statTasks = document.getElementById("stat-tasks");
-      if (statMissions) statMissions.textContent = astro.games_played || 0;
-      if (statVictories) statVictories.textContent = astro.games_won || 0;
-      if (statTasks) statTasks.textContent = astro.tasks_completed || 0;
+      setAnimatedNumber(statMissions, astro.games_played || 0);
+      setAnimatedNumber(statVictories, astro.games_won || 0);
+      setAnimatedNumber(statTasks, astro.tasks_completed || 0);
 
       if (astro.token && typeof window.netManager.setAuthToken === "function") {
         window.netManager.setAuthToken(astro.token);
@@ -1200,7 +1422,7 @@
       if (dVictories) dVictories.textContent = currentAstronaut.games_won || 0;
       if (dTasks) dTasks.textContent = currentAstronaut.tasks_completed || 0;
 
-      dossierSelectedColor = currentAstronaut.suit_color || "#d0a15c";
+      dossierSelectedColor = currentAstronaut.suit_color || "#c9f04b";
       document.querySelectorAll("#dossier-color-swatches .lobby-color-btn").forEach(b => {
         b.classList.toggle("active", b.getAttribute("data-color") === dossierSelectedColor);
       });
@@ -1402,16 +1624,16 @@
       const statMissions = document.getElementById("stat-missions");
       const statVictories = document.getElementById("stat-victories");
       const statTasks = document.getElementById("stat-tasks");
-      if (statMissions) statMissions.textContent = profile.games_played || 0;
-      if (statVictories) statVictories.textContent = profile.games_won || 0;
-      if (statTasks) statTasks.textContent = profile.tasks_completed || 0;
+      setAnimatedNumber(statMissions, profile.games_played || 0);
+      setAnimatedNumber(statVictories, profile.games_won || 0);
+      setAnimatedNumber(statTasks, profile.tasks_completed || 0);
     });
 
     if (btnHost) {
       btnHost.addEventListener("click", () => {
         const name = inputName ? inputName.value.trim() : (currentAstronaut ? currentAstronaut.callsign : "Commander");
         const color = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.color)
-          || (currentAstronaut ? currentAstronaut.suit_color : "#d0a15c");
+          || (currentAstronaut ? currentAstronaut.suit_color : "#c9f04b");
         const rawRole = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.role)
           || (currentAstronaut ? (currentAstronaut.preferred_role || currentAstronaut.flight_title) : "commander");
         const role = window.InterfellasRoles ? window.InterfellasRoles.normalizeRole(rawRole, "commander") : "commander";
@@ -1430,7 +1652,7 @@
         }
         const name = inputName ? inputName.value.trim() : (currentAstronaut ? currentAstronaut.callsign : "Crew");
         const color = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.color)
-          || (currentAstronaut ? currentAstronaut.suit_color : "#d0a15c");
+          || (currentAstronaut ? currentAstronaut.suit_color : "#c9f04b");
         const explicitRole = !!(window.netManager && window.netManager.explicitRoleSelected);
         const rawRole = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.role)
           || (currentAstronaut ? (currentAstronaut.preferred_role || currentAstronaut.flight_title) : "commander");
@@ -1443,7 +1665,7 @@
       btnQuick.addEventListener("click", () => {
         const name = inputName ? inputName.value.trim() : (currentAstronaut ? currentAstronaut.callsign : "Crew");
         const color = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.color)
-          || (currentAstronaut ? currentAstronaut.suit_color : "#d0a15c");
+          || (currentAstronaut ? currentAstronaut.suit_color : "#c9f04b");
         const explicitRole = !!(window.netManager && window.netManager.explicitRoleSelected);
         const rawRole = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.role)
           || (currentAstronaut ? (currentAstronaut.preferred_role || currentAstronaut.flight_title) : "commander");
@@ -1548,12 +1770,16 @@
       if (window.location.search && window.history && typeof window.history.replaceState === "function") {
         window.history.replaceState({}, "", window.location.pathname);
       }
+      playScreenVeil();
       if (screenLobby) screenLobby.style.display = "none";
       if (screenGame) screenGame.style.display = "none";
       if (screenMenu) screenMenu.style.display = "flex";
+      document.body.classList.add("menu-active");
     }
 
     window.netManager.on("lobby_returned", (data) => {
+      playScreenVeil();
+      document.body.classList.remove("menu-active");
       cleanupGameWorldForLobby();
       if (window.gameplay && typeof window.gameplay.resetTasks === "function") {
         window.gameplay.resetTasks();
@@ -1744,7 +1970,7 @@
     window.netManager.on("auto_join_url", (roomCode) => {
       if (inputCode) inputCode.value = roomCode;
       const color = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.color)
-        || (currentAstronaut ? currentAstronaut.suit_color : "#d0a15c");
+        || (currentAstronaut ? currentAstronaut.suit_color : "#c9f04b");
       const explicitRole = !!(window.netManager && window.netManager.explicitRoleSelected);
       const rawRole = (window.netManager && window.netManager.localPlayer && window.netManager.localPlayer.role)
         || (currentAstronaut ? (currentAstronaut.preferred_role || currentAstronaut.flight_title) : "commander");
@@ -1970,7 +2196,7 @@
             const curVol = Math.round((vm.playerVolumes[rp.id] !== undefined ? vm.playerVolumes[rp.id] : 1.0) * 100);
             const row = document.createElement("div");
             row.className = "crewmate-vol-row";
-            const volColor = safeHexColor(rp.color, "#eceae3");
+            const volColor = safeHexColor(rp.color, "#efeee7");
             const volName = escapeHtml(rp.name || "Crew");
             row.innerHTML = `
               <span class="crewmate-vol-name" style="color:${volColor};">${volName}</span>
@@ -2092,12 +2318,14 @@
     }
 
     // Settings Modal Tabs
-    document.querySelectorAll(".sys-tab-btn").forEach((btn) => {
+    const settingsTabsBar = document.querySelector(".systems-tabs-bar");
+    document.querySelectorAll(".sys-tab-btn").forEach((btn, index) => {
       btn.addEventListener("click", () => {
         const targetId = btn.getAttribute("data-tab");
         document.querySelectorAll(".sys-tab-btn").forEach((b) => b.classList.remove("active"));
         document.querySelectorAll(".sys-tab-content").forEach((c) => c.classList.remove("active"));
         btn.classList.add("active");
+        if (settingsTabsBar) settingsTabsBar.style.setProperty("--tab-index", String(index));
         const targetEl = targetId ? document.getElementById(targetId) : null;
         if (targetEl) targetEl.classList.add("active");
       });
@@ -2250,7 +2478,7 @@
         : (lp.role || "commander");
       lp.role = normRole;
       if (localCrew && (localCrew.role !== normRole || localCrew.color !== lp.color)) {
-        buildLocalAstronaut(lp.color || "#d0a15c", normRole);
+        buildLocalAstronaut(lp.color || "#c9f04b", normRole);
       }
       if (typeof window.syncLobbySelectionUI === "function") window.syncLobbySelectionUI();
       if (typeof window.renderHudCrewRoster === "function") window.renderHudCrewRoster();
@@ -2258,6 +2486,8 @@
 
     // Network Callbacks
     window.netManager.on("room_created", (data) => {
+      playScreenVeil();
+      document.body.classList.remove("menu-active");
       screenMenu.style.display = "none";
       screenLobby.style.display = "flex";
       screenGame.style.display = "none";
@@ -2269,6 +2499,8 @@
     });
 
     window.netManager.on("room_joined", (data) => {
+      playScreenVeil();
+      document.body.classList.remove("menu-active");
       screenMenu.style.display = "none";
       screenLobby.style.display = "flex";
       screenGame.style.display = "none";
@@ -2312,6 +2544,8 @@
     });
 
     window.netManager.on("game_started", (data) => {
+      playScreenVeil();
+      document.body.classList.remove("menu-active");
       screenMenu.style.display = "none";
       screenLobby.style.display = "none";
 
@@ -2657,14 +2891,14 @@
       const expectedRole = ROLES_ORDER[i % ROLES_ORDER.length];
       const expectedMeta = window.InterfellasRoles
         ? window.InterfellasRoles.getRoleMeta(expectedRole)
-        : { short: expectedRole.slice(0, 3).toUpperCase(), label: expectedRole.toUpperCase(), color: "#d0a15c", duties: {} };
+        : { short: expectedRole.slice(0, 3).toUpperCase(), label: expectedRole.toUpperCase(), color: "var(--ui-brand)", duties: {} };
       const p = players[i];
       const pod = document.createElement("div");
       pod.className = `lobby-player-pod ${p ? "occupied" : "empty"}`;
 
       if (p) {
         const isSelf = p.id === window.netManager.socketId;
-        const color = safeHexColor(p.color, "#c67979");
+        const color = safeHexColor(p.color, "#ff6b6b");
         const name = escapeHtml(p.name || "Astronaut");
         const normRole = window.InterfellasRoles
           ? window.InterfellasRoles.normalizeRole(p.role, expectedRole)
@@ -2715,7 +2949,7 @@
   function syncLobbySelectionUI(explicitPlayers) {
     const net = window.netManager;
     const lp = net && net.localPlayer ? net.localPlayer : {};
-    const myColor = String(lp.color || "#d0a15c").toLowerCase();
+    const myColor = String(lp.color || "#c9f04b").toLowerCase();
     const myRole = window.InterfellasRoles
       ? window.InterfellasRoles.normalizeRole(lp.role, "commander")
       : String(lp.role || "commander").toLowerCase();
@@ -2779,7 +3013,7 @@
 
     let players = rs && Array.isArray(rs.players) && rs.players.length > 0
       ? rs.players
-      : [{ id: net ? net.socketId : "local", name: lp.name || "YOU", role: myRole, isHost: !!(net && net.isHost), color: lp.color || "#d0a15c" }];
+      : [{ id: net ? net.socketId : "local", name: lp.name || "YOU", role: myRole, isHost: !!(net && net.isHost), color: lp.color || "#c9f04b" }];
 
     const grouped = window.InterfellasRoles
       ? window.InterfellasRoles.getCrewByRole(players)
@@ -2796,7 +3030,7 @@
     const chipsHtml = order.map((r) => {
       const meta = window.InterfellasRoles
         ? window.InterfellasRoles.getRoleMeta(r)
-        : { short: r.slice(0, 3).toUpperCase(), label: r.toUpperCase(), color: "#d0a15c" };
+        : { short: r.slice(0, 3).toUpperCase(), label: r.toUpperCase(), color: "var(--ui-brand)" };
       const holders = grouped[r] || [];
       const isSelf = r === myRole;
       const namesText = holders.length > 0
@@ -2883,7 +3117,7 @@
   }
   window.renderHudCrewRoster = renderHudCrewRoster;
 
-  function safeHexColor(color, fallback = "#c67979") {
+  function safeHexColor(color, fallback = "#ff6b6b") {
     return typeof color === "string" && /^#[0-9a-fA-F]{6}$/.test(color) ? color : fallback;
   }
 
@@ -2908,7 +3142,7 @@
     const div = document.createElement("div");
     div.className = "lobby-msg";
     const sender = document.createElement("strong");
-    sender.style.color = safeHexColor(comm && comm.color, "#c67979");
+    sender.style.color = safeHexColor(comm && comm.color, "#ff6b6b");
     sender.textContent = String((comm && comm.sender) || "Crew");
     const sep = document.createTextNode(": ");
     const text = document.createElement("span");
@@ -3417,7 +3651,7 @@
         }
         if (joyHint) {
           joyHint.textContent = mag > 0.82 ? "SPRINT" : "MOVE";
-          joyHint.style.color = mag > 0.82 ? "#d0a15c" : "rgba(166, 173, 182, 0.78)";
+          joyHint.style.color = mag > 0.82 ? "var(--ui-brand)" : "rgba(167, 176, 186, 0.78)";
         }
       };
 
@@ -3832,7 +4066,7 @@
 
     if (fpsVal) {
       fpsVal.textContent = currentFps;
-      const fpsColor = currentFps >= 50 ? "#83a896" : (currentFps >= 30 ? "#d0a15c" : "#c67979");
+      const fpsColor = currentFps >= 50 ? "#63e6a8" : (currentFps >= 30 ? "var(--ui-brand)" : "#ff6b6b");
       fpsVal.style.color = fpsColor;
       if (fpsDot) fpsDot.style.background = fpsColor;
     }
@@ -3841,18 +4075,18 @@
     let statusText = "NOMINAL";
     if (pingVal && currentPing !== null) {
       pingVal.textContent = `${currentPing} ms`;
-      let pingColor = "#83a896";
+      let pingColor = "#63e6a8";
 
       if (currentPing < 80) {
-        pingColor = "#83a896";
+        pingColor = "#63e6a8";
         statusText = "NOMINAL";
         latencyTier = "nominal";
       } else if (currentPing < 180) {
-        pingColor = "#d0a15c";
+        pingColor = "var(--ui-brand)";
         statusText = "MODERATE";
         latencyTier = "moderate";
       } else {
-        pingColor = "#c67979";
+        pingColor = "#ff6b6b";
         statusText = "HIGH LATENCY";
         latencyTier = "caution";
       }
@@ -3906,7 +4140,7 @@
     const netDiagJitter = document.getElementById("net-diag-jitter");
     if (netDiagStatus) {
       netDiagStatus.textContent = isConnected ? "ONLINE" : "OFFLINE";
-      netDiagStatus.style.color = isConnected ? "#83a896" : "#c67979";
+      netDiagStatus.style.color = isConnected ? "#63e6a8" : "#ff6b6b";
     }
     if (netDiagPing) netDiagPing.textContent = `${currentPing !== null ? currentPing : "--"} ms`;
     if (netDiagJitter) netDiagJitter.textContent = `±${jitterMs} ms`;
@@ -3958,6 +4192,8 @@
     if (window.glbManager && typeof window.glbManager.updateFleet === "function") {
       window.glbManager.updateFleet(delta, elapsed);
     }
+
+    updateHudCompass(delta);
 
     if (window.shipInterior && typeof window.shipInterior.update === "function") {
       window.shipInterior.update(delta, elapsed, camera);
