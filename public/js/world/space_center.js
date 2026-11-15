@@ -941,34 +941,94 @@
     }
 
     // ── Launch Control Center (LCC) Entrance Door Interaction ─────────────────
-    _isNearLccDoor() {
+    // Doors are not locked. Standing in the doorway and pressing [E] steps the
+    // player straight through to the other side: outside -> lobby, lobby -> plaza.
+    _lccDoorPlayerSide() {
       const pos = (window.localCrew && window.localCrew.group)
         ? window.localCrew.group.position
         : (this.camera ? this.camera.position : null);
-      if (!pos) return false;
+      if (!pos) return null;
       const d = this.lccDoors || { cx: -180, cz: 203 };
-      return Math.hypot(pos.x - d.cx, pos.z - d.cz) < 6.8 && pos.y < 8.0;
+      const dx = Math.abs(pos.x - d.cx);
+      const dz = pos.z - d.cz;
+      // Stay inside the entrance bay so a player at the edge of the facade does
+      // not get snapped sideways through the doors.
+      if (dx > 4.4 || Math.abs(dz) >= 6.8 || pos.y >= 8.0) return null;
+      return dz < 0 ? "inside" : "outside";
     }
 
-    toggleLccDoors(forceState) {
+    _isNearLccDoor() {
+      return this._lccDoorPlayerSide() !== null;
+    }
+
+    toggleLccDoors(forceState, options = {}) {
       if (!this.lccDoors) return;
       const d = this.lccDoors;
       d.isOpen = forceState !== undefined ? !!forceState : !d.isOpen;
       d.target = d.isOpen ? 1.0 : 0.0;
       if (d.collider) d.collider.disabled = d.isOpen;
 
+      if (!options.silent) {
+        if (window.spaceAudio && typeof window.spaceAudio.playAirlockCycle === "function") {
+          window.spaceAudio.playAirlockCycle();
+        }
+        if (window.gameplay && typeof window.gameplay.showToast === "function") {
+          window.gameplay.showToast(
+            d.isOpen
+              ? "🚪 LAUNCH CONTROL CENTER: Entrance Open — Walk In or Press [E]"
+              : "🚪 LAUNCH CONTROL CENTER: Entrance Secured"
+          );
+        }
+        this._renderGroundHUD();
+      }
+    }
+
+    // Steps the player through the LCC entrance. The sliding doors part for the
+    // transition and close again automatically once the player clears them.
+    useLccDoor() {
+      if (!this.lccDoors) return false;
+      const side = this._lccDoorPlayerSide();
+      if (!side) return false;
+      const now = typeof performance !== "undefined" && performance.now
+        ? performance.now()
+        : Date.now();
+      if (now < (this._lccDoorCooldownUntil || 0)) return false;
+      this._lccDoorCooldownUntil = now + 650;
+
+      const d = this.lccDoors;
+      const entering = side === "outside";
+
+      // Part the doors for the step-through; the update loop closes them again
+      // after the player walks away from the threshold.
+      this.toggleLccDoors(true, { silent: true });
+
+      const spawn = entering
+        ? { x: d.cx, y: 0.24, z: d.cz - 5.4, yaw: Math.PI, pitch: 0.02 }
+        : { x: d.cx, y: 0.0, z: d.cz + 5.2, yaw: 0, pitch: 0.04 };
+
+      if (window.localCrew && window.localCrew.group) {
+        const crew = window.localCrew.group;
+        crew.visible = true;
+        crew.position.set(spawn.x, spawn.y, spawn.z);
+        crew.rotation.y = spawn.yaw;
+      }
+      if (typeof window.setCameraYawPitch === "function") {
+        window.setCameraYawPitch(spawn.yaw, spawn.pitch);
+      }
+      this._updateSunShadowFocus({ x: spawn.x, z: spawn.z });
+
       if (window.spaceAudio && typeof window.spaceAudio.playAirlockCycle === "function") {
         window.spaceAudio.playAirlockCycle();
       }
-
       if (window.gameplay && typeof window.gameplay.showToast === "function") {
         window.gameplay.showToast(
-          d.isOpen
-            ? "🚪 LAUNCH CONTROL CENTER: Doors Open — Welcome to Firing Room & Mission Control"
-            : "🚪 LAUNCH CONTROL CENTER: Doors Closed — Access Secured"
+          entering
+            ? "🚪 LAUNCH CONTROL CENTER · ENTERED THE LOBBY — MISSION CONTROL IS THROUGH THE WEST DOORWAY"
+            : "🚪 LAUNCH CONTROL CENTER · STEPPED OUT TO THE ENTRANCE PLAZA"
         );
       }
       this._renderGroundHUD();
+      return true;
     }
 
     _updateSunShadowFocus(camPos) {
@@ -1863,36 +1923,18 @@
       const darkSteelMat = this.darkSteelMat;
       const deckMat = this.deckMat;
 
-      // ── GLB-based Fixed Service Structure ──────────────────────────────────
-      // Load the low-poly FSS from the reference GLB (rocket parts stripped).
-      const _loadFSSGLB = () => {
-        if (!window.glbManager) return;
-        const fssUrl = "assets/space-shuttle-fss-tower.glb";
-        window.glbManager.loadGLB(fssUrl).then(() => {
-          try {
-            const fssMesh = window.glbManager.instantiateModel(fssUrl, { scale: 1.0 });
-            if (fssMesh && this.padGroup) {
-              fssMesh.name = "LaunchTower_FSS_GLB";
-              fssMesh.position.set(-0.1035, -19.80, -4.702);
-              fssMesh.traverse((obj) => {
-                if (obj.isMesh) { obj.castShadow = true; obj.receiveShadow = true; }
-              });
-              this.padGroup.add(fssMesh);
-            }
-          } catch (e) { console.warn("[SpaceCenter] FSS GLB instantiate error:", e); }
-        }).catch((e) => { console.warn("[SpaceCenter] FSS GLB load error:", e); });
-      };
-      _loadFSSGLB();
-      // ───────────────────────────────────────────────────────────────────────
-
-      // ── Realistic FSS Detail Layer ─────────────────────────────────────────
+      // ── Realistic Fixed Service Structure (FSS) ────────────────────────────
       // All in towerGroup space (towerGroup at padGroup(-34, 19.8, 0)).
-      // Tower extends from Y=0 (pad level) to Y=88 (gantry top).
+      // Tower extends from Pad 39A Hardstand (Y = -7.3m / world 12.5m) up to Y = 88.0m (world 107.8m).
+      // (Note: Low-poly space-shuttle-fss-tower.glb omitted so it never slices walls across the MLP or elevators.)
 
       const towerHeight = 88;
-      const half = 6; // half-width of main structural columns
+      const groundBaseY = -7.3; // Pad 39A hardstand top surface in towerGroup coords
+      const fullTowerHeight = towerHeight - groundBaseY; // 95.3m full structural height
+      const fullTowerCenterY = (towerHeight + groundBaseY) / 2; // 40.35m
+      const half = 6; // half-width of main structural columns (x, z in [-6, +6])
 
-      // ── Main corner columns (4×) ──
+      // ── Main corner columns (4×) anchored into Pad 39A Hardstand ──
       const colTex = this._makeCanvasTexture(128, (ctx, s) => {
         ctx.fillStyle = "#a8b0b3";
         ctx.fillRect(0, 0, s, s);
@@ -1930,65 +1972,131 @@
         roughness: 0.64,
         metalness: 0.26
       });
+      const pedMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.85, metalness: 0.15 });
+      const gussetMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.55, metalness: 0.65 });
       [[-half, -half], [half, -half], [-half, half], [half, half]].forEach(([cx, cz]) => {
-        this._makeBeam(this.towerGroup, 1.2, towerHeight, 1.2, cx, towerHeight / 2, cz, colMat);
+        this._makeBeam(this.towerGroup, 1.2, fullTowerHeight, 1.2, cx, fullTowerCenterY, cz, colMat);
+        // Heavy reinforced concrete base pedestal & anchor gussets on Pad 39A Hardstand
+        this._makeBeam(this.towerGroup, 2.1, 1.5, 2.1, cx, groundBaseY + 0.75, cz, pedMat);
+        this._makeBeam(this.towerGroup, 1.65, 0.35, 1.65, cx, groundBaseY + 1.65, cz, gussetMat);
       });
 
-      // ── Diagonal X-bracing every 8m ──
+      // ── Structural Foundation & Ground Bay Bracing (Y = -7.3m to 0m) ──
       const braceMat = new THREE.MeshStandardMaterial({ color: 0x90a4ae, roughness: 0.55, metalness: 0.6 });
+      const baseBayH = -groundBaseY; // 7.3m
+      const baseAng = Math.atan2(baseBayH, half * 2);
+      const baseDiagLen = Math.hypot(half * 2, baseBayH);
+      const span = half * 2 - 1.2;
+      // Ground sill beams on North, South, and East faces (leaving West elevator lobby open!)
+      this._makeBeam(this.towerGroup, span, 0.36, 0.36, 0, groundBaseY + 0.25, -half, gussetMat);
+      this._makeBeam(this.towerGroup, span, 0.36, 0.36, 0, groundBaseY + 0.25, half, gussetMat);
+      this._makeBeam(this.towerGroup, 0.36, 0.36, span, half, groundBaseY + 0.25, 0, gussetMat);
+      // Ground bay X-braces on North, South, and East faces
+      [-half, half].forEach(z => {
+        this._makeBeam(this.towerGroup, baseDiagLen, 0.22, 0.22, 0, groundBaseY + baseBayH * 0.5, z, braceMat, baseAng, 0, 0);
+        this._makeBeam(this.towerGroup, baseDiagLen, 0.22, 0.22, 0, groundBaseY + baseBayH * 0.5, z, braceMat, -baseAng, 0, 0);
+      });
+      this._makeBeam(this.towerGroup, 0.22, 0.22, baseDiagLen, half, groundBaseY + baseBayH * 0.5, 0, braceMat, 0, 0, baseAng);
+      this._makeBeam(this.towerGroup, 0.22, 0.22, baseDiagLen, half, groundBaseY + baseBayH * 0.5, 0, braceMat, 0, 0, -baseAng);
+      // West face ground bay: brace only the South-West half (z in [-1.6, +6.0]) so the North-West elevator lobby (z in [-5.8, -1.8]) is 100% open
+      const westSubSpan = 7.0;
+      const westSubCenterZ = 2.0;
+      const westBaseDiag = Math.hypot(westSubSpan, baseBayH);
+      const westBaseAng = Math.atan2(baseBayH, westSubSpan);
+      this._makeBeam(this.towerGroup, 0.2, 0.2, westBaseDiag, -half, groundBaseY + baseBayH * 0.5, westSubCenterZ, braceMat, 0, 0, westBaseAng);
+      this._makeBeam(this.towerGroup, 0.2, 0.2, westBaseDiag, -half, groundBaseY + baseBayH * 0.5, westSubCenterZ, braceMat, 0, 0, -westBaseAng);
+
+      // ── Diagonal X-bracing & Ring Beams every 8m (Y = 0m to 88m) ──
       const dAng = Math.atan2(8, half * 2);
       const dLen = Math.hypot(half * 2, 8);
+      const westBayAng = Math.atan2(8, westSubSpan);
+      const westBayLen = Math.hypot(westSubSpan, 8);
+      // Vertical intermediate divider column on West face at z = -1.6 separating Elevator Shaft bay from South-West equipment bay
+      this._makeBeam(this.towerGroup, 0.38, fullTowerHeight, 0.38, -half, fullTowerCenterY, -1.6, colMat);
+
       for (let y = 0; y < towerHeight; y += 8) {
         const my = y + 4;
-        // North & south faces
-        [-half, half].forEach(z => {
-          this._makeBeam(this.towerGroup, dLen, 0.18, 0.18, 0, my, z, braceMat, dAng, 0, 0);
-          this._makeBeam(this.towerGroup, dLen, 0.18, 0.18, 0, my, z, braceMat, -dAng, 0, 0);
-        });
-        // East & west faces
-        [-half, half].forEach(x => {
-          if (x > 0 && y === 40) return; // boarding arm opening
-          this._makeBeam(this.towerGroup, 0.18, 0.18, dLen, x, my, 0, braceMat, 0, 0, dAng);
-          this._makeBeam(this.towerGroup, 0.18, 0.18, dLen, x, my, 0, braceMat, 0, 0, -dAng);
-        });
-        // Ring beams at every level
-        const span = half * 2 - 1.2;
+        // North & south faces: skip y === 40 so the walkable Gantry Staging Deck (y = 44m) is never blocked by X-braces!
+        if (y !== 40) {
+          [-half, half].forEach(z => {
+            this._makeBeam(this.towerGroup, dLen, 0.18, 0.18, 0, my, z, braceMat, dAng, 0, 0);
+            this._makeBeam(this.towerGroup, dLen, 0.18, 0.18, 0, my, z, braceMat, -dAng, 0, 0);
+          });
+        }
+        // East face: skip y === 40 for Orbiter Access Arm & crew walkway opening
+        if (y !== 40) {
+          this._makeBeam(this.towerGroup, 0.18, 0.18, dLen, half, my, 0, braceMat, 0, 0, dAng);
+          this._makeBeam(this.towerGroup, 0.18, 0.18, dLen, half, my, 0, braceMat, 0, 0, -dAng);
+        }
+        // West face: X-braces ONLY in the South-West bay (z in [-1.6, +5.4], centered at z = +2.0)
+        // This keeps the entire Elevator Shaft & Bridge bay (z in [-5.8, -1.8]) completely free of diagonal beams!
+        this._makeBeam(this.towerGroup, 0.18, 0.18, westBayLen, -half, my, westSubCenterZ, braceMat, 0, 0, westBayAng);
+        this._makeBeam(this.towerGroup, 0.18, 0.18, westBayLen, -half, my, westSubCenterZ, braceMat, 0, 0, -westBayAng);
+
+        // Ring beams at every 8m level
         this._makeBeam(this.towerGroup, span, 0.28, 0.28, 0, y, -half, braceMat);
         this._makeBeam(this.towerGroup, span, 0.28, 0.28, 0, y, half, braceMat);
-        this._makeBeam(this.towerGroup, 0.28, 0.28, span, -half, y, 0, braceMat);
+        // West face ring beam trimmed to South-West bay (z in [-1.6, +5.6]) so it never crosses the elevator shaft/doorway
+        this._makeBeam(this.towerGroup, 0.28, 0.28, westSubSpan, -half, y, westSubCenterZ, braceMat);
         this._makeBeam(this.towerGroup, 0.28, 0.28, span, half, y, 0, braceMat);
       }
 
-      // ── Cladding panels (east & west face alternating) ──
-      const claddingMat = new THREE.MeshStandardMaterial({ color: 0xcfd8dc, roughness: 0.75, metalness: 0.15, side: THREE.FrontSide });
+      // ── Cladding panels (ribbed industrial siding, cleared around all elevator & gantry bays) ──
+      const claddingTex = this._makeCanvasTexture(128, (ctx, s) => {
+        ctx.fillStyle = "#cfd8dc";
+        ctx.fillRect(0, 0, s, s);
+        for (let x = 0; x < s; x += 8) {
+          ctx.fillStyle = (x / 8) % 2 === 0 ? "rgba(71,85,105,0.16)" : "rgba(255,255,255,0.14)";
+          ctx.fillRect(x, 0, 4, s);
+        }
+        ctx.strokeStyle = "rgba(51,65,85,0.28)";
+        ctx.lineWidth = 2;
+        for (let y = 0; y < s; y += 32) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(s, y);
+          ctx.stroke();
+        }
+      }, 2, 4);
+      const claddingMat = new THREE.MeshStandardMaterial({
+        color: 0xd5dde2,
+        map: claddingTex,
+        bumpMap: claddingTex,
+        bumpScale: 0.006,
+        roughness: 0.72,
+        metalness: 0.22,
+        side: THREE.DoubleSide
+      });
       for (let y = 0; y < towerHeight; y += 16) {
-        // West face panels
-        const panW = new THREE.Mesh(new THREE.PlaneGeometry(10, 15), claddingMat);
+        // West face panels: placed ONLY on the South-West stairwell/utility bay (z in [-1.4, +5.4], width 6.8m, center z = 2.0)
+        // Leaves the North-West Elevator Bay (z in [-6.0, -1.6]) 100% open with zero walls blocking the elevators!
+        const panH = y + 15 > towerHeight ? (towerHeight - y - 0.5) : 15;
+        const panW = new THREE.Mesh(new THREE.PlaneGeometry(6.8, panH), claddingMat);
         panW.rotation.y = Math.PI / 2;
-        panW.position.set(-half - 0.05, y + 7.5, 0);
+        panW.position.set(-half - 0.05, y + panH / 2, 2.0);
         this.towerGroup.add(panW);
-        // East face upper panels (above boarding arm)
+        // East face upper panels (above boarding arm level y > 48, below top deck y = 88)
         if (y > 48) {
-          const panE = new THREE.Mesh(new THREE.PlaneGeometry(10, 15), claddingMat);
+          const panE = new THREE.Mesh(new THREE.PlaneGeometry(10, panH), claddingMat);
           panE.rotation.y = -Math.PI / 2;
-          panE.position.set(half + 0.05, y + 7.5, 0);
+          panE.position.set(half + 0.05, y + panH / 2, 0);
           this.towerGroup.add(panE);
         }
       }
 
-      // ── Vertical pipe runs (cryogenic + purge + orange LH2 vent) ──
+      // ── Vertical pipe runs (routed along South-West utility bay z = +0.6..+3.8, clear of elevator) ──
       const cryPipeMat = new THREE.MeshStandardMaterial({ color: 0xe8edf0, roughness: 0.42, metalness: 0.45 });
       const lh2PipeMat = new THREE.MeshStandardMaterial({ color: 0xe65c00, roughness: 0.45, metalness: 0.35 });
       const goxPipeMat = new THREE.MeshStandardMaterial({ color: 0x78909c, roughness: 0.5, metalness: 0.5 });
-      const pipeX = -half - 0.9;
-      this._makeBeam(this.towerGroup, 0.42, towerHeight - 2, 0.42, pipeX, (towerHeight - 2) / 2, -2.8, lh2PipeMat);
-      this._makeBeam(this.towerGroup, 0.32, towerHeight - 2, 0.32, pipeX, (towerHeight - 2) / 2, -1.8, cryPipeMat);
-      this._makeBeam(this.towerGroup, 0.32, towerHeight - 2, 0.32, pipeX, (towerHeight - 2) / 2, 1.5, cryPipeMat);
-      this._makeBeam(this.towerGroup, 0.26, towerHeight - 2, 0.26, pipeX, (towerHeight - 2) / 2, 2.5, goxPipeMat);
-      // Horizontal pipe runs at key service levels
-      [24, 44, 64].forEach(y => {
-        this._makeBeam(this.towerGroup, 8, 0.28, 0.28, pipeX + 4.5, y, -2.3, lh2PipeMat);
-        this._makeBeam(this.towerGroup, 8, 0.22, 0.22, pipeX + 4.5, y + 1.0, -1.8, cryPipeMat);
+      const pipeX = -half - 0.75;
+      this._makeBeam(this.towerGroup, 0.42, fullTowerHeight - 2, 0.42, pipeX, fullTowerCenterY, 0.6, lh2PipeMat);
+      this._makeBeam(this.towerGroup, 0.32, fullTowerHeight - 2, 0.32, pipeX, fullTowerCenterY, 1.6, cryPipeMat);
+      this._makeBeam(this.towerGroup, 0.32, fullTowerHeight - 2, 0.32, pipeX, fullTowerCenterY, 2.6, cryPipeMat);
+      this._makeBeam(this.towerGroup, 0.26, fullTowerHeight - 2, 0.26, pipeX, fullTowerCenterY, 3.6, goxPipeMat);
+      // Horizontal pipe manifolds routed below deck levels so they never obstruct walkable decks
+      [24, 42.4, 64].forEach(y => {
+        this._makeBeam(this.towerGroup, 8, 0.28, 0.28, pipeX + 4.5, y, 1.6, lh2PipeMat);
+        this._makeBeam(this.towerGroup, 8, 0.22, 0.22, pipeX + 4.5, y + 0.6, 2.6, cryPipeMat);
       });
 
       // ── Cable trays on south face ──
@@ -1998,20 +2106,20 @@
         this._makeBeam(this.towerGroup, 0.08, 0.08, 2.8, half + 0.4, y, half + 0.3, braceMat);
       }
 
-      // ── Service work platforms at every 8m ──
+      // ── Service work platforms at non-gantry levels (skipping y=40 and y=48 around Gantry Deck y=44) ──
       const workPlatMat = new THREE.MeshStandardMaterial({ color: 0x455a64, roughness: 0.75, metalness: 0.35 });
       const platRailMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.5, metalness: 0.3 });
-      [16, 24, 32, 40, 48, 56, 64, 72, 80].forEach((y) => {
+      [16, 24, 32, 56, 64, 72, 80].forEach((y) => {
         const pw = 10, pd = 8;
         const plat = new THREE.Mesh(new THREE.BoxGeometry(pw, 0.3, pd), workPlatMat);
-        plat.position.set(-1, y, -2);
+        plat.position.set(0, y, 1.0);
         plat.castShadow = true;
         plat.receiveShadow = true;
         this.towerGroup.add(plat);
         // Yellow safety railings
-        this._makeBeam(this.towerGroup, pw, 0.1, 0.1, -1, y + 1.1, -6.1, platRailMat);
-        this._makeBeam(this.towerGroup, 0.1, 1.2, 0.1, -pw / 2 - 0.1, y + 0.7, -6.1, platRailMat);
-        this._makeBeam(this.towerGroup, 0.1, 1.2, 0.1, pw / 2 - 0.1, y + 0.7, -6.1, platRailMat);
+        this._makeBeam(this.towerGroup, pw, 0.1, 0.1, 0, y + 1.1, -3.1, platRailMat);
+        this._makeBeam(this.towerGroup, 0.1, 1.2, 0.1, -pw / 2, y + 0.7, -3.1, platRailMat);
+        this._makeBeam(this.towerGroup, 0.1, 1.2, 0.1, pw / 2, y + 0.7, -3.1, platRailMat);
       });
 
       // ── Floodlights at 3 levels ──
@@ -2049,14 +2157,14 @@
         this.towerGroup.add(umbEnd);
       });
 
-      // ── Staircase risers (open grating style, west face) ──
+      // ── Internal Staircase Risers (placed in South bay z = +2.2, skipping Gantry level y = 40) ──
       const stairMat = new THREE.MeshStandardMaterial({ color: 0x607d8b, roughness: 0.65, metalness: 0.4 });
-      for (let y = 0; y < 80; y += 8) {
-        const dir = (y / 8) % 2 === 0 ? 1 : -1;
-        this._makeBeam(this.towerGroup, 6, 0.18, 1.2, -1, y + 4.0, -4.0, stairMat, dir * 0.65, 0, 0);
-        // Step edges
+      for (let y = -8; y < 80; y += 8) {
+        if (y === 40) continue; // Keep Gantry Staging Deck completely clear
+        const dir = (Math.round((y + 8) / 8)) % 2 === 0 ? 1 : -1;
+        this._makeBeam(this.towerGroup, 5.4, 0.18, 1.1, 0, y + 4.0, 2.2, stairMat, dir * 0.65, 0, 0);
         for (let s = 0; s < 5; s++) {
-          this._makeBeam(this.towerGroup, 6, 0.08, 0.08, -1, y + s * 1.6, -4.0 + dir * (s * 0.52 - 2.0), stairMat);
+          this._makeBeam(this.towerGroup, 5.4, 0.08, 0.08, 0, y + s * 1.6, 2.2 + dir * (s * 0.52 - 1.6), stairMat);
         }
       }
 
@@ -2068,113 +2176,172 @@
         this.towerGroup.add(jb);
       });
 
-      // ── Ground-level concrete blast wall extensions ──
+      // ── Ground-level concrete blast wall extensions (grounded on Pad 39A Hardstand y = -7.3m) ──
       const blastMat = new THREE.MeshStandardMaterial({ color: 0x9e9e9e, roughness: 0.9, metalness: 0.05 });
       [-12, 12].forEach(bz => {
-        const bw = new THREE.Mesh(new THREE.BoxGeometry(16, 10, 1.5), blastMat);
-        bw.position.set(0, 5, bz);
+        const bw = new THREE.Mesh(new THREE.BoxGeometry(13.2, 9.0, 1.5), blastMat);
+        bw.position.set(0, groundBaseY + 4.5, bz);
         bw.castShadow = true;
+        bw.receiveShadow = true;
         this.towerGroup.add(bw);
       });
 
       // ════════════════════════════════════════════════════════════════════════
-      // ── FULL-HEIGHT 3-STOP ELEVATOR SYSTEM ──────────────────────────────────
+      // ── FULL-HEIGHT 3-STOP ELEVATOR SYSTEM (UNOBSTRUCTED PORTALS & CAB) ─────
       // Connects Ground Level (-7.3m in towerGroup / world y=12.5m on Pad 39A)
       // -> Spacecraft Boarding Gantry (44m) -> Tower Top Observation Deck (88m)
-      // Shaft centre: X = -8.2, Z = -4.0 (aligned with Gantry Deck walkway)
+      // Shaft centre: X = -8.2, Z = -4.0 (aligned with Gantry & Top Deck bridges)
       // ════════════════════════════════════════════════════════════════════════
       const ELV_X = -8.2, ELV_Z = -4.0;
       const ELV_BOTTOM = -7.3, ELV_GANTRY = 44.0, ELV_TOP = 88.0;
 
-      // Shaft rails (two vertical heavy I-beams spanning from Ground -7.3m up to Top 88m: total height 95.3m)
+      // Exterior elevator hoistway columns (4 corner I-beams framing the shaft outside the cab)
       const shaftMat = new THREE.MeshStandardMaterial({ color: 0x37474f, roughness: 0.6, metalness: 0.75 });
-      const shaftTotalHeight = towerHeight + 7.3; // 95.3m
-      const shaftCenterY = (-7.3 + towerHeight) / 2; // 40.35m
-      this._makeBeam(this.towerGroup, 0.35, shaftTotalHeight, 0.35, ELV_X - 1.5, shaftCenterY, ELV_Z, shaftMat);
-      this._makeBeam(this.towerGroup, 0.35, shaftTotalHeight, 0.35, ELV_X + 1.5, shaftCenterY, ELV_Z, shaftMat);
-      // Shaft cross ties every 8m from ground to top
-      for (let y = -7.3; y <= towerHeight; y += 8) {
-        this._makeBeam(this.towerGroup, 3.2, 0.22, 0.22, ELV_X, y, ELV_Z, shaftMat);
-        this._makeBeam(this.towerGroup, 0.22, 0.22, 2.8, ELV_X, y, ELV_Z - 1.4, shaftMat);
-        this._makeBeam(this.towerGroup, 0.22, 0.22, 2.8, ELV_X, y, ELV_Z + 1.4, shaftMat);
+      const portalFrameMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.45, metalness: 0.35 });
+      const shaftTotalHeight = towerHeight - groundBaseY; // 95.3m
+      const shaftCenterY = (groundBaseY + towerHeight) / 2; // 40.35m
+      [
+        [ELV_X - 1.55, ELV_Z - 1.48],
+        [ELV_X + 1.55, ELV_Z - 1.48],
+        [ELV_X - 1.55, ELV_Z + 1.48],
+        [ELV_X + 1.55, ELV_Z + 1.48]
+      ].forEach(([rx, rz]) => {
+        this._makeBeam(this.towerGroup, 0.24, shaftTotalHeight, 0.24, rx, shaftCenterY, rz, shaftMat);
+      });
+      // Center West guide rail behind cab back wall
+      this._makeBeam(this.towerGroup, 0.28, shaftTotalHeight, 0.28, ELV_X - 1.58, shaftCenterY, ELV_Z, shaftMat);
+
+      // Perimeter U-frame shaft collars every 8m on West and North faces ONLY
+      // (Never crosses the center of the shaft, East bridge doorways, or South ground entrance!)
+      for (let y = groundBaseY; y <= towerHeight; y += 8) {
+        // West back tie beam (along Z at x = ELV_X - 1.55)
+        this._makeBeam(this.towerGroup, 0.18, 0.18, 3.1, ELV_X - 1.55, y, ELV_Z, shaftMat);
+        // North side tie beam (along X at z = ELV_Z - 1.48)
+        this._makeBeam(this.towerGroup, 3.1, 0.18, 0.18, ELV_X, y, ELV_Z - 1.48, shaftMat);
+        // South side tie beam ONLY above ground entrance canopy (y > -3.5)
+        if (y > -3.5) {
+          this._makeBeam(this.towerGroup, 3.1, 0.18, 0.18, ELV_X, y, ELV_Z + 1.48, shaftMat);
+        }
       }
 
-      // ── Elevator Cabin (Animated Group) ──
+      // Architectural Elevator Portal Doorway Frames at Ground (-7.3m), Gantry (44.0m), and Top Deck (88.0m)
+      [ELV_BOTTOM, ELV_GANTRY, ELV_TOP].forEach((stopY) => {
+        // East doorway frame at FSS West Tower Face (x = -6.0, z in [-5.75, -2.25], clear height 3.1m)
+        this._makeBeam(this.towerGroup, 0.28, 3.2, 0.24, -half, stopY + 1.6, ELV_Z - 1.75, portalFrameMat);
+        this._makeBeam(this.towerGroup, 0.28, 3.2, 0.24, -half, stopY + 1.6, ELV_Z + 1.75, portalFrameMat);
+        this._makeBeam(this.towerGroup, 0.34, 0.28, 3.74, -half, stopY + 3.15, ELV_Z, portalFrameMat);
+      });
+
+      // ── Elevator Cabin (Animated Group — Dual Open Entrances on East & South!) ──
       this.elevatorCab = new THREE.Group();
       this.elevatorCab.name = "ElevatorCab";
       this.elevatorCab.position.set(ELV_X, ELV_BOTTOM, ELV_Z);
       this.towerGroup.add(this.elevatorCab);
 
       const cabSteel = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.45, metalness: 0.75 });
+      const cabTrim = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.45, metalness: 0.35 });
       const cabGlass = new THREE.MeshStandardMaterial({
         color: 0x80deea, roughness: 0.08, metalness: 0.1,
-        transparent: true, opacity: 0.45, side: THREE.DoubleSide
+        transparent: true, opacity: 0.38, side: THREE.DoubleSide
       });
-      // Floor (3.0m x 2.8m)
+      // Non-slip floor (3.0m x 2.8m) with yellow safety threshold strips on East & South entrances
       const cabFloor = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.16, 2.8), cabSteel);
       cabFloor.position.set(0, 0.08, 0);
       this.elevatorCab.add(cabFloor);
-      // Ceiling
+      const threshE = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.02, 2.3), cabTrim);
+      threshE.position.set(1.42, 0.17, 0);
+      this.elevatorCab.add(threshE);
+      const threshS = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.02, 0.12), cabTrim);
+      threshS.position.set(0, 0.17, 1.32);
+      this.elevatorCab.add(threshS);
+
+      // Ceiling with overhead door header beams on East & South faces
       const cabCeil = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.16, 2.8), cabSteel);
-      cabCeil.position.set(0, 2.7, 0);
+      cabCeil.position.set(0, 2.75, 0);
       this.elevatorCab.add(cabCeil);
-      // Back wall (west face)
+      const headerE = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.22, 2.8), cabSteel);
+      headerE.position.set(1.42, 2.58, 0);
+      this.elevatorCab.add(headerE);
+      const headerS = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.22, 0.14), cabSteel);
+      headerS.position.set(0, 2.58, 1.33);
+      this.elevatorCab.add(headerS);
+
+      // Back wall (West face x = -1.44) with interior handrail
       const cabBack = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.6, 2.8), cabSteel);
-      cabBack.position.set(-1.44, 1.35, 0);
+      cabBack.position.set(-1.44, 1.38, 0);
       this.elevatorCab.add(cabBack);
-      // Side walls (glass on north & south sides)
-      [-1.34, 1.34].forEach(z => {
-        const sw = new THREE.Mesh(new THREE.BoxGeometry(2.8, 2.6, 0.08), cabGlass);
-        sw.position.set(0, 1.35, z);
-        this.elevatorCab.add(sw);
-      });
-      // Corner structural pillars
+      const handRailW = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 2.3), cabTrim);
+      handRailW.position.set(-1.32, 1.05, 0);
+      this.elevatorCab.add(handRailW);
+
+      // North panoramic glass wall ONLY (z = -1.34) — South (z = +1.34) and East (x = +1.44) are wide open walk-in doorways!
+      const northGlass = new THREE.Mesh(new THREE.BoxGeometry(2.8, 2.6, 0.08), cabGlass);
+      northGlass.position.set(0, 1.38, -1.34);
+      this.elevatorCab.add(northGlass);
+      const handRailN = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.06, 0.06), cabTrim);
+      handRailN.position.set(0, 1.05, -1.24);
+      this.elevatorCab.add(handRailN);
+
+      // Corner structural pillars / door jambs
       [[-1.4, -1.3], [-1.4, 1.3], [1.4, -1.3], [1.4, 1.3]].forEach(([px, pz]) => {
-        const cp = new THREE.Mesh(new THREE.BoxGeometry(0.16, 2.7, 0.16), cabSteel);
-        cp.position.set(px, 1.35, pz);
+        const cp = new THREE.Mesh(new THREE.BoxGeometry(0.18, 2.75, 0.18), cabSteel);
+        cp.position.set(px, 1.38, pz);
         this.elevatorCab.add(cp);
       });
       // Interior ambient light inside cab (emissive strip covers mobile).
       if (!window.isMobileDevice) {
         const cabLight = new THREE.PointLight(0xfff7ed, 1.2, 8);
-        cabLight.position.set(0, 2.4, 0);
+        cabLight.position.set(0, 2.45, 0);
         this.elevatorCab.add(cabLight);
       }
-      // Status indicator strip (green = arrived, amber = moving)
+      // Status indicator strip (green = arrived, amber = moving) visible from both East & South entrances
       this._elevatorLightMat = new THREE.MeshStandardMaterial({
         color: 0x34d399, emissive: 0x34d399, emissiveIntensity: 2.2
       });
       const cabStatus = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 2.4), this._elevatorLightMat);
-      cabStatus.position.set(-1.38, 2.55, 0);
+      cabStatus.position.set(-1.37, 2.55, 0);
       this.elevatorCab.add(cabStatus);
+      const cabStatusSouth = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.08, 0.08), this._elevatorLightMat);
+      cabStatusSouth.position.set(0, 2.62, 1.38);
+      this.elevatorCab.add(cabStatusSouth);
 
-      // ── Connecting Catwalks at Every Floor ──
+      // ── Connecting Catwalks & Ground Lobby at Every Floor ──
       const bridgeDeckMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.72, metalness: 0.35 });
       const bridgeRailMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.5, metalness: 0.4 });
 
-      // 1. Ground Level Landing Platform (y = -7.3m in towerGroup, world y = 12.5m on Pad Hardstand)
-      const groundPlatform = new THREE.Mesh(new THREE.BoxGeometry(6.4, 0.25, 6.4), bridgeDeckMat);
-      groundPlatform.position.set(ELV_X - 0.8, -7.3 + 0.12, ELV_Z);
+      // 1. Ground Level Landing Lobby (y = -7.3m in towerGroup, world y = 12.5m on Pad Hardstand)
+      // Spans x in [-9.9, -5.8] (world x in [-43.9, -39.8]) and z in [-7.0, -0.8], connecting flush to the FSS base
+      const groundPlatform = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.24, 6.2), bridgeDeckMat);
+      groundPlatform.position.set(-7.85, -7.3 + 0.12, -3.9);
       groundPlatform.receiveShadow = true;
       this.towerGroup.add(groundPlatform);
 
+      // East Lobby Walkway inside FSS Tower Base (x in [-6.0, -2.0], z in [-6.2, -1.6])
+      const fssBaseWalkway = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.22, 4.6), bridgeDeckMat);
+      fssBaseWalkway.position.set(-3.9, -7.3 + 0.11, -3.9);
+      fssBaseWalkway.receiveShadow = true;
+      this.towerGroup.add(fssBaseWalkway);
+
       // Concrete foundation plinth beneath the ground platform
       const fdnMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.85, metalness: 0.1 });
-      const fdnMesh = new THREE.Mesh(new THREE.BoxGeometry(6.8, 0.4, 6.8), fdnMat);
-      fdnMesh.position.set(ELV_X - 0.8, -7.3 - 0.2, ELV_Z);
+      const fdnMesh = new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.4, 6.6), fdnMat);
+      fdnMesh.position.set(-7.85, -7.3 - 0.2, -3.9);
       this.towerGroup.add(fdnMesh);
 
-      // Safety railings (enclosing north and west, leaving south and east open for easy entrance)
-      this._makeBeam(this.towerGroup, 6.4, 0.1, 0.1, ELV_X - 0.8, -7.3 + 1.2, ELV_Z - 3.2, bridgeRailMat);
-      this._makeBeam(this.towerGroup, 0.1, 0.1, 6.4, ELV_X - 4.0, -7.3 + 1.2, ELV_Z, bridgeRailMat);
+      // Safety railings (enclosing North z = -7.0 and West x = -9.85, leaving South and East wide open for crew entrance!)
+      this._makeBeam(this.towerGroup, 4.1, 0.1, 0.1, -7.85, -7.3 + 1.15, -6.95, bridgeRailMat);
+      this._makeBeam(this.towerGroup, 0.1, 0.1, 4.5, -9.85, -7.3 + 1.15, -4.75, bridgeRailMat);
+      this._makeBeam(this.towerGroup, 0.08, 1.15, 0.08, -9.85, -7.3 + 0.6, -6.95, bridgeRailMat);
+      this._makeBeam(this.towerGroup, 0.08, 1.15, 0.08, -5.85, -7.3 + 0.6, -6.95, bridgeRailMat);
+      this._makeBeam(this.towerGroup, 0.08, 1.15, 0.08, -9.85, -7.3 + 0.6, -2.55, bridgeRailMat);
 
-      // Weather canopy / entrance awning
+      // Weather canopy / entrance awning above Ground Lobby
       const canopyMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.55, metalness: 0.5 });
-      const canopy = new THREE.Mesh(new THREE.BoxGeometry(6.4, 0.2, 5.2), canopyMat);
-      canopy.position.set(ELV_X - 0.8, -7.3 + 3.6, ELV_Z + 0.6);
+      const canopy = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.22, 6.4), canopyMat);
+      canopy.position.set(-7.85, -7.3 + 3.6, -3.8);
       this.towerGroup.add(canopy);
-      this._makeBeam(this.towerGroup, 0.16, 3.6, 0.16, ELV_X + 2.3, -7.3 + 1.8, ELV_Z + 3.1, canopyMat);
-      this._makeBeam(this.towerGroup, 0.16, 3.6, 0.16, ELV_X - 3.9, -7.3 + 1.8, ELV_Z + 3.1, canopyMat);
+      this._makeBeam(this.towerGroup, 0.16, 3.6, 0.16, -6.3, -7.3 + 1.8, -0.9, canopyMat);
+      this._makeBeam(this.towerGroup, 0.16, 3.6, 0.16, -9.85, -7.3 + 1.8, -0.9, canopyMat);
 
       // Downward spotlight at entrance
       if (!window.isMobileDevice) {
@@ -2183,7 +2350,7 @@
         this.towerGroup.add(groundLight);
       }
 
-      // Ground Entrance Header Sign: "🛗 FIXED SERVICE STRUCTURE ELEVATOR"
+      // Ground Entrance Header Sign: "🛗 FIXED SERVICE STRUCTURE ELEVATOR" mounted high on canopy fascia (y = -7.3 + 3.35)
       const groundSignCanvas = document.createElement("canvas");
       groundSignCanvas.width = 512; groundSignCanvas.height = 128;
       const gsCtx = groundSignCanvas.getContext("2d");
@@ -2203,22 +2370,22 @@
       gsCtx.font = "bold 18px Arial";
       gsCtx.fillText("STEP INSIDE OR PRESS [3] / [T] TO REACH TOP DECK", 256, 110);
       const gsTex = new THREE.CanvasTexture(groundSignCanvas);
-      const groundSignMesh = new THREE.Mesh(new THREE.PlaneGeometry(4.4, 1.1), new THREE.MeshBasicMaterial({ map: gsTex, transparent: true }));
-      groundSignMesh.position.set(ELV_X - 0.8, -7.3 + 3.2, ELV_Z + 3.22);
+      const groundSignMesh = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 1.05), new THREE.MeshBasicMaterial({ map: gsTex, transparent: true }));
+      groundSignMesh.position.set(-7.85, -7.3 + 3.35, -0.58);
       this.towerGroup.add(groundSignMesh);
 
-      // 2. Gantry Level Catwalk Bridge (y = 44m -> leads straight to Orbiter Access Arm & White Room!)
+      // 2. Gantry Level Catwalk Bridge (y = 44m -> leads straight from Elevator Cab into Gantry Staging Deck!)
       const gantryBridge = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.35, 3.6), bridgeDeckMat);
       gantryBridge.position.set(-7.2, ELV_GANTRY, ELV_Z);
       gantryBridge.castShadow = true;
       gantryBridge.receiveShadow = true;
       this.towerGroup.add(gantryBridge);
 
-      // Bridge side railings
+      // Bridge side railings (North z = -5.8 and South z = -2.2, keeping East & West ends 100% open!)
       this._makeBeam(this.towerGroup, 2.4, 0.1, 0.1, -7.2, ELV_GANTRY + 1.15, ELV_Z + 1.8, bridgeRailMat);
       this._makeBeam(this.towerGroup, 2.4, 0.1, 0.1, -7.2, ELV_GANTRY + 1.15, ELV_Z - 1.8, bridgeRailMat);
 
-      // 3. Tower Top Observation Bridge (y = 88m -> leads to top crane & lightning mast deck)
+      // 3. Tower Top Observation Bridge (y = 88m -> leads straight from Elevator Cab onto Top Observation Deck!)
       const topBridge = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.35, 3.6), bridgeDeckMat);
       topBridge.position.set(-7.2, ELV_TOP, ELV_Z);
       topBridge.castShadow = true;
@@ -2228,10 +2395,10 @@
       this._makeBeam(this.towerGroup, 2.4, 0.1, 0.1, -7.2, ELV_TOP + 1.15, ELV_Z + 1.8, bridgeRailMat);
       this._makeBeam(this.towerGroup, 2.4, 0.1, 0.1, -7.2, ELV_TOP + 1.15, ELV_Z - 1.8, bridgeRailMat);
 
-      // ── Call Stations at Ground, Gantry, and Top ──
+      // ── Call Stations at Ground, Gantry, and Top (mounted cleanly on North side of portal, out of doorway) ──
       const createCallStation = (yPos, labelText) => {
         const grp = new THREE.Group();
-        grp.position.set(ELV_X - 1.6, yPos + 1.8, ELV_Z - 1.5);
+        grp.position.set(ELV_X + 1.35, yPos + 1.55, ELV_Z - 1.62);
         this.towerGroup.add(grp);
 
         const base = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.3, 0.15),
@@ -2275,8 +2442,8 @@
       this.elevatorY = ELV_BOTTOM;
       this.elevatorTargetY = ELV_BOTTOM;
 
-      // Small service platforms at a few levels.
-      [28, 60, 80].forEach((y) => {
+      // Small service platforms at intermediate levels (excluding 44m Gantry and 88m Top Deck).
+      [28, 60].forEach((y) => {
         const platform = new THREE.Mesh(new THREE.BoxGeometry(11.0, 0.45, 11.0), deckMat);
         platform.position.set(0, y, 0);
         platform.castShadow = true;
@@ -3792,33 +3959,33 @@
 
       // ════════════════════════════════════════════════════════════════════════
       // ── 195-FT LEVEL EMERGENCY EGRESS PORCH & SLIDEWIRE SYSTEM ──────────────
-      // Egress porch on the west face with yellow escape baskets & guide cables
+      // Egress porch on the South-West face (z = +2.4, clear of the elevator shaft at z = -4.0)
       // ════════════════════════════════════════════════════════════════════════
       const egressY = 56.0;
       const egressPorch = new THREE.Group();
       egressPorch.name = "EmergencyEgressPorch";
-      egressPorch.position.set(-half - 3.5, egressY, 0);
+      egressPorch.position.set(-half - 3.5, egressY, 2.4);
       this.towerGroup.add(egressPorch);
 
-      // Extended platform deck (7m x 6m)
-      const epDeck = new THREE.Mesh(new THREE.BoxGeometry(7.0, 0.3, 6.0), deckMat);
+      // Extended platform deck (7m x 5.2m, keeping z in [-0.2, +5.0] clear of elevator shaft)
+      const epDeck = new THREE.Mesh(new THREE.BoxGeometry(7.0, 0.3, 5.2), deckMat);
       egressPorch.add(epDeck);
 
       // Yellow safety railing & gate
       const epRailMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.5, metalness: 0.4 });
-      this._makeBeam(egressPorch, 7.0, 0.1, 0.1, 0, 1.15, 3.0, epRailMat);
-      this._makeBeam(egressPorch, 7.0, 0.1, 0.1, 0, 1.15, -3.0, epRailMat);
-      this._makeBeam(egressPorch, 0.1, 0.1, 6.0, -3.5, 1.15, 0, epRailMat);
+      this._makeBeam(egressPorch, 7.0, 0.1, 0.1, 0, 1.15, 2.6, epRailMat);
+      this._makeBeam(egressPorch, 7.0, 0.1, 0.1, 0, 1.15, -2.6, epRailMat);
+      this._makeBeam(egressPorch, 0.1, 0.1, 5.2, -3.5, 1.15, 0, epRailMat);
       for (let ex = -3.2; ex <= 3.2; ex += 1.6) {
-        this._makeBeam(egressPorch, 0.08, 1.2, 0.08, ex, 0.6, 3.0, epRailMat);
-        this._makeBeam(egressPorch, 0.08, 1.2, 0.08, ex, 0.6, -3.0, epRailMat);
+        this._makeBeam(egressPorch, 0.08, 1.2, 0.08, ex, 0.6, 2.6, epRailMat);
+        this._makeBeam(egressPorch, 0.08, 1.2, 0.08, ex, 0.6, -2.6, epRailMat);
       }
 
       // Overhead slidewire track beam
       this._makeBeam(egressPorch, 6.5, 0.25, 0.25, -0.5, 3.2, 0, darkSteelMat);
 
       // Suspended emergency escape baskets (3x yellow basket cars)
-      for (const bz of [-1.8, 0, 1.8]) {
+      for (const bz of [-1.5, 0, 1.5]) {
         const basket = new THREE.Group();
         basket.position.set(-2.8, 1.5, bz);
         egressPorch.add(basket);
@@ -3837,12 +4004,12 @@
         basket.add(pulley);
 
         // Slidewire cable stretching down towards ground shelter
-        this._makeBeam(this.towerGroup, 35, 0.05, 0.05, -half - 20, egressY - 14, bz, steelMat, 0.65, 0, 0);
+        this._makeBeam(this.towerGroup, 35, 0.05, 0.05, -half - 20, egressY - 14, 2.4 + bz, steelMat, 0.65, 0, 0);
       }
 
       // ════════════════════════════════════════════════════════════════════════
       // ── ELEVATOR MACHINERY PENTHOUSE (TOP WEST FACE) ─────────────────────────
-      // Two-story enclosed corrugated machine house with louvers & railings
+      // Two-story enclosed corrugated machine house on South-West roof bay
       // ════════════════════════════════════════════════════════════════════════
       const phHouse = new THREE.Mesh(
         new THREE.BoxGeometry(5.2, 8.0, 5.8),
@@ -3895,13 +4062,12 @@
       topDeckPlatform.receiveShadow = true;
       this.towerGroup.add(topDeckPlatform);
 
-      // Top Deck perimeter safety railings (with open gap on west side at z = -4.0 where elevator bridge connects)
+      // Top Deck perimeter safety railings (with open gap on west side at z in [-5.75, -2.25] where elevator bridge connects)
       const topRailMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.45, metalness: 0.5 });
       this._makeBeam(this.towerGroup, 11.6, 0.1, 0.1, 0, pyrBaseY + 1.15, 5.7, topRailMat);
       this._makeBeam(this.towerGroup, 11.6, 0.1, 0.1, 0, pyrBaseY + 1.15, -5.7, topRailMat);
       this._makeBeam(this.towerGroup, 0.1, 0.1, 11.6, 5.7, pyrBaseY + 1.15, 0, topRailMat);
-      this._makeBeam(this.towerGroup, 0.1, 0.1, 7.8, -5.7, pyrBaseY + 1.15, 1.8, topRailMat);
-      this._makeBeam(this.towerGroup, 0.1, 0.1, 3.6, -5.7, pyrBaseY + 1.15, -7.6, topRailMat);
+      this._makeBeam(this.towerGroup, 0.1, 0.1, 7.9, -5.7, pyrBaseY + 1.15, 1.75, topRailMat);
 
       // Observation Binoculars & Weather Station on East railing overlooking Space Shuttle orbiter & Atlantic Ocean
       const binoGrp = new THREE.Group();
@@ -3923,7 +4089,7 @@
       });
       this.towerGroup.add(binoGrp);
 
-      // Authentic NASA Top Deck Plaque
+      // Authentic NASA Top Deck Plaque mounted on the overhead portal header arch (above eye level, clear of doorway!)
       const tdSignCanvas = document.createElement("canvas");
       tdSignCanvas.width = 512; tdSignCanvas.height = 128;
       const tctx = tdSignCanvas.getContext("2d");
@@ -3933,10 +4099,10 @@
       tctx.fillText("NASA KSC · FSS APEX OBSERVATION DECK", 256, 44);
       tctx.fillStyle = "#facc15"; tctx.font = "bold 22px Arial";
       tctx.fillText("ELEVATION 300 FT (88m) · LIGHTNING MAST ZONE", 256, 88);
-      const tdSignMesh = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 0.9),
-        new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(tdSignCanvas), transparent: true }));
+      const tdSignMesh = new THREE.Mesh(new THREE.PlaneGeometry(3.5, 0.85),
+        new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(tdSignCanvas), transparent: true, side: THREE.DoubleSide }));
       tdSignMesh.rotation.y = Math.PI / 2;
-      tdSignMesh.position.set(-5.6, pyrBaseY + 1.8, -4.0);
+      tdSignMesh.position.set(-5.8, pyrBaseY + 3.65, -4.0);
       this.towerGroup.add(tdSignMesh);
 
       // Deck Corner Floodlights aimed at lightning spire and launch mount
@@ -5489,22 +5655,23 @@
       this._renderGroundHUD();
     }
 
-    _getSiteTourElevation(x, z) {
-      // 1. Mobile Launcher Platform (MLP) deck
-      if (x >= -24.5 && x <= 24.5 && z >= -20.5 && z <= 20.5) {
+    _getSiteTourElevation(x, z, currentY) {
+      const refY = typeof currentY === "number" && Number.isFinite(currentY) ? currentY : null;
+      // 1. Mobile Launcher Platform (MLP) deck (only when climbed up via stairway)
+      if ((refY === null || refY >= 16.0) && x >= -24.5 && x <= 24.5 && z >= -20.5 && z <= 20.5) {
         return 19.8;
       }
-      // 2. South Access Stairway to MLP (x in [-15.5, -8.5], z in [20.5, 32.0])
-      if (x >= -15.5 && x <= -8.5 && z >= 20.5 && z <= 32.0) {
+      // 2. South Access Stairway to MLP (x in [-14.2, -9.8], z in [20.5, 32.0])
+      if (x >= -14.2 && x <= -9.8 && z >= 20.5 && z <= 32.0) {
         const t = Math.max(0, Math.min(1, (32.0 - z) / (32.0 - 20.5)));
         return 12.5 + t * 7.3;
       }
       // 3. Pad 39A elevated hardstand octagonal surface (including ground elevator at x=-42.2, z=-4.0)
-      if (z >= -45.0 && z <= 61.0 && x >= -65.0 && x <= 55.0) {
+      if (z >= -58.0 && z <= 61.0 && x >= -58.0 && x <= 58.0) {
         return 12.5;
       }
       // 4. Crawlerway approach ramp from south apron (z=186, y=0.2) to Pad top (z=61, y=12.5)
-      if (z > 61.0 && z <= 186.0 && Math.abs(x) <= 18.0) {
+      if (z > 61.0 && z <= 186.0 && Math.abs(x) <= 18.85) {
         const t = Math.max(0, Math.min(1, (186.0 - z) / (186.0 - 61.0)));
         return 0.2 + t * 12.3;
       }
@@ -5581,7 +5748,7 @@
 
     _resolveSiteTourCollision(currentPos, proposedPos) {
       const THREE = window.THREE;
-      const radius = 0.45;
+      const radius = 0.42;
       const bounds = (window.SpaceCenterModules && window.SpaceCenterModules.constants && window.SpaceCenterModules.constants.SITE_BOUNDS) || {
         minX: -1050,
         maxX: 492,
@@ -5622,7 +5789,6 @@
       const blocked = (x, z) => {
         for (const box of boxes) {
           if (box.disabled) continue;
-          // Never block crawlerway ramp or pad approach in fallback collider loop
           if (box.name && (box.name.toLowerCase().includes("ramp") || box.name.toLowerCase().includes("berm"))) continue;
           if (box.rotated) {
             const dx = x - box.cx;
@@ -5660,13 +5826,13 @@
         }
       }
 
-      let targetY = this._getSiteTourElevation(nx, nz);
+      let targetY = this._getSiteTourElevation(nx, nz, currentPos.y);
       if (onLccFloor(nx, nz, currentPos.y)) targetY = Math.max(targetY, lccFloorY);
       return new THREE.Vector3(nx, targetY, nz);
     }
 
     // ============================================================================
-    // 7. SPACE CENTER WALKABLE GANTRY & BOARDING BRIDGE COLLISION
+    // 7. SPACE CENTER WALKABLE GANTRY, ELEVATOR & PAD COLLISION
     // ============================================================================
     resolveGroundCollision(currentPos, proposedPos) {
       const THREE = window.THREE;
@@ -5684,51 +5850,96 @@
       const nz = proposedPos.z;
       const px = currentPos.x;
       const pz = currentPos.z;
+      const r = 0.36;
 
-      // ── LEVEL 1: PAD GROUND & MLP LEVEL (py < 35m) ──
+      const inBox = (x, z, minX, maxX, minZ, maxZ, rad = r) =>
+        x > minX - rad && x < maxX + rad && z > minZ - rad && z < maxZ + rad;
+
+      const resolveWithSlide = (curX, curZ, nextX, nextZ, isValidFn) => {
+        if (isValidFn(nextX, nextZ)) return { x: nextX, z: nextZ };
+        if (isValidFn(nextX, curZ)) return { x: nextX, z: curZ };
+        if (isValidFn(curX, nextZ)) return { x: curX, z: nextZ };
+        const dx = nextX - curX;
+        const dz = nextZ - curZ;
+        for (const ang of [Math.PI * 0.25, -Math.PI * 0.25]) {
+          const ca = Math.cos(ang), sa = Math.sin(ang);
+          const tx = curX + (dx * ca - dz * sa) * 0.8;
+          const tz = curZ + (dx * sa + dz * ca) * 0.8;
+          if (isValidFn(tx, tz)) return { x: tx, z: tz };
+        }
+        return { x: curX, z: curZ };
+      };
+
+      // ── LEVEL 1: PAD 39A GROUND HARDSTAND & MLP LEVEL (py < 35m) ──
       if (py < 35.0) {
-        // A. On MLP deck (if entered from top of stairway or already on deck)
-        if (nx >= -24.5 && nx <= 24.5 && nz >= -20.5 && nz <= 20.5 && py > 16.0) {
-          return new THREE.Vector3(nx, 19.8, nz);
+        const terrain = window.SpaceCenterModules && window.SpaceCenterModules.terrain;
+        if (terrain && typeof terrain.resolveMovement === "function") {
+          const boxes = (this.site && this.site.boxColliders) || [];
+          const circles = (this.site && this.site.circleColliders) || [];
+          const bounds = (window.SpaceCenterModules.constants && window.SpaceCenterModules.constants.SITE_BOUNDS) || null;
+          const res = terrain.resolveMovement(px, pz, nx, nz, 0.42, py, boxes, circles, bounds);
+          return new THREE.Vector3(res.x, res.y, res.z);
         }
-        // B. On the South Access Stairway
-        if (nx >= -15.5 && nx <= -8.5 && nz >= 20.5 && nz <= 32.0) {
-          const t = Math.max(0, Math.min(1, (32.0 - nz) / (32.0 - 20.5)));
-          return new THREE.Vector3(nx, 12.5 + t * 7.3, nz);
-        }
-        // C. Pad 39A Hardstand ground surface (including elevator base at x=-42.2, z=-4.0)
-        const clampedX = Math.max(-65.0, Math.min(55.0, nx));
-        const clampedZ = Math.max(-45.0, Math.min(61.0, nz));
-        return new THREE.Vector3(clampedX, 12.5, clampedZ);
+        // Fallback per-obstacle Level 1 resolver when terrain module is absent
+        const isLevel1Valid = (x, z) => {
+          const ax = Math.abs(x), az = Math.abs(z);
+          const inRamp = ax <= 18.85 - r && z >= 52.0 && z <= 186.0;
+          const inOct = ax <= 57.6 - r && az <= 57.6 - r && (ax + az) * Math.SQRT1_2 <= 57.6 - r;
+          if (!inRamp && !inOct) return false;
+          const inStair = x >= -13.85 + r && x <= -10.15 - r && z >= 20.2 && z <= 32.2;
+          if (inStair) return true;
+          if (py >= 18.2 && x >= -24.5 && x <= 24.5 && z >= -20.5 && z <= 20.5) {
+            if (x < -24.2 + r || x > 24.2 - r || z < -20.2 + r) return false;
+            if (z > 20.2 - r && !(x >= -13.85 + r && x <= -10.15 - r)) return false;
+            if (inBox(x, z, -10.4, 10.4, -10.4, 10.4)) return false;
+            if (inBox(x, z, -13.4, -9.6, -11.2, -7.8) || inBox(x, z, 9.6, 13.4, -11.2, -7.8)) return false;
+            if (Math.hypot(x + 18.0, z - 16.0) < 2.2 + r) return false;
+            if (inBox(x, z, -2.9, 13.2, 5.8, 20.5)) return false;
+            return true;
+          }
+          if (inBox(x, z, -24.6, 24.6, -20.6, 20.6)) return false;
+          if (inBox(x, z, -16.2, 16.2, -46.8, -20.5)) return false;
+          if (inBox(x, z, -9.8, 16.2, 20.5, 46.8)) return false;
+          if (Math.hypot(x + 18.0, z - 16.0) < 2.2 + r) return false;
+          if (inBox(x, z, -2.8, 13.0, 6.0, 26.0)) return false;
+          if (inBox(x, z, -40.3, -27.7, -1.75, 6.3)) return false;
+          if (inBox(x, z, -36.0, -27.7, -6.3, -1.75)) return false;
+          if (inBox(x, z, -40.6, -27.4, -6.35, -5.8)) return false;
+          if (inBox(x, z, -40.6, -27.4, -12.75, -11.25) || inBox(x, z, -40.6, -27.4, 11.25, 12.75)) return false;
+          if (inBox(x, z, -44.0, -40.0, -7.12, -6.88)) return false;
+          if (inBox(x, z, -43.95, -43.55, -7.0, -2.5)) return false;
+          if (inBox(x, z, -43.75, -40.7, -5.52, -5.28)) return false;
+          return true;
+        };
+        const step = resolveWithSlide(px, pz, nx, nz, isLevel1Valid);
+        const outY = this._getSiteTourElevation(step.x, step.z, py);
+        return new THREE.Vector3(step.x, outY, step.z);
       }
 
       // ── LEVEL 3: TOWER TOP OBSERVATION DECK (py >= 85m) ──
       if (py >= 85.0) {
         const topY = 108.1;
-        const inTopDeck = nx >= -39.8 && nx <= -28.2 && nz >= -5.8 && nz <= 5.8;
-        const inTopBridge = nx >= -43.6 && nx <= -39.8 && nz >= -5.8 && nz <= -2.2;
-        if (inTopDeck || inTopBridge) {
-          return new THREE.Vector3(nx, topY, nz);
-        }
-        if (nz >= -5.8 && nz <= -2.2) {
-          const cx = Math.max(-43.6, Math.min(-28.2, nx));
-          const cz = Math.max(-5.8, Math.min(-2.2, nz));
-          return new THREE.Vector3(cx, topY, cz);
-        }
-        const cx = Math.max(-39.8, Math.min(-28.2, nx));
-        const cz = Math.max(-5.8, Math.min(5.8, nz));
-        return new THREE.Vector3(cx, topY, cz);
+        const isLevel3Valid = (x, z) => {
+          const inTopDeck = x >= -39.55 && x <= -28.45 && z >= -5.55 && z <= 5.55;
+          const inTopBridge = x >= -43.55 && x <= -39.3 && z >= -5.35 && z <= -2.65;
+          if (!inTopDeck && !inTopBridge) return false;
+          // Hammerhead Crane Operator Cab at towerGroup (1.2, 90.4, 1.8) -> world (-32.8, 1.8), 3.0m x 2.8m
+          if (inBox(x, z, -34.3, -31.3, 0.4, 3.2)) return false;
+          // Four Pyramidal Derrick Corner Lattice Legs at (±5.6, ±5.6) -> world (-39.6, ±5.6) & (-28.4, ±5.6)
+          if (Math.hypot(x + 39.6, z + 5.6) < 0.25 + r) return false;
+          if (Math.hypot(x + 28.4, z + 5.6) < 0.25 + r) return false;
+          if (Math.hypot(x + 39.6, z - 5.6) < 0.25 + r) return false;
+          if (Math.hypot(x + 28.4, z - 5.6) < 0.25 + r) return false;
+          // Observation Binoculars Stand at towerGroup (5.5, 88, 0) -> world (-28.5, 0)
+          if (Math.hypot(x + 28.5, z) < 0.25 + r) return false;
+          return true;
+        };
+        const step = resolveWithSlide(px, pz, nx, nz, isLevel3Valid);
+        return new THREE.Vector3(step.x, topY, step.z);
       }
 
-      // ── LEVEL 2: GANTRY LEVEL (35m <= py < 85m) ──
+      // ── LEVEL 2: GANTRY STAGING DECK, ELEVATOR BRIDGE & ORBITER ACCESS ARM (35m <= py < 85m) ──
       const y = 64.1;
-      // Walkable Zone 1: Tower Gantry Staging Deck
-      const inGantry = nx >= -40.2 && nx <= -24.8 && nz >= -12.7 && nz <= 4.7;
-      // Walkable Zone 2: Elevator bridge & cabin west of gantry deck
-      const inElevBridge = nx >= -43.6 && nx <= -40.0 && nz >= -5.8 && nz <= -2.2;
-      // Walkable Zone 3: Boarding Bridge when Dock is Extended. The real OAA
-      // is only 5 ft wide, so the arm uses a narrow corridor while the White
-      // Room at the outboard end opens to its wider 3.8 m chamber.
       const bridgeXMin = -25.5;
       const roomXMin = -7.0;
       const roomXMax = -3.6;
@@ -5736,44 +5947,52 @@
       const armZMax = -6.35;
       const roomZMin = -9.0;
       const roomZMax = -5.4;
-      const inArm = this.dockLocked &&
-        nx >= bridgeXMin && nx <= roomXMin && nz >= armZMin && nz <= armZMax;
-      const inWhiteRoom = this.dockLocked &&
-        nx >= roomXMin && nx <= roomXMax && nz >= roomZMin && nz <= roomZMax;
 
-      // Already standing on the access arm: clamp both axes to the bridge corridor.
-      const wasOnArm = this.dockLocked &&
-        px >= bridgeXMin && px <= roomXMin && pz >= armZMin && pz <= armZMax;
-      const wasInWhiteRoom = this.dockLocked &&
-        px >= roomXMin && px <= roomXMax && pz >= roomZMin && pz <= roomZMax;
-      if (wasInWhiteRoom && nx < roomXMin && (nz < armZMin || nz > armZMax)) {
-        // Walking back out of the room while off-centre hits the door jamb.
-        return new THREE.Vector3(roomXMin, y, Math.max(roomZMin, Math.min(roomZMax, nz)));
-      }
-      if (wasOnArm || wasInWhiteRoom) {
-        const armX = Math.max(bridgeXMin, Math.min(roomXMax, nx));
-        const inRoomNow = armX >= roomXMin;
-        const armZ = Math.max(inRoomNow ? roomZMin : armZMin, Math.min(inRoomNow ? roomZMax : armZMax, nz));
-        return new THREE.Vector3(armX, y, armZ);
-      }
+      const isLevel2Valid = (x, z) => {
+        // Walkable Zone 1: Tower Gantry Staging Deck
+        const inGantry = x >= -40.15 && x <= -24.85 && z >= -12.65 && z <= 4.65;
+        // Walkable Zone 2: Elevator Bridge & Cabin west of Gantry Deck (unobstructed 2.7m portal z in [-5.35, -2.65])
+        const inElevBridge = x >= -43.55 && x <= -39.5 && z >= -5.35 && z <= -2.65;
+        // Walkable Zone 3: Pivoting Orbiter Access Arm & White Room when Dock is Extended
+        const inArm = this.dockLocked &&
+          x >= bridgeXMin && x <= roomXMin && z >= armZMin && z <= armZMax;
+        const inWhiteRoom = this.dockLocked &&
+          x >= roomXMin && x <= roomXMax && z >= roomZMin && z <= roomZMax;
 
-      if (inGantry || inElevBridge || inArm || inWhiteRoom) {
-        // Boarding is a deliberate [E]/[B] action at the hatch. Walking the
-        // bridge must stay reversible so the crew can inspect the ship or walk
-        // back to the tower without being trapped or force-boarded.
-        return new THREE.Vector3(nx, y, nz);
-      }
+        if (!inGantry && !inElevBridge && !inArm && !inWhiteRoom) return false;
 
-      // Clamping: if heading into or inside elevator bridge corridor
-      if (nz >= -5.8 && nz <= -2.2) {
-        const clampedX = Math.max(-43.6, Math.min(-24.8, nx));
-        const clampedZ = Math.max(-5.8, Math.min(-2.2, nz));
-        return new THREE.Vector3(clampedX, y, clampedZ);
-      }
+        // Blocking Obstacles on Gantry Staging Deck & White Room:
+        // 1. Four Main FSS Structural Corner Columns (1.2m x 1.2m at towerGroup (±6, ±6) -> world (-40/-28, ±6))
+        //    Note: NW column (-40, -6) ends at z = -5.45 so the Elevator Portal (z in [-5.35, -2.65]) stays 100% clear!
+        if (inBox(x, z, -40.6, -39.4, -6.6, -5.8)) return false;
+        if (inBox(x, z, -28.6, -27.4, -6.6, -5.4)) return false;
+        if (inBox(x, z, -40.6, -39.4, 5.4, 6.6)) return false;
+        if (inBox(x, z, -28.6, -27.4, 5.4, 6.6)) return false;
 
-      const clampedX = Math.max(-40.2, Math.min(-24.8, nx));
-      const clampedZ = Math.max(-12.7, Math.min(4.7, nz));
-      return new THREE.Vector3(clampedX, y, clampedZ);
+        // 2. West Face South-West Cladding Wall & Divider Column (x = -40.0, z in [-1.6, +4.7])
+        if (inBox(x, z, -40.35, -39.85, -1.75, 4.75)) return false;
+
+        // 3. Boarding Bridge Control Console at towerGroup (8.1, 44.3, -5.4) -> world (-25.9, -5.4)
+        if (inBox(x, z, -26.7, -25.1, -5.85, -4.95)) return false;
+
+        // 4. Access Arm Hydraulic Power Unit (HPU) at towerGroup (8.25, 44.3, -11.25) -> world (-25.75, -11.25)
+        if (inBox(x, z, -26.2, -25.3, -11.58, -10.92)) return false;
+
+        // 5. Crew Staging Lockers & Suiting Bench along South Railing (towerGroup x in [2.5, 7.25], z in [-12.65, -11.95])
+        if (inBox(x, z, -31.5, -26.75, -12.7, -11.95)) return false;
+
+        // 6. Orbiter Access Arm Portal Frame Jambs at (-24.66, -8.37) and (-24.66, -6.03)
+        if (inBox(x, z, -24.95, -24.4, -8.65, -8.12)) return false;
+        if (inBox(x, z, -24.95, -24.4, -6.28, -5.75)) return false;
+
+        // 7. White Room Interior Equipment Cart at world (-6.05, -8.55)
+        if (this.dockLocked && inBox(x, z, -6.5, -5.6, -8.95, -8.2)) return false;
+
+        return true;
+      };
+
+      const step = resolveWithSlide(px, pz, nx, nz, isLevel2Valid);
+      return new THREE.Vector3(step.x, y, step.z);
     }
 
     // ============================================================================
@@ -5811,6 +6030,9 @@
           if (window.launchCutscene && window.launchCutscene.isPlaying) return;
           const briefingEl = document.getElementById("mission-briefing-overlay");
           if (briefingEl && briefingEl.style.display === "flex") return;
+          // One action per physical key press — holding [E] must not bounce the
+          // player back and forth through the LCC entrance.
+          if (e.repeat) return;
 
           const isGround = this._isLocalGroundCrew();
 
@@ -5868,7 +6090,7 @@
             if (e.code === "KeyE") {
               if (this.lccDoors && this._isNearLccDoor()) {
                 e.preventDefault();
-                this.toggleLccDoors();
+                this.useLccDoor();
                 return;
               }
               const elevX = -34 + (this._elevatorConfig ? this._elevatorConfig.x : -8.2);
@@ -5977,7 +6199,7 @@
           if (e.code === "KeyE") {
             if (this.lccDoors && this._isNearLccDoor()) {
               e.preventDefault();
-              this.toggleLccDoors();
+              this.useLccDoor();
               return;
             }
             if (this.dockLocked && !this.crewBoarded && this.missionPhase === "gantry") {
@@ -6251,8 +6473,8 @@
       const isAtTop = camPos ? camPos.y >= 85.0 : false;
       const isAtGantry = !isAtGround && !isAtTop;
       const canGoTop = isAtGantry && !this.isLaunching && !this.siteTourActive;
-      const nearLccDoor = this._isNearLccDoor();
-      const lccDoorOpen = !!(this.lccDoors && this.lccDoors.isOpen);
+      const lccDoorSide = this._lccDoorPlayerSide();
+      const nearLccDoor = lccDoorSide !== null;
 
       const armOwnerLabel = crewState.armOwner
         ? (crewState.armOwner.isSelf ? `YOU (${crewState.armOwner.roleShort})` : `${crewState.armOwner.roleShort} · ${crewState.armOwner.name}`)
@@ -6276,10 +6498,10 @@
 
       const nearTerm = (this.siteTourActive || isGround) ? this._getNearbyFacilityTerminal() : null;
       if (nearLccDoor) {
-        statusText = lccDoorOpen
-          ? "LAUNCH CONTROL CENTER · DOORS OPEN · PRESS [E] TO CLOSE"
-          : "LAUNCH CONTROL CENTER ENTRANCE · DOORS LOCKED · PRESS [E] TO ENTER";
-        statusColor = lccDoorOpen ? "#86efac" : "#ef4444";
+        statusText = lccDoorSide === "inside"
+          ? "LAUNCH CONTROL CENTER · LOBBY · PRESS [E] TO STEP OUTSIDE"
+          : "LAUNCH CONTROL CENTER ENTRANCE · PRESS [E] TO ENTER";
+        statusColor = "#86efac";
       } else if (this.siteTourActive) {
         const current = tourSpawns[this.siteTourIndex] || tourSpawns[0];
         if (nearTerm) {
@@ -6374,7 +6596,7 @@
         canBoard,
         canUnboard,
         nearLccDoor,
-        lccDoorOpen,
+        lccDoorSide,
         nearTerm,
         nearElevator,
         canGoTop,
@@ -6495,8 +6717,8 @@
           </div>
 
           <div class="sc-hud-primary">
-            <button type="button" id="btn-sc-lcc-door" class="sc-hud-btn ${guidance.lccDoorOpen ? "sc-btn-plan" : "sc-btn-launch"}" style="display:${guidance.nearLccDoor ? "inline-flex" : "none"};">
-              ${guidance.lccDoorOpen ? (touchUI ? "🚪 CLOSE LCC" : "🚪 CLOSE DOORS [E]") : (touchUI ? "🚪 ENTER LCC" : "🚪 ENTER LCC [E]")}
+            <button type="button" id="btn-sc-lcc-door" class="sc-hud-btn ${guidance.lccDoorSide === "inside" ? "sc-btn-plan" : "sc-btn-launch"}" style="display:${guidance.nearLccDoor ? "inline-flex" : "none"};">
+              ${guidance.lccDoorSide === "inside" ? (touchUI ? "🚪 EXIT LCC" : "🚪 EXIT LCC [E]") : (touchUI ? "🚪 ENTER LCC" : "🚪 ENTER LCC [E]")}
             </button>
             <button type="button" id="btn-sc-term-act" class="sc-hud-btn sc-btn-term" style="display:${guidance.nearTerm ? "inline-flex" : "none"};">
               ${guidance.nearTerm ? guidance.nearTerm.shortAction : "TERMINAL [E]"}
@@ -6668,7 +6890,7 @@
       const btnLccDoor = this.hudOverlay.querySelector("#btn-sc-lcc-door");
       if (btnLccDoor) {
         btnLccDoor.addEventListener("click", () => {
-          this.toggleLccDoors();
+          this.useLccDoor();
         });
       }
 
@@ -6854,10 +7076,10 @@
       const btnLccDoor = this.hudOverlay.querySelector("#btn-sc-lcc-door");
       if (btnLccDoor) {
         btnLccDoor.style.display = guidance.nearLccDoor ? "inline-flex" : "none";
-        btnLccDoor.textContent = guidance.lccDoorOpen
-          ? (guidance.touchUI ? "🚪 CLOSE LCC" : "🚪 CLOSE DOORS [E]")
+        btnLccDoor.textContent = guidance.lccDoorSide === "inside"
+          ? (guidance.touchUI ? "🚪 EXIT LCC" : "🚪 EXIT LCC [E]")
           : (guidance.touchUI ? "🚪 ENTER LCC" : "🚪 ENTER LCC [E]");
-        btnLccDoor.className = `sc-hud-btn ${guidance.lccDoorOpen ? "sc-btn-plan" : "sc-btn-launch"}`;
+        btnLccDoor.className = `sc-hud-btn ${guidance.lccDoorSide === "inside" ? "sc-btn-plan" : "sc-btn-launch"}`;
       }
 
       const btnTermAct = this.hudOverlay.querySelector("#btn-sc-term-act");
@@ -8192,6 +8414,11 @@
       // ── Launch Control Center (LCC) entrance doors animation ────────────────
       if (this.lccDoors) {
         const d = this.lccDoors;
+        // The entrance is never locked: the doors part for a step-through and
+        // slide shut again once the player has walked clear of the threshold.
+        if (d.isOpen && this.isGroundMode && !this._isNearLccDoor()) {
+          this.toggleLccDoors(false, { silent: true });
+        }
         const diff = d.target - d.progress;
         if (Math.abs(diff) > 0.0005) {
           const step = Math.sign(diff) * Math.min(Math.abs(diff), delta * 2.8);

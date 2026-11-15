@@ -71,20 +71,47 @@ road and grass perimeter remain walkable.
 
 ## Mission Control Center (LCC firing room)
 
-The LCC firing room is built as a two-station **Mission Control Center** for the
-ground team:
+The LCC firing room is built as an Apollo-era **Mission Control Center** for the
+ground team, modelled on the reference FIRING ROOM photograph:
 
+- Full-width **paper status-board wall**: a large tracked world map flanked by
+  MISSION RULES and VEHICLE STATUS boards, a GO/NO-GO/countdown header strip,
+  and an illuminated room plaque.
+- Two rows of warm beige operator consoles with CRTs, switch strips, phones,
+  keyboards, nameplates and black task chairs under a suspended acoustic
+  ceiling with recessed light panels.
+- The central **Flight Director / Ops "trench" console** carries the green CRT,
+  red mission binder, working papers and desk lamp seen in the reference.
 - **Flight Director console** — opens the mission charter/planner (scenario,
   difficulty, roles).
 - **Ground Systems console** — opens the orbit & launch trade desk
   (`openPreFlightMdlDesk("orbit")`).
-- Hero status screen (`MISSION CONTROL · LC-39B`), two ground-track side
-  displays, a GO/NO-GO wall board, a ground-network board, tiered desks with
-  monitor graphics, nameplates and operator chairs.
+- Side-wall GO/NO-GO and ground-network paper boards complete the room.
 - Facility terminals are defined in `space_center.js` (`lcc_fd`, `lcc_gs`);
   actions `mission` and `orbit` are routed in `_activateFacilityTerminal`.
-- Interior furniture is collidable: both consoles, reception desk, sofas,
-  coffee counter, conference table, electrical racks and the lobby planters.
+- Interior furniture is collidable: all firing-room console banks, the central
+  Ops console, reception desk, sofas, coffee counter, conference table,
+  electrical racks and the lobby planters.
+
+The rest of the LCC is dressed to the same period:
+
+- **Reception lobby** — wood reception desk and credenza, visitor-status CRT,
+  mission patches, directory board and analog clock, launch photographs, period
+  sofas and coffee table, crew coffee service, potted plants and a suspended
+  light cloud over the desk.
+- **Restrooms** — tiled walls/floor, four toilet stalls, urinals, vanity with
+  basins and mirrors, bench/coat hooks, hand dryer, supplies and signage.
+- **Electrical control room** — telemetry/comms rack bank, cable trays, breaker
+  panels, UPS cabinets, workbench terminal, conduit, warning signs and emergency
+  fixtures.
+- **Conference / briefing room** — long wood table and ten chairs, briefing
+  screen, whiteboard, mission charts, Flight Dynamics / 3D Mission Viz station
+  matching the `lcc_viz` terminal, coffee credenza and lounge seating.
+- Lobby door headers and signs identify the firing room, conference room,
+  restrooms and electrical control room.
+- The entrance is keyless: `[E]` at the sliding doors steps the player through
+  to the lobby (or back out to the plaza). The doors part for the transition
+  and close once the player clears the threshold.
 
 ## Collision coverage
 
